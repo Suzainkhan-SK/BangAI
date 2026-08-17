@@ -3,7 +3,6 @@ import {
   Sparkles, 
   Brain, 
   Film, 
-  Mic2, 
   CheckCircle2, 
   Loader2, 
   Zap, 
@@ -12,62 +11,50 @@ import {
   Flame, 
   Check, 
   Activity,
-  Layers
+  Layers,
+  Cpu,
+  ShieldCheck
 } from 'lucide-react';
-import { audioEngine } from '../../audio/audioEngine';
 
-export default function GenerationThinkingAnimation({ prompt = '', stage = '' }) {
+export default function GenerationThinkingAnimation({ 
+  prompt = '', 
+  stage = '', 
+  isSceneStage = false 
+}) {
   const [elapsed, setElapsed] = useState(0);
-  const [progress, setProgress] = useState(12);
-  const [activeActIndex, setActiveActIndex] = useState(0);
-  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [activeStep, setActiveStep] = useState(0);
 
-  const sceneActs = [
-    { num: 1, title: 'Viral Hook', time: '0-15s', icon: '⚡', color: '#f59e0b', desc: 'Crafting 3-second pattern interrupt' },
-    { num: 2, title: 'Suspense & Setup', time: '15-30s', icon: '🔍', color: '#38bdf8', desc: 'Building curiosity & context' },
-    { num: 3, title: 'The Shocking Twist', time: '30-45s', icon: '💥', color: '#ec4899', desc: 'Delivering unpredictable pivot' },
-    { num: 4, title: 'Climax Peak', time: '45-60s', icon: '🔥', color: '#8b5cf6', desc: 'High-intensity resolution beat' },
-    { num: 5, title: 'Wisdom & CTA', time: '60-75s', icon: '🎬', color: '#10b981', desc: 'Memorable takeaway & subscribe' }
+  const stage1Steps = [
+    { title: 'Connecting with n8n Autonomous Cloud Pipeline', desc: 'Dispatched webhook payload to u8vcVLc00wPp2AAI', icon: Cpu, color: '#818cf8' },
+    { title: 'Gemini 2.5 Flash: Topic & Category Analysis', desc: 'Classifying themes and analyzing audience retention potential', icon: Brain, color: '#38bdf8' },
+    { title: 'Strategy Engine: 5-Beat Narrative Arc & Viral Hook', desc: 'Crafting 3-second scroll-stopping opening hook and story brief', icon: Sparkles, color: '#f59e0b' },
+    { title: 'Awaiting Story Review from Creator', desc: 'Synchronizing story payload for 1-tap review', icon: CheckCircle2, color: '#10b981' }
   ];
 
-  const pipelineSteps = [
-    { title: 'Deconstructing Topic & Audience Resonance', icon: Brain },
-    { title: 'Writing 5-Scene Screenplay & Camera Angles', icon: Film },
-    { title: 'Harmonizing Voiceover & Dynamic Soundscape', icon: Mic2 },
-    { title: 'Packaging for Creator 1-Tap Review', icon: Sparkles }
+  const stage2Steps = [
+    { title: 'Screenplay Production Engine', desc: 'Writing 5 scenes with strict 15s pacing and camera angles', icon: Film, color: '#818cf8' },
+    { title: '7-Checkpoint Quality Critic Audit', desc: 'Auditing dialogue cadence, visual consistency and policies', icon: ShieldCheck, color: '#ec4899' },
+    { title: 'Split Scenes Decomposition', desc: 'Formatting 5 production prompts and voiceovers', icon: Layers, color: '#38bdf8' },
+    { title: 'Awaiting Final 5 Scenes Approval', desc: 'Ready for creator final review before video rendering', icon: CheckCircle2, color: '#10b981' }
   ];
 
-  const liveLogs = [
-    'Ingesting topic brief & analyzing retention curves...',
-    'Generating 3-second hook: "What they found was never meant to be heard..."',
-    'Drafting Scene 1 to 5 with visual prompts & camera framing...',
-    'Modulating ElevenLabs voice actor tone for cinematic pacing...',
-    'Synchronizing n8n execution token • Awaiting creator approval...'
-  ];
+  const steps = isSceneStage ? stage2Steps : stage1Steps;
 
   useEffect(() => {
     const startTime = Date.now();
-
-    // High precision timer
     const timer = setInterval(() => {
-      const sec = (Date.now() - startTime) / 1000;
-      setElapsed(+sec.toFixed(1));
-      setProgress((prev) => (prev < 95 ? +(prev + 0.85).toFixed(1) : prev));
+      setElapsed(+((Date.now() - startTime) / 1000).toFixed(1));
     }, 100);
 
-    // Scene Act progression
-    const actInterval = setInterval(() => {
-      setActiveActIndex((prev) => (prev < sceneActs.length - 1 ? prev + 1 : prev));
-      setActiveStepIndex((prev) => (prev < pipelineSteps.length - 1 ? prev + 1 : prev));
-    }, 1600);
+    const stepInterval = setInterval(() => {
+      setActiveStep((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
+    }, 3000);
 
     return () => {
       clearInterval(timer);
-      clearInterval(actInterval);
+      clearInterval(stepInterval);
     };
-  }, []);
-
-  const currentLog = liveLogs[Math.min(activeActIndex, liveLogs.length - 1)] || liveLogs[0];
+  }, [isSceneStage, steps.length]);
 
   return (
     <div style={{
@@ -75,9 +62,9 @@ export default function GenerationThinkingAnimation({ prompt = '', stage = '' })
       margin: '0 auto 28px auto',
       position: 'relative'
     }}>
-      {/* Outer Glowing Hologram Card */}
+      {/* Studio Glassmorphism Card */}
       <div className="saas-card" style={{
-        padding: '28px',
+        padding: '32px 28px',
         borderRadius: '24px',
         border: '1.5px solid var(--border-glow)',
         background: 'var(--bg-card)',
@@ -85,7 +72,7 @@ export default function GenerationThinkingAnimation({ prompt = '', stage = '' })
         position: 'relative',
         overflow: 'hidden'
       }}>
-        {/* Animated Neon Sweep Top Beam */}
+        {/* Neon Light Top Gradient Beam */}
         <div style={{
           position: 'absolute',
           top: 0,
@@ -94,80 +81,79 @@ export default function GenerationThinkingAnimation({ prompt = '', stage = '' })
           height: '3px',
           background: 'linear-gradient(90deg, #6366f1, #38bdf8, #ec4899, #10b981, #6366f1)',
           backgroundSize: '200% 100%',
-          animation: 'spin 4s linear infinite'
+          animation: 'spin 6s linear infinite'
         }} />
 
-        {/* Header: AI Core Status + Live Timer */}
+        {/* Header: Title + Live Status + Timer */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '20px',
+          marginBottom: '24px',
           paddingBottom: '16px',
           borderBottom: '1px solid var(--border-subtle)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Animated Pulsing AI Sphere */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{
-              width: '40px',
-              height: '40px',
+              width: '44px',
+              height: '44px',
               borderRadius: '50%',
               background: 'var(--grad-gemini)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(56, 189, 248, 0.6)',
+              boxShadow: '0 0 20px rgba(56, 189, 248, 0.5)',
               flexShrink: 0
             }}>
-              <Sparkles size={20} color="#ffffff" className="spin-animation" />
+              <Sparkles size={22} color="#ffffff" className="spin-animation" />
             </div>
 
             <div>
               <div className="font-display" style={{
-                fontSize: '17px',
+                fontSize: '18px',
                 fontWeight: 800,
                 color: 'var(--text-primary)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px'
               }}>
-                <span>Autonomous AI Engine Generating</span>
+                <span>{isSceneStage ? 'n8n Screenplay Engine Writing 5 Scenes' : 'n8n Autonomous Video Pipeline Executing'}</span>
                 <span className="badge badge-brand" style={{ fontSize: '10px', padding: '2px 8px' }}>
-                  <Radio size={10} className="spin-animation" /> LIVE
+                  <Radio size={10} className="spin-animation" /> LIVE N8N
                 </span>
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                75-Second (5 Scenes) Video Screenplay Pipeline
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+                {isSceneStage ? 'Drafting 5 individual 15s visual prompts & voiceover lines' : 'Topic Analyzer & Strategy Engine generating 5-act narrative'}
               </div>
             </div>
           </div>
 
-          {/* Live Timer Counter Pill */}
           <div style={{
             background: 'var(--bg-input)',
             border: '1px solid var(--border-subtle)',
             borderRadius: '99px',
-            padding: '5px 14px',
-            fontSize: '12.5px',
+            padding: '6px 14px',
+            fontSize: '13px',
             fontWeight: 700,
             color: 'var(--accent-cyan)',
             fontFamily: 'monospace',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px'
+            gap: '6px',
+            flexShrink: 0
           }}>
-            <Clock size={13} />
+            <Clock size={14} />
             <span>{elapsed.toFixed(1)}s</span>
           </div>
         </div>
 
-        {/* Prompt Brief Box */}
+        {/* Prompt Card */}
         <div style={{
           background: 'var(--bg-input)',
           border: '1px solid var(--border-subtle)',
           borderRadius: '14px',
           padding: '12px 16px',
-          marginBottom: '22px',
+          marginBottom: '24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -175,161 +161,86 @@ export default function GenerationThinkingAnimation({ prompt = '', stage = '' })
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', flexShrink: 0 }}>
-              Prompt:
+              Active Topic:
             </span>
             <span style={{ fontSize: '13.5px', color: 'var(--text-primary)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               "{prompt || 'Generating viral story screenplay...'}"
             </span>
           </div>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', flexShrink: 0 }}>
-            5 Scenes • 75s
+          <span className="badge badge-cyan" style={{ fontSize: '10.5px', flexShrink: 0 }}>
+            75s • 5 Acts
           </span>
         </div>
 
-        {/* Progress Bar with Percentage */}
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '12px',
-            fontWeight: 700,
-            color: 'var(--text-secondary)',
-            marginBottom: '8px'
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Activity size={13} color="var(--accent-primary)" />
-              Synthesizing Story Beats & Audio Alignment
-            </span>
-            <span style={{ color: 'var(--accent-primary)', fontFamily: 'monospace' }}>
-              {Math.min(100, Math.floor(progress))}%
-            </span>
-          </div>
+        {/* Sequential Live Pipeline Step Timeline */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {steps.map((st, idx) => {
+            const isDone = idx < activeStep;
+            const isCurrent = idx === activeStep;
+            const isPending = idx > activeStep;
+            const Icon = st.icon;
 
-          <div style={{
-            width: '100%',
-            height: '6px',
-            background: 'var(--bg-input)',
-            borderRadius: '99px',
-            overflow: 'hidden',
-            border: '1px solid var(--border-subtle)'
-          }}>
-            <div style={{
-              width: `${progress}%`,
-              height: '100%',
-              background: 'linear-gradient(90deg, #6366f1 0%, #38bdf8 50%, #ec4899 100%)',
-              borderRadius: '99px',
-              transition: 'width 0.25s ease',
-              boxShadow: '0 0 14px rgba(99, 102, 241, 0.8)'
-            }} />
-          </div>
-        </div>
-
-        {/* 5-Act Scene Blueprint Cards */}
-        <div style={{ marginBottom: '22px' }}>
-          <div style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            marginBottom: '10px'
-          }}>
-            5-Act Story Architecture:
-          </div>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-            gap: '8px'
-          }}>
-            {sceneActs.map((act, idx) => {
-              const isDone = idx < activeActIndex;
-              const isCurrent = idx === activeActIndex;
-              const isPending = idx > activeActIndex;
-
-              return (
-                <div
-                  key={act.num}
-                  style={{
-                    background: isCurrent ? 'var(--bg-input)' : isDone ? 'var(--bg-input)' : 'transparent',
-                    border: `1.5px solid ${isCurrent ? act.color : isDone ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-subtle)'}`,
-                    borderRadius: '12px',
-                    padding: '10px 8px',
-                    textAlign: 'center',
-                    position: 'relative',
-                    boxShadow: isCurrent ? `0 4px 18px ${act.color}35` : 'none',
-                    opacity: isPending ? 0.35 : 1,
-                    transition: 'all 0.25s ease'
-                  }}
-                >
+            return (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '14px',
+                  background: isCurrent ? 'var(--bg-input)' : isDone ? 'rgba(16, 185, 129, 0.05)' : 'transparent',
+                  border: `1px solid ${isCurrent ? st.color : isDone ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-subtle)'}`,
+                  opacity: isPending ? 0.4 : 1,
+                  boxShadow: isCurrent ? `0 0 16px ${st.color}25` : 'none',
+                  transition: 'all 0.25s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
-                    fontSize: '18px',
-                    marginBottom: '4px',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '10px',
+                    background: 'var(--bg-card)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '4px'
+                    color: isDone ? '#10b981' : isCurrent ? st.color : 'var(--text-muted)',
+                    border: '1px solid var(--border-subtle)'
                   }}>
-                    <span>{act.icon}</span>
-                    {isDone && <Check size={13} color="#10b981" strokeWidth={3} />}
+                    {isDone ? <Check size={16} strokeWidth={3} /> : <Icon size={16} />}
                   </div>
 
-                  <div style={{
-                    fontSize: '11.5px',
-                    fontWeight: 800,
-                    color: 'var(--text-primary)',
-                    marginBottom: '2px'
-                  }}>
-                    Scene {act.num}
-                  </div>
-
-                  <div style={{
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    color: isCurrent ? act.color : isDone ? '#10b981' : 'var(--text-muted)'
-                  }}>
-                    {act.title}
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {st.title}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {st.desc}
+                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* Live Thought Stream Ticker */}
-        <div style={{
-          background: 'var(--bg-input)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '12px',
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px'
-        }}>
-          <div style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: 'var(--accent-primary)',
-            boxShadow: '0 0 10px var(--accent-primary)',
-            flexShrink: 0
-          }} className="spin-animation" />
-
-          <div style={{
-            fontSize: '12px',
-            color: 'var(--text-secondary)',
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontWeight: 500,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            flex: 1
-          }}>
-            <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, marginRight: '6px' }}>
-              AI Thought:
-            </span>
-            {currentLog}
-          </div>
+                <div style={{ flexShrink: 0 }}>
+                  {isDone && (
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Check size={12} strokeWidth={3} /> Complete
+                    </span>
+                  )}
+                  {isCurrent && (
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: st.color, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Loader2 size={12} className="spin-animation" /> In Progress...
+                    </span>
+                  )}
+                  {isPending && (
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      Queued
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
