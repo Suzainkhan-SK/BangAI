@@ -11,6 +11,7 @@ import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
+import { detectMode } from '../../utils/detectIntent';
 import { 
   Sparkles, 
   Loader2, 
@@ -22,60 +23,23 @@ import {
   Wand2, 
   MessageSquare,
   CheckCircle2,
-  Send,
-  Sliders
+  Bot,
+  User
 } from 'lucide-react';
 
 const STORAGE_KEY = 'shortsai_chat_history_v2';
+const SESSION_ID_KEY = 'shortsai_session_id';
 
-function getInitialHistory() {
+function getOrCreateSessionId() {
   if (typeof window !== 'undefined') {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-  }
-  return [
-    {
-      id: 'preset-bermuda',
-      name: 'Bermuda Triangle Flight 19',
-      title: 'बरमूडा ट्रायंगल का अनसुलझा रहस्य: Flight 19 😱',
-      rawUserInput: 'Flight 19 lost in Bermuda Triangle mystery',
-      genre: 'Mystery & Thriller',
-      voiceId: 'adam',
-      visualStyleId: 'cinematic',
-      musicId: 'mystery',
-      language: 'Hinglish',
-      status: 'COMPLETED',
-      criticScore: 99,
-      viralHook: '5 नौसैनिक विमान अचानक गायब हो गए और उनका आज तक कोई सुराग नहीं मिला!',
-      youtubeDescription: 'The mysterious disappearance of Flight 19 in Bermuda Triangle.\n\n#Shorts #Mystery #BermudaTriangle',
-      tags: ['Bermuda Triangle', 'Flight 19', 'Hindi Facts', 'Shorts'],
-      scenes: PRESETS.bermuda.scenes,
-      createdAt: new Date(Date.now() - 3600000).toISOString()
-    },
-    {
-      id: 'preset-psychology',
-      name: '3 Dark Psychology Secrets',
-      title: '3 Dark Psychology Secrets You Must Know',
-      rawUserInput: '3 Dark Psychology manipulation tricks people use on you daily',
-      genre: 'Psychology & Facts',
-      voiceId: 'rachel',
-      visualStyleId: 'dark_fantasy',
-      musicId: 'dark_ambient',
-      language: 'English',
-      status: 'COMPLETED',
-      criticScore: 98,
-      viralHook: 'If someone pauses before answering, they are analyzing your reaction...',
-      youtubeDescription: '3 Dark Psychology tricks you must know to protect yourself.\n\n#Psychology #DarkPsychology #Shorts',
-      tags: ['Psychology', 'Dark Psychology', 'Life Hacks', 'Shorts'],
-      scenes: PRESETS.dragons.scenes,
-      createdAt: new Date(Date.now() - 7200000).toISOString()
+    let sid = localStorage.getItem(SESSION_ID_KEY);
+    if (!sid) {
+      sid = 'sess-' + Math.random().toString(36).substring(2, 12) + Date.now();
+      localStorage.setItem(SESSION_ID_KEY, sid);
     }
-  ];
+    return sid;
+  }
+  return 'sess-default';
 }
 
 export default function DashboardApp({ 
@@ -87,7 +51,8 @@ export default function DashboardApp({
   onNavigateToSettings,
   onLogout
 }) {
-  const [pastShorts, setPastShorts] = useState(getInitialHistory);
+  const [sessionId] = useState(getOrCreateSessionId);
+  const [pastShorts, setPastShorts] = useState([]);
   const [activeThreadId, setActiveThreadId] = useState(initialPresetId || null);
 
   const [prompt, setPrompt] = useState(initialPrompt || '');
@@ -101,23 +66,64 @@ export default function DashboardApp({
   const [showModal, setShowModal] = useState(false);
 
   // Active Thread Object
-  const activeThread = pastShorts.find(t => t.id === activeThreadId) || null;
+  const activeThread = pastShorts.find(t => t.id === activeThreadId || t.threadId === activeThreadId) || null;
 
   // Ref to track active request timestamp
   const generationStartTimeRef = useRef(0);
 
-  // Helper to persist history to state and localStorage
-  const updateHistoryAndSave = (updater) => {
-    setPastShorts((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
+  // ─── 1. FETCH THREADS FROM MONGODB ON LOAD ────────────────────────
+  useEffect(() => {
+    async function loadThreadsFromDatabase() {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
-  };
+        const res = await fetch(`/.netlify/functions/threads?sessionId=${sessionId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.threads) && data.threads.length > 0) {
+            setPastShorts(data.threads);
+            if (!activeThreadId) {
+              setActiveThreadId(data.threads[0].threadId || data.threads[0].id);
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load MongoDB threads, falling back to local cache:', err.message);
+      }
 
-  // ─── POLLING NETLIFY / N8N SERVERLESS CALLBACK ───
+      // Seed initial defaults if database is fresh
+      const initialThreads = [
+        {
+          id: 'preset-bermuda',
+          threadId: 'preset-bermuda',
+          name: 'Bermuda Triangle Flight 19',
+          title: 'बरमूडा ट्रायंगल का अनसुलझा रहस्य: Flight 19 😱',
+          rawUserInput: 'Flight 19 lost in Bermuda Triangle mystery',
+          genre: 'Mystery & Thriller',
+          voiceId: 'adam',
+          visualStyleId: 'cinematic',
+          musicId: 'mystery',
+          language: 'Hinglish',
+          status: 'COMPLETED',
+          criticScore: 99,
+          viralHook: '5 नौसैनिक विमान अचानक गायब हो गए और उनका आज तक कोई सुराग नहीं मिला!',
+          youtubeDescription: 'The mysterious disappearance of Flight 19 in Bermuda Triangle.\n\n#Shorts #Mystery #BermudaTriangle',
+          tags: ['Bermuda Triangle', 'Flight 19', 'Hindi Facts', 'Shorts'],
+          scenes: PRESETS.bermuda.scenes,
+          messages: [
+            { role: 'user', content: 'Flight 19 lost in Bermuda Triangle mystery' },
+            { role: 'assistant', content: 'Story generated and approved for rendering.' }
+          ],
+          createdAt: new Date(Date.now() - 3600000).toISOString(),
+          updatedAt: new Date(Date.now() - 3600000).toISOString()
+        }
+      ];
+      setPastShorts(initialThreads);
+    }
+
+    loadThreadsFromDatabase();
+  }, [sessionId]);
+
+  // ─── 2. LISTEN TO LIVE N8N / NETLIFY CALLBACK POLLING ────────────
   useEffect(() => {
     let pollInterval;
 
@@ -125,7 +131,7 @@ export default function DashboardApp({
       if (!isGenerating) return;
       try {
         const sinceTime = generationStartTimeRef.current || 0;
-        const res = await fetch(`/.netlify/functions/story-approval?since=${sinceTime}&t=${Date.now()}`, {
+        const res = await fetch(`/.netlify/functions/story-approval?threadId=${activeThreadId}&since=${sinceTime}&t=${Date.now()}`, {
           cache: 'no-store'
         });
 
@@ -134,65 +140,48 @@ export default function DashboardApp({
           if (data.hasStory && data.story) {
             const storyTimestamp = new Date(data.story.timestamp || 0).getTime();
             if (sinceTime > 0 && storyTimestamp > 0 && storyTimestamp < sinceTime) {
-              return; // Ignore older stories
+              return;
             }
 
-            console.log('Received fresh story callback from n8n cloud:', data.story);
+            console.log('Received fresh story callback from MongoDB:', data.story);
 
-            // 1. If Duplicate Topic Alert received
+            // 1. Duplicate Topic
             if (data.story.status === 'DUPLICATE_TOPIC') {
               audioEngine.playSfx('click');
               setIsGenerating(false);
-              updateHistoryAndSave((prev) =>
-                prev.map((t) =>
-                  t.id === activeThreadId
-                    ? {
-                        ...t,
-                        status: 'DUPLICATE_TOPIC',
-                        duplicateInfo: {
-                          matchedTitle: data.story.matchedTitle || prompt,
-                          message: data.story.message || 'This topic was already generated in your library.'
-                        }
-                      }
-                    : t
-                )
-              );
+              setPastShorts(prev => prev.map(t => 
+                (t.threadId === activeThreadId || t.id === activeThreadId)
+                  ? { ...t, status: 'DUPLICATE_TOPIC', duplicateInfo: { matchedTitle: data.story.matchedTitle || prompt, message: data.story.message } }
+                  : t
+              ));
               return;
             }
 
-            // 2. If Cancelled Callback received from n8n
+            // 2. Cancelled Callback
             if (data.story.status === 'CANCELLED') {
               audioEngine.playSfx('click');
               setIsGenerating(false);
-              updateHistoryAndSave((prev) =>
-                prev.map((t) =>
-                  t.id === activeThreadId
-                    ? {
-                        ...t,
-                        status: 'CANCELLED',
-                        cancelReason: 'Generation was cancelled.'
-                      }
-                    : t
-                )
-              );
+              setPastShorts(prev => prev.map(t => 
+                (t.threadId === activeThreadId || t.id === activeThreadId)
+                  ? { ...t, status: 'CANCELLED', cancelReason: 'Story generation was cancelled.' }
+                  : t
+              ));
               return;
             }
 
-            // 3. Fresh Story Ready for Approval
+            // 3. Story Ready for Approval
             audioEngine.playSfx('success');
             setIsGenerating(false);
-            updateHistoryAndSave((prev) =>
-              prev.map((t) =>
-                t.id === activeThreadId
-                  ? {
-                      ...t,
-                      status: 'READY_FOR_APPROVAL',
-                      title: data.story.suggestedTitle || t.title,
-                      story: data.story
-                    }
-                  : t
-              )
-            );
+            setPastShorts(prev => prev.map(t => 
+              (t.threadId === activeThreadId || t.id === activeThreadId)
+                ? { 
+                    ...t, 
+                    status: 'READY_FOR_APPROVAL', 
+                    title: data.story.suggestedTitle || t.title,
+                    story: data.story
+                  }
+                : t
+            ));
           }
         }
       } catch (err) {}
@@ -209,11 +198,11 @@ export default function DashboardApp({
     }
   }, [isGenerating, activeThreadId, prompt]);
 
-  // ─── THREAD SELECTION & ACTIONS ───
+  // ─── THREAD SELECTION & ACTIONS ──────────────────────────────────
   const handleSelectShort = (threadId) => {
-    const t = pastShorts.find(x => x.id === threadId);
+    const t = pastShorts.find(x => x.id === threadId || x.threadId === threadId);
     if (!t) return;
-    setActiveThreadId(threadId);
+    setActiveThreadId(t.threadId || t.id);
     setPrompt(t.rawUserInput || t.title || '');
     if (t.voiceId) setVoiceId(t.voiceId);
     if (t.visualStyleId) setStyleId(t.visualStyleId);
@@ -246,121 +235,126 @@ export default function DashboardApp({
     }, 100);
   };
 
-  const handleDeleteShort = (id) => {
-    updateHistoryAndSave((prev) => prev.filter(x => x.id !== id));
+  const handleDeleteShort = async (id) => {
+    setPastShorts(prev => prev.filter(x => x.id !== id && x.threadId !== id));
+    try {
+      fetch(`/.netlify/functions/threads?threadId=${id}`, { method: 'DELETE' }).catch(() => {});
+    } catch (e) {}
     if (activeThreadId === id) {
       handleNewShort();
     }
   };
 
-  // ─── TRIGGER N8N WORKFLOW VIA NETLIFY FUNCTION ───
-  const handleGenerate = async () => {
+  // ─── UNIVERSAL CONVERSATIONAL MESSAGE & DISPATCH HANDLER ─────────
+  const handleGenerate = async (overrideMode) => {
     if (!prompt.trim()) return;
 
+    const messageText = prompt.trim();
+    const mode = overrideMode || detectMode(messageText);
     audioEngine.playSfx('boom');
+
     const startTime = Date.now();
     generationStartTimeRef.current = startTime;
 
-    const threadId = 'thread-' + startTime;
-    const newThread = {
-      id: threadId,
-      name: prompt.substring(0, 32) + (prompt.length > 32 ? '...' : ''),
-      title: prompt.trim(),
-      rawUserInput: prompt.trim(),
+    let currentThreadId = activeThreadId;
+    if (!currentThreadId || mode === 'VIDEO_GENERATION') {
+      currentThreadId = 'thread-' + startTime;
+      setActiveThreadId(currentThreadId);
+    }
+
+    const newThreadEntry = {
+      id: currentThreadId,
+      threadId: currentThreadId,
+      sessionId: sessionId,
+      name: messageText.substring(0, 32) + (messageText.length > 32 ? '...' : ''),
+      title: messageText,
+      rawUserInput: messageText,
       voiceId: voiceId,
       visualStyleId: styleId,
       musicId: musicId,
       language: language,
       criticScore: 98,
-      status: 'GENERATING',
-      createdAt: new Date().toISOString(),
+      status: mode === 'VIDEO_GENERATION' ? 'GENERATING' : (activeThread?.status || 'CHAT'),
+      messages: [
+        ...(activeThread?.messages || []),
+        { role: 'user', content: messageText }
+      ],
+      createdAt: activeThread?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
-    // Save active thread in state and localStorage immediately
-    updateHistoryAndSave((prev) => [newThread, ...prev.filter(x => x.id !== threadId)]);
-    setActiveThreadId(threadId);
-    setIsGenerating(true);
-    setGenerationStage('Connecting to n8n Cloud video engine...');
+    setPastShorts(prev => [newThreadEntry, ...prev.filter(x => x.threadId !== currentThreadId && x.id !== currentThreadId)]);
 
-    // Clear serverless cache on Netlify
+    if (mode === 'VIDEO_GENERATION') {
+      setIsGenerating(true);
+      setGenerationStage('Connecting with n8n Cloud autonomous pipeline...');
+    }
+
+    // Call conversational /api/chat endpoint
     try {
-      fetch('/.netlify/functions/story-approval?clear=true', { method: 'DELETE' }).catch(() => {});
-    } catch (e) {}
-
-    const payload = {
-      prompt: prompt.trim(),
-      voiceId: voiceId,
-      visualStyle: styleId,
-      musicTrack: musicId,
-      language: language
-    };
-
-    let sent = false;
-
-    // 1. Send to Netlify Function
-    try {
-      const netlifyRes = await fetch('/.netlify/functions/generate-story', {
+      const chatRes = await fetch('/.netlify/functions/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          threadId: currentThreadId,
+          sessionId: sessionId,
+          message: messageText,
+          mode: mode,
+          settings: {
+            voiceId: voiceId,
+            visualStyle: styleId,
+            musicTrack: musicId,
+            language: language
+          }
+        })
       });
-      if (netlifyRes.ok) {
-        sent = true;
-      }
-    } catch (e) {}
 
-    // 2. Local Bridge fallback
-    if (!sent) {
-      try {
-        const localRes = await fetch('http://localhost:3001/api/generate-story', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (localRes.ok) {
-          sent = true;
+      if (chatRes.ok) {
+        const chatData = await chatRes.json();
+
+        // 1. If Chat Q&A Reply received
+        if (chatData.mode === 'CHAT') {
+          audioEngine.playSfx('success');
+          setIsGenerating(false);
+          setPastShorts(prev => prev.map(t => 
+            (t.threadId === currentThreadId || t.id === currentThreadId)
+              ? {
+                  ...t,
+                  status: 'CHAT',
+                  messages: [
+                    ...(t.messages || []),
+                    { role: 'assistant', content: chatData.message }
+                  ]
+                }
+              : t
+          ));
+          return;
         }
-      } catch (e) {}
+
+        // 2. If Story Refinement Reply received
+        if (chatData.mode === 'REFINE_STORY') {
+          audioEngine.playSfx('success');
+          setIsGenerating(false);
+          setPastShorts(prev => prev.map(t => 
+            (t.threadId === currentThreadId || t.id === currentThreadId)
+              ? {
+                  ...t,
+                  status: 'READY_FOR_APPROVAL',
+                  title: chatData.story?.suggestedTitle || t.title,
+                  story: chatData.story,
+                  messages: [
+                    ...(t.messages || []),
+                    { role: 'assistant', content: chatData.message }
+                  ]
+                }
+              : t
+          ));
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Chat dispatch warning:', err.message);
     }
-
-    // 3. Offline simulation fallback
-    if (!sent) {
-      simulateStoryGeneration(threadId);
-    }
-  };
-
-  const simulateStoryGeneration = (threadId) => {
-    setTimeout(() => {
-      setIsGenerating(false);
-      const generated = {
-        executionId: 'exec-' + Date.now(),
-        topic: prompt,
-        genre: 'Universal Viral Story',
-        visualStyle: styleId === 'cinematic' ? 'Cinematic Realistic' : styleId,
-        language: language,
-        duration: '75 seconds (5 scenes × 15s)',
-        suggestedTitle: prompt.includes('?') ? prompt : `${prompt} का सबसे खौफनाक सच! 😱`,
-        viralHook: 'पहले 3 सेकंड में दर्शकों को हिला देने वाला रहस्यमयी हुक!',
-        storyBrief: `Scene 1 (0-15s): Dramatic opening hook introducing the mystery.\nScene 2 (15-30s): Tense discovery and evidence exploration.\nScene 3 (30-45s): The shocking turning point.\nScene 4 (45-60s): Climax resolution and impossible facts.\nScene 5 (60-75s): Final wisdom and subscribe call-to-action.`,
-        approveUrl: 'https://cmpunktg22.app.n8n.cloud/webhook-waiting/test?approval=yes',
-        cancelUrl: 'https://cmpunktg22.app.n8n.cloud/webhook-waiting/test?approval=no',
-        timestamp: new Date().toISOString()
-      };
-
-      updateHistoryAndSave((prev) =>
-        prev.map((t) =>
-          t.id === threadId
-            ? {
-                ...t,
-                status: 'READY_FOR_APPROVAL',
-                title: generated.suggestedTitle,
-                story: generated
-              }
-            : t
-        )
-      );
-    }, 4500);
   };
 
   // ─── USER APPROVES STORY ─────────────────────────────────────────
@@ -371,37 +365,27 @@ export default function DashboardApp({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ approveUrl, action: 'APPROVE' })
       });
-    } catch (e) {
-      try {
-        await fetch('http://localhost:3001/api/approve-story', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ approveUrl, action: 'APPROVE' })
-        });
-      } catch (err) {}
-    }
+    } catch (e) {}
 
     setShowModal(true);
     setTimeout(() => {
       setShowModal(false);
-      updateHistoryAndSave((prev) =>
-        prev.map((t) =>
-          t.id === activeThreadId
-            ? {
-                ...t,
-                status: 'COMPLETED',
-                criticScore: 99,
-                youtubeDescription: `${t.rawUserInput}\n\n75-second YouTube Short generated by ShortsAI Engine.\n\n#Shorts #Viral #AI`,
-                tags: ['Viral Shorts', 'Hindi Facts', 'Mystery'],
-                scenes: PRESETS.bermuda.scenes
-              }
-            : t
-        )
-      );
+      setPastShorts(prev => prev.map(t => 
+        (t.threadId === activeThreadId || t.id === activeThreadId)
+          ? {
+              ...t,
+              status: 'COMPLETED',
+              criticScore: 99,
+              youtubeDescription: `${t.rawUserInput}\n\n75-second YouTube Short produced by ShortsAI Engine.\n\n#Shorts #Viral #AI`,
+              tags: ['Viral Shorts', 'Hindi Facts', 'Mystery'],
+              scenes: PRESETS.bermuda.scenes
+            }
+          : t
+      ));
     }, 4500);
   };
 
-  // ─── USER CANCELS STORY ──────────────────────────────────────────
+  // ─── USER REJECTS STORY ──────────────────────────────────────────
   const handleRejectStory = async (cancelUrl) => {
     try {
       await fetch('/.netlify/functions/approve-story', {
@@ -409,31 +393,16 @@ export default function DashboardApp({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ approveUrl: cancelUrl, action: 'CANCEL' })
       });
-    } catch (e) {
-      try {
-        await fetch('http://localhost:3001/api/approve-story', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ approveUrl: cancelUrl, action: 'CANCEL' })
-        });
-      } catch (err) {}
-    }
+    } catch (e) {}
 
     audioEngine.playSfx('click');
     setIsGenerating(false);
 
-    // Gracefully transition this exact thread to CANCELLED state without resetting!
-    updateHistoryAndSave((prev) =>
-      prev.map((t) =>
-        t.id === activeThreadId
-          ? {
-              ...t,
-              status: 'CANCELLED',
-              cancelReason: 'Story was cancelled by creator.'
-            }
-          : t
-      )
-    );
+    setPastShorts(prev => prev.map(t => 
+      (t.threadId === activeThreadId || t.id === activeThreadId)
+        ? { ...t, status: 'CANCELLED', cancelReason: 'Story was cancelled by creator.' }
+        : t
+    ));
   };
 
   return (
@@ -493,13 +462,13 @@ export default function DashboardApp({
                 }`} style={{ fontSize: '11px' }}>
                   {activeThread.status === 'COMPLETED' ? '✓ Completed Short' :
                    activeThread.status === 'READY_FOR_APPROVAL' ? '⚡ Ready for Review' :
-                   activeThread.status === 'CANCELLED' ? '❌ Cancelled' : '⚡ Generating'}
+                   activeThread.status === 'CANCELLED' ? '❌ Cancelled' : '⚡ Active Thread'}
                 </span>
               </div>
             </div>
           )}
 
-          {/* User Prompt Message Bubble (Always shown in thread context) */}
+          {/* User Prompt Message Bubble */}
           {activeThread && (
             <div style={{
               display: 'flex',
@@ -519,6 +488,39 @@ export default function DashboardApp({
               }}>
                 {activeThread.rawUserInput || activeThread.title}
               </div>
+            </div>
+          )}
+
+          {/* Conversational Assistant Replies (if any in this thread) */}
+          {activeThread?.messages && activeThread.messages.length > 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+              {activeThread.messages.filter(m => m.role === 'assistant').map((msg, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: 'var(--grad-gemini)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <Sparkles size={16} color="#ffffff" />
+                  </div>
+                  <div className="saas-card" style={{
+                    maxWidth: '85%',
+                    padding: '14px 18px',
+                    borderRadius: '4px 18px 18px 18px',
+                    fontSize: '13.5px',
+                    lineHeight: 1.6,
+                    color: 'var(--text-primary)',
+                    background: 'var(--bg-card)'
+                  }}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -587,9 +589,7 @@ export default function DashboardApp({
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   <button
-                    onClick={() => {
-                      handleGenerate();
-                    }}
+                    onClick={() => handleGenerate('VIDEO_GENERATION')}
                     className="btn-glow"
                     style={{ fontSize: '11.5px', padding: '6px 14px', gap: '6px' }}
                   >
@@ -600,7 +600,7 @@ export default function DashboardApp({
                   <button
                     onClick={() => {
                       setPrompt(prev => prev + ' - What Scientists Refuse to Tell You');
-                      setTimeout(handleGenerate, 150);
+                      setTimeout(() => handleGenerate('REFINE_STORY'), 150);
                     }}
                     className="btn-outline"
                     style={{ fontSize: '11.5px', padding: '6px 14px', gap: '6px' }}
@@ -659,7 +659,7 @@ export default function DashboardApp({
                 <button
                   onClick={() => {
                     setPrompt(prev => prev + ' - The 2026 Secret Revealed');
-                    setTimeout(handleGenerate, 150);
+                    setTimeout(() => handleGenerate('REFINE_STORY'), 150);
                   }}
                   className="btn-glow"
                   style={{ fontSize: '11.5px', padding: '6px 14px', gap: '6px' }}
@@ -677,13 +677,13 @@ export default function DashboardApp({
           {/* 5. If Completed Video: Show Full Result Card */}
           {activeThread && activeThread.status === 'COMPLETED' && !isGenerating && (
             <ResultThreadCard
-              key={activeThread.id}
+              key={activeThread.id || activeThread.threadId}
               shortData={activeThread}
-              onRegenerate={handleGenerate}
+              onRegenerate={() => handleGenerate('VIDEO_GENERATION')}
             />
           )}
 
-          {/* 6. If Empty Canvas (No Active Thread): Show Inspiration Templates */}
+          {/* 6. If Empty Canvas: Show Inspiration Templates */}
           {!activeThread && !isGenerating && (
             <TemplateCards
               onSelectTemplate={handleSelectTemplate}
@@ -711,8 +711,8 @@ export default function DashboardApp({
               prompt={prompt}
               setPrompt={setPrompt}
               onPromptChange={setPrompt}
-              onSubmit={handleGenerate}
-              onGenerate={handleGenerate}
+              onSubmit={(mode) => handleGenerate(mode)}
+              onGenerate={(mode) => handleGenerate(mode)}
               isGenerating={isGenerating}
               voiceId={voiceId}
               setVoiceId={setVoiceId}

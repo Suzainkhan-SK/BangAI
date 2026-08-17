@@ -3,12 +3,16 @@ import {
   Sparkles, 
   ArrowUp, 
   X,
-  Zap
+  Zap,
+  MessageSquare,
+  Wand2,
+  Film
 } from 'lucide-react';
 import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
+import { detectMode } from '../../utils/detectIntent';
 
 export default function CanvasPromptBar(props) {
   const promptValue = props.prompt ?? '';
@@ -44,12 +48,14 @@ export default function CanvasPromptBar(props) {
   const isGenerating = !!props.isGenerating;
   const textareaRef = useRef(null);
 
+  const detectedMode = detectMode(promptValue);
+
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
     if (!promptValue.trim() || isGenerating) return;
     audioEngine.playSfx('boom');
-    if (typeof props.onGenerate === 'function') props.onGenerate();
-    else if (typeof props.onSubmit === 'function') props.onSubmit();
+    if (typeof props.onGenerate === 'function') props.onGenerate(detectedMode);
+    else if (typeof props.onSubmit === 'function') props.onSubmit(detectedMode);
   };
 
   return (
@@ -76,6 +82,25 @@ export default function CanvasPromptBar(props) {
           transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
         }}
       >
+        {/* Intent Mode Badge Header (Shows dynamic mode as user types) */}
+        {promptValue.trim().length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700 }}>
+            {detectedMode === 'REFINE_STORY' ? (
+              <span className="badge badge-brand" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 8px' }}>
+                <Wand2 size={11} /> Refine & Improve Story
+              </span>
+            ) : detectedMode === 'CHAT' ? (
+              <span className="badge badge-cyan" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 8px' }}>
+                <MessageSquare size={11} /> Conversational AI Q&A
+              </span>
+            ) : (
+              <span className="badge badge-brand" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 8px' }}>
+                <Film size={11} /> 75s Video Generation
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Text Input Row */}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', width: '100%' }}>
           <textarea
@@ -83,7 +108,7 @@ export default function CanvasPromptBar(props) {
             id="shorts-prompt-input"
             value={promptValue}
             onChange={(e) => setPromptValue(e.target.value)}
-            placeholder="Ask ShortsAI to generate any video... (e.g. 'Flight 19 in Bermuda Triangle with cockpit static')"
+            placeholder="Ask ShortsAI anything or create a video... (e.g. 'Flight 19 in Bermuda Triangle' or 'improve the story brief')"
             rows={2}
             style={{
               width: '100%',
@@ -141,28 +166,23 @@ export default function CanvasPromptBar(props) {
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '6px',
-          paddingTop: '6px',
+          gap: '8px',
+          paddingTop: '4px',
           borderTop: '1px solid var(--border-subtle)'
         }}>
-          {/* Quick Selectors */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-            {/* Voice */}
+          {/* Quick Config Dropdowns */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {/* Voice Selector */}
             <select
-              id="voice-select"
               value={currentVoiceId}
-              onChange={(e) => {
-                setVoiceValue(e.target.value);
-                const v = VOICES.find(x => x.id === e.target.value);
-                if (v) audioEngine.playVoice(v.id, v.sampleText);
-              }}
+              onChange={(e) => setVoiceValue(e.target.value)}
               style={{
-                background: 'var(--bg-pill)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-secondary)',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: '99px',
                 padding: '4px 10px',
                 fontSize: '11.5px',
-                color: 'var(--text-primary)',
                 fontWeight: 600,
                 cursor: 'pointer',
                 outline: 'none'
@@ -170,23 +190,22 @@ export default function CanvasPromptBar(props) {
             >
               {VOICES.map((v) => (
                 <option key={v.id} value={v.id}>
-                  🎙️ {v.name}
+                  🎙️ {v.name} ({v.gender})
                 </option>
               ))}
             </select>
 
-            {/* Visual Style */}
+            {/* Visual Style Selector */}
             <select
-              id="style-select"
               value={currentStyleId}
               onChange={(e) => setStyleValue(e.target.value)}
               style={{
-                background: 'var(--bg-pill)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-secondary)',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: '99px',
                 padding: '4px 10px',
                 fontSize: '11.5px',
-                color: 'var(--text-primary)',
                 fontWeight: 600,
                 cursor: 'pointer',
                 outline: 'none'
@@ -194,101 +213,57 @@ export default function CanvasPromptBar(props) {
             >
               {VISUAL_STYLES.map((s) => (
                 <option key={s.id} value={s.id}>
-                  🎨 {s.name.split(' ')[0]}
+                  🎨 {s.name}
                 </option>
               ))}
             </select>
 
-            {/* Music */}
+            {/* Language Selector */}
             <select
-              id="music-select"
-              value={currentMusicId}
-              onChange={(e) => setMusicValue(e.target.value)}
-              style={{
-                background: 'var(--bg-pill)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '99px',
-                padding: '4px 10px',
-                fontSize: '11.5px',
-                color: 'var(--text-primary)',
-                fontWeight: 600,
-                cursor: 'pointer',
-                outline: 'none'
-              }}
-            >
-              {MUSIC_TRACKS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  🎵 {m.name.split(' ')[0]}
-                </option>
-              ))}
-            </select>
-
-            {/* Language */}
-            <select
-              id="language-select"
               value={currentLanguage}
               onChange={(e) => setLanguageValue(e.target.value)}
               style={{
-                background: 'var(--bg-pill)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-secondary)',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: '99px',
                 padding: '4px 10px',
                 fontSize: '11.5px',
-                color: 'var(--text-primary)',
                 fontWeight: 600,
                 cursor: 'pointer',
                 outline: 'none'
               }}
             >
-              <option value="Hinglish">🇮🇳 Hinglish</option>
-              <option value="Hindi">🇮🇳 Hindi</option>
-              <option value="English">🇺🇸 English</option>
-              <option value="Spanish">🇪🇸 Spanish</option>
+              <option value="Hinglish">🗣️ Hinglish</option>
+              <option value="Hindi">🗣️ Hindi</option>
+              <option value="English">🗣️ English</option>
             </select>
           </div>
 
           {/* Send Button */}
           <button
-            id="shorts-submit-btn"
             type="submit"
-            disabled={isGenerating || !promptValue.trim()}
+            disabled={!promptValue.trim() || isGenerating}
             style={{
-              width: '34px',
-              height: '34px',
+              width: '32px',
+              height: '32px',
               borderRadius: '50%',
-              background: promptValue.trim() && !isGenerating 
-                ? 'var(--grad-primary)' 
-                : 'var(--bg-pill)',
-              color: '#ffffff',
+              background: promptValue.trim() ? 'var(--grad-gemini)' : 'var(--bg-input)',
               border: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: promptValue.trim() && !isGenerating ? 'pointer' : 'default',
-              boxShadow: promptValue.trim() && !isGenerating ? '0 0 14px rgba(99, 102, 241, 0.45)' : 'none',
-              opacity: promptValue.trim() && !isGenerating ? 1 : 0.4,
-              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              color: promptValue.trim() ? '#ffffff' : 'var(--text-muted)',
+              cursor: promptValue.trim() && !isGenerating ? 'pointer' : 'not-allowed',
+              boxShadow: promptValue.trim() ? '0 0 16px rgba(56, 189, 248, 0.4)' : 'none',
+              transition: 'all 0.2s ease',
               flexShrink: 0
             }}
           >
-            {isGenerating ? (
-              <Sparkles size={15} className="spin-animation" />
-            ) : (
-              <ArrowUp size={16} strokeWidth={2.5} />
-            )}
+            <ArrowUp size={16} strokeWidth={2.5} />
           </button>
         </div>
       </form>
-
-      {/* Subtle Studio Footer Note */}
-      <div style={{
-        textAlign: 'center',
-        marginTop: '6px',
-        fontSize: '11px',
-        color: 'var(--text-muted)'
-      }}>
-        ShortsAI generates 75s (5 scenes) short-form videos with ElevenLabs audio.
-      </div>
     </div>
   );
 }
