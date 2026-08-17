@@ -288,7 +288,7 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
       };
     }
 
-    // ─── MODE C: VIDEO GENERATION (DISPATCH TO N8N) ────────────────────
+    // ─── MODE C: VIDEO GENERATION (DISPATCH DIRECTLY TO N8N CLOUD) ────
     const host = event.headers?.host || 'viral-shorts-ai-studio.netlify.app';
     const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
 
@@ -313,21 +313,30 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
       } catch (e) {}
     }
 
-    // Dispatch to n8n Cloud Webhook
-    fetch(N8N_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: message.trim(),
-        voiceId: settings.voiceId || 'adam',
-        visualStyle: settings.visualStyle || 'Cinematic Realistic',
-        language: settings.language || 'Hinglish',
-        callbackUrl,
-        threadId: currentThreadId,
-        sessionId: currentSessionId,
-        timestamp: now.toISOString()
-      })
-    }).catch(e => console.warn('n8n dispatch warning:', e.message));
+    // AWAIT dispatch to n8n Cloud Webhook so serverless execution doesn't terminate early!
+    let n8nStatus = 200;
+    let n8nResponse = '';
+    try {
+      const n8nRes = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: message.trim(),
+          voiceId: settings.voiceId || 'adam',
+          visualStyle: settings.visualStyle || 'Cinematic Realistic',
+          language: settings.language || 'Hinglish',
+          callbackUrl,
+          threadId: currentThreadId,
+          sessionId: currentSessionId,
+          timestamp: now.toISOString()
+        })
+      });
+      n8nStatus = n8nRes.status;
+      n8nResponse = await n8nRes.text();
+      console.log('[Netlify] n8n Cloud triggered successfully! Status:', n8nStatus, 'Response:', n8nResponse);
+    } catch (e) {
+      console.error('[Netlify] Error triggering n8n Cloud:', e.message);
+    }
 
     return {
       statusCode: 200,
@@ -336,7 +345,8 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
         status: 'PROCESSING',
         mode: 'VIDEO_GENERATION',
         message: 'Prompt dispatched to autonomous video pipeline.',
-        threadId: currentThreadId
+        threadId: currentThreadId,
+        n8nStatus: n8nStatus
       })
     };
 
