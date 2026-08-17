@@ -54,7 +54,12 @@ export default function DashboardApp({
 }) {
   const [sessionId] = useState(getOrCreateSessionId);
   const [pastShorts, setPastShorts] = useState([]);
-  const [activeThreadId, setActiveThreadId] = useState(initialPresetId || null);
+  const [activeThreadId, setActiveThreadId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('shortsai_active_thread_id') || initialPresetId || null;
+    }
+    return initialPresetId || null;
+  });
 
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [voiceId, setVoiceId] = useState('adam');
@@ -92,8 +97,14 @@ export default function DashboardApp({
           const data = await res.json();
           if (Array.isArray(data.threads) && data.threads.length > 0) {
             setPastShorts(data.threads);
-            if (!activeThreadId) {
-              setActiveThreadId(data.threads[0].threadId || data.threads[0].id);
+            const savedId = typeof window !== 'undefined' ? localStorage.getItem('shortsai_active_thread_id') : null;
+            const match = data.threads.find(t => t.threadId === savedId || t.id === savedId);
+            if (match) {
+              setActiveThreadId(match.threadId || match.id);
+            } else if (!activeThreadId) {
+              const defaultId = data.threads[0].threadId || data.threads[0].id;
+              setActiveThreadId(defaultId);
+              if (typeof window !== 'undefined') localStorage.setItem('shortsai_active_thread_id', defaultId);
             }
             return;
           }
@@ -240,7 +251,11 @@ export default function DashboardApp({
   const handleSelectShort = (threadId) => {
     const t = pastShorts.find(x => x.id === threadId || x.threadId === threadId);
     if (!t) return;
-    setActiveThreadId(t.threadId || t.id);
+    const tid = t.threadId || t.id;
+    setActiveThreadId(tid);
+    if (typeof window !== 'undefined' && tid) {
+      localStorage.setItem('shortsai_active_thread_id', tid);
+    }
     setPrompt('');
     if (t.voiceId) setVoiceId(t.voiceId);
     if (t.visualStyleId) setStyleId(t.visualStyleId);
@@ -256,6 +271,9 @@ export default function DashboardApp({
     if (item.voice) setVoiceId(item.voice);
     if (item.style) setStyleId(item.style);
     setActiveThreadId(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('shortsai_active_thread_id');
+    }
     setIsGenerating(false);
     setIsChatResponding(false);
 
@@ -267,6 +285,9 @@ export default function DashboardApp({
 
   const handleNewShort = () => {
     setActiveThreadId(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('shortsai_active_thread_id');
+    }
     setPrompt('');
     setIsGenerating(false);
     setIsChatResponding(false);
@@ -301,6 +322,9 @@ export default function DashboardApp({
     if (!currentThreadId || (mode === 'VIDEO_GENERATION' && activeThread?.status === 'COMPLETED')) {
       currentThreadId = 'thread-' + startTime;
       setActiveThreadId(currentThreadId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('shortsai_active_thread_id', currentThreadId);
+      }
     }
 
     const newThreadEntry = {

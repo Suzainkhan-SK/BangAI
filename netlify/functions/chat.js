@@ -120,7 +120,7 @@ export const handler = async (event, context) => {
     const currentSessionId = sessionId || 'default-session';
     const now = new Date();
 
-    // 1. Connect to MongoDB Atlas and persist user message
+    // 1. Connect to MongoDB Atlas and persist user message in BOTH collections
     let db = null;
     try {
       db = await getDb();
@@ -130,15 +130,40 @@ export const handler = async (event, context) => {
 
     if (db) {
       try {
-        await db.collection('messages').insertOne({
+        const userMsgObj = {
           threadId: currentThreadId,
           sessionId: currentSessionId,
           role: 'user',
           content: message.trim(),
           mode,
           timestamp: now
-        });
-      } catch (e) {}
+        };
+
+        await db.collection('messages').insertOne(userMsgObj);
+
+        await db.collection('threads').updateOne(
+          { threadId: currentThreadId },
+          {
+            $set: {
+              threadId: currentThreadId,
+              sessionId: currentSessionId,
+              title: message.trim(),
+              rawUserInput: message.trim(),
+              updatedAt: now
+            },
+            $push: {
+              messages: userMsgObj
+            },
+            $setOnInsert: {
+              createdAt: now,
+              status: mode === 'VIDEO_GENERATION' ? 'GENERATING' : 'CHAT'
+            }
+          },
+          { upsert: true }
+        );
+      } catch (e) {
+        console.warn('MongoDB user message persist error:', e.message);
+      }
     }
 
     // 2. Fetch conversational context from MongoDB
@@ -218,8 +243,20 @@ Do NOT wrap in markdown code fences or add extraneous text. Return raw JSON.`;
         timestamp: now.toISOString()
       };
 
+      const assistantMsgObj = {
+        threadId: currentThreadId,
+        sessionId: currentSessionId,
+        role: 'assistant',
+        content: parsed.message,
+        storyUpdate: updatedStory,
+        mode: 'REFINE_STORY',
+        timestamp: now
+      };
+
       if (db) {
         try {
+          await db.collection('messages').insertOne(assistantMsgObj);
+
           await db.collection('threads').updateOne(
             { threadId: currentThreadId },
             {
@@ -228,20 +265,13 @@ Do NOT wrap in markdown code fences or add extraneous text. Return raw JSON.`;
                 title: parsed.suggestedTitle,
                 status: 'READY_FOR_APPROVAL',
                 updatedAt: now
+              },
+              $push: {
+                messages: assistantMsgObj
               }
             },
             { upsert: true }
           );
-
-          await db.collection('messages').insertOne({
-            threadId: currentThreadId,
-            sessionId: currentSessionId,
-            role: 'assistant',
-            content: parsed.message,
-            storyUpdate: updatedStory,
-            mode: 'REFINE_STORY',
-            timestamp: now
-          });
         } catch (e) {}
       }
 
@@ -266,16 +296,31 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
 
       const aiReplyText = await callClaudeAI(systemPrompt, conversationHistory, 1000);
 
+      const assistantMsgObj = {
+        threadId: currentThreadId,
+        sessionId: currentSessionId,
+        role: 'assistant',
+        content: aiReplyText,
+        mode: 'CHAT',
+        timestamp: now
+      };
+
       if (db) {
         try {
-          await db.collection('messages').insertOne({
-            threadId: currentThreadId,
-            sessionId: currentSessionId,
-            role: 'assistant',
-            content: aiReplyText,
-            mode: 'CHAT',
-            timestamp: now
-          });
+          await db.collection('messages').insertOne(assistantMsgObj);
+
+          await db.collection('threads').updateOne(
+            { threadId: currentThreadId },
+            {
+              $set: {
+                updatedAt: now
+              },
+              $push: {
+                messages: assistantMsgObj
+              }
+            },
+            { upsert: true }
+          );
         } catch (e) {}
       }
 
@@ -354,8 +399,19 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
         if (errJson.hint) errorDetail += ' (' + errJson.hint + ')';
       } catch (parseErr) {}
 
+      const inactiveMsg = {
+        threadId: currentThreadId,
+        sessionId: currentSessionId,
+        role: 'assistant',
+        content: `⚠️ **n8n Workflow is Inactive / Not Published** (HTTP ${n8nStatus})\n\n${errorDetail}\n\n👉 **To fix:** Open your n8n workflow (\`u8vcVLc00wPp2AAI\`) and toggle the **Active** switch in the top right to **Active/Published**, then click Retry.`,
+        status: 'WORKFLOW_INACTIVE',
+        timestamp: now
+      };
+
       if (db) {
         try {
+          await db.collection('messages').insertOne(inactiveMsg);
+
           await db.collection('threads').updateOne(
             { threadId: currentThreadId },
             {
@@ -369,19 +425,13 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
                 n8nStatus,
                 updatedAt: now
               },
+              $push: {
+                messages: inactiveMsg
+              },
               $setOnInsert: { createdAt: now }
             },
             { upsert: true }
           );
-
-          await db.collection('messages').insertOne({
-            threadId: currentThreadId,
-            sessionId: currentSessionId,
-            role: 'assistant',
-            content: `⚠️ **n8n Workflow is Inactive / Not Published** (HTTP ${n8nStatus})\n\n${errorDetail}\n\n👉 **To fix:** Open your n8n workflow (\`u8vcVLc00wPp2AAI\`) and toggle the **Active** switch in the top right to **Active/Published**, then click Retry.`,
-            status: 'WORKFLOW_INACTIVE',
-            timestamp: now
-          });
         } catch (dbErr) {}
       }
 

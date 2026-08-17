@@ -1,6 +1,6 @@
 // Netlify Function: threads.js
 // Path: /.netlify/functions/threads
-// Full CRUD for persistent video threads in MongoDB Atlas
+// Full CRUD for persistent video threads & messages in MongoDB Atlas
 
 import { getDb } from './db.js';
 
@@ -40,18 +40,48 @@ export const handler = async (event, context) => {
         return {
           statusCode: 200,
           headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-          body: JSON.stringify({ thread, messages })
+          body: JSON.stringify({ 
+            thread: {
+              ...thread,
+              id: thread.threadId,
+              messages: (messages && messages.length > 0) ? messages : (thread.messages || [])
+            }, 
+            messages 
+          })
         };
       }
 
-      // Fetch all threads for session (or top 50 recent)
-      const query = sessionId ? { sessionId } : {};
+      // Fetch all threads
+      const query = sessionId ? { $or: [{ sessionId }, { sessionId: { $exists: false } }, { sessionId: null }] } : {};
       const threads = await threadsCol.find(query).sort({ updatedAt: -1 }).limit(50).toArray();
+
+      // Fetch all messages for these threads to guarantee 100% complete chat history
+      const threadIds = threads.map(t => t.threadId).filter(Boolean);
+      let messagesByThread = {};
+      if (threadIds.length > 0) {
+        const allMessages = await messagesCol.find({ threadId: { $in: threadIds } }).sort({ timestamp: 1 }).toArray();
+        allMessages.forEach(m => {
+          if (!messagesByThread[m.threadId]) messagesByThread[m.threadId] = [];
+          messagesByThread[m.threadId].push(m);
+        });
+      }
+
+      const enrichedThreads = threads.map(t => {
+        const dbMsgs = messagesByThread[t.threadId] || [];
+        const threadMsgs = t.messages || [];
+        const combinedMsgs = dbMsgs.length >= threadMsgs.length ? dbMsgs : threadMsgs;
+
+        return {
+          ...t,
+          id: t.threadId,
+          messages: combinedMsgs
+        };
+      });
 
       return {
         statusCode: 200,
         headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-        body: JSON.stringify({ threads })
+        body: JSON.stringify({ threads: enrichedThreads })
       };
     }
 
@@ -117,7 +147,7 @@ export const handler = async (event, context) => {
     console.error('Threads API Error:', err);
     return {
       statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+      headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ error: err.message })
     };
   }
