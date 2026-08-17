@@ -12,7 +12,7 @@ const CLAUDE_KEYS = [
   process.env.CLAUDE_API_KEY_2 || 'sk-cs4-db2641233a8fbbd2e619a57ddd3acd8a1fb8fddf163b1923'
 ];
 
-async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000) {
+async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000, timeoutMs = 4500) {
   const messages = conversationHistory.map(m => ({
     role: m.role === 'user' ? 'user' : 'assistant',
     content: m.content || m.text || ''
@@ -23,6 +23,9 @@ async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000)
   for (let i = 0; i < CLAUDE_KEYS.length; i++) {
     const key = CLAUDE_KEYS[i];
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
       // 1. Try OpenAI-compatible endpoint
       const res = await fetch(`${CLAUDE_BASE_URL}/v1/chat/completions`, {
         method: 'POST',
@@ -38,8 +41,10 @@ async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000)
           ],
           max_tokens: maxTokens,
           temperature: 0.7
-        })
+        }),
+        signal: controller.signal
       });
+      clearTimeout(timer);
 
       if (res.ok) {
         const json = await res.json();
