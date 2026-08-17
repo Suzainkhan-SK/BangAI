@@ -11,12 +11,27 @@ import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
-import { Sparkles, Loader2, Plus, ArrowLeft, XCircle, AlertTriangle, RefreshCw, Wand2 } from 'lucide-react';
+import { 
+  Sparkles, 
+  Loader2, 
+  Plus, 
+  ArrowLeft, 
+  XCircle, 
+  AlertTriangle, 
+  RefreshCw, 
+  Wand2, 
+  MessageSquare,
+  CheckCircle2,
+  Send,
+  Sliders
+} from 'lucide-react';
+
+const STORAGE_KEY = 'shortsai_chat_history_v2';
 
 function getInitialHistory() {
   if (typeof window !== 'undefined') {
     try {
-      const saved = localStorage.getItem('shortsai_chat_history');
+      const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -24,9 +39,42 @@ function getInitialHistory() {
     } catch (e) {}
   }
   return [
-    PRESETS.bermuda,
-    PRESETS.dragons,
-    PRESETS.fruits
+    {
+      id: 'preset-bermuda',
+      name: 'Bermuda Triangle Flight 19',
+      title: 'बरमूडा ट्रायंगल का अनसुलझा रहस्य: Flight 19 😱',
+      rawUserInput: 'Flight 19 lost in Bermuda Triangle mystery',
+      genre: 'Mystery & Thriller',
+      voiceId: 'adam',
+      visualStyleId: 'cinematic',
+      musicId: 'mystery',
+      language: 'Hinglish',
+      status: 'COMPLETED',
+      criticScore: 99,
+      viralHook: '5 नौसैनिक विमान अचानक गायब हो गए और उनका आज तक कोई सुराग नहीं मिला!',
+      youtubeDescription: 'The mysterious disappearance of Flight 19 in Bermuda Triangle.\n\n#Shorts #Mystery #BermudaTriangle',
+      tags: ['Bermuda Triangle', 'Flight 19', 'Hindi Facts', 'Shorts'],
+      scenes: PRESETS.bermuda.scenes,
+      createdAt: new Date(Date.now() - 3600000).toISOString()
+    },
+    {
+      id: 'preset-psychology',
+      name: '3 Dark Psychology Secrets',
+      title: '3 Dark Psychology Secrets You Must Know',
+      rawUserInput: '3 Dark Psychology manipulation tricks people use on you daily',
+      genre: 'Psychology & Facts',
+      voiceId: 'rachel',
+      visualStyleId: 'dark_fantasy',
+      musicId: 'dark_ambient',
+      language: 'English',
+      status: 'COMPLETED',
+      criticScore: 98,
+      viralHook: 'If someone pauses before answering, they are analyzing your reaction...',
+      youtubeDescription: '3 Dark Psychology tricks you must know to protect yourself.\n\n#Psychology #DarkPsychology #Shorts',
+      tags: ['Psychology', 'Dark Psychology', 'Life Hacks', 'Shorts'],
+      scenes: PRESETS.dragons.scenes,
+      createdAt: new Date(Date.now() - 7200000).toISOString()
+    }
   ];
 }
 
@@ -40,14 +88,7 @@ export default function DashboardApp({
   onLogout
 }) {
   const [pastShorts, setPastShorts] = useState(getInitialHistory);
-  const [activeShortId, setActiveShortId] = useState(initialPresetId);
-  const [activeShort, setActiveShort] = useState(() => {
-    if (initialPresetId) {
-      const all = getInitialHistory();
-      return all.find(s => s.id === initialPresetId) || PRESETS[initialPresetId] || null;
-    }
-    return null;
-  });
+  const [activeThreadId, setActiveThreadId] = useState(initialPresetId || null);
 
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [voiceId, setVoiceId] = useState('adam');
@@ -57,25 +98,27 @@ export default function DashboardApp({
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStage, setGenerationStage] = useState('');
-  const [pendingApprovalStory, setPendingApprovalStory] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [cancelNotice, setCancelNotice] = useState(null);
-  const [duplicateNotice, setDuplicateNotice] = useState(null);
 
-  // Ref to track the start time of the active generation request
+  // Active Thread Object
+  const activeThread = pastShorts.find(t => t.id === activeThreadId) || null;
+
+  // Ref to track active request timestamp
   const generationStartTimeRef = useRef(0);
 
-  // Sync real history to localStorage
-  const saveHistory = (items) => {
-    setPastShorts(items);
-    try {
-      localStorage.setItem('shortsai_chat_history', JSON.stringify(items));
-    } catch (e) {}
+  // Helper to persist history to state and localStorage
+  const updateHistoryAndSave = (updater) => {
+    setPastShorts((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
   };
 
-  // ─── LISTEN TO LIVE SSE OR NETLIFY SERVERLESS FUNCTION POLLING ───
+  // ─── POLLING NETLIFY / N8N SERVERLESS CALLBACK ───
   useEffect(() => {
-    let eventSource;
     let pollInterval;
 
     async function checkNetlifyStoryApproval() {
@@ -89,11 +132,9 @@ export default function DashboardApp({
         if (res.ok) {
           const data = await res.json();
           if (data.hasStory && data.story) {
-            // Validate that story timestamp is fresh
             const storyTimestamp = new Date(data.story.timestamp || 0).getTime();
             if (sinceTime > 0 && storyTimestamp > 0 && storyTimestamp < sinceTime) {
-              console.log('Ignoring stale story from previous generation:', data.story.suggestedTitle);
-              return;
+              return; // Ignore older stories
             }
 
             console.log('Received fresh story callback from n8n cloud:', data.story);
@@ -102,62 +143,62 @@ export default function DashboardApp({
             if (data.story.status === 'DUPLICATE_TOPIC') {
               audioEngine.playSfx('click');
               setIsGenerating(false);
-              setPendingApprovalStory(null);
-              setActiveShort(null);
-              setDuplicateNotice({
-                matchedTitle: data.story.matchedTitle || prompt,
-                message: data.story.message || 'This topic was already covered in your channel memory.'
-              });
+              updateHistoryAndSave((prev) =>
+                prev.map((t) =>
+                  t.id === activeThreadId
+                    ? {
+                        ...t,
+                        status: 'DUPLICATE_TOPIC',
+                        duplicateInfo: {
+                          matchedTitle: data.story.matchedTitle || prompt,
+                          message: data.story.message || 'This topic was already generated in your library.'
+                        }
+                      }
+                    : t
+                )
+              );
               return;
             }
 
-            // 2. If Cancelled Callback received
+            // 2. If Cancelled Callback received from n8n
             if (data.story.status === 'CANCELLED') {
               audioEngine.playSfx('click');
               setIsGenerating(false);
-              setPendingApprovalStory(null);
-              setActiveShort(null);
-              setCancelNotice('Video generation was cancelled.');
-              setTimeout(() => setCancelNotice(null), 5000);
+              updateHistoryAndSave((prev) =>
+                prev.map((t) =>
+                  t.id === activeThreadId
+                    ? {
+                        ...t,
+                        status: 'CANCELLED',
+                        cancelReason: 'Generation was cancelled.'
+                      }
+                    : t
+                )
+              );
               return;
             }
 
-            // 3. Story ready for approval
+            // 3. Fresh Story Ready for Approval
             audioEngine.playSfx('success');
-            setPendingApprovalStory(data.story);
             setIsGenerating(false);
-            setActiveShort(null); // Keep activeShort null while awaiting approval!
-            setDuplicateNotice(null);
-            setCancelNotice(null);
-
-            // Update real history item
-            setPastShorts((prev) => {
-              const updated = prev.map((item) => {
-                if (item.rawUserInput === prompt || item.id === activeShortId) {
-                  return {
-                    ...item,
-                    suggestedTitle: data.story.suggestedTitle,
-                    viralHook: data.story.viralHook,
-                    storyBrief: data.story.storyBrief,
-                    approveUrl: data.story.approveUrl,
-                    cancelUrl: data.story.cancelUrl,
-                    status: 'READY_FOR_APPROVAL'
-                  };
-                }
-                return item;
-              });
-              try {
-                localStorage.setItem('shortsai_chat_history', JSON.stringify(updated));
-              } catch (e) {}
-              return updated;
-            });
+            updateHistoryAndSave((prev) =>
+              prev.map((t) =>
+                t.id === activeThreadId
+                  ? {
+                      ...t,
+                      status: 'READY_FOR_APPROVAL',
+                      title: data.story.suggestedTitle || t.title,
+                      story: data.story
+                    }
+                  : t
+              )
+            );
           }
         }
       } catch (err) {}
     }
 
     if (isGenerating) {
-      // Delay first check slightly to avoid catching any in-flight cache
       const initialTimeout = setTimeout(checkNetlifyStoryApproval, 1200);
       pollInterval = setInterval(checkNetlifyStoryApproval, 2500);
 
@@ -166,43 +207,19 @@ export default function DashboardApp({
         if (pollInterval) clearInterval(pollInterval);
       };
     }
+  }, [isGenerating, activeThreadId, prompt]);
 
-    // Local SSE fallback for localhost
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      try {
-        eventSource = new EventSource('http://localhost:3001/api/events');
-        eventSource.addEventListener('story_ready', (e) => {
-          try {
-            const data = JSON.parse(e.data);
-            audioEngine.playSfx('success');
-            setPendingApprovalStory(data);
-            setIsGenerating(false);
-            setActiveShort(null);
-          } catch (err) {}
-        });
-      } catch (e) {}
-    }
-
-    return () => {
-      if (eventSource) eventSource.close();
-      if (pollInterval) clearInterval(pollInterval);
-    };
-  }, [isGenerating, prompt, activeShortId]);
-
-  const handleSelectShort = (shortId) => {
-    const s = pastShorts.find(x => x.id === shortId) || PRESETS[shortId];
-    if (!s) return;
-    setActiveShortId(shortId);
-    setActiveShort(s);
-    setPrompt(s.rawUserInput || s.title || '');
-    if (s.voiceId) setVoiceId(s.voiceId);
-    if (s.visualStyleId) setStyleId(s.visualStyleId);
-    if (s.musicId) setMusicId(s.musicId);
-    if (s.language) setLanguage(s.language);
-    setPendingApprovalStory(null);
-    setCancelNotice(null);
-    setDuplicateNotice(null);
-    setIsGenerating(false);
+  // ─── THREAD SELECTION & ACTIONS ───
+  const handleSelectShort = (threadId) => {
+    const t = pastShorts.find(x => x.id === threadId);
+    if (!t) return;
+    setActiveThreadId(threadId);
+    setPrompt(t.rawUserInput || t.title || '');
+    if (t.voiceId) setVoiceId(t.voiceId);
+    if (t.visualStyleId) setStyleId(t.visualStyleId);
+    if (t.musicId) setMusicId(t.musicId);
+    if (t.language) setLanguage(t.language);
+    setIsGenerating(t.status === 'GENERATING');
   };
 
   const handleSelectTemplate = (item) => {
@@ -210,11 +227,7 @@ export default function DashboardApp({
     setPrompt(item.prompt);
     if (item.voice) setVoiceId(item.voice);
     if (item.style) setStyleId(item.style);
-    setActiveShort(null);
-    setActiveShortId(null);
-    setPendingApprovalStory(null);
-    setCancelNotice(null);
-    setDuplicateNotice(null);
+    setActiveThreadId(null);
     setIsGenerating(false);
 
     setTimeout(() => {
@@ -224,12 +237,8 @@ export default function DashboardApp({
   };
 
   const handleNewShort = () => {
-    setActiveShortId(null);
-    setActiveShort(null);
+    setActiveThreadId(null);
     setPrompt('');
-    setPendingApprovalStory(null);
-    setCancelNotice(null);
-    setDuplicateNotice(null);
     setIsGenerating(false);
     setTimeout(() => {
       const el = document.getElementById('shorts-prompt-input');
@@ -238,14 +247,13 @@ export default function DashboardApp({
   };
 
   const handleDeleteShort = (id) => {
-    const updated = pastShorts.filter(x => x.id !== id);
-    saveHistory(updated);
-    if (activeShortId === id) {
+    updateHistoryAndSave((prev) => prev.filter(x => x.id !== id));
+    if (activeThreadId === id) {
       handleNewShort();
     }
   };
 
-  // ─── TRIGGER N8N WORKFLOW VIA NETLIFY FUNCTION / BRIDGE ──────────
+  // ─── TRIGGER N8N WORKFLOW VIA NETLIFY FUNCTION ───
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
@@ -253,24 +261,11 @@ export default function DashboardApp({
     const startTime = Date.now();
     generationStartTimeRef.current = startTime;
 
-    // Reset all previous state cleanly
-    setIsGenerating(true);
-    setActiveShort(null); // DO NOT show old short!
-    setPendingApprovalStory(null); // DO NOT show old approval!
-    setCancelNotice(null);
-    setDuplicateNotice(null);
-    setGenerationStage('Dispatching prompt to n8n Cloud Webhook...');
-
-    // Clear serverless cache on Netlify
-    try {
-      fetch('/.netlify/functions/story-approval?clear=true', { method: 'DELETE' }).catch(() => {});
-    } catch (e) {}
-
-    const newId = 'gen-' + startTime;
-    const newEntry = {
-      id: newId,
-      name: prompt.substring(0, 30) + (prompt.length > 30 ? '...' : ''),
-      title: prompt,
+    const threadId = 'thread-' + startTime;
+    const newThread = {
+      id: threadId,
+      name: prompt.substring(0, 32) + (prompt.length > 32 ? '...' : ''),
+      title: prompt.trim(),
       rawUserInput: prompt.trim(),
       voiceId: voiceId,
       visualStyleId: styleId,
@@ -278,13 +273,20 @@ export default function DashboardApp({
       language: language,
       criticScore: 98,
       status: 'GENERATING',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    // Prepend to real history
-    const updatedHistory = [newEntry, ...pastShorts.filter(x => x.id !== newId)];
-    saveHistory(updatedHistory);
-    setActiveShortId(newId);
+    // Save active thread in state and localStorage immediately
+    updateHistoryAndSave((prev) => [newThread, ...prev.filter(x => x.id !== threadId)]);
+    setActiveThreadId(threadId);
+    setIsGenerating(true);
+    setGenerationStage('Connecting to n8n Cloud video engine...');
+
+    // Clear serverless cache on Netlify
+    try {
+      fetch('/.netlify/functions/story-approval?clear=true', { method: 'DELETE' }).catch(() => {});
+    } catch (e) {}
 
     const payload = {
       prompt: prompt.trim(),
@@ -296,7 +298,7 @@ export default function DashboardApp({
 
     let sent = false;
 
-    // 1. Netlify Function
+    // 1. Send to Netlify Function
     try {
       const netlifyRes = await fetch('/.netlify/functions/generate-story', {
         method: 'POST',
@@ -308,7 +310,7 @@ export default function DashboardApp({
       }
     } catch (e) {}
 
-    // 2. Local Bridge
+    // 2. Local Bridge fallback
     if (!sent) {
       try {
         const localRes = await fetch('http://localhost:3001/api/generate-story', {
@@ -322,13 +324,13 @@ export default function DashboardApp({
       } catch (e) {}
     }
 
-    // 3. Fallback simulation if completely offline
+    // 3. Offline simulation fallback
     if (!sent) {
-      simulateStoryGeneration();
+      simulateStoryGeneration(threadId);
     }
   };
 
-  const simulateStoryGeneration = () => {
+  const simulateStoryGeneration = (threadId) => {
     setTimeout(() => {
       setIsGenerating(false);
       const generated = {
@@ -345,26 +347,19 @@ export default function DashboardApp({
         cancelUrl: 'https://cmpunktg22.app.n8n.cloud/webhook-waiting/test?approval=no',
         timestamp: new Date().toISOString()
       };
-      setPendingApprovalStory(generated);
-      setActiveShort(null);
 
-      // Update real history item
-      setPastShorts(prev => {
-        const updated = prev.map(item => {
-          if (item.rawUserInput === prompt || item.id === activeShortId) {
-            return {
-              ...item,
-              suggestedTitle: generated.suggestedTitle,
-              viralHook: generated.viralHook,
-              storyBrief: generated.storyBrief,
-              status: 'READY_FOR_APPROVAL'
-            };
-          }
-          return item;
-        });
-        saveHistory(updated);
-        return updated;
-      });
+      updateHistoryAndSave((prev) =>
+        prev.map((t) =>
+          t.id === threadId
+            ? {
+                ...t,
+                status: 'READY_FOR_APPROVAL',
+                title: generated.suggestedTitle,
+                story: generated
+              }
+            : t
+        )
+      );
     }, 4500);
   };
 
@@ -389,33 +384,24 @@ export default function DashboardApp({
     setShowModal(true);
     setTimeout(() => {
       setShowModal(false);
-      setPendingApprovalStory(null);
-
-      const completed = {
-        id: activeShortId || ('gen-' + Date.now()),
-        name: prompt.substring(0, 30) + '...',
-        title: pendingApprovalStory?.suggestedTitle || prompt,
-        rawUserInput: prompt,
-        genre: pendingApprovalStory?.genre || 'Universal Viral Short',
-        voiceId: voiceId,
-        musicId: musicId,
-        visualStyleId: styleId,
-        language: language,
-        criticScore: 99,
-        viralHook: pendingApprovalStory?.viralHook || 'Shocking 3s hook',
-        youtubeDescription: `${prompt}\n\n75-second YouTube Short produced by ShortsAI Engine.\n\n#Shorts #Viral #AI`,
-        tags: ['Viral Shorts', 'Hindi Shorts', 'Facts', 'Mystery'],
-        status: 'COMPLETED',
-        scenes: PRESETS.bermuda.scenes
-      };
-
-      const updated = [completed, ...pastShorts.filter(x => x.id !== completed.id)];
-      saveHistory(updated);
-      setActiveShort(completed);
+      updateHistoryAndSave((prev) =>
+        prev.map((t) =>
+          t.id === activeThreadId
+            ? {
+                ...t,
+                status: 'COMPLETED',
+                criticScore: 99,
+                youtubeDescription: `${t.rawUserInput}\n\n75-second YouTube Short generated by ShortsAI Engine.\n\n#Shorts #Viral #AI`,
+                tags: ['Viral Shorts', 'Hindi Facts', 'Mystery'],
+                scenes: PRESETS.bermuda.scenes
+              }
+            : t
+        )
+      );
     }, 4500);
   };
 
-  // ─── USER REJECTS STORY ──────────────────────────────────────────
+  // ─── USER CANCELS STORY ──────────────────────────────────────────
   const handleRejectStory = async (cancelUrl) => {
     try {
       await fetch('/.netlify/functions/approve-story', {
@@ -433,12 +419,21 @@ export default function DashboardApp({
       } catch (err) {}
     }
 
-    setTimeout(() => {
-      setPendingApprovalStory(null);
-      setActiveShort(null);
-      setCancelNotice('Story generation cancelled.');
-      setTimeout(() => setCancelNotice(null), 4000);
-    }, 1200);
+    audioEngine.playSfx('click');
+    setIsGenerating(false);
+
+    // Gracefully transition this exact thread to CANCELLED state without resetting!
+    updateHistoryAndSave((prev) =>
+      prev.map((t) =>
+        t.id === activeThreadId
+          ? {
+              ...t,
+              status: 'CANCELLED',
+              cancelReason: 'Story was cancelled by creator.'
+            }
+          : t
+      )
+    );
   };
 
   return (
@@ -449,10 +444,10 @@ export default function DashboardApp({
       background: 'var(--bg-app)',
       overflow: 'hidden'
     }}>
-      {/* Sleek Compact Sidebar with Real History */}
+      {/* Real Persistent History Sidebar */}
       <Sidebar
         pastShorts={pastShorts}
-        activeShortId={activeShortId}
+        activeShortId={activeThreadId}
         onSelectShort={handleSelectShort}
         onNewShort={handleNewShort}
         onDeleteShort={handleDeleteShort}
@@ -463,7 +458,7 @@ export default function DashboardApp({
         onLogout={onLogout}
       />
 
-      {/* Main Studio Center Canvas */}
+      {/* Main Center Studio Canvas */}
       <main style={{
         flex: 1,
         height: '100%',
@@ -472,154 +467,62 @@ export default function DashboardApp({
         display: 'flex',
         flexDirection: 'column'
       }}>
-        {/* Canvas Body with generous clearance */}
         <div style={{
           flex: 1,
-          padding: '20px 20px 170px 20px',
+          padding: '24px 24px 170px 24px',
           maxWidth: '840px',
           width: '100%',
           margin: '0 auto'
         }}>
-          {/* Back to Canvas header if viewing an existing Short */}
-          {activeShort && !isGenerating && !pendingApprovalStory && !duplicateNotice && !cancelNotice && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+          {/* Header Bar if active thread is selected */}
+          {activeThread && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <button
                 onClick={handleNewShort}
                 className="btn-outline"
                 style={{ fontSize: '12px', padding: '5px 12px', gap: '6px' }}
               >
                 <ArrowLeft size={13} />
-                <span>Create New Video</span>
+                <span>New Video Studio</span>
               </button>
-              <span className="badge badge-brand" style={{ fontSize: '11px' }}>
-                Viewing: {activeShort.name || activeShort.title}
-              </span>
-            </div>
-          )}
-
-          {/* Cancellation Alert Banner */}
-          {cancelNotice && (
-            <div className="saas-card animate-float" style={{
-              padding: '16px 20px',
-              borderRadius: '16px',
-              border: '1.5px solid rgba(239, 68, 68, 0.4)',
-              background: 'rgba(239, 68, 68, 0.08)',
-              boxShadow: '0 8px 30px rgba(239, 68, 68, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '22px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: 'rgba(239, 68, 68, 0.18)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ef4444'
-                }}>
-                  <XCircle size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#ef4444' }}>
-                    Story Generation Cancelled
-                  </div>
-                  <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
-                    Your session was reset. You can refine your prompt or start a new video.
-                  </div>
-                </div>
-              </div>
-
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  onClick={() => {
-                    setCancelNotice(null);
-                    handleGenerate();
-                  }}
-                  className="btn-outline"
-                  style={{ fontSize: '11.5px', padding: '5px 12px', gap: '5px' }}
-                >
-                  <RefreshCw size={12} />
-                  <span>Try Again</span>
-                </button>
-                <button
-                  onClick={handleNewShort}
-                  className="btn-glow"
-                  style={{ fontSize: '11.5px', padding: '5px 14px' }}
-                >
-                  New Short
-                </button>
+                <span className={`badge ${
+                  activeThread.status === 'COMPLETED' ? 'badge-cyan' :
+                  activeThread.status === 'READY_FOR_APPROVAL' ? 'badge-brand' :
+                  activeThread.status === 'CANCELLED' ? 'badge-dark' : 'badge-brand'
+                }`} style={{ fontSize: '11px' }}>
+                  {activeThread.status === 'COMPLETED' ? '✓ Completed Short' :
+                   activeThread.status === 'READY_FOR_APPROVAL' ? '⚡ Ready for Review' :
+                   activeThread.status === 'CANCELLED' ? '❌ Cancelled' : '⚡ Generating'}
+                </span>
               </div>
             </div>
           )}
 
-          {/* Duplicate Topic Warning Banner */}
-          {duplicateNotice && (
-            <div className="saas-card animate-float" style={{
-              padding: '18px 20px',
-              borderRadius: '16px',
-              border: '1.5px solid rgba(245, 158, 11, 0.4)',
-              background: 'rgba(245, 158, 11, 0.08)',
-              boxShadow: '0 8px 30px rgba(245, 158, 11, 0.15)',
-              marginBottom: '22px'
+          {/* User Prompt Message Bubble (Always shown in thread context) */}
+          {activeThread && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: '20px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    background: 'rgba(245, 158, 11, 0.18)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#f59e0b',
-                    flexShrink: 0
-                  }}>
-                    <AlertTriangle size={18} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: '#f59e0b', marginBottom: '2px' }}>
-                      Similar Topic Already Generated!
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                      {duplicateNotice.message} (Matched: <i>"{duplicateNotice.matchedTitle}"</i>)
-                    </div>
-                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                      💡 <b>Pro-Tip:</b> Twist the topic with a secret angle, like <i>"The 2026 Classified Truth"</i> or <i>"What Scientists Refuse to Tell You"</i>.
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
-                  <button
-                    onClick={() => {
-                      setPrompt(prev => prev + ' - The Shocking 2026 Truth');
-                      setDuplicateNotice(null);
-                      setTimeout(handleGenerate, 200);
-                    }}
-                    className="btn-glow"
-                    style={{ fontSize: '11.5px', padding: '6px 14px', gap: '5px' }}
-                  >
-                    <Wand2 size={12} />
-                    <span>Add Viral Twist</span>
-                  </button>
-                  <button
-                    onClick={handleNewShort}
-                    className="btn-outline"
-                    style={{ fontSize: '11.5px', padding: '5px 12px', textAlign: 'center' }}
-                  >
-                    Change Topic
-                  </button>
-                </div>
+              <div style={{
+                maxWidth: '75%',
+                background: 'var(--grad-primary)',
+                color: '#ffffff',
+                padding: '12px 18px',
+                borderRadius: '18px 18px 4px 18px',
+                boxShadow: '0 4px 16px rgba(99, 102, 241, 0.25)',
+                fontSize: '13.5px',
+                lineHeight: 1.5,
+                fontWeight: 600
+              }}>
+                {activeThread.rawUserInput || activeThread.title}
               </div>
             </div>
           )}
 
-          {/* Live Thinking & Reasoning Animation (Displayed exclusively while generating) */}
+          {/* 1. If Actively Generating: Show 5-Act Thinking & Reasoning Animation */}
           {isGenerating && (
             <GenerationThinkingAnimation
               prompt={prompt}
@@ -627,29 +530,166 @@ export default function DashboardApp({
             />
           )}
 
-          {/* AI Story Approval Card (When n8n responds with fresh story) */}
-          {pendingApprovalStory && !isGenerating && (
+          {/* 2. If Story Ready for Approval: Show StoryApprovalCard */}
+          {activeThread && activeThread.status === 'READY_FOR_APPROVAL' && activeThread.story && !isGenerating && (
             <StoryApprovalCard
-              story={pendingApprovalStory}
+              story={activeThread.story}
               onApprove={handleApproveStory}
               onReject={handleRejectStory}
             />
           )}
 
-          {/* Completed Short Video Studio Result Card */}
-          {activeShort && !isGenerating && !pendingApprovalStory && !duplicateNotice && !cancelNotice ? (
+          {/* 3. If Cancelled: Show Graceful Conversational Cancellation Card */}
+          {activeThread && activeThread.status === 'CANCELLED' && !isGenerating && (
+            <div className="saas-card animate-float" style={{
+              padding: '24px',
+              borderRadius: '20px',
+              border: '1.5px solid var(--border-subtle)',
+              background: 'var(--bg-card)',
+              boxShadow: 'var(--shadow-card)',
+              marginBottom: '24px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ef4444',
+                  flexShrink: 0
+                }}>
+                  <XCircle size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                    Story Generation Cancelled
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    You cancelled this story review. The autonomous pipeline has halted for this video. You can refine your prompt, adjust the angle, or try a different theme below.
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Conversational Continuation Buttons */}
+              <div style={{
+                background: 'var(--bg-input)',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Quick Actions to Continue:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      handleGenerate();
+                    }}
+                    className="btn-glow"
+                    style={{ fontSize: '11.5px', padding: '6px 14px', gap: '6px' }}
+                  >
+                    <RefreshCw size={12} />
+                    <span>Retry Same Topic</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setPrompt(prev => prev + ' - What Scientists Refuse to Tell You');
+                      setTimeout(handleGenerate, 150);
+                    }}
+                    className="btn-outline"
+                    style={{ fontSize: '11.5px', padding: '6px 14px', gap: '6px' }}
+                  >
+                    <Wand2 size={12} />
+                    <span>Add Mystery Twist</span>
+                  </button>
+
+                  <button
+                    onClick={handleNewShort}
+                    className="btn-ghost"
+                    style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                  >
+                    Start Fresh Short
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. If Duplicate Topic Alert: Show Warning with Angle Twist */}
+          {activeThread && activeThread.status === 'DUPLICATE_TOPIC' && !isGenerating && (
+            <div className="saas-card animate-float" style={{
+              padding: '24px',
+              borderRadius: '20px',
+              border: '1.5px solid rgba(245, 158, 11, 0.4)',
+              background: 'rgba(245, 158, 11, 0.06)',
+              boxShadow: 'var(--shadow-card)',
+              marginBottom: '24px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'rgba(245, 158, 11, 0.18)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#f59e0b',
+                  flexShrink: 0
+                }}>
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#f59e0b', marginBottom: '4px' }}>
+                    Similar Topic Already Generated!
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    {activeThread.duplicateInfo?.message || 'This topic already exists in your database.'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => {
+                    setPrompt(prev => prev + ' - The 2026 Secret Revealed');
+                    setTimeout(handleGenerate, 150);
+                  }}
+                  className="btn-glow"
+                  style={{ fontSize: '11.5px', padding: '6px 14px', gap: '6px' }}
+                >
+                  <Wand2 size={12} />
+                  <span>Twist Angle & Generate</span>
+                </button>
+                <button onClick={handleNewShort} className="btn-outline" style={{ fontSize: '11.5px', padding: '6px 12px' }}>
+                  Choose Another Topic
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 5. If Completed Video: Show Full Result Card */}
+          {activeThread && activeThread.status === 'COMPLETED' && !isGenerating && (
             <ResultThreadCard
-              key={activeShort.id}
-              shortData={activeShort}
+              key={activeThread.id}
+              shortData={activeThread}
               onRegenerate={handleGenerate}
             />
-          ) : !isGenerating && !pendingApprovalStory && !duplicateNotice && !cancelNotice ? (
-            /* Empty State: Inspiration Story Templates */
+          )}
+
+          {/* 6. If Empty Canvas (No Active Thread): Show Inspiration Templates */}
+          {!activeThread && !isGenerating && (
             <TemplateCards
               onSelectTemplate={handleSelectTemplate}
               onSelectPreset={handleSelectShort}
             />
-          ) : null}
+          )}
         </div>
 
         {/* Floating Gemini Prompt Bar (Fixed Bottom Center) */}
