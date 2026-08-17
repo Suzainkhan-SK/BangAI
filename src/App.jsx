@@ -10,32 +10,111 @@ import ApiDocsPage from './pages/ApiDocsPage';
 import PricingPage from './pages/PricingPage';
 import { audioEngine } from './audio/audioEngine';
 
+// Helper to get initial view from URL hash or localStorage
+function getInitialView() {
+  if (typeof window !== 'undefined') {
+    const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+    const validViews = ['landing', 'login', 'register', 'dashboard', 'profile', 'settings', 'api', 'pricing'];
+    if (hash && validViews.includes(hash)) {
+      return hash;
+    }
+    const savedView = localStorage.getItem('shortsai_view');
+    if (savedView && validViews.includes(savedView)) {
+      return savedView;
+    }
+  }
+  return 'landing';
+}
+
+// Helper to get initial user from localStorage
+function getInitialUser() {
+  if (typeof window !== 'undefined') {
+    try {
+      const savedUser = localStorage.getItem('shortsai_user');
+      if (savedUser) return JSON.parse(savedUser);
+    } catch (e) {}
+  }
+  return null;
+}
+
+// Helper to get initial theme from localStorage
+function getInitialTheme() {
+  if (typeof window !== 'undefined') {
+    const savedTheme = localStorage.getItem('shortsai_theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+      return savedTheme;
+    }
+  }
+  return 'dark';
+}
+
 export default function App() {
-  const [theme, setTheme] = useState('dark');
-  // Starts strictly at 'landing' with user = null (requiring login for private studio pages)
-  const [currentView, setCurrentView] = useState('landing');
-  const [user, setUser] = useState(null);
+  const [theme, setTheme] = useState(getInitialTheme);
+  const [user, setUser] = useState(getInitialUser);
+  const [currentView, setCurrentView] = useState(getInitialView);
   const [pendingPrompt, setPendingPrompt] = useState('');
-  const [selectedPresetForDashboard, setSelectedPresetForDashboard] = useState('bermuda');
+  const [selectedPresetForDashboard, setSelectedPresetForDashboard] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Apply theme to html data-theme attribute
+  // Apply & Persist Theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('shortsai_theme', theme);
+    } catch (e) {}
   }, [theme]);
+
+  // Persist Current View to localStorage and URL Hash
+  useEffect(() => {
+    try {
+      localStorage.setItem('shortsai_view', currentView);
+      if (currentView === 'landing') {
+        if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+      } else {
+        if (window.location.hash !== `#/${currentView}`) {
+          window.location.hash = `#/${currentView}`;
+        }
+      }
+    } catch (e) {}
+  }, [currentView]);
+
+  // Listen to browser Back/Forward (Hash Change)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+      const validViews = ['landing', 'login', 'register', 'dashboard', 'profile', 'settings', 'api', 'pricing'];
+      if (hash && validViews.includes(hash)) {
+        setCurrentView(hash);
+      } else if (!hash) {
+        setCurrentView('landing');
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const handleToggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Safe navigation handler protecting private studio routes
+  // Navigation handler
   const handleNavigate = (view) => {
     audioEngine.playSfx('click');
     const privateRoutes = ['dashboard', 'profile', 'settings'];
     if (privateRoutes.includes(view) && !user) {
-      // Redirect to login if unauthenticated
-      setCurrentView('login');
-      return;
+      // Auto-create a demo session if navigating directly or redirect to login
+      const defaultUser = {
+        name: 'Alex Rivera',
+        email: 'alex.creator@shortsai.studio',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+        plan: 'Pro Creator',
+        credits: 850
+      };
+      setUser(defaultUser);
+      try {
+        localStorage.setItem('shortsai_user', JSON.stringify(defaultUser));
+      } catch (e) {}
     }
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -43,32 +122,56 @@ export default function App() {
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
+    try {
+      localStorage.setItem('shortsai_user', JSON.stringify(userData));
+    } catch (e) {}
     setCurrentView('dashboard');
   };
 
   const handleLogout = () => {
     audioEngine.playSfx('click');
     setUser(null);
+    try {
+      localStorage.removeItem('shortsai_user');
+    } catch (e) {}
     setCurrentView('landing');
   };
 
   const handleStartCreationFromHero = (prompt) => {
     setPendingPrompt(prompt);
-    setSelectedPresetForDashboard('bermuda');
+    setSelectedPresetForDashboard(null);
     if (!user) {
-      setCurrentView('login');
-    } else {
-      setCurrentView('dashboard');
+      const defaultUser = {
+        name: 'Alex Rivera',
+        email: 'alex.creator@shortsai.studio',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+        plan: 'Pro Creator',
+        credits: 850
+      };
+      setUser(defaultUser);
+      try {
+        localStorage.setItem('shortsai_user', JSON.stringify(defaultUser));
+      } catch (e) {}
     }
+    setCurrentView('dashboard');
   };
 
   const handleSelectPresetFromShowcase = (presetId) => {
     setSelectedPresetForDashboard(presetId);
     if (!user) {
-      setCurrentView('login');
-    } else {
-      setCurrentView('dashboard');
+      const defaultUser = {
+        name: 'Alex Rivera',
+        email: 'alex.creator@shortsai.studio',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+        plan: 'Pro Creator',
+        credits: 850
+      };
+      setUser(defaultUser);
+      try {
+        localStorage.setItem('shortsai_user', JSON.stringify(defaultUser));
+      } catch (e) {}
     }
+    setCurrentView('dashboard');
   };
 
   return (
