@@ -10,10 +10,10 @@ import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, Plus, ArrowLeft } from 'lucide-react';
 
 export default function DashboardApp({ 
-  initialPresetId = 'bermuda',
+  initialPresetId = null,
   sidebarCollapsed = false,
   onToggleSidebar,
   user,
@@ -28,7 +28,7 @@ export default function DashboardApp({
   const [language, setLanguage] = useState('Hinglish');
 
   const [pastShorts, setPastShorts] = useState(Object.values(PRESETS));
-  const [activeShort, setActiveShort] = useState(PRESETS[initialPresetId] || PRESETS.bermuda);
+  const [activeShort, setActiveShort] = useState(initialPresetId ? (PRESETS[initialPresetId] || null) : null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStage, setGenerationStage] = useState('');
   const [pendingApprovalStory, setPendingApprovalStory] = useState(null);
@@ -56,7 +56,6 @@ export default function DashboardApp({
     }
 
     if (isGenerating) {
-      // Start polling immediately and every 2.5s
       checkNetlifyStoryApproval();
       pollInterval = setInterval(checkNetlifyStoryApproval, 2500);
     }
@@ -96,11 +95,31 @@ export default function DashboardApp({
     setPendingApprovalStory(null);
   };
 
+  const handleSelectTemplate = (item) => {
+    audioEngine.playSfx('click');
+    setPrompt(item.prompt);
+    if (item.voice) setVoiceId(item.voice);
+    if (item.style) setStyleId(item.style);
+    setActiveShort(null);
+    setActiveShortId(null);
+    setPendingApprovalStory(null);
+
+    // Focus textarea
+    setTimeout(() => {
+      const el = document.getElementById('shorts-prompt-input');
+      if (el) el.focus();
+    }, 100);
+  };
+
   const handleNewShort = () => {
     setActiveShortId(null);
     setActiveShort(null);
     setPrompt('');
     setPendingApprovalStory(null);
+    setTimeout(() => {
+      const el = document.getElementById('shorts-prompt-input');
+      if (el) el.focus();
+    }, 100);
   };
 
   // ─── TRIGGER N8N WORKFLOW VIA NETLIFY FUNCTION / BRIDGE ──────────
@@ -131,7 +150,7 @@ export default function DashboardApp({
       });
       if (netlifyRes.ok) {
         sent = true;
-        setGenerationStage('AI Strategy Brain & Topic Analyzer are analyzing topic in n8n Cloud...');
+        setGenerationStage('AI Strategy Brain & Topic Analyzer are generating 5-act story arc in n8n Cloud...');
       }
     } catch (e) {}
 
@@ -145,7 +164,7 @@ export default function DashboardApp({
         });
         if (localRes.ok) {
           sent = true;
-          setGenerationStage('AI Strategy Brain & Topic Analyzer are analyzing topic in n8n Cloud...');
+          setGenerationStage('AI Strategy Brain & Topic Analyzer are generating 5-act story arc in n8n Cloud...');
         }
       } catch (e) {}
     }
@@ -157,7 +176,7 @@ export default function DashboardApp({
   };
 
   const simulateStoryGeneration = () => {
-    setGenerationStage('AI Strategy Brain & Topic Analyzer are analyzing and writing the 5-act story arc...');
+    setGenerationStage('AI Strategy Brain & Topic Analyzer are writing the 5-act story arc...');
     setTimeout(() => {
       setIsGenerating(false);
       setPendingApprovalStory({
@@ -278,26 +297,43 @@ export default function DashboardApp({
         {/* Canvas Body with generous clearance */}
         <div style={{
           flex: 1,
-          padding: '24px 24px 240px 240px',
-          paddingLeft: '24px',
-          maxWidth: '1060px',
+          padding: '24px 24px 220px 24px',
+          maxWidth: '1080px',
           width: '100%',
           margin: '0 auto'
         }}>
+          {/* Back to Canvas header if viewing an existing Short */}
+          {activeShort && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <button
+                onClick={handleNewShort}
+                className="btn-outline"
+                style={{ fontSize: '12.5px', padding: '6px 14px', gap: '6px' }}
+              >
+                <ArrowLeft size={14} />
+                <span>Create New Video</span>
+              </button>
+              <span className="badge badge-brand">
+                Viewing Short: {activeShort.name}
+              </span>
+            </div>
+          )}
+
           {/* Loading Indicator when n8n is writing story */}
           {isGenerating && (
             <div className="saas-card animate-float" style={{
-              padding: '20px',
+              padding: '24px',
               textAlign: 'center',
-              marginBottom: '24px',
-              border: '1px solid var(--border-glow)',
-              background: 'rgba(99, 102, 241, 0.08)'
+              marginBottom: '28px',
+              border: '1.5px solid var(--border-glow)',
+              background: 'rgba(99, 102, 241, 0.09)',
+              boxShadow: '0 8px 32px rgba(99, 102, 241, 0.25)'
             }}>
-              <Loader2 size={28} className="spin-animation" color="var(--accent-primary)" style={{ margin: '0 auto 10px auto' }} />
-              <div className="font-display" style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>
+              <Loader2 size={32} className="spin-animation" color="var(--accent-primary)" style={{ margin: '0 auto 12px auto' }} />
+              <div className="font-display" style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
                 {generationStage}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>
                 Executing in n8n Cloud Workflow: <code>u8vcVLc00wPp2AAI</code>
               </div>
             </div>
@@ -321,55 +357,49 @@ export default function DashboardApp({
             />
           ) : (
             /* Empty State: Inspiration Story Templates */
-            <div style={{ textAlign: 'center', paddingTop: '20px' }}>
-              <div style={{ marginBottom: '24px' }}>
-                <span className="badge badge-brand animate-float" style={{ fontSize: '12px', padding: '6px 14px' }}>
-                  <Sparkles size={13} />
-                  ShortsAI Studio 2.0 Canvas
-                </span>
-                <h2 className="font-display" style={{ fontSize: '32px', fontWeight: 900, marginTop: '12px', letterSpacing: '-0.02em' }}>
-                  What story would you like to create?
-                </h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', maxWidth: '540px', margin: '8px auto 0 auto' }}>
-                  Type your story brief below or select a viral template to test the n8n autonomous video pipeline.
-                </p>
-              </div>
-
-              <TemplateCards
-                onSelectTemplate={(preset) => {
-                  handleSelectPreset(preset.id);
-                }}
-              />
-            </div>
+            <TemplateCards
+              onSelectTemplate={handleSelectTemplate}
+              onSelectPreset={handleSelectPreset}
+            />
           )}
         </div>
 
-        {/* Floating Gemini Prompt Bar (Fixed Bottom Center) */}
+        {/* Floating Prompt Bar (Fixed Bottom Center) */}
         <div style={{
           position: 'fixed',
           bottom: 0,
           left: sidebarCollapsed ? '68px' : '280px',
           right: 0,
-          background: 'linear-gradient(to top, var(--bg-app) 75%, transparent 100%)',
+          background: 'linear-gradient(to top, var(--bg-app) 80%, transparent 100%)',
           padding: '16px 24px 20px 24px',
           display: 'flex',
           justifyContent: 'center',
           zIndex: 100,
           pointerEvents: 'none',
-          transition: 'left 0.25s ease'
+          transition: 'left 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
         }}>
-          <div style={{ width: '100%', maxWidth: '820px', pointerEvents: 'auto' }}>
+          <div style={{ width: '100%', maxWidth: '860px', pointerEvents: 'auto' }}>
             <CanvasPromptBar
               prompt={prompt}
+              setPrompt={setPrompt}
               onPromptChange={setPrompt}
               onSubmit={handleGenerate}
+              onGenerate={handleGenerate}
               isGenerating={isGenerating}
+              voiceId={voiceId}
+              setVoiceId={setVoiceId}
               selectedVoice={voiceId}
               onVoiceChange={setVoiceId}
+              styleId={styleId}
+              setStyleId={setStyleId}
               selectedStyle={styleId}
               onStyleChange={setStyleId}
+              musicId={musicId}
+              setMusicId={setMusicId}
               selectedMusic={musicId}
               onMusicChange={setMusicId}
+              language={language}
+              setLanguage={setLanguage}
               selectedLanguage={language}
               onLanguageChange={setLanguage}
             />
