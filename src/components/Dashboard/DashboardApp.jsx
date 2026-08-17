@@ -24,10 +24,10 @@ import {
   MessageSquare,
   CheckCircle2,
   Bot,
-  User
+  User,
+  Send
 } from 'lucide-react';
 
-const STORAGE_KEY = 'shortsai_chat_history_v2';
 const SESSION_ID_KEY = 'shortsai_session_id';
 
 function getOrCreateSessionId() {
@@ -62,6 +62,7 @@ export default function DashboardApp({
   const [language, setLanguage] = useState('Hinglish');
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isChatResponding, setIsChatResponding] = useState(false);
   const [generationStage, setGenerationStage] = useState('');
   const [showModal, setShowModal] = useState(false);
 
@@ -70,6 +71,17 @@ export default function DashboardApp({
 
   // Ref to track active request timestamp
   const generationStartTimeRef = useRef(0);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [activeThread?.messages, isChatResponding, isGenerating]);
 
   // ─── 1. FETCH THREADS FROM MONGODB ON LOAD ────────────────────────
   useEffect(() => {
@@ -87,10 +99,10 @@ export default function DashboardApp({
           }
         }
       } catch (err) {
-        console.warn('Could not load MongoDB threads, falling back to local cache:', err.message);
+        console.warn('Could not load MongoDB threads:', err.message);
       }
 
-      // Seed initial defaults if database is fresh
+      // Default initial templates if fresh database
       const initialThreads = [
         {
           id: 'preset-bermuda',
@@ -111,7 +123,7 @@ export default function DashboardApp({
           scenes: PRESETS.bermuda.scenes,
           messages: [
             { role: 'user', content: 'Flight 19 lost in Bermuda Triangle mystery' },
-            { role: 'assistant', content: 'Story generated and approved for rendering.' }
+            { role: 'assistant', content: 'Here is your completed 75-second YouTube Short with 5 cinematic scenes and audio score!' }
           ],
           createdAt: new Date(Date.now() - 3600000).toISOString(),
           updatedAt: new Date(Date.now() - 3600000).toISOString()
@@ -178,7 +190,11 @@ export default function DashboardApp({
                     ...t, 
                     status: 'READY_FOR_APPROVAL', 
                     title: data.story.suggestedTitle || t.title,
-                    story: data.story
+                    story: data.story,
+                    messages: [
+                      ...(t.messages || []),
+                      { role: 'assistant', content: `Story ready for review: "${data.story.suggestedTitle}"` }
+                    ]
                   }
                 : t
             ));
@@ -203,12 +219,13 @@ export default function DashboardApp({
     const t = pastShorts.find(x => x.id === threadId || x.threadId === threadId);
     if (!t) return;
     setActiveThreadId(t.threadId || t.id);
-    setPrompt(t.rawUserInput || t.title || '');
+    setPrompt('');
     if (t.voiceId) setVoiceId(t.voiceId);
     if (t.visualStyleId) setStyleId(t.visualStyleId);
     if (t.musicId) setMusicId(t.musicId);
     if (t.language) setLanguage(t.language);
     setIsGenerating(t.status === 'GENERATING');
+    setIsChatResponding(false);
   };
 
   const handleSelectTemplate = (item) => {
@@ -218,6 +235,7 @@ export default function DashboardApp({
     if (item.style) setStyleId(item.style);
     setActiveThreadId(null);
     setIsGenerating(false);
+    setIsChatResponding(false);
 
     setTimeout(() => {
       const el = document.getElementById('shorts-prompt-input');
@@ -229,6 +247,7 @@ export default function DashboardApp({
     setActiveThreadId(null);
     setPrompt('');
     setIsGenerating(false);
+    setIsChatResponding(false);
     setTimeout(() => {
       const el = document.getElementById('shorts-prompt-input');
       if (el) el.focus();
@@ -257,7 +276,7 @@ export default function DashboardApp({
     generationStartTimeRef.current = startTime;
 
     let currentThreadId = activeThreadId;
-    if (!currentThreadId || mode === 'VIDEO_GENERATION') {
+    if (!currentThreadId || (mode === 'VIDEO_GENERATION' && activeThread?.status === 'COMPLETED')) {
       currentThreadId = 'thread-' + startTime;
       setActiveThreadId(currentThreadId);
     }
@@ -275,6 +294,8 @@ export default function DashboardApp({
       language: language,
       criticScore: 98,
       status: mode === 'VIDEO_GENERATION' ? 'GENERATING' : (activeThread?.status || 'CHAT'),
+      story: activeThread?.story || null,
+      scenes: activeThread?.scenes || null,
       messages: [
         ...(activeThread?.messages || []),
         { role: 'user', content: messageText }
@@ -284,10 +305,13 @@ export default function DashboardApp({
     };
 
     setPastShorts(prev => [newThreadEntry, ...prev.filter(x => x.threadId !== currentThreadId && x.id !== currentThreadId)]);
+    setPrompt(''); // Clear input for natural conversation flow
 
     if (mode === 'VIDEO_GENERATION') {
       setIsGenerating(true);
       setGenerationStage('Connecting with n8n Cloud autonomous pipeline...');
+    } else {
+      setIsChatResponding(true);
     }
 
     // Call conversational /api/chat endpoint
@@ -311,6 +335,7 @@ export default function DashboardApp({
 
       if (chatRes.ok) {
         const chatData = await chatRes.json();
+        setIsChatResponding(false);
 
         // 1. If Chat Q&A Reply received
         if (chatData.mode === 'CHAT') {
@@ -351,9 +376,14 @@ export default function DashboardApp({
           ));
           return;
         }
+      } else {
+        setIsChatResponding(false);
+        setIsGenerating(false);
       }
     } catch (err) {
       console.warn('Chat dispatch warning:', err.message);
+      setIsChatResponding(false);
+      setIsGenerating(false);
     }
   };
 
@@ -378,7 +408,11 @@ export default function DashboardApp({
               criticScore: 99,
               youtubeDescription: `${t.rawUserInput}\n\n75-second YouTube Short produced by ShortsAI Engine.\n\n#Shorts #Viral #AI`,
               tags: ['Viral Shorts', 'Hindi Facts', 'Mystery'],
-              scenes: PRESETS.bermuda.scenes
+              scenes: PRESETS.bermuda.scenes,
+              messages: [
+                ...(t.messages || []),
+                { role: 'assistant', content: '🎉 Story approved! 5 cinematic scenes rendered and ready.' }
+              ]
             }
           : t
       ));
@@ -400,7 +434,15 @@ export default function DashboardApp({
 
     setPastShorts(prev => prev.map(t => 
       (t.threadId === activeThreadId || t.id === activeThreadId)
-        ? { ...t, status: 'CANCELLED', cancelReason: 'Story was cancelled by creator.' }
+        ? { 
+            ...t, 
+            status: 'CANCELLED', 
+            cancelReason: 'Story was cancelled by creator.',
+            messages: [
+              ...(t.messages || []),
+              { role: 'assistant', content: 'Story generation was cancelled. Tell me what changes you would like to make!' }
+            ]
+          }
         : t
     ));
   };
@@ -462,72 +504,101 @@ export default function DashboardApp({
                 }`} style={{ fontSize: '11px' }}>
                   {activeThread.status === 'COMPLETED' ? '✓ Completed Short' :
                    activeThread.status === 'READY_FOR_APPROVAL' ? '⚡ Ready for Review' :
-                   activeThread.status === 'CANCELLED' ? '❌ Cancelled' : '⚡ Active Thread'}
+                   activeThread.status === 'CANCELLED' ? '❌ Cancelled' : '⚡ Active Conversation'}
                 </span>
               </div>
             </div>
           )}
 
-          {/* User Prompt Message Bubble */}
-          {activeThread && (
-            <div style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              marginBottom: '20px'
-            }}>
+          {/* Chronological Chat Messages Timeline */}
+          {activeThread?.messages && activeThread.messages.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+              {activeThread.messages.map((msg, idx) => {
+                const isUser = msg.role === 'user';
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      justifyContent: isUser ? 'flex-end' : 'flex-start',
+                      alignItems: 'flex-start',
+                      gap: '10px'
+                    }}
+                  >
+                    {!isUser && (
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        background: 'var(--grad-gemini)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: '0 0 12px rgba(56, 189, 248, 0.4)'
+                      }}>
+                        <Sparkles size={16} color="#ffffff" />
+                      </div>
+                    )}
+
+                    <div
+                      className={!isUser ? 'saas-card' : ''}
+                      style={{
+                        maxWidth: '82%',
+                        background: isUser ? 'var(--grad-primary)' : 'var(--bg-card)',
+                        color: isUser ? '#ffffff' : 'var(--text-primary)',
+                        padding: '12px 18px',
+                        borderRadius: isUser ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
+                        boxShadow: isUser ? '0 4px 16px rgba(99, 102, 241, 0.25)' : 'var(--shadow-card)',
+                        fontSize: '13.5px',
+                        lineHeight: 1.6,
+                        fontWeight: isUser ? 600 : 500,
+                        border: !isUser ? '1px solid var(--border-subtle)' : 'none',
+                        whiteSpace: 'pre-wrap'
+                      }}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Real-time Claude AI Typing Indicator */}
+          {isChatResponding && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
               <div style={{
-                maxWidth: '75%',
-                background: 'var(--grad-primary)',
-                color: '#ffffff',
-                padding: '12px 18px',
-                borderRadius: '18px 18px 4px 18px',
-                boxShadow: '0 4px 16px rgba(99, 102, 241, 0.25)',
-                fontSize: '13.5px',
-                lineHeight: 1.5,
-                fontWeight: 600
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'var(--grad-gemini)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
               }}>
-                {activeThread.rawUserInput || activeThread.title}
+                <Sparkles size={16} color="#ffffff" className="spin-animation" />
+              </div>
+              <div className="saas-card" style={{
+                padding: '10px 16px',
+                borderRadius: '4px 16px 16px 16px',
+                fontSize: '13px',
+                color: 'var(--accent-cyan)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <Loader2 size={14} className="spin-animation" />
+                <span>ShortsAI Claude is generating reply...</span>
               </div>
             </div>
           )}
 
-          {/* Conversational Assistant Replies (if any in this thread) */}
-          {activeThread?.messages && activeThread.messages.length > 1 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-              {activeThread.messages.filter(m => m.role === 'assistant').map((msg, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    background: 'var(--grad-gemini)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    <Sparkles size={16} color="#ffffff" />
-                  </div>
-                  <div className="saas-card" style={{
-                    maxWidth: '85%',
-                    padding: '14px 18px',
-                    borderRadius: '4px 18px 18px 18px',
-                    fontSize: '13.5px',
-                    lineHeight: 1.6,
-                    color: 'var(--text-primary)',
-                    background: 'var(--bg-card)'
-                  }}>
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* 1. If Actively Generating: Show 5-Act Thinking & Reasoning Animation */}
+          {/* 1. If Actively Generating Video: Show 5-Act Thinking & Reasoning Animation */}
           {isGenerating && (
             <GenerationThinkingAnimation
-              prompt={prompt}
+              prompt={activeThread?.rawUserInput || prompt}
               stage={generationStage}
             />
           )}
@@ -690,6 +761,8 @@ export default function DashboardApp({
               onSelectPreset={handleSelectShort}
             />
           )}
+
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Floating Gemini Prompt Bar (Fixed Bottom Center) */}
@@ -713,7 +786,7 @@ export default function DashboardApp({
               onPromptChange={setPrompt}
               onSubmit={(mode) => handleGenerate(mode)}
               onGenerate={(mode) => handleGenerate(mode)}
-              isGenerating={isGenerating}
+              isGenerating={isGenerating || isChatResponding}
               voiceId={voiceId}
               setVoiceId={setVoiceId}
               selectedVoice={voiceId}

@@ -1,27 +1,26 @@
 // Netlify Function: chat.js
 // Path: /.netlify/functions/chat
-// Conversational AI Engine with fast fallback and zero secret exposure
+// 100% REAL Claude Sonnet 5 API Integration with Dual-Key Rotation & MongoDB Atlas Memory
 
 import { getDb } from './db.js';
 
-const CLAUDE_KEYS = [
-  process.env.CLAUDE_API_KEY_1,
-  process.env.CLAUDE_API_KEY_2
-].filter(Boolean);
+const CLAUDE_BASE_URL = process.env.CLAUDE_BASE_URL || 'https://api.llmsrelay.com';
 
-const CLAUDE_BASE_URL = process.env.CLAUDE_BASE_URL || 'https://api3.claudestore.store';
+const CLAUDE_KEYS = [
+  process.env.CLAUDE_API_KEY_1 || 'sk-cs4-13029e38c50d4d22f101da2230b9877fa84b1c7f27c8792a',
+  process.env.CLAUDE_API_KEY_2 || 'sk-cs4-db2641233a8fbbd2e619a57ddd3acd8a1fb8fddf163b1923'
+];
+
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg22.app.n8n.cloud/webhook/viral-shorts-ai';
 
-// Fast Claude AI caller with short timeout (max 2s) to prevent Netlify 500 timeouts
-async function callClaudeAI(systemPrompt, messages, maxTokens = 800) {
-  if (CLAUDE_KEYS.length === 0) return null;
+// Real Claude API Caller with Automatic Dual-Key Rotation
+async function callClaudeAI(systemPrompt, messages, maxTokens = 1200) {
+  let lastError = null;
 
   for (let i = 0; i < CLAUDE_KEYS.length; i++) {
     const key = CLAUDE_KEYS[i];
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2200);
-
+      // 1. Primary: OpenAI-compatible endpoint on api.llmsrelay.com
       const res = await fetch(`${CLAUDE_BASE_URL}/v1/chat/completions`, {
         method: 'POST',
         headers: {
@@ -34,61 +33,51 @@ async function callClaudeAI(systemPrompt, messages, maxTokens = 800) {
             { role: 'system', content: systemPrompt },
             ...messages
           ],
-          max_tokens: maxTokens
-        }),
-        signal: controller.signal
+          max_tokens: maxTokens,
+          temperature: 0.7
+        })
       });
-
-      clearTimeout(timeoutId);
 
       if (res.ok) {
         const json = await res.json();
         const content = json.choices?.[0]?.message?.content;
-        if (content) return content;
+        if (content && content.trim()) {
+          return content.trim();
+        }
       }
+
+      // 2. Secondary: Anthropic /v1/messages endpoint on api.llmsrelay.com
+      const anthropicRes = await fetch(`${CLAUDE_BASE_URL}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-5',
+          system: systemPrompt,
+          messages: messages,
+          max_tokens: maxTokens
+        })
+      });
+
+      if (anthropicRes.ok) {
+        const json = await anthropicRes.json();
+        const content = json.content?.[0]?.text;
+        if (content && content.trim()) {
+          return content.trim();
+        }
+      }
+
+      console.warn(`Claude Key ${i + 1} returned non-200. Rotating to next key...`);
     } catch (err) {
-      // Continue to next key or fallback
+      console.warn(`Claude Key ${i + 1} request error: ${err.message}. Rotating to next key...`);
+      lastError = err;
     }
   }
 
-  return null;
-}
-
-// Built-in intelligent conversational responder for instant replies (<50ms)
-function generateIntelligentReply(userMessage) {
-  const lower = userMessage.toLowerCase().trim();
-
-  if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('introduce')) {
-    return `👋 I am **ShortsAI**, your autonomous AI YouTube Shorts & Reels producer!
-
-Here is what I can do for you:
-1. 🎬 **End-to-End Video Production:** Give me any topic, and I'll generate a complete 5-act cinematic screenplay (75 seconds), voiceover, and visual scenes.
-2. ✍️ **Story Refinement:** Review the generated story and say *"improve the hook"* or *"make it darker"* to refine the script instantly.
-3. 💡 **Viral Strategy Coaching:** Ask me anything about 3-second retention hooks, YouTube algorithms, sound design, and SEO tags.
-
-Try typing any topic or question to get started! 🚀`;
-  }
-
-  if (lower.includes('hook') || lower.includes('retention') || lower.includes('algorithm')) {
-    return `🎯 **The 3-Second Viral Hook Formula:**
-
-1. **Pattern Interrupt:** Never start with "Hey guys, welcome back". Start with an impossible question or shocking statement (*"What happened above Flight 19 was never meant to be heard..."*).
-2. **Visual Pacing:** Cut visual scenes every 3.5 to 4 seconds to reset viewer dopamine.
-3. **Delayed Climax:** Reveal the critical answer only in **Scene 4 (45-60s)** so viewers watch through the 100% completion mark.
-
-Want me to create a high-retention video on a specific topic? Tell me your idea! 🎬`;
-  }
-
-  return `I've analyzed your question: **"${userMessage}"**. 
-
-In high-conversion short-form content, maintaining continuous curiosity loops is the key to millions of views. 
-
-You can ask me to:
-- 🎬 Generate a 75-second viral video on any topic
-- ✏️ Refine any existing story brief
-- 🎙️ Adjust tone, pacing, and voice modulation
-
-What would you like to build next?`;
+  throw new Error(`All Claude API keys failed: ${lastError ? lastError.message : 'Unknown error'}`);
 }
 
 export const handler = async (event, context) => {
@@ -128,12 +117,12 @@ export const handler = async (event, context) => {
     const currentSessionId = sessionId || 'default-session';
     const now = new Date();
 
-    // Safe DB access
-    let db;
+    // 1. Connect to MongoDB Atlas and persist user message
+    let db = null;
     try {
       db = await getDb();
     } catch (e) {
-      console.warn('DB connect warning:', e.message);
+      console.warn('MongoDB connection notice:', e.message);
     }
 
     if (db) {
@@ -149,7 +138,28 @@ export const handler = async (event, context) => {
       } catch (e) {}
     }
 
-    // ─── 1. MODE: REFINE_STORY ───────────────────────────────────────
+    // 2. Fetch conversational context from MongoDB
+    let conversationHistory = [];
+    if (db) {
+      try {
+        const historyDocs = await db.collection('messages')
+          .find({ threadId: currentThreadId })
+          .sort({ timestamp: 1 })
+          .limit(10)
+          .toArray();
+
+        conversationHistory = historyDocs.map(m => ({
+          role: m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.content
+        }));
+      } catch (e) {}
+    }
+
+    if (conversationHistory.length === 0) {
+      conversationHistory = [{ role: 'user', content: message.trim() }];
+    }
+
+    // ─── MODE A: REFINE_STORY (Real Claude Screenplay Refinement) ──────
     if (mode === 'REFINE_STORY') {
       let currentStory = null;
       if (db) {
@@ -159,23 +169,40 @@ export const handler = async (event, context) => {
         } catch (e) {}
       }
 
-      const systemPrompt = `You are ShortsAI Screenplay Expert. Refine this 75s story brief based on: "${message}". Output JSON only: { "message": "...", "suggestedTitle": "...", "viralHook": "...", "storyBrief": "...", "genre": "..." }`;
-      const aiReplyText = await callClaudeAI(systemPrompt, [{ role: 'user', content: message }]);
-      
-      let parsed = null;
-      if (aiReplyText) {
-        try {
-          parsed = JSON.parse(aiReplyText.replace(/```json/g, '').replace(/```/g, '').trim());
-        } catch (e) {}
-      }
+      const systemPrompt = `You are ShortsAI Screenplay Expert. The creator has an existing 75-second YouTube Short story brief and wants to improve/refine it based on their instructions.
 
-      if (!parsed) {
+Current Story:
+- Title: "${currentStory?.suggestedTitle || 'Unknown'}"
+- Viral Hook: "${currentStory?.viralHook || 'None'}"
+- Story Brief: "${currentStory?.storyBrief || 'None'}"
+- Language: "${settings.language || 'Hinglish'}"
+- Visual Style: "${settings.visualStyle || 'Cinematic Realistic'}"
+
+Creator's Instruction: "${message}"
+
+Output ONLY a valid JSON object formatted EXACTLY as:
+{
+  "message": "Direct, professional explanation of what changes you made",
+  "suggestedTitle": "New catchy title (max 50 chars)",
+  "viralHook": "Shocking 3-second opening hook in ${settings.language || 'Hinglish'}",
+  "storyBrief": "5-Scene detailed narrative brief covering 0-15s, 15-30s, 30-45s, 45-60s, 60-75s",
+  "genre": "Genre or viral niche"
+}
+Do NOT wrap in markdown code fences or add extraneous text. Return raw JSON.`;
+
+      const aiReplyText = await callClaudeAI(systemPrompt, conversationHistory, 1500);
+
+      let parsed = null;
+      try {
+        const clean = aiReplyText.replace(/```json/g, '').replace(/```/g, '').trim();
+        parsed = JSON.parse(clean);
+      } catch (e) {
         parsed = {
-          message: `I've refined your story brief with a higher-intensity hook and sharper suspense: "${message}"!`,
-          suggestedTitle: (currentStory?.suggestedTitle || message).replace(/!+$/, '') + ' - Refined Edition 😱',
-          viralHook: `पहले 3 सेकंड में दर्शकों को हिला देने वाला नया हुक: ${message.substring(0, 40)}...`,
-          storyBrief: `Scene 1 (0-15s): Dramatic opening hook introducing the mystery.\nScene 2 (15-30s): Tense discovery and evidence exploration.\nScene 3 (30-45s): The shocking turning point.\nScene 4 (45-60s): Climax resolution and impossible facts.\nScene 5 (60-75s): Final wisdom and subscribe call-to-action.`,
-          genre: currentStory?.genre || 'Viral Story'
+          message: aiReplyText,
+          suggestedTitle: (currentStory?.suggestedTitle || message).substring(0, 45),
+          viralHook: `Hook refined: ${message.substring(0, 40)}...`,
+          storyBrief: aiReplyText,
+          genre: currentStory?.genre || 'Viral Short'
         };
       }
 
@@ -192,9 +219,26 @@ export const handler = async (event, context) => {
         try {
           await db.collection('threads').updateOne(
             { threadId: currentThreadId },
-            { $set: { story: updatedStory, title: parsed.suggestedTitle, status: 'READY_FOR_APPROVAL', updatedAt: now } },
+            {
+              $set: {
+                story: updatedStory,
+                title: parsed.suggestedTitle,
+                status: 'READY_FOR_APPROVAL',
+                updatedAt: now
+              }
+            },
             { upsert: true }
           );
+
+          await db.collection('messages').insertOne({
+            threadId: currentThreadId,
+            sessionId: currentSessionId,
+            role: 'assistant',
+            content: parsed.message,
+            storyUpdate: updatedStory,
+            mode: 'REFINE_STORY',
+            timestamp: now
+          });
         } catch (e) {}
       }
 
@@ -211,14 +255,13 @@ export const handler = async (event, context) => {
       };
     }
 
-    // ─── 2. MODE: GENERAL CHAT Q&A ──────────────────────────────────
+    // ─── MODE B: GENERAL CONVERSATIONAL AI CHAT (Real Claude Reply) ───
     if (mode === 'CHAT') {
-      const systemPrompt = `You are ShortsAI Assistant. Answer concisely and inspiringly about YouTube Shorts strategy and viral content.`;
-      let aiReplyText = await callClaudeAI(systemPrompt, [{ role: 'user', content: message }]);
+      const systemPrompt = `You are ShortsAI, a professional viral YouTube Shorts and Reels AI strategist and producer. 
+Answer creator questions about viral video creation, retention hooks, pacing, YouTube algorithms, storytelling psychology, scripts, and video marketing.
+Be intelligent, engaging, helpful, and concise. Use clean formatting and tasteful emojis.`;
 
-      if (!aiReplyText) {
-        aiReplyText = generateIntelligentReply(message);
-      }
+      const aiReplyText = await callClaudeAI(systemPrompt, conversationHistory, 1000);
 
       if (db) {
         try {
@@ -228,7 +271,7 @@ export const handler = async (event, context) => {
             role: 'assistant',
             content: aiReplyText,
             mode: 'CHAT',
-            timestamp: new Date()
+            timestamp: now
           });
         } catch (e) {}
       }
@@ -245,7 +288,7 @@ export const handler = async (event, context) => {
       };
     }
 
-    // ─── 3. MODE: VIDEO GENERATION (N8N DISPATCH) ───────────────────
+    // ─── MODE C: VIDEO GENERATION (DISPATCH TO N8N) ────────────────────
     const host = event.headers?.host || 'viral-shorts-ai-studio.netlify.app';
     const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
 
@@ -270,7 +313,7 @@ export const handler = async (event, context) => {
       } catch (e) {}
     }
 
-    // Dispatch asynchronously to n8n Cloud Webhook
+    // Dispatch to n8n Cloud Webhook
     fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -284,7 +327,7 @@ export const handler = async (event, context) => {
         sessionId: currentSessionId,
         timestamp: now.toISOString()
       })
-    }).catch(() => {});
+    }).catch(e => console.warn('n8n dispatch warning:', e.message));
 
     return {
       statusCode: 200,
@@ -300,14 +343,9 @@ export const handler = async (event, context) => {
   } catch (err) {
     console.error('Chat API Error:', err);
     return {
-      statusCode: 200, // Return 200 with fallback to never break the UI
+      statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        status: 'CHAT_REPLY',
-        mode: 'CHAT',
-        message: generateIntelligentReply('Hello'),
-        threadId: 'fallback'
-      })
+      body: JSON.stringify({ error: err.message })
     };
   }
 };
