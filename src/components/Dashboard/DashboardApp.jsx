@@ -18,13 +18,15 @@ import {
   ArrowLeft, 
   XCircle, 
   AlertTriangle, 
+  AlertCircle,
   RefreshCw, 
   Wand2, 
   MessageSquare,
   CheckCircle2,
   Bot,
   User,
-  Send
+  Send,
+  ExternalLink
 } from 'lucide-react';
 
 const SESSION_ID_KEY = 'shortsai_session_id';
@@ -291,7 +293,6 @@ export default function DashboardApp({
 
     const messageText = rawText.trim();
     const mode = overrideMode || detectMode(messageText);
-    audioEngine.playSfx('boom');
 
     const startTime = Date.now();
     generationStartTimeRef.current = startTime;
@@ -328,11 +329,9 @@ export default function DashboardApp({
     setPastShorts(prev => [newThreadEntry, ...prev.filter(x => x.threadId !== currentThreadId && x.id !== currentThreadId)]);
     setPrompt('');
 
-    if (mode === 'VIDEO_GENERATION') {
-      setIsGenerating(true);
-      setGenerationStage('Connecting with n8n Cloud autonomous pipeline...');
-    } else {
+    if (mode === 'CHAT') {
       setIsChatResponding(true);
+      audioEngine.playSfx('click');
     }
 
     // Call conversational /api/chat endpoint (pure n8n webhook for VIDEO, Claude for CHAT)
@@ -354,57 +353,97 @@ export default function DashboardApp({
         })
       });
 
-      if (chatRes.ok) {
-        const chatData = await chatRes.json();
-        setIsChatResponding(false);
+      const chatData = await chatRes.json();
+      setIsChatResponding(false);
 
-        // 1. If Chat Q&A Reply received
-        if (chatData.mode === 'CHAT') {
-          audioEngine.playSfx('success');
+      // Handle Video Mode Response from n8n Webhook
+      if (mode === 'VIDEO_GENERATION') {
+        if (chatRes.ok && chatData.success !== false) {
+          // n8n Webhook was ACCEPTED! Start live generation animation
+          audioEngine.playSfx('boom');
+          setIsGenerating(true);
+          setGenerationStage('Connecting with n8n Cloud autonomous pipeline...');
+          setPastShorts(prev => prev.map(t =>
+            (t.threadId === currentThreadId || t.id === currentThreadId)
+              ? { ...t, status: 'GENERATING' }
+              : t
+          ));
+        } else {
+          // n8n Webhook REJECTED (Workflow is inactive / not published)
+          audioEngine.playSfx('click');
           setIsGenerating(false);
-          setPastShorts(prev => prev.map(t => 
+          setPastShorts(prev => prev.map(t =>
             (t.threadId === currentThreadId || t.id === currentThreadId)
               ? {
                   ...t,
-                  status: 'CHAT',
+                  status: 'WORKFLOW_INACTIVE',
+                  errorMessage: chatData.message || 'Workflow u8vcVLc00wPp2AAI is currently inactive / not published on n8n Cloud.',
                   messages: [
                     ...(t.messages || []),
-                    { role: 'assistant', content: chatData.message }
+                    {
+                      role: 'assistant',
+                      content: `⚠️ **n8n Workflow is Inactive / Not Published**\n\n${chatData.message || 'The webhook was not accepted because the workflow is not active.'}\n\nPlease toggle the **Active** switch in your n8n Cloud editor to start generation.`
+                    }
                   ]
                 }
               : t
           ));
-          return;
         }
+        return;
+      }
 
-        // 2. If Story Refinement Reply received
-        if (chatData.mode === 'REFINE_STORY') {
-          audioEngine.playSfx('success');
-          setIsGenerating(false);
-          setPastShorts(prev => prev.map(t => 
-            (t.threadId === currentThreadId || t.id === currentThreadId)
-              ? {
-                  ...t,
-                  status: 'READY_FOR_APPROVAL',
-                  title: chatData.story?.suggestedTitle || t.title,
-                  story: chatData.story,
-                  messages: [
-                    ...(t.messages || []),
-                    { role: 'assistant', content: chatData.message }
-                  ]
-                }
-              : t
-          ));
-          return;
-        }
-      } else {
-        setIsChatResponding(false);
+      // Handle Chat Q&A Reply received from Claude
+      if (chatData.mode === 'CHAT') {
+        audioEngine.playSfx('success');
         setIsGenerating(false);
+        setPastShorts(prev => prev.map(t => 
+          (t.threadId === currentThreadId || t.id === currentThreadId)
+            ? {
+                ...t,
+                status: 'CHAT',
+                messages: [
+                  ...(t.messages || []),
+                  { role: 'assistant', content: chatData.message }
+                ]
+              }
+            : t
+        ));
+        return;
+      }
+
+      // Handle Story Refinement Reply received from Claude
+      if (chatData.mode === 'REFINE_STORY') {
+        audioEngine.playSfx('success');
+        setIsGenerating(false);
+        setPastShorts(prev => prev.map(t => 
+          (t.threadId === currentThreadId || t.id === currentThreadId)
+            ? {
+                ...t,
+                status: 'READY_FOR_APPROVAL',
+                title: chatData.story?.suggestedTitle || t.title,
+                story: chatData.story,
+                messages: [
+                  ...(t.messages || []),
+                  { role: 'assistant', content: chatData.message }
+                ]
+              }
+            : t
+        ));
+        return;
       }
     } catch (err) {
       console.warn('Chat dispatch warning:', err.message);
       setIsChatResponding(false);
       setIsGenerating(false);
+      setPastShorts(prev => prev.map(t =>
+        (t.threadId === currentThreadId || t.id === currentThreadId)
+          ? {
+              ...t,
+              status: 'WORKFLOW_INACTIVE',
+              errorMessage: `Network error connecting to n8n Cloud: ${err.message}`
+            }
+          : t
+      ));
     }
   };
 
@@ -542,11 +581,13 @@ export default function DashboardApp({
                   activeThread.status === 'COMPLETED' ? 'badge-cyan' :
                   activeThread.status === 'SCENES_READY_FOR_APPROVAL' ? 'badge-cyan' :
                   activeThread.status === 'READY_FOR_APPROVAL' ? 'badge-brand' :
+                  activeThread.status === 'WORKFLOW_INACTIVE' ? 'badge-dark' :
                   activeThread.status === 'CANCELLED' ? 'badge-dark' : 'badge-brand'
                 }`} style={{ fontSize: '11px' }}>
                   {activeThread.status === 'COMPLETED' ? '✓ Completed Short' :
                    activeThread.status === 'SCENES_READY_FOR_APPROVAL' ? '🎬 Final 5 Scenes Review' :
                    activeThread.status === 'READY_FOR_APPROVAL' ? '⚡ Stage 1 Story Review' :
+                   activeThread.status === 'WORKFLOW_INACTIVE' ? '⚠️ Workflow Inactive' :
                    activeThread.status === 'CANCELLED' ? '❌ Cancelled' : '⚡ Active n8n Pipeline'}
                 </span>
               </div>
@@ -647,7 +688,75 @@ export default function DashboardApp({
             />
           )}
 
-          {/* 2. If Story or Final 5 Scenes Ready for Approval: Show StoryApprovalCard */}
+          {/* 2. If Workflow Inactive / Not Published Alert: Show Real Status Card */}
+          {activeThread && activeThread.status === 'WORKFLOW_INACTIVE' && !isGenerating && (
+            <div className="saas-card animate-float" style={{
+              padding: '24px',
+              borderRadius: '20px',
+              border: '1.5px solid rgba(239, 68, 68, 0.4)',
+              background: 'rgba(239, 68, 68, 0.05)',
+              boxShadow: 'var(--shadow-card)',
+              marginBottom: '24px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '16px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ef4444',
+                  flexShrink: 0
+                }}>
+                  <AlertCircle size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15.5px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                    n8n Workflow is Inactive / Not Published
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    {activeThread.errorMessage || 'The video generation webhook was rejected because workflow u8vcVLc00wPp2AAI is not currently active on n8n Cloud.'}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                    💡 <strong>How to fix:</strong> Open your workflow in n8n Cloud and switch the <strong>Active</strong> toggle in the top-right corner to <strong>Active</strong>.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                <a
+                  href="https://cmpunktg22.app.n8n.cloud/workflow/u8vcVLc00wPp2AAI"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-glow"
+                  style={{
+                    fontSize: '12px',
+                    padding: '7px 16px',
+                    gap: '6px',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <ExternalLink size={13} />
+                  <span>Open Workflow in n8n Cloud</span>
+                </a>
+
+                <button
+                  onClick={() => handleGenerate('VIDEO_GENERATION', activeThread.rawUserInput)}
+                  className="btn-outline"
+                  style={{ fontSize: '12px', padding: '7px 16px', gap: '6px' }}
+                >
+                  <RefreshCw size={13} />
+                  <span>Retry Pipeline</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 3. If Story or Final 5 Scenes Ready for Approval: Show StoryApprovalCard */}
           {activeThread && (activeThread.status === 'READY_FOR_APPROVAL' || activeThread.status === 'SCENES_READY_FOR_APPROVAL') && (activeThread.story || activeThread.scenes) && !isGenerating && (
             <StoryApprovalCard
               story={activeThread.story || activeThread}
@@ -657,7 +766,7 @@ export default function DashboardApp({
             />
           )}
 
-          {/* 3. If Cancelled: Show Graceful Conversational Cancellation Card */}
+          {/* 4. If Cancelled: Show Graceful Conversational Cancellation Card */}
           {activeThread && activeThread.status === 'CANCELLED' && !isGenerating && (
             <div className="saas-card animate-float" style={{
               padding: '24px',
@@ -737,7 +846,7 @@ export default function DashboardApp({
             </div>
           )}
 
-          {/* 4. If Duplicate Topic Alert: Show Warning with Angle Twist */}
+          {/* 5. If Duplicate Topic Alert: Show Warning with Angle Twist */}
           {activeThread && activeThread.status === 'DUPLICATE_TOPIC' && !isGenerating && (
             <div className="saas-card animate-float" style={{
               padding: '24px',
@@ -790,7 +899,7 @@ export default function DashboardApp({
             </div>
           )}
 
-          {/* 5. If Completed Video: Show Full Result Card with Real n8n Scenes */}
+          {/* 6. If Completed Video: Show Full Result Card with Real n8n Scenes */}
           {activeThread && activeThread.status === 'COMPLETED' && !isGenerating && (
             <ResultThreadCard
               key={activeThread.id || activeThread.threadId}
@@ -799,7 +908,7 @@ export default function DashboardApp({
             />
           )}
 
-          {/* 6. If Empty Canvas: Show Inspiration Templates */}
+          {/* 7. If Empty Canvas: Show Inspiration Templates */}
           {!activeThread && !isGenerating && (
             <TemplateCards
               onSelectTemplate={handleSelectTemplate}

@@ -1,9 +1,10 @@
-// Netlify Function: chat.js
+// Netlify Function: chat
 // Path: /.netlify/functions/chat
-// 100% REAL Claude Sonnet 5 API Integration with Dual-Key Rotation & MongoDB Atlas Memory
+// Hybrid Routing: /video -> Direct n8n Cloud Webhook, /chat -> Real Claude Sonnet 5 Relay
 
 import { getDb } from './db.js';
 
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg22.app.n8n.cloud/webhook/viral-shorts-ai';
 const CLAUDE_BASE_URL = process.env.CLAUDE_BASE_URL || 'https://api.llmsrelay.com';
 
 const CLAUDE_KEYS = [
@@ -11,16 +12,18 @@ const CLAUDE_KEYS = [
   process.env.CLAUDE_API_KEY_2 || 'sk-cs4-db2641233a8fbbd2e619a57ddd3acd8a1fb8fddf163b1923'
 ];
 
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg22.app.n8n.cloud/webhook/viral-shorts-ai';
+async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000) {
+  const messages = conversationHistory.map(m => ({
+    role: m.role === 'user' ? 'user' : 'assistant',
+    content: m.content || m.text || ''
+  }));
 
-// Real Claude API Caller with Automatic Dual-Key Rotation
-async function callClaudeAI(systemPrompt, messages, maxTokens = 1200) {
   let lastError = null;
 
   for (let i = 0; i < CLAUDE_KEYS.length; i++) {
     const key = CLAUDE_KEYS[i];
     try {
-      // 1. Primary: OpenAI-compatible endpoint on api.llmsrelay.com
+      // 1. Try OpenAI-compatible endpoint
       const res = await fetch(`${CLAUDE_BASE_URL}/v1/chat/completions`, {
         method: 'POST',
         headers: {
@@ -46,7 +49,7 @@ async function callClaudeAI(systemPrompt, messages, maxTokens = 1200) {
         }
       }
 
-      // 2. Secondary: Anthropic /v1/messages endpoint on api.llmsrelay.com
+      // 2. Fallback to native Anthropic messages endpoint
       const anthropicRes = await fetch(`${CLAUDE_BASE_URL}/v1/messages`, {
         method: 'POST',
         headers: {
@@ -292,6 +295,110 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
     const host = event.headers?.host || 'viral-shorts-ai-studio.netlify.app';
     const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
 
+    let n8nRes;
+    try {
+      n8nRes = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: message.trim(),
+          voiceId: settings.voiceId || 'adam',
+          visualStyle: settings.visualStyle || 'Cinematic Realistic',
+          language: settings.language || 'Hinglish',
+          callbackUrl,
+          threadId: currentThreadId,
+          sessionId: currentSessionId,
+          timestamp: now.toISOString()
+        })
+      });
+    } catch (e) {
+      console.error('[Netlify] n8n Webhook Network Error:', e.message);
+
+      if (db) {
+        try {
+          await db.collection('threads').updateOne(
+            { threadId: currentThreadId },
+            {
+              $set: {
+                status: 'WORKFLOW_INACTIVE',
+                errorMessage: `Could not reach n8n Cloud webhook: ${e.message}`,
+                updatedAt: now
+              }
+            }
+          );
+        } catch (dbErr) {}
+      }
+
+      return {
+        statusCode: 502,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          error: 'N8N_UNREACHABLE',
+          message: `Failed to connect to n8n Cloud webhook (${e.message}). Please verify n8n is online and active.`,
+          threadId: currentThreadId
+        })
+      };
+    }
+
+    const n8nStatus = n8nRes.status;
+    const n8nResponse = await n8nRes.text();
+    console.log('[Netlify] n8n Cloud Webhook HTTP Status:', n8nStatus, 'Body:', n8nResponse);
+
+    // If n8n returned 404/500/etc. (Workflow is NOT published / NOT active)
+    if (!n8nRes.ok) {
+      let errorDetail = 'The workflow must be active / published in n8n Cloud to receive video generation requests.';
+      try {
+        const errJson = JSON.parse(n8nResponse);
+        if (errJson.message) errorDetail = errJson.message;
+        if (errJson.hint) errorDetail += ' (' + errJson.hint + ')';
+      } catch (parseErr) {}
+
+      if (db) {
+        try {
+          await db.collection('threads').updateOne(
+            { threadId: currentThreadId },
+            {
+              $set: {
+                threadId: currentThreadId,
+                sessionId: currentSessionId,
+                rawUserInput: message.trim(),
+                title: message.trim(),
+                status: 'WORKFLOW_INACTIVE',
+                errorMessage: errorDetail,
+                n8nStatus,
+                updatedAt: now
+              },
+              $setOnInsert: { createdAt: now }
+            },
+            { upsert: true }
+          );
+
+          await db.collection('messages').insertOne({
+            threadId: currentThreadId,
+            sessionId: currentSessionId,
+            role: 'assistant',
+            content: `⚠️ **n8n Workflow is Inactive / Not Published** (HTTP ${n8nStatus})\n\n${errorDetail}\n\n👉 **To fix:** Open your n8n workflow (\`u8vcVLc00wPp2AAI\`) and toggle the **Active** switch in the top right to **Active/Published**, then click Retry.`,
+            status: 'WORKFLOW_INACTIVE',
+            timestamp: now
+          });
+        } catch (dbErr) {}
+      }
+
+      return {
+        statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          error: 'WORKFLOW_NOT_PUBLISHED',
+          message: errorDetail,
+          n8nStatus,
+          threadId: currentThreadId
+        })
+      };
+    }
+
+    // Workflow is ACTIVE & Webhook Accepted!
     if (db) {
       try {
         await db.collection('threads').updateOne(
@@ -313,35 +420,11 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
       } catch (e) {}
     }
 
-    // AWAIT dispatch to n8n Cloud Webhook so serverless execution doesn't terminate early!
-    let n8nStatus = 200;
-    let n8nResponse = '';
-    try {
-      const n8nRes = await fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: message.trim(),
-          voiceId: settings.voiceId || 'adam',
-          visualStyle: settings.visualStyle || 'Cinematic Realistic',
-          language: settings.language || 'Hinglish',
-          callbackUrl,
-          threadId: currentThreadId,
-          sessionId: currentSessionId,
-          timestamp: now.toISOString()
-        })
-      });
-      n8nStatus = n8nRes.status;
-      n8nResponse = await n8nRes.text();
-      console.log('[Netlify] n8n Cloud triggered successfully! Status:', n8nStatus, 'Response:', n8nResponse);
-    } catch (e) {
-      console.error('[Netlify] Error triggering n8n Cloud:', e.message);
-    }
-
     return {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        success: true,
         status: 'PROCESSING',
         mode: 'VIDEO_GENERATION',
         message: 'Prompt dispatched to autonomous video pipeline.',
