@@ -549,14 +549,17 @@ export default function DashboardApp({
     const isStage2 = activeThread?.status === 'SCENES_READY_FOR_APPROVAL';
 
     try {
-      // 1. Resume n8n execution
+      // 1. Resume n8n execution with refined story payload
       await fetch('/.netlify/functions/approve-story', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           approveUrl,
           threadId: activeThreadId,
-          action: 'APPROVE'
+          sessionId,
+          action: 'APPROVE',
+          story: activeThread?.story || null,
+          refinedStory: activeThread?.story || null
         })
       });
 
