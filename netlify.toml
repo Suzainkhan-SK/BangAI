@@ -1,0 +1,21 @@
+# Netlify Configuration for ShortsAI Studio
+[build]
+  publish = "dist"
+  command = "npm run build"
+  functions = "netlify/functions"
+
+# Handle SPA Routing (Redirect all routes to index.html)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security and CORS Headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
