@@ -265,10 +265,11 @@ export default function DashboardApp({
   };
 
   // ─── UNIVERSAL CONVERSATIONAL MESSAGE & DISPATCH HANDLER ─────────
-  const handleGenerate = async (overrideMode) => {
-    if (!prompt.trim()) return;
+  const handleGenerate = async (overrideMode, overridePrompt) => {
+    const rawText = (overridePrompt !== undefined ? overridePrompt : prompt) || '';
+    if (!rawText.trim()) return;
 
-    const messageText = prompt.trim();
+    const messageText = rawText.trim();
     const mode = overrideMode || detectMode(messageText);
     audioEngine.playSfx('boom');
 
@@ -784,8 +785,8 @@ export default function DashboardApp({
               prompt={prompt}
               setPrompt={setPrompt}
               onPromptChange={setPrompt}
-              onSubmit={(mode) => handleGenerate(mode)}
-              onGenerate={(mode) => handleGenerate(mode)}
+              onSubmit={(mode, customPrompt) => handleGenerate(mode, customPrompt)}
+              onGenerate={(mode, customPrompt) => handleGenerate(mode, customPrompt)}
               isGenerating={isGenerating || isChatResponding}
               voiceId={voiceId}
               setVoiceId={setVoiceId}
