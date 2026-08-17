@@ -368,17 +368,17 @@ export default function DashboardApp({
         <div style={{
           position: 'fixed',
           bottom: 0,
-          left: sidebarCollapsed ? '68px' : '280px',
+          left: sidebarCollapsed ? '52px' : '200px',
           right: 0,
           background: 'linear-gradient(to top, var(--bg-app) 80%, transparent 100%)',
-          padding: '16px 24px 20px 24px',
+          padding: '12px 20px 16px 20px',
           display: 'flex',
           justifyContent: 'center',
           zIndex: 100,
           pointerEvents: 'none',
-          transition: 'left 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+          transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
         }}>
-          <div style={{ width: '100%', maxWidth: '860px', pointerEvents: 'auto' }}>
+          <div style={{ width: '100%', maxWidth: '780px', pointerEvents: 'auto' }}>
             <CanvasPromptBar
               prompt={prompt}
               setPrompt={setPrompt}
