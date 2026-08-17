@@ -2,16 +2,8 @@ import React from 'react';
 import { 
   Sparkles, 
   ArrowRight, 
-  Flame, 
-  Brain, 
-  DollarSign, 
-  Compass, 
-  Film, 
-  Wand2,
-  Zap,
-  TrendingUp
+  TrendingUp 
 } from 'lucide-react';
-import { PRESETS } from '../../data/presets';
 import { audioEngine } from '../../audio/audioEngine';
 
 export default function TemplateCards({ onSelectTemplate, onSelectPreset }) {
@@ -29,126 +21,84 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset }) {
       id: 'bermuda',
       emoji: '🌊',
       title: 'Bermuda Triangle Flight 19',
-      category: '🔥 Viral Mystery',
-      color: '#6366f1',
-      bgGlow: 'rgba(99, 102, 241, 0.12)',
-      prompt: 'Unsolved disappearance of Flight 19 in Bermuda Triangle with cockpit static and timeline facts.',
+      category: 'Viral Mystery',
+      accentColor: '#6366f1',
+      prompt: 'Unsolved disappearance of Flight 19 in Bermuda Triangle with cockpit radio static and timeline facts.',
       voice: 'adam',
       style: 'cinematic',
-      stats: '1.8M Views Potential'
-    },
-    {
-      id: 'tatasteve',
-      emoji: '💔',
-      title: 'Ratan Tata: Final 24 Hours',
-      category: '🎭 Emotional Arc',
-      color: '#ec4899',
-      bgGlow: 'rgba(236, 72, 153, 0.12)',
-      prompt: 'Touching final day of iconic Indian philanthropist Ratan Tata and his quiet kindness.',
-      voice: 'rachel',
-      style: 'documentary',
-      stats: '3.2M Views Potential'
-    },
-    {
-      id: 'dragons',
-      emoji: '🐉',
-      title: 'Eastern vs Western Dragons',
-      category: '⚔️ CGI Battle',
-      color: '#8b5cf6',
-      bgGlow: 'rgba(139, 92, 246, 0.12)',
-      prompt: 'Epic clash between serpentine dragon Long and fire-breathing Dracon with mythic powers.',
-      voice: 'arnold',
-      style: 'anime',
-      stats: '950K Views Potential'
-    },
-    {
-      id: 'fruits',
-      emoji: '🍍',
-      title: 'Talking Pineapple Escape',
-      category: '✨ 3D Animation',
-      color: '#f59e0b',
-      bgGlow: 'rgba(245, 158, 11, 0.12)',
-      prompt: 'Cute pineapple and apple riding grocery carts to escape supermarket blender in Pixar 3D style.',
-      voice: 'elli',
-      style: 'pixar',
-      stats: '4.5M Views Potential'
+      stats: '1.8M Views'
     },
     {
       id: 'psychology',
       emoji: '🧠',
       title: '3 Dark Psychology Secrets',
-      category: '👁️ Mind Hack',
-      color: '#06b6d4',
-      bgGlow: 'rgba(6, 182, 212, 0.12)',
-      prompt: '3 subtle psychological behaviors that command instant authority and respect in any room.',
+      category: 'Mind Hack',
+      accentColor: '#06b6d4',
+      prompt: '3 subtle psychological behaviors that command instant authority and respect in under 60 seconds.',
       voice: 'josh',
       style: 'noir',
-      stats: '2.4M Views Potential'
+      stats: '2.4M Views'
     },
     {
       id: 'billionaire',
       emoji: '💰',
       title: 'From ₹50 to 3 Factories',
-      category: '🚀 Hustle Story',
-      color: '#10b981',
-      bgGlow: 'rgba(16, 185, 129, 0.12)',
+      category: 'Hustle & Money',
+      accentColor: '#10b981',
       prompt: 'Dramatic motivational story of an Indian tea seller who built an exports empire starting with ₹50.',
       voice: 'adam',
       style: 'cinematic',
-      stats: '5.1M Views Potential'
+      stats: '5.1M Views'
     }
   ];
 
   return (
-    <div style={{ maxWidth: '880px', margin: '16px auto 0 auto', textAlign: 'center' }}>
-      {/* Dynamic Hero Badge & Title */}
+    <div style={{
+      maxWidth: '820px',
+      margin: '20px auto 0 auto',
+      textAlign: 'center',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center'
+    }}>
+      {/* Gemini Hero Greeting */}
       <div style={{ marginBottom: '28px' }}>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: 'rgba(99, 102, 241, 0.12)',
-          border: '1px solid rgba(99, 102, 241, 0.35)',
-          borderRadius: '99px',
-          padding: '6px 16px',
-          marginBottom: '14px',
-          backdropFilter: 'blur(10px)'
-        }}>
-          <Sparkles size={14} color="#818cf8" />
-          <span style={{ fontSize: '12px', fontWeight: 800, color: '#c7d2fe', letterSpacing: '0.04em' }}>
-            AUTONOMOUS VIDEO GENERATION STUDIO
-          </span>
-        </div>
-
         <h1 className="font-display" style={{
-          fontSize: '40px',
-          fontWeight: 900,
+          fontSize: 'clamp(28px, 5vw, 42px)',
+          fontWeight: 800,
           lineHeight: 1.15,
           letterSpacing: '-0.03em',
-          marginBottom: '10px',
-          background: 'linear-gradient(135deg, #ffffff 30%, #a5b4fc 70%, #38bdf8 100%)',
+          marginBottom: '8px',
+          background: 'var(--grad-gemini)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
-          What story would you like to create?
+          Hello, Creator
         </h1>
-
-        <p style={{
-          fontSize: '14.5px',
-          color: 'var(--text-secondary)',
-          maxWidth: '560px',
-          margin: '0 auto',
-          lineHeight: 1.55
+        <h2 style={{
+          fontSize: 'clamp(16px, 3vw, 20px)',
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          marginBottom: '6px'
         }}>
-          Type your topic in the prompt bar below or pick a proven viral template to generate a complete 75-second 5-scene Short.
+          What viral video should we create today?
+        </h2>
+        <p style={{
+          fontSize: '13.5px',
+          color: 'var(--text-secondary)',
+          maxWidth: '520px',
+          margin: '0 auto'
+        }}>
+          Type your topic in the prompt bar below or select a template to generate a complete 75-second Short.
         </p>
       </div>
 
-      {/* Grid of 6 Modern Visual Cards */}
+      {/* Exactly 3 Clean, Responsive Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
         gap: '14px',
+        width: '100%',
         textAlign: 'left'
       }}>
         {templates.map((item) => (
@@ -158,39 +108,35 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset }) {
             className="saas-card"
             style={{
               padding: '16px 18px',
-              borderRadius: '18px',
+              borderRadius: '16px',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              minHeight: '145px',
-              background: `linear-gradient(180deg, ${item.bgGlow} 0%, rgba(15, 23, 42, 0.75) 100%)`,
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              minHeight: '140px',
               position: 'relative',
-              overflow: 'hidden',
-              transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-3px)';
-              e.currentTarget.style.borderColor = item.color;
-              e.currentTarget.style.boxShadow = `0 12px 30px ${item.color}35`;
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.borderColor = item.accentColor;
+              e.currentTarget.style.boxShadow = `0 8px 24px ${item.accentColor}25`;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.borderColor = 'var(--border-subtle)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-card)';
             }}
           >
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '24px' }}>{item.emoji}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '22px' }}>{item.emoji}</span>
                 <span style={{
                   fontSize: '10px',
-                  fontWeight: 800,
-                  color: item.color,
-                  background: `${item.color}20`,
-                  border: `1px solid ${item.color}40`,
-                  padding: '3px 8px',
+                  fontWeight: 700,
+                  color: item.accentColor,
+                  background: `${item.accentColor}18`,
+                  padding: '2px 8px',
                   borderRadius: '6px'
                 }}>
                   {item.category}
@@ -198,21 +144,21 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset }) {
               </div>
 
               <h3 className="font-display" style={{
-                fontSize: '15px',
-                fontWeight: 800,
-                color: '#ffffff',
-                marginBottom: '6px',
+                fontSize: '14px',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                marginBottom: '4px',
                 lineHeight: 1.3
               }}>
                 {item.title}
               </h3>
 
               <p style={{
-                fontSize: '12px',
+                fontSize: '11.5px',
                 color: 'var(--text-secondary)',
-                lineHeight: 1.45
+                lineHeight: 1.4
               }}>
-                {item.prompt.substring(0, 70)}...
+                {item.prompt.substring(0, 68)}...
               </p>
             </div>
 
@@ -220,20 +166,20 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginTop: '14px',
-              paddingTop: '10px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              fontSize: '11.5px',
-              color: item.color,
-              fontWeight: 700
+              marginTop: '12px',
+              paddingTop: '8px',
+              borderTop: '1px solid var(--border-subtle)',
+              fontSize: '11px',
+              color: item.accentColor,
+              fontWeight: 600
             }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <TrendingUp size={12} />
+                <TrendingUp size={11} />
                 {item.stats}
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                Use Template
-                <ArrowRight size={13} />
+              <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                Use
+                <ArrowRight size={12} />
               </span>
             </div>
           </div>
