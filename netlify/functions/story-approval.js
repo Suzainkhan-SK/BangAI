@@ -1,6 +1,6 @@
 // Netlify Function: story-approval
 // Path: /.netlify/functions/story-approval
-// MongoDB Atlas integrated callback & polling handler
+// MongoDB Atlas integrated callback & polling handler for 2-Stage Story & Scenes Approval
 
 import { getDb } from './db.js';
 
@@ -36,7 +36,7 @@ export const handler = async (event, context) => {
       };
     }
 
-    // 2. GET: Frontend checks for fresh story from MongoDB
+    // 2. GET: Frontend checks for fresh story or final 5 scenes from MongoDB
     if (event.httpMethod === 'GET') {
       const { threadId, since } = event.queryStringParameters || {};
       const sinceTime = Number(since || 0);
@@ -45,14 +45,14 @@ export const handler = async (event, context) => {
       if (threadId) {
         query.threadId = threadId;
       } else {
-        query.status = { $in: ['READY_FOR_APPROVAL', 'CANCELLED', 'DUPLICATE_TOPIC'] };
+        query.status = { $in: ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'CANCELLED', 'DUPLICATE_TOPIC'] };
       }
 
       const thread = await threadsCol.find(query).sort({ updatedAt: -1 }).limit(1).toArray();
       const latest = thread?.[0] || null;
 
-      if (latest && latest.story) {
-        const storyTimestamp = new Date(latest.story.timestamp || latest.updatedAt || 0).getTime();
+      if (latest && (latest.story || latest.scenes)) {
+        const storyTimestamp = new Date(latest.story?.timestamp || latest.updatedAt || 0).getTime();
         if (sinceTime > 0 && storyTimestamp > 0 && storyTimestamp < sinceTime) {
           return {
             statusCode: 200,
@@ -75,6 +75,7 @@ export const handler = async (event, context) => {
           body: JSON.stringify({
             hasStory: true,
             story: latest.story,
+            scenes: latest.scenes || (latest.story && latest.story.scenes) || null,
             threadId: latest.threadId,
             status: latest.status
           })
@@ -92,10 +93,10 @@ export const handler = async (event, context) => {
       };
     }
 
-    // 3. POST: n8n Cloud posts the story / cancel / duplicate callback
+    // 3. POST: n8n Cloud posts the story / final scenes / cancel / duplicate callback
     if (event.httpMethod === 'POST') {
       const data = JSON.parse(event.body || '{}');
-      console.log('[Netlify] Callback from n8n cloud:', data.status || data.suggestedTitle);
+      console.log('[Netlify] Callback from n8n cloud. Status:', data.status, 'Title:', data.title || data.suggestedTitle);
 
       const now = new Date();
       if (!data.timestamp) data.timestamp = now.toISOString();
@@ -103,6 +104,7 @@ export const handler = async (event, context) => {
       const threadId = data.threadId || `thread-${Date.now()}`;
       const status = data.status === 'CANCELLED' ? 'CANCELLED' : 
                      data.status === 'DUPLICATE_TOPIC' ? 'DUPLICATE_TOPIC' : 
+                     data.status === 'SCENES_READY_FOR_APPROVAL' ? 'SCENES_READY_FOR_APPROVAL' :
                      'READY_FOR_APPROVAL';
 
       // Persist to MongoDB threads
@@ -112,8 +114,9 @@ export const handler = async (event, context) => {
           $set: {
             threadId,
             story: data,
+            scenes: data.scenes || null,
             status,
-            title: data.suggestedTitle || data.matchedTitle || 'Viral Video',
+            title: data.title || data.suggestedTitle || data.matchedTitle || 'Viral Video',
             updatedAt: now
           },
           $setOnInsert: { createdAt: now }
@@ -127,8 +130,10 @@ export const handler = async (event, context) => {
         role: 'assistant',
         content: data.status === 'CANCELLED' ? 'Video generation was cancelled.' :
                  data.status === 'DUPLICATE_TOPIC' ? `Topic already covered: ${data.matchedTitle}` :
+                 data.status === 'SCENES_READY_FOR_APPROVAL' ? `Final 5 scenes ready for review: "${data.title || data.suggestedTitle}"` :
                  `Story ready for review: "${data.suggestedTitle}"`,
         story: data,
+        scenes: data.scenes || null,
         status,
         timestamp: now
       });

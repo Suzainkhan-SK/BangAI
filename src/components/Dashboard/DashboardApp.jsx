@@ -677,10 +677,11 @@ export default function DashboardApp({
             />
           )}
 
-          {/* 2. If Story Ready for Approval: Show StoryApprovalCard */}
-          {activeThread && activeThread.status === 'READY_FOR_APPROVAL' && activeThread.story && !isGenerating && (
+          {/* 2. If Story or Final 5 Scenes Ready for Approval: Show StoryApprovalCard */}
+          {activeThread && (activeThread.status === 'READY_FOR_APPROVAL' || activeThread.status === 'SCENES_READY_FOR_APPROVAL') && (activeThread.story || activeThread.scenes) && !isGenerating && (
             <StoryApprovalCard
-              story={activeThread.story}
+              story={activeThread.story || activeThread}
+              scenes={activeThread.scenes}
               onApprove={handleApproveStory}
               onReject={handleRejectStory}
             />
