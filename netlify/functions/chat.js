@@ -120,6 +120,17 @@ export const handler = async (event, context) => {
     const currentSessionId = sessionId || 'default-session';
     const now = new Date();
 
+    // Detect language preference from user text or settings (Default to English)
+    const rawLower = (message || '').toLowerCase();
+    let detectedLanguage = settings.language || 'English';
+    if (rawLower.includes('in english') || rawLower.includes('english only') || rawLower.includes('only english')) {
+      detectedLanguage = 'English';
+    } else if (rawLower.includes('in hindi') || rawLower.includes('hindi only') || rawLower.includes('only hindi')) {
+      detectedLanguage = 'Hindi';
+    } else if (rawLower.includes('in hinglish') || rawLower.includes('hinglish only')) {
+      detectedLanguage = 'Hinglish';
+    }
+
     // 1. Connect to MongoDB Atlas and persist user message in BOTH collections
     let db = null;
     try {
@@ -149,6 +160,7 @@ export const handler = async (event, context) => {
               sessionId: currentSessionId,
               title: message.trim(),
               rawUserInput: message.trim(),
+              language: detectedLanguage,
               updatedAt: now
             },
             $push: {
@@ -203,17 +215,19 @@ Current Story:
 - Title: "${currentStory?.suggestedTitle || 'Unknown'}"
 - Viral Hook: "${currentStory?.viralHook || 'None'}"
 - Story Brief: "${currentStory?.storyBrief || 'None'}"
-- Language: "${settings.language || 'Hinglish'}"
+- Language: "${detectedLanguage}"
 - Visual Style: "${settings.visualStyle || 'Cinematic Realistic'}"
 
 Creator's Instruction: "${message}"
 
+IMPORTANT LANGUAGE RULE: Write ALL text (suggestedTitle, viralHook, storyBrief) in ${detectedLanguage}. If language is English, do NOT include any Hindi or Romanized Hindi words.
+
 Output ONLY a valid JSON object formatted EXACTLY as:
 {
   "message": "Direct, professional explanation of what changes you made",
-  "suggestedTitle": "New catchy title (max 50 chars)",
-  "viralHook": "Shocking 3-second opening hook in ${settings.language || 'Hinglish'}",
-  "storyBrief": "5-Scene detailed narrative brief covering 0-15s, 15-30s, 30-45s, 45-60s, 60-75s",
+  "suggestedTitle": "New catchy title (max 50 chars) in ${detectedLanguage}",
+  "viralHook": "Shocking 3-second opening hook in ${detectedLanguage}",
+  "storyBrief": "5-Scene detailed narrative brief covering 0-15s, 15-30s, 30-45s, 45-60s, 60-75s in ${detectedLanguage}",
   "genre": "Genre or viral niche"
 }
 Do NOT wrap in markdown code fences or add extraneous text. Return raw JSON.`;
@@ -240,6 +254,8 @@ Do NOT wrap in markdown code fences or add extraneous text. Return raw JSON.`;
         viralHook: parsed.viralHook,
         storyBrief: parsed.storyBrief,
         genre: parsed.genre,
+        language: detectedLanguage,
+        approveUrl: null, // Invalidate any old dead resume URLs
         timestamp: now.toISOString()
       };
 
@@ -349,7 +365,7 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
           prompt: message.trim(),
           voiceId: settings.voiceId || 'adam',
           visualStyle: settings.visualStyle || 'Cinematic Realistic',
-          language: settings.language || 'Hinglish',
+          language: detectedLanguage,
           autoUploadToYouTube: !!settings.autoUploadToYouTube,
           callbackUrl,
           threadId: currentThreadId,

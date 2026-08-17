@@ -549,8 +549,8 @@ export default function DashboardApp({
     const isStage2 = activeThread?.status === 'SCENES_READY_FOR_APPROVAL';
 
     try {
-      // 1. Resume n8n execution with refined story payload
-      await fetch('/.netlify/functions/approve-story', {
+      // 1. Resume / Launch n8n execution with refined story payload
+      const res = await fetch('/.netlify/functions/approve-story', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -559,9 +559,30 @@ export default function DashboardApp({
           sessionId,
           action: 'APPROVE',
           story: activeThread?.story || null,
-          refinedStory: activeThread?.story || null
+          refinedStory: activeThread?.story || null,
+          language: activeThread?.story?.language || language || 'English',
+          voiceId: activeThread?.voiceId || voiceId || 'adam',
+          visualStyle: activeThread?.visualStyleId || styleId || 'cinematic',
+          autoUploadToYouTube: !!autoUploadToYouTube
         })
       });
+
+      const data = await res.json();
+
+      if (!res.ok || data.success === false) {
+        // Workflow was inactive or offline -> DO NOT SHOW FAKE GENERATION
+        setIsGenerating(false);
+        setPastShorts(prev => prev.map(t => 
+          (t.threadId === activeThreadId || t.id === activeThreadId)
+            ? { 
+                ...t, 
+                status: 'WORKFLOW_INACTIVE', 
+                errorMessage: data.message || 'n8n workflow is currently inactive. Please make sure u8vcVLc00wPp2AAI is active in n8n Cloud.' 
+              }
+            : t
+        ));
+        return;
+      }
 
       if (isStage1) {
         // Transition to Stage 2 scene writing
@@ -591,6 +612,12 @@ export default function DashboardApp({
       }
     } catch (e) {
       console.warn('Approve story error:', e.message);
+      setIsGenerating(false);
+      setPastShorts(prev => prev.map(t => 
+        (t.threadId === activeThreadId || t.id === activeThreadId)
+          ? { ...t, status: 'WORKFLOW_INACTIVE', errorMessage: `Failed to dispatch to n8n: ${e.message}` }
+          : t
+      ));
     }
   };
 
@@ -636,11 +663,11 @@ export default function DashboardApp({
   // ─── USER REJECTS STORY ──────────────────────────────────────────
   const handleRejectStory = async (cancelUrl) => {
     try {
-      await fetch('/.netlify/functions/approve-story', {
+      fetch('/.netlify/functions/approve-story', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ approveUrl: cancelUrl, action: 'CANCEL', threadId: activeThreadId })
-      });
+      }).catch(() => {});
     } catch (e) {}
 
     audioEngine.playSfx('click');
@@ -652,9 +679,10 @@ export default function DashboardApp({
             ...t, 
             status: 'CANCELLED', 
             cancelReason: 'Story was cancelled by creator.',
+            story: t.story ? { ...t.story, approveUrl: null } : null,
             messages: [
               ...(t.messages || []),
-              { role: 'assistant', content: 'Story generation was cancelled. Tell me what changes you would like to make!' }
+              { role: 'assistant', content: 'Story generation was cancelled. Type `/refine` with instructions to twist the angle or `/video` for a fresh topic!' }
             ]
           }
         : t
