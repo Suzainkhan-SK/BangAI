@@ -28,8 +28,8 @@ export default function Sidebar({
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredId, setHoveredId] = useState(null);
 
-  const filteredShorts = pastShorts.filter((s) => 
-    (s.name || s.title || s.rawUserInput || '').toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredShorts = (Array.isArray(pastShorts) ? pastShorts : []).filter((s) => 
+    s && typeof s === 'object' && String(s.name || s.title || s.rawUserInput || '').toLowerCase().includes(String(searchQuery || '').toLowerCase())
   );
 
   if (collapsed) {
