@@ -38,8 +38,7 @@ export const handler = async (event, context) => {
 
     // 2. GET: Frontend checks for fresh story, 5 scenes, or final rendered video from MongoDB
     if (event.httpMethod === 'GET') {
-      const { threadId, since } = event.queryStringParameters || {};
-      const sinceTime = Number(since || 0);
+      const { threadId } = event.queryStringParameters || {};
 
       let query = {};
       if (threadId) {
@@ -51,19 +50,14 @@ export const handler = async (event, context) => {
       const thread = await threadsCol.find(query).sort({ updatedAt: -1 }).limit(1).toArray();
       const latest = thread?.[0] || null;
 
-      if (latest && (latest.story || latest.scenes || latest.videoUrl || latest.status === 'COMPLETED' || latest.status === 'RENDER_FAILED')) {
-        const timestampVal = new Date(latest.story?.timestamp || latest.updatedAt || 0).getTime();
-        if (sinceTime > 0 && timestampVal > 0 && timestampVal < sinceTime) {
-          return {
-            statusCode: 200,
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-store, no-cache, must-revalidate'
-            },
-            body: JSON.stringify({ hasStory: false, story: null, ignoredOldStory: true })
-          };
-        }
+      if (latest && (latest.story || latest.scenes || latest.videoUrl || latest.status === 'READY_FOR_APPROVAL' || latest.status === 'SCENES_READY_FOR_APPROVAL' || latest.status === 'COMPLETED' || latest.status === 'RENDER_FAILED')) {
+        const storyObj = latest.story || {
+          suggestedTitle: latest.title,
+          viralHook: latest.viralHook,
+          storyBrief: latest.storyBrief,
+          genre: latest.genre,
+          status: latest.status
+        };
 
         return {
           statusCode: 200,
@@ -74,14 +68,14 @@ export const handler = async (event, context) => {
           },
           body: JSON.stringify({
             hasStory: true,
-            story: latest.story,
-            scenes: latest.scenes || (latest.story && latest.story.scenes) || null,
-            videoUrl: latest.videoUrl || (latest.story && latest.story.videoUrl) || null,
+            story: storyObj,
+            scenes: latest.scenes || storyObj.scenes || null,
+            videoUrl: latest.videoUrl || storyObj.videoUrl || null,
             youtubeUrl: latest.youtubeUrl || null,
             videoId: latest.videoId || null,
             threadId: latest.threadId,
-            status: latest.status,
-            title: latest.title,
+            status: latest.status || 'READY_FOR_APPROVAL',
+            title: latest.title || storyObj.suggestedTitle,
             youtubeDescription: latest.youtubeDescription,
             tags: latest.tags,
             errorMessage: latest.errorMessage || null
