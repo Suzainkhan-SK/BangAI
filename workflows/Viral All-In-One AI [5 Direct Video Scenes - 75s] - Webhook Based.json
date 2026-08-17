@@ -3,12 +3,12 @@
   "name": "Viral All-In-One AI [5 Direct Video Scenes - 75s] - Webhook Based",
   "active": true,
   "isArchived": false,
-  "versionId": "817b694b-2aa9-4a29-a59c-925e7a19ab51",
-  "activeVersionId": "817b694b-2aa9-4a29-a59c-925e7a19ab51",
+  "versionId": "91ab9bf0-2525-4f27-894a-7c48c660c1bc",
+  "activeVersionId": "91ab9bf0-2525-4f27-894a-7c48c660c1bc",
   "triggerCount": 1,
   "nodeCount": 238,
   "createdAt": "2026-08-17T06:05:30.199Z",
-  "updatedAt": "2026-08-17T07:23:45.472Z",
+  "updatedAt": "2026-08-17T07:48:50.623Z",
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
@@ -3115,15 +3115,14 @@
             "node": "Rotate Primary LLM Key",
             "type": "main",
             "index": 0
-          }
-        ],
-        [
+          },
           {
-            "node": "Notify: Cancelled",
+            "node": "Send Cancellation to Website",
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "Website Webhook Trigger": {
@@ -10264,30 +10263,6 @@
       }
     },
     {
-      "id": "0d3e6a64-35ce-41fa-a9b0-b8915f939f6c",
-      "name": "Notify: Cancelled",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        480,
-        1552
-      ],
-      "parameters": {
-        "chatId": "7561706849",
-        "text": "❌ <b>Video Cancelled!</b>\n\nNo problem — send any topic anytime and I'll create a new video for you! 🎬",
-        "additionalFields": {
-          "parse_mode": "HTML"
-        }
-      },
-      "webhookId": "e54d240e-3186-430e-84c8-e9ec034ad6dd",
-      "credentials": {
-        "telegramApi": {
-          "id": "xWWlHerdGDEX83l8",
-          "name": "@YouTubeAutomationsUpload_bot"
-        }
-      }
-    },
-    {
       "id": "website-webhook-trigger-001",
       "name": "Website Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
@@ -10328,6 +10303,35 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify((() => {\n  let s = {};\n  try { s = $('Parse Strategy Output').first().json || {}; } catch(e) {}\n  let t = {};\n  try { t = $('Parse Topic Analyzer Output').first().json || {}; } catch(e) {}\n  let p = {};\n  try { p = $('Filter: My Chat Only').first().json || {}; } catch(e) {}\n  const resume = $execution.resumeUrl || '';\n  const sep = resume.includes('?') ? '&' : '?';\n  return {\n    status: 'STORY_READY_FOR_APPROVAL',\n    executionId: $execution.id,\n    topic: t.specificTopic || s.storyBrief || p.rawUserInput || '',\n    genre: t.genre || s.allowedCategories || 'Viral Short',\n    visualStyle: s.visualStyle || t.visualStyle || p.visualStyle || 'Cinematic Realistic',\n    language: s.language || t.language || p.language || 'Hinglish',\n    duration: '75 seconds (5 scenes x 15s)',\n    suggestedTitle: s.suggestedTitle || t.specificTopic || p.rawUserInput || '',\n    viralHook: s.viralHook || '',\n    storyBrief: s.storyBrief || '',\n    approveUrl: resume ? (resume + sep + 'approval=yes') : '',\n    cancelUrl: resume ? (resume + sep + 'approval=no') : '',\n    resumeUrl: resume,\n    timestamp: new Date().toISOString()\n  };\n})()) }}",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "send-cancellation-http",
+      "name": "Send Cancellation to Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        1552
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ (() => {\n  let p = {};\n  try { p = $('Filter: My Chat Only').first().json || {}; } catch(e) {}\n  return p.callbackUrl || 'https://viral-shorts-ai-studio.netlify.app/.netlify/functions/story-approval';\n})() }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  let s = {};\n  try { s = $('Parse Strategy Output').first().json || {}; } catch(e) {}\n  let p = {};\n  try { p = $('Filter: My Chat Only').first().json || {}; } catch(e) {}\n  return {\n    status: 'CANCELLED',\n    message: 'Video generation was cancelled by user.',\n    executionId: $execution.id,\n    timestamp: new Date().toISOString()\n  };\n})()) }}",
         "options": {
           "timeout": 15000
         }

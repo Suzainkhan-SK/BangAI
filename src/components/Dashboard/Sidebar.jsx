@@ -18,6 +18,7 @@ export default function Sidebar({
   activeShortId,
   onSelectShort,
   onNewShort,
+  onDeleteShort,
   collapsed = false,
   onToggleCollapse,
   user,
@@ -25,9 +26,10 @@ export default function Sidebar({
   onLogout
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [hoveredId, setHoveredId] = useState(null);
 
   const filteredShorts = pastShorts.filter((s) => 
-    (s.name || s.title || '').toLowerCase().includes(searchQuery.toLowerCase())
+    (s.name || s.title || s.rawUserInput || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (collapsed) {
@@ -82,7 +84,7 @@ export default function Sidebar({
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title={s.name || s.title}
+              title={s.name || s.title || s.rawUserInput}
             >
               <MessageSquare size={15} />
             </button>
@@ -188,7 +190,7 @@ export default function Sidebar({
           <Search size={11} color="var(--text-muted)" style={{ position: 'absolute', left: '8px', top: '8px' }} />
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search history..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -216,7 +218,7 @@ export default function Sidebar({
           textTransform: 'uppercase',
           letterSpacing: '0.04em'
         }}>
-          <span>Creations</span>
+          <span>History</span>
           <span style={{ fontSize: '10px', background: 'var(--bg-card)', padding: '1px 5px', borderRadius: '4px' }}>
             {pastShorts.length}
           </span>
@@ -231,48 +233,82 @@ export default function Sidebar({
           overflowY: 'auto',
           paddingRight: '2px'
         }}>
-          {filteredShorts.map((s) => {
-            const isSelected = activeShortId === s.id;
-            return (
-              <div
-                key={s.id}
-                onClick={() => {
-                  audioEngine.playSfx('click');
-                  onSelectShort(s.id);
-                }}
-                style={{
-                  padding: '7px 8px',
-                  borderRadius: '8px',
-                  background: isSelected ? 'var(--bg-card-hover)' : 'transparent',
-                  border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'transparent'}`,
-                  color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '7px',
-                  fontSize: '11.5px',
-                  fontWeight: isSelected ? 700 : 500,
-                  transition: 'all 0.12s ease'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) e.currentTarget.style.background = 'var(--border-subtle)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected) e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                <MessageSquare size={13} style={{ flexShrink: 0, color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)' }} />
-                <span style={{
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  flex: 1
-                }}>
-                  {s.name || s.title}
-                </span>
-              </div>
-            );
-          })}
+          {filteredShorts.length === 0 ? (
+            <div style={{ padding: '14px 8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
+              No history yet. Start a new video!
+            </div>
+          ) : (
+            filteredShorts.map((s) => {
+              const isSelected = activeShortId === s.id;
+              const isHovered = hoveredId === s.id;
+              return (
+                <div
+                  key={s.id}
+                  onMouseEnter={() => setHoveredId(s.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onClick={() => {
+                    audioEngine.playSfx('click');
+                    onSelectShort(s.id);
+                  }}
+                  style={{
+                    padding: '7px 8px',
+                    borderRadius: '8px',
+                    background: isSelected ? 'var(--bg-card-hover)' : 'transparent',
+                    border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'transparent'}`,
+                    color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '6px',
+                    fontSize: '11.5px',
+                    fontWeight: isSelected ? 700 : 500,
+                    transition: 'all 0.12s ease',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', flex: 1 }}>
+                    <MessageSquare size={13} style={{ flexShrink: 0, color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)' }} />
+                    <span style={{
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {s.name || s.title || s.rawUserInput}
+                    </span>
+                  </div>
+
+                  {/* Delete Button on Hover */}
+                  {isHovered && typeof onDeleteShort === 'function' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        audioEngine.playSfx('click');
+                        onDeleteShort(s.id);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '4px',
+                        transition: 'color 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                      title="Delete from history"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

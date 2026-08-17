@@ -4,52 +4,120 @@ import CanvasPromptBar from './CanvasPromptBar';
 import TemplateCards from './TemplateCards';
 import ResultThreadCard from './ResultThreadCard';
 import StoryApprovalCard from './StoryApprovalCard';
+import GenerationThinkingAnimation from './GenerationThinkingAnimation';
 import GenerationPipelineModal from '../BottomDrawer/GenerationPipelineModal';
 import { PRESETS } from '../../data/presets';
 import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
-import { Sparkles, Loader2, Plus, ArrowLeft } from 'lucide-react';
+import { Sparkles, Loader2, Plus, ArrowLeft, XCircle } from 'lucide-react';
+
+function getInitialHistory() {
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('shortsai_chat_history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+  }
+  return [
+    PRESETS.bermuda,
+    PRESETS.dragons,
+    PRESETS.fruits
+  ];
+}
 
 export default function DashboardApp({ 
   initialPresetId = null,
+  initialPrompt = '',
   sidebarCollapsed = false,
   onToggleSidebar,
   user,
   onNavigateToSettings,
   onLogout
 }) {
+  const [pastShorts, setPastShorts] = useState(getInitialHistory);
   const [activeShortId, setActiveShortId] = useState(initialPresetId);
-  const [prompt, setPrompt] = useState('');
+  const [activeShort, setActiveShort] = useState(() => {
+    if (initialPresetId) {
+      const all = getInitialHistory();
+      return all.find(s => s.id === initialPresetId) || PRESETS[initialPresetId] || null;
+    }
+    return null;
+  });
+
+  const [prompt, setPrompt] = useState(initialPrompt || '');
   const [voiceId, setVoiceId] = useState('adam');
   const [styleId, setStyleId] = useState('cinematic');
   const [musicId, setMusicId] = useState('mystery');
   const [language, setLanguage] = useState('Hinglish');
 
-  const [pastShorts, setPastShorts] = useState(Object.values(PRESETS));
-  const [activeShort, setActiveShort] = useState(initialPresetId ? (PRESETS[initialPresetId] || null) : null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStage, setGenerationStage] = useState('');
   const [pendingApprovalStory, setPendingApprovalStory] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [cancelNotice, setCancelNotice] = useState(null);
+
+  // Sync real history to localStorage
+  const saveHistory = (items) => {
+    setPastShorts(items);
+    try {
+      localStorage.setItem('shortsai_chat_history', JSON.stringify(items));
+    } catch (e) {}
+  };
 
   // ─── LISTEN TO LIVE SSE OR NETLIFY SERVERLESS FUNCTION POLLING ───
   useEffect(() => {
     let eventSource;
     let pollInterval;
 
-    // 1. Polling Netlify Serverless Function whenever isGenerating is true
     async function checkNetlifyStoryApproval() {
       try {
         const res = await fetch('/.netlify/functions/story-approval');
         if (res.ok) {
           const data = await res.json();
           if (data.hasStory && data.story) {
-            console.log('Polled story from Netlify function:', data.story);
+            console.log('Polled story callback from Netlify function:', data.story);
+
+            // If cancelled callback
+            if (data.story.status === 'CANCELLED') {
+              audioEngine.playSfx('click');
+              setIsGenerating(false);
+              setPendingApprovalStory(null);
+              setCancelNotice('Video generation was cancelled.');
+              setTimeout(() => setCancelNotice(null), 4000);
+              return;
+            }
+
+            // If story ready for approval
             audioEngine.playSfx('success');
             setPendingApprovalStory(data.story);
             setIsGenerating(false);
+
+            // Update real history with generated story
+            setPastShorts((prev) => {
+              const updated = prev.map((item) => {
+                if (item.rawUserInput === prompt || item.id === activeShortId) {
+                  return {
+                    ...item,
+                    suggestedTitle: data.story.suggestedTitle,
+                    viralHook: data.story.viralHook,
+                    storyBrief: data.story.storyBrief,
+                    approveUrl: data.story.approveUrl,
+                    cancelUrl: data.story.cancelUrl,
+                    status: 'READY_FOR_APPROVAL'
+                  };
+                }
+                return item;
+              });
+              try {
+                localStorage.setItem('shortsai_chat_history', JSON.stringify(updated));
+              } catch (e) {}
+              return updated;
+            });
           }
         }
       } catch (err) {}
@@ -60,14 +128,13 @@ export default function DashboardApp({
       pollInterval = setInterval(checkNetlifyStoryApproval, 2500);
     }
 
-    // 2. Try Local SSE if running locally
+    // Local SSE fallback for localhost
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       try {
         eventSource = new EventSource('http://localhost:3001/api/events');
         eventSource.addEventListener('story_ready', (e) => {
           try {
             const data = JSON.parse(e.data);
-            console.log('Received story approval event:', data);
             audioEngine.playSfx('success');
             setPendingApprovalStory(data);
             setIsGenerating(false);
@@ -80,19 +147,20 @@ export default function DashboardApp({
       if (eventSource) eventSource.close();
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [isGenerating]);
+  }, [isGenerating, prompt, activeShortId]);
 
-  const handleSelectPreset = (presetId) => {
-    const p = PRESETS[presetId];
-    if (!p) return;
-    setActiveShortId(presetId);
-    setActiveShort(p);
-    setPrompt(p.rawUserInput);
-    setVoiceId(p.voiceId);
-    setStyleId(p.visualStyleId);
-    setMusicId(p.musicId);
-    setLanguage(p.language);
+  const handleSelectShort = (shortId) => {
+    const s = pastShorts.find(x => x.id === shortId) || PRESETS[shortId];
+    if (!s) return;
+    setActiveShortId(shortId);
+    setActiveShort(s);
+    setPrompt(s.rawUserInput || s.title || '');
+    if (s.voiceId) setVoiceId(s.voiceId);
+    if (s.visualStyleId) setStyleId(s.visualStyleId);
+    if (s.musicId) setMusicId(s.musicId);
+    if (s.language) setLanguage(s.language);
     setPendingApprovalStory(null);
+    setCancelNotice(null);
   };
 
   const handleSelectTemplate = (item) => {
@@ -103,8 +171,8 @@ export default function DashboardApp({
     setActiveShort(null);
     setActiveShortId(null);
     setPendingApprovalStory(null);
+    setCancelNotice(null);
 
-    // Focus textarea
     setTimeout(() => {
       const el = document.getElementById('shorts-prompt-input');
       if (el) el.focus();
@@ -116,10 +184,19 @@ export default function DashboardApp({
     setActiveShort(null);
     setPrompt('');
     setPendingApprovalStory(null);
+    setCancelNotice(null);
     setTimeout(() => {
       const el = document.getElementById('shorts-prompt-input');
       if (el) el.focus();
     }, 100);
+  };
+
+  const handleDeleteShort = (id) => {
+    const updated = pastShorts.filter(x => x.id !== id);
+    saveHistory(updated);
+    if (activeShortId === id) {
+      handleNewShort();
+    }
   };
 
   // ─── TRIGGER N8N WORKFLOW VIA NETLIFY FUNCTION / BRIDGE ──────────
@@ -128,8 +205,30 @@ export default function DashboardApp({
 
     audioEngine.playSfx('boom');
     setIsGenerating(true);
-    setGenerationStage('Sending prompt to n8n Cloud Webhook...');
+    setGenerationStage('Dispatching prompt to n8n Cloud Webhook...');
     setPendingApprovalStory(null);
+    setCancelNotice(null);
+
+    const newId = 'gen-' + Date.now();
+    const newEntry = {
+      id: newId,
+      name: prompt.substring(0, 30) + (prompt.length > 30 ? '...' : ''),
+      title: prompt,
+      rawUserInput: prompt.trim(),
+      voiceId: voiceId,
+      visualStyleId: styleId,
+      musicId: musicId,
+      language: language,
+      criticScore: 98,
+      status: 'GENERATING',
+      createdAt: new Date().toISOString(),
+      scenes: PRESETS.bermuda.scenes
+    };
+
+    // Prepend to real history
+    const updatedHistory = [newEntry, ...pastShorts.filter(x => x.id !== newId)];
+    saveHistory(updatedHistory);
+    setActiveShortId(newId);
 
     const payload = {
       prompt: prompt.trim(),
@@ -141,7 +240,7 @@ export default function DashboardApp({
 
     let sent = false;
 
-    // 1. Try Netlify Serverless Function
+    // 1. Netlify Function
     try {
       const netlifyRes = await fetch('/.netlify/functions/generate-story', {
         method: 'POST',
@@ -150,11 +249,10 @@ export default function DashboardApp({
       });
       if (netlifyRes.ok) {
         sent = true;
-        setGenerationStage('AI Strategy Brain & Topic Analyzer are generating 5-act story arc in n8n Cloud...');
       }
     } catch (e) {}
 
-    // 2. Try Local Bridge if Netlify function not available
+    // 2. Local Bridge
     if (!sent) {
       try {
         const localRes = await fetch('http://localhost:3001/api/generate-story', {
@@ -164,25 +262,23 @@ export default function DashboardApp({
         });
         if (localRes.ok) {
           sent = true;
-          setGenerationStage('AI Strategy Brain & Topic Analyzer are generating 5-act story arc in n8n Cloud...');
         }
       } catch (e) {}
     }
 
-    // 3. Fallback direct simulation if offline
+    // 3. Fallback simulation if completely offline
     if (!sent) {
       simulateStoryGeneration();
     }
   };
 
   const simulateStoryGeneration = () => {
-    setGenerationStage('AI Strategy Brain & Topic Analyzer are writing the 5-act story arc...');
     setTimeout(() => {
       setIsGenerating(false);
-      setPendingApprovalStory({
+      const generated = {
         executionId: 'exec-' + Date.now(),
         topic: prompt,
-        genre: 'Mystery & Investigation',
+        genre: 'Universal Viral Story',
         visualStyle: styleId === 'cinematic' ? 'Cinematic Realistic' : styleId,
         language: language,
         duration: '75 seconds (5 scenes × 15s)',
@@ -191,8 +287,27 @@ export default function DashboardApp({
         storyBrief: `Scene 1 (0-15s): Dramatic opening hook introducing the mystery.\nScene 2 (15-30s): Tense discovery and evidence exploration.\nScene 3 (30-45s): The shocking turning point.\nScene 4 (45-60s): Climax resolution and impossible facts.\nScene 5 (60-75s): Final wisdom and subscribe call-to-action.`,
         approveUrl: 'https://cmpunktg22.app.n8n.cloud/webhook-waiting/test?approval=yes',
         cancelUrl: 'https://cmpunktg22.app.n8n.cloud/webhook-waiting/test?approval=no'
+      };
+      setPendingApprovalStory(generated);
+
+      // Update real history item
+      setPastShorts(prev => {
+        const updated = prev.map(item => {
+          if (item.rawUserInput === prompt) {
+            return {
+              ...item,
+              suggestedTitle: generated.suggestedTitle,
+              viralHook: generated.viralHook,
+              storyBrief: generated.storyBrief,
+              status: 'READY_FOR_APPROVAL'
+            };
+          }
+          return item;
+        });
+        saveHistory(updated);
+        return updated;
       });
-    }, 2800);
+    }, 3200);
   };
 
   // ─── USER APPROVES STORY ─────────────────────────────────────────
@@ -218,9 +333,9 @@ export default function DashboardApp({
       setShowModal(false);
       setPendingApprovalStory(null);
 
-      const newShort = {
-        id: 'gen-' + Date.now(),
-        name: prompt.substring(0, 32) + '...',
+      const completed = {
+        id: activeShortId || ('gen-' + Date.now()),
+        name: prompt.substring(0, 30) + '...',
         title: pendingApprovalStory?.suggestedTitle || prompt,
         rawUserInput: prompt,
         genre: pendingApprovalStory?.genre || 'Universal Viral Short',
@@ -232,12 +347,13 @@ export default function DashboardApp({
         viralHook: pendingApprovalStory?.viralHook || 'Shocking 3s hook',
         youtubeDescription: `${prompt}\n\n75-second YouTube Short produced by ShortsAI Engine.\n\n#Shorts #Viral #AI`,
         tags: ['Viral Shorts', 'Hindi Shorts', 'Facts', 'Mystery'],
+        status: 'COMPLETED',
         scenes: PRESETS.bermuda.scenes
       };
 
-      setPastShorts(prev => [newShort, ...prev]);
-      setActiveShort(newShort);
-      setActiveShortId(newShort.id);
+      const updated = [completed, ...pastShorts.filter(x => x.id !== completed.id)];
+      saveHistory(updated);
+      setActiveShort(completed);
     }, 4500);
   };
 
@@ -261,7 +377,9 @@ export default function DashboardApp({
 
     setTimeout(() => {
       setPendingApprovalStory(null);
-    }, 1500);
+      setCancelNotice('Generation cancelled.');
+      setTimeout(() => setCancelNotice(null), 3000);
+    }, 1200);
   };
 
   return (
@@ -272,12 +390,13 @@ export default function DashboardApp({
       background: 'var(--bg-app)',
       overflow: 'hidden'
     }}>
-      {/* Collapsible Gemini Studio Sidebar */}
+      {/* Sleek Compact Sidebar with Real History */}
       <Sidebar
         pastShorts={pastShorts}
         activeShortId={activeShortId}
-        onSelectShort={handleSelectPreset}
+        onSelectShort={handleSelectShort}
         onNewShort={handleNewShort}
+        onDeleteShort={handleDeleteShort}
         collapsed={sidebarCollapsed}
         onToggleCollapse={onToggleSidebar}
         user={user}
@@ -297,46 +416,57 @@ export default function DashboardApp({
         {/* Canvas Body with generous clearance */}
         <div style={{
           flex: 1,
-          padding: '24px 24px 220px 24px',
-          maxWidth: '1080px',
+          padding: '20px 20px 170px 20px',
+          maxWidth: '840px',
           width: '100%',
           margin: '0 auto'
         }}>
           {/* Back to Canvas header if viewing an existing Short */}
-          {activeShort && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          {activeShort && !isGenerating && !pendingApprovalStory && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
               <button
                 onClick={handleNewShort}
                 className="btn-outline"
-                style={{ fontSize: '12.5px', padding: '6px 14px', gap: '6px' }}
+                style={{ fontSize: '12px', padding: '5px 12px', gap: '6px' }}
               >
-                <ArrowLeft size={14} />
+                <ArrowLeft size={13} />
                 <span>Create New Video</span>
               </button>
-              <span className="badge badge-brand">
-                Viewing Short: {activeShort.name}
+              <span className="badge badge-brand" style={{ fontSize: '11px' }}>
+                Viewing: {activeShort.name || activeShort.title}
               </span>
             </div>
           )}
 
-          {/* Loading Indicator when n8n is writing story */}
-          {isGenerating && (
-            <div className="saas-card animate-float" style={{
-              padding: '24px',
-              textAlign: 'center',
-              marginBottom: '28px',
-              border: '1.5px solid var(--border-glow)',
-              background: 'rgba(99, 102, 241, 0.09)',
-              boxShadow: '0 8px 32px rgba(99, 102, 241, 0.25)'
+          {/* Cancellation Notice Banner */}
+          {cancelNotice && (
+            <div className="saas-card" style={{
+              padding: '12px 16px',
+              borderRadius: '12px',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              background: 'rgba(239, 68, 68, 0.08)',
+              color: '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '20px'
             }}>
-              <Loader2 size={32} className="spin-animation" color="var(--accent-primary)" style={{ margin: '0 auto 12px auto' }} />
-              <div className="font-display" style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
-                {generationStage}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600 }}>
+                <XCircle size={16} />
+                <span>{cancelNotice}</span>
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-                Executing in n8n Cloud Workflow: <code>u8vcVLc00wPp2AAI</code>
-              </div>
+              <button onClick={handleNewShort} className="btn-ghost" style={{ fontSize: '12px', padding: '4px 8px' }}>
+                Start New
+              </button>
             </div>
+          )}
+
+          {/* Live Thinking & Reasoning Animation */}
+          {isGenerating && (
+            <GenerationThinkingAnimation
+              prompt={prompt}
+              stage={generationStage}
+            />
           )}
 
           {/* AI Story Approval Card (When n8n responds with generated story) */}
@@ -349,22 +479,22 @@ export default function DashboardApp({
           )}
 
           {/* Completed Short Video Studio Result Card */}
-          {activeShort ? (
+          {activeShort && !isGenerating && !pendingApprovalStory ? (
             <ResultThreadCard
               key={activeShort.id}
               shortData={activeShort}
               onRegenerate={handleGenerate}
             />
-          ) : (
+          ) : !isGenerating && !pendingApprovalStory ? (
             /* Empty State: Inspiration Story Templates */
             <TemplateCards
               onSelectTemplate={handleSelectTemplate}
-              onSelectPreset={handleSelectPreset}
+              onSelectPreset={handleSelectShort}
             />
-          )}
+          ) : null}
         </div>
 
-        {/* Floating Prompt Bar (Fixed Bottom Center) */}
+        {/* Floating Gemini Prompt Bar (Fixed Bottom Center) */}
         <div style={{
           position: 'fixed',
           bottom: 0,
