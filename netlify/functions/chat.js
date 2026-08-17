@@ -350,6 +350,7 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
           voiceId: settings.voiceId || 'adam',
           visualStyle: settings.visualStyle || 'Cinematic Realistic',
           language: settings.language || 'Hinglish',
+          autoUploadToYouTube: !!settings.autoUploadToYouTube,
           callbackUrl,
           threadId: currentThreadId,
           sessionId: currentSessionId,

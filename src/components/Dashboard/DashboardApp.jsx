@@ -66,6 +66,7 @@ export default function DashboardApp({
   const [styleId, setStyleId] = useState('cinematic');
   const [musicId, setMusicId] = useState('mystery');
   const [language, setLanguage] = useState('Hinglish');
+  const [autoUploadToYouTube, setAutoUploadToYouTube] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isChatResponding, setIsChatResponding] = useState(false);
@@ -149,13 +150,16 @@ export default function DashboardApp({
   // ─── 2. LISTEN TO LIVE N8N / NETLIFY CALLBACK POLLING ────────────
   useEffect(() => {
     let pollInterval;
+    const sinceTime = generationStartTimeRef.current;
 
     async function checkNetlifyStoryApproval() {
-      if (!isGenerating) return;
       try {
-        const sinceTime = generationStartTimeRef.current || 0;
-        const res = await fetch(`/.netlify/functions/story-approval?threadId=${activeThreadId}&since=${sinceTime}&t=${Date.now()}`, {
-          cache: 'no-store'
+        const query = activeThreadId 
+          ? `threadId=${encodeURIComponent(activeThreadId)}&since=${sinceTime}` 
+          : `since=${sinceTime}`;
+
+        const res = await fetch(`/.netlify/functions/story-approval?${query}`, {
+          headers: { 'Cache-Control': 'no-cache' }
         });
 
         if (res.ok) {
@@ -214,7 +218,59 @@ export default function DashboardApp({
               return;
             }
 
-            // 4. Stage 1: Story Ready for Approval from Strategy Engine
+            // 4. Stage 3: Final 4K Video Render Complete Callback from n8n
+            if (data.status === 'COMPLETED' || data.status === 'VIDEO_COMPLETED' || data.videoUrl) {
+              audioEngine.playSfx('boom');
+              setIsGenerating(false);
+              setPastShorts(prev => prev.map(t => 
+                (t.threadId === activeThreadId || t.id === activeThreadId)
+                  ? { 
+                      ...t, 
+                      status: 'COMPLETED', 
+                      title: data.title || (data.story && data.story.title) || t.title,
+                      videoUrl: data.videoUrl || (data.story && data.story.videoUrl) || t.videoUrl,
+                      youtubeUrl: data.youtubeUrl || (data.story && data.story.youtubeUrl) || t.youtubeUrl,
+                      videoId: data.videoId || (data.story && data.story.videoId) || t.videoId,
+                      scenes: data.scenes || (data.story && data.story.scenes) || t.scenes,
+                      youtubeDescription: data.youtubeDescription || (data.story && data.story.youtubeDescription) || t.youtubeDescription,
+                      tags: data.tags || (data.story && data.story.tags) || t.tags,
+                      criticScore: 99,
+                      messages: [
+                        ...(t.messages || []),
+                        { 
+                          role: 'assistant', 
+                          content: data.youtubeUrl 
+                            ? `🎉 **4K Video Rendered & Uploaded to YouTube!**\n\n📺 **Watch Short:** ${data.youtubeUrl}` 
+                            : `🎉 **4K Video Render Complete!** 75-second master video rendered and ready for download or 1-Click YouTube Upload.`
+                        }
+                      ]
+                    }
+                  : t
+              ));
+              return;
+            }
+
+            // 5. Render Failed Callback
+            if (data.status === 'RENDER_FAILED' || data.story?.status === 'RENDER_FAILED') {
+              audioEngine.playSfx('click');
+              setIsGenerating(false);
+              setPastShorts(prev => prev.map(t => 
+                (t.threadId === activeThreadId || t.id === activeThreadId)
+                  ? { 
+                      ...t, 
+                      status: 'RENDER_FAILED', 
+                      errorMessage: data.errorMessage || data.story?.errorMessage || 'Video rendering failed in media engine',
+                      messages: [
+                        ...(t.messages || []),
+                        { role: 'assistant', content: `❌ Video rendering error: ${data.errorMessage || data.story?.errorMessage || 'Failed'}` }
+                      ]
+                    }
+                  : t
+              ));
+              return;
+            }
+
+            // 6. Stage 1: Story Ready for Approval from Strategy Engine
             audioEngine.playSfx('success');
             setIsGenerating(false);
             setPastShorts(prev => prev.map(t => 
@@ -261,7 +317,7 @@ export default function DashboardApp({
     if (t.visualStyleId) setStyleId(t.visualStyleId);
     if (t.musicId) setMusicId(t.musicId);
     if (t.language) setLanguage(t.language);
-    setIsGenerating(t.status === 'GENERATING' || t.status === 'GENERATING_SCENES');
+    setIsGenerating(t.status === 'GENERATING' || t.status === 'GENERATING_SCENES' || t.status === 'RENDERING_VIDEO');
     setIsChatResponding(false);
   };
 
@@ -350,17 +406,31 @@ export default function DashboardApp({
       updatedAt: new Date().toISOString()
     };
 
-    setPastShorts(prev => [newThreadEntry, ...prev.filter(x => x.threadId !== currentThreadId && x.id !== currentThreadId)]);
+    setPastShorts(prev => {
+      const idx = prev.findIndex(t => t.id === currentThreadId || t.threadId === currentThreadId);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = newThreadEntry;
+        return updated;
+      }
+      return [newThreadEntry, ...prev];
+    });
+
     setPrompt('');
 
-    if (mode === 'CHAT') {
-      setIsChatResponding(true);
+    if (mode === 'VIDEO_GENERATION') {
+      audioEngine.playSfx('shimmer');
+      setIsGenerating(true);
+      setIsChatResponding(false);
+      setGenerationStage('Connecting to n8n Cloud Pipeline...');
+    } else {
       audioEngine.playSfx('click');
+      setIsChatResponding(true);
+      setIsGenerating(false);
     }
 
-    // Call conversational /api/chat endpoint (pure n8n webhook for VIDEO, Claude for CHAT)
     try {
-      const chatRes = await fetch('/.netlify/functions/chat', {
+      const res = await fetch('/.netlify/functions/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -369,58 +439,40 @@ export default function DashboardApp({
           message: messageText,
           mode: mode,
           settings: {
-            voiceId: voiceId,
+            voiceId,
             visualStyle: styleId,
-            musicTrack: musicId,
-            language: language
+            musicId,
+            language,
+            autoUploadToYouTube
           }
         })
       });
 
-      const chatData = await chatRes.json();
-      setIsChatResponding(false);
+      const chatData = await res.json();
 
-      // Handle Video Mode Response from n8n Webhook
-      if (mode === 'VIDEO_GENERATION') {
-        if (chatRes.ok && chatData.success !== false) {
-          // n8n Webhook was ACCEPTED! Start live generation animation
-          audioEngine.playSfx('boom');
-          setIsGenerating(true);
-          setGenerationStage('Connecting with n8n Cloud autonomous pipeline...');
-          setPastShorts(prev => prev.map(t =>
-            (t.threadId === currentThreadId || t.id === currentThreadId)
-              ? { ...t, status: 'GENERATING' }
-              : t
-          ));
-        } else {
-          // n8n Webhook REJECTED (Workflow is inactive / not published)
+      if (!res.ok) {
+        if (chatData.error === 'WORKFLOW_NOT_PUBLISHED') {
           audioEngine.playSfx('click');
           setIsGenerating(false);
+          setIsChatResponding(false);
           setPastShorts(prev => prev.map(t =>
             (t.threadId === currentThreadId || t.id === currentThreadId)
               ? {
                   ...t,
                   status: 'WORKFLOW_INACTIVE',
-                  errorMessage: chatData.message || 'Workflow u8vcVLc00wPp2AAI is currently inactive / not published on n8n Cloud.',
-                  messages: [
-                    ...(t.messages || []),
-                    {
-                      role: 'assistant',
-                      content: `⚠️ **n8n Workflow is Inactive / Not Published**\n\n${chatData.message || 'The webhook was not accepted because the workflow is not active.'}\n\nPlease toggle the **Active** switch in your n8n Cloud editor to start generation.`
-                    }
-                  ]
+                  errorMessage: chatData.message,
+                  n8nStatus: chatData.n8nStatus
                 }
               : t
           ));
+          return;
         }
-        return;
       }
 
-      // Handle Chat Q&A Reply received from Claude
-      if (chatData.mode === 'CHAT') {
+      if (mode === 'CHAT') {
         audioEngine.playSfx('success');
-        setIsGenerating(false);
-        setPastShorts(prev => prev.map(t => 
+        setIsChatResponding(false);
+        setPastShorts(prev => prev.map(t =>
           (t.threadId === currentThreadId || t.id === currentThreadId)
             ? {
                 ...t,
@@ -435,17 +487,16 @@ export default function DashboardApp({
         return;
       }
 
-      // Handle Story Refinement Reply received from Claude
-      if (chatData.mode === 'REFINE_STORY') {
+      if (mode === 'REFINE_STORY') {
         audioEngine.playSfx('success');
-        setIsGenerating(false);
-        setPastShorts(prev => prev.map(t => 
+        setIsChatResponding(false);
+        setPastShorts(prev => prev.map(t =>
           (t.threadId === currentThreadId || t.id === currentThreadId)
             ? {
                 ...t,
                 status: 'READY_FOR_APPROVAL',
+                story: chatData.story || t.story,
                 title: chatData.story?.suggestedTitle || t.title,
-                story: chatData.story,
                 messages: [
                   ...(t.messages || []),
                   { role: 'assistant', content: chatData.message }
@@ -500,19 +551,17 @@ export default function DashboardApp({
             : t
         ));
       } else if (isStage2) {
-        // Final approval -> mark completed with real scenes from n8n
-        setIsGenerating(false);
+        // Transition to Stage 3 autonomous 4K video rendering
+        generationStartTimeRef.current = Date.now();
+        setIsGenerating(true);
         setPastShorts(prev => prev.map(t => 
           (t.threadId === activeThreadId || t.id === activeThreadId)
-            ? {
-                ...t,
-                status: 'COMPLETED',
-                criticScore: 99,
-                youtubeDescription: `${t.title}\n\n${t.story?.viralHook || ''}\n\n75-second YouTube Short produced by n8n Autonomous Engine.\n\n#Shorts #Viral #Facts #AI`,
-                tags: ['Shorts', 'ViralShorts', t.title.split(' ')[0] || 'Facts', 'HindiFacts', 'AI'],
+            ? { 
+                ...t, 
+                status: 'RENDERING_VIDEO',
                 messages: [
                   ...(t.messages || []),
-                  { role: 'assistant', content: '🎉 5 scenes approved! Autonomous video rendering pipeline initiated.' }
+                  { role: 'assistant', content: '🎬 5 scenes approved! Autonomous 4K video rendering pipeline dispatched on n8n Cloud...' }
                 ]
               }
             : t
@@ -520,6 +569,45 @@ export default function DashboardApp({
       }
     } catch (e) {
       console.warn('Approve story error:', e.message);
+    }
+  };
+
+  // ─── 1-CLICK MANUAL YOUTUBE UPLOAD HANDLER ────────────────────────
+  const handleUploadYouTube = async () => {
+    if (!activeThread) return;
+    audioEngine.playSfx('boom');
+
+    try {
+      const res = await fetch('/.netlify/functions/upload-youtube', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          threadId: activeThread.threadId || activeThread.id,
+          title: activeThread.title,
+          description: activeThread.youtubeDescription,
+          tags: activeThread.tags,
+          videoUrl: activeThread.videoUrl
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setPastShorts(prev => prev.map(t => 
+          (t.threadId === activeThreadId || t.id === activeThreadId)
+            ? {
+                ...t,
+                youtubeUrl: data.youtubeUrl,
+                videoId: data.uploadId,
+                messages: [
+                  ...(t.messages || []),
+                  { role: 'assistant', content: `🚀 **1-Click Upload to YouTube Success!**\n\n📺 **Watch Short:** ${data.youtubeUrl}` }
+                ]
+              }
+            : t
+        ));
+      }
+    } catch (e) {
+      console.warn('Manual YouTube upload error:', e.message);
     }
   };
 
@@ -709,6 +797,7 @@ export default function DashboardApp({
               prompt={activeThread?.rawUserInput || prompt}
               stage={generationStage}
               isSceneStage={activeThread?.status === 'GENERATING_SCENES'}
+              isRenderingVideo={activeThread?.status === 'RENDERING_VIDEO'}
             />
           )}
 
@@ -923,11 +1012,12 @@ export default function DashboardApp({
             </div>
           )}
 
-          {/* 6. If Completed Video: Show Full Result Card with Real n8n Scenes */}
+          {/* 6. If Completed Video: Show Full Result Card with Real n8n Scenes & Video Stream */}
           {activeThread && activeThread.status === 'COMPLETED' && !isGenerating && (
             <ResultThreadCard
               key={activeThread.id || activeThread.threadId}
               shortData={activeThread}
+              onUploadYouTube={handleUploadYouTube}
               onRegenerate={() => handleGenerate('VIDEO_GENERATION')}
             />
           )}
@@ -981,6 +1071,8 @@ export default function DashboardApp({
               setLanguage={setLanguage}
               selectedLanguage={language}
               onLanguageChange={setLanguage}
+              autoUploadToYouTube={autoUploadToYouTube}
+              setAutoUploadToYouTube={setAutoUploadToYouTube}
             />
           </div>
         </div>

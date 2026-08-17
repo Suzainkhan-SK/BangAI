@@ -10,7 +10,8 @@ import {
   Flame, 
   Tag, 
   HelpCircle,
-  Command
+  Command,
+  Video
 } from 'lucide-react';
 import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
@@ -40,20 +41,20 @@ const SLASH_COMMANDS = [
   {
     cmd: '/refine',
     mode: 'REFINE_STORY',
-    label: 'Refine Current Story',
-    desc: 'Improve story brief, tighten hook, or add mystery',
+    label: 'Refine Active Story',
+    desc: 'Adjust pacing, tone, style, or hook of current script',
     icon: Wand2,
     color: '#ec4899',
-    placeholder: 'How would you like to improve this story? (e.g. make hook scarier)...'
+    placeholder: 'Tell Claude how to improve the current story brief...'
   },
   {
     cmd: '/hook',
-    mode: 'CHAT',
-    label: '5 Viral Hooks Generator',
-    desc: 'Generate 5 high-retention 3-second opening hooks',
+    mode: 'REFINE_STORY',
+    label: 'Generate Viral Hooks',
+    desc: 'Craft 3-second pattern interrupts for maximum retention',
     icon: Flame,
     color: '#f59e0b',
-    placeholder: 'Enter your topic to generate 5 shocking 3-second hooks...'
+    placeholder: 'Enter topic to generate high-converting 3-second hooks...'
   },
   {
     cmd: '/twist',
@@ -106,6 +107,9 @@ export default function CanvasPromptBar(props) {
     if (typeof props.onLanguageChange === 'function') props.onLanguageChange(val);
   };
 
+  const autoUploadToYouTube = props.autoUploadToYouTube ?? false;
+  const setAutoUploadToYouTube = props.setAutoUploadToYouTube || (() => {});
+
   const isGenerating = !!props.isGenerating;
   const textareaRef = useRef(null);
 
@@ -135,6 +139,14 @@ export default function CanvasPromptBar(props) {
       setSelectedIndex(0);
     } else {
       setShowSlashMenu(false);
+    }
+  }, [promptValue]);
+
+  // Adjust textarea height
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 130)}px`;
     }
   }, [promptValue]);
 
@@ -307,7 +319,7 @@ export default function CanvasPromptBar(props) {
           transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
         }}
       >
-        {/* Top Direct Mode Switcher Pills */}
+        {/* Top Direct Mode Switcher Pills + Auto-Upload Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button
@@ -342,9 +354,9 @@ export default function CanvasPromptBar(props) {
                 setExplicitMode(explicitMode === 'CHAT' ? null : 'CHAT');
               }}
               style={{
-                background: effectiveMode === 'CHAT' ? 'var(--grad-gemini)' : 'var(--bg-input)',
+                background: effectiveMode === 'CHAT' ? 'linear-gradient(135deg, #0ea5e9, #6366f1)' : 'var(--bg-input)',
                 color: effectiveMode === 'CHAT' ? '#ffffff' : 'var(--text-secondary)',
-                border: `1px solid ${effectiveMode === 'CHAT' ? 'var(--accent-cyan)' : 'var(--border-subtle)'}`,
+                border: `1px solid ${effectiveMode === 'CHAT' ? '#0ea5e9' : 'var(--border-subtle)'}`,
                 borderRadius: '99px',
                 padding: '3px 10px',
                 fontSize: '11px',
@@ -386,9 +398,40 @@ export default function CanvasPromptBar(props) {
             </button>
           </div>
 
-          <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
-            <Command size={10} /> Type <code>/</code> for commands
-          </span>
+          {/* Auto-Upload to YouTube Toggle Switch */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                audioEngine.playSfx('click');
+                setAutoUploadToYouTube(!autoUploadToYouTube);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '3px 10px',
+                borderRadius: '99px',
+                fontSize: '11px',
+                fontWeight: 700,
+                border: `1px solid ${autoUploadToYouTube ? '#ef4444' : 'var(--border-subtle)'}`,
+                background: autoUploadToYouTube ? 'rgba(239, 68, 68, 0.16)' : 'var(--bg-input)',
+                color: autoUploadToYouTube ? '#ef4444' : 'var(--text-muted)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              title="When enabled, n8n will automatically upload the finished 4K video to YouTube Shorts upon completion"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={autoUploadToYouTube ? '#ef4444' : 'currentColor'}>
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+              </svg>
+              <span>Auto-Upload: {autoUploadToYouTube ? 'ON' : 'OFF'}</span>
+            </button>
+
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <Command size={10} /> Type <code>/</code>
+            </span>
+          </div>
         </div>
 
         {/* Text Input Row */}

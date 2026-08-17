@@ -235,101 +235,122 @@ export default function ResultThreadCard({
               gap: '28px',
               alignItems: 'start'
             }}>
-              {/* Left: 9:16 Video Canvas Player */}
+              {/* Left: 9:16 Video Canvas Player (Streams Real Rendered MP4 if present) */}
               <div style={{
                 width: '100%',
                 maxWidth: '340px',
-                height: '480px',
+                height: '490px',
                 margin: '0 auto',
                 borderRadius: '26px',
-                background: 'radial-gradient(circle at 50% 30%, #1e1b4b 0%, #0f172a 70%, #020617 100%)',
+                background: shortData.videoUrl ? '#000000' : 'radial-gradient(circle at 50% 30%, #1e1b4b 0%, #0f172a 70%, #020617 100%)',
                 position: 'relative',
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                padding: '18px',
-                border: '2px solid var(--border-medium)',
+                padding: '16px',
+                border: '2px solid var(--border-glow)',
                 boxShadow: 'var(--shadow-card)'
               }}>
-                {/* Top Status */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
-                  <span style={{ fontSize: '11.5px', color: 'var(--accent-cyan)', fontWeight: 700, background: 'rgba(0,0,0,0.6)', padding: '3px 8px', borderRadius: '6px' }}>
-                    Scene {activeSceneIdx + 1}/5 ({currentScene?.act?.split(' ')[0] || 'Hook'})
-                  </span>
-                  <span style={{ fontSize: '11px', background: 'rgba(0,0,0,0.6)', color: '#34d399', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
-                    15s
-                  </span>
-                </div>
-
-                {/* Center Subtitle Pop */}
-                <div style={{
-                  zIndex: 10,
-                  background: 'rgba(0, 0, 0, 0.88)',
-                  padding: '16px 14px',
-                  borderRadius: '14px',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  textAlign: 'center',
-                  backdropFilter: 'blur(12px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.9)'
-                }}>
-                  <div style={{ fontSize: '10px', color: 'var(--accent-cyan)', fontWeight: 700, marginBottom: '6px' }}>
-                    🎬 {currentScene?.cameraMotion || 'Cinematic Shot'}
+                {/* Real Rendered Video Player */}
+                {shortData.videoUrl ? (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
+                    <video
+                      src={shortData.videoUrl}
+                      controls
+                      autoPlay
+                      loop
+                      playsInline
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '24px'
+                      }}
+                    />
                   </div>
-                  <p style={{
-                    fontFamily: 'Outfit, sans-serif',
-                    fontWeight: 800,
-                    fontSize: '13.5px',
-                    lineHeight: 1.45,
-                    color: '#ffffff'
-                  }}>
-                    "{currentScene?.voiceoverText || 'Narration streaming...'}"
-                  </p>
-                </div>
-
-                {/* Bottom Controls */}
-                <div style={{ zIndex: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <button
-                      onClick={handleTogglePlayStream}
-                      className="btn-glow"
-                      style={{ padding: '7px 16px', fontSize: '12px' }}
-                    >
-                      {isPlayingStream ? <Pause size={13} fill="#ffffff" /> : <Play size={13} fill="#ffffff" />}
-                      <span>{isPlayingStream ? 'Pause' : 'Play Scene Voice'}</span>
-                    </button>
-                    <div style={{ fontSize: '11px', color: '#e2e8f0', fontWeight: 600 }}>
-                      🎙️ {voiceName}
+                ) : (
+                  <>
+                    {/* Top Status */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
+                      <span style={{ fontSize: '11.5px', color: 'var(--accent-cyan)', fontWeight: 700, background: 'rgba(0,0,0,0.65)', padding: '4px 10px', borderRadius: '8px' }}>
+                        Scene {activeSceneIdx + 1}/5 ({currentScene?.act?.split(' ')[0] || 'Hook'})
+                      </span>
+                      <span style={{ fontSize: '11px', background: 'rgba(0,0,0,0.65)', color: '#34d399', padding: '4px 10px', borderRadius: '8px', fontWeight: 700 }}>
+                        15s (75s Total)
+                      </span>
                     </div>
-                  </div>
 
-                  {/* Scene Selector Pills */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '5px' }}>
-                    {scenes.map((s, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          audioEngine.playSfx('click');
-                          setActiveSceneIdx(idx);
-                        }}
-                        style={{
-                          background: activeSceneIdx === idx ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.12)',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '5px 0',
-                          fontSize: '11px',
-                          color: '#ffffff',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        S{idx + 1}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                    {/* Center Subtitle Pop */}
+                    <div style={{
+                      zIndex: 10,
+                      background: 'rgba(0, 0, 0, 0.88)',
+                      padding: '16px 14px',
+                      borderRadius: '14px',
+                      border: '1px solid rgba(255, 255, 255, 0.25)',
+                      textAlign: 'center',
+                      backdropFilter: 'blur(12px)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.9)'
+                    }}>
+                      <div style={{ fontSize: '10px', color: 'var(--accent-cyan)', fontWeight: 700, marginBottom: '6px' }}>
+                        🎬 {currentScene?.cameraMotion || 'Cinematic Shot'}
+                      </div>
+                      <p style={{
+                        fontFamily: 'Outfit, sans-serif',
+                        fontWeight: 800,
+                        fontSize: '13.5px',
+                        lineHeight: 1.45,
+                        color: '#ffffff'
+                      }}>
+                        "{currentScene?.voiceoverText || 'Narration streaming...'}"
+                      </p>
+                    </div>
 
+                    {/* Bottom Controls */}
+                    <div style={{ zIndex: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                        <button
+                          onClick={handleTogglePlayStream}
+                          className="btn-glow"
+                          style={{ padding: '7px 16px', fontSize: '12px' }}
+                        >
+                          {isPlayingStream ? <Pause size={13} fill="#ffffff" /> : <Play size={13} fill="#ffffff" />}
+                          <span>{isPlayingStream ? 'Pause' : 'Play Scene Voice'}</span>
+                        </button>
+                        <div style={{ fontSize: '11px', color: '#e2e8f0', fontWeight: 600 }}>
+                          🎙️ {voiceName}
+                        </div>
+                      </div>
+
+                      {/* Scene Selector Pills */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '5px' }}>
+                        {scenes.map((s, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              audioEngine.playSfx('click');
+                              setActiveSceneIdx(idx);
+                            }}
+                            style={{
+                              background: activeSceneIdx === idx ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.12)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '5px 0',
+                              fontSize: '11px',
+                              color: '#ffffff',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            S{idx + 1}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+                
                 {/* Bottom Red Progress Line */}
                 <div style={{
                   position: 'absolute',

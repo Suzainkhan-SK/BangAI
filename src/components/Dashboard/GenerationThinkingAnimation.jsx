@@ -13,13 +13,17 @@ import {
   Activity,
   Layers,
   Cpu,
-  ShieldCheck
+  ShieldCheck,
+  Video,
+  Volume2,
+  Share2
 } from 'lucide-react';
 
 export default function GenerationThinkingAnimation({ 
   prompt = '', 
   stage = '', 
-  isSceneStage = false 
+  isSceneStage = false,
+  isRenderingVideo = false 
 }) {
   const [elapsed, setElapsed] = useState(0);
   const [activeStep, setActiveStep] = useState(0);
@@ -38,7 +42,17 @@ export default function GenerationThinkingAnimation({
     { title: 'Awaiting Final 5 Scenes Approval', desc: 'Ready for creator final review before video rendering', icon: CheckCircle2, color: '#10b981' }
   ];
 
-  const steps = isSceneStage ? stage2Steps : stage1Steps;
+  const stage3RenderingSteps = [
+    { title: 'Stage 4A: Grok Imagine / Wan 2.1 Video Core Dispatch', desc: 'Decomposing 5 visual prompts with dynamic camera motion parameters', icon: Video, color: '#6366f1' },
+    { title: 'Stage 4B: Parallel 4K 9:16 Visual Scene Rendering', desc: 'Generating 5 high-bitrate vertical video clips with cinematic lighting', icon: Film, color: '#38bdf8' },
+    { title: 'Stage 4C: ElevenLabs Voice Synthesis & Audio Ducking', desc: 'Generating studio narration with -18dB dynamic background music mixing', icon: Volume2, color: '#ec4899' },
+    { title: 'Stage 5A: Final 4K MP4 Assembly & Motion Typography', desc: 'Concatenating 5 scenes, animated captions & master export', icon: Layers, color: '#f59e0b' },
+    { title: 'Stage 5B: Packaging Ready for Creator & YouTube Distribution', desc: 'Finalizing production deliverables and syncing with studio canvas', icon: CheckCircle2, color: '#10b981' }
+  ];
+
+  const steps = isRenderingVideo 
+    ? stage3RenderingSteps 
+    : (isSceneStage ? stage2Steps : stage1Steps);
 
   useEffect(() => {
     const startTime = Date.now();
@@ -46,15 +60,25 @@ export default function GenerationThinkingAnimation({
       setElapsed(+((Date.now() - startTime) / 1000).toFixed(1));
     }, 100);
 
+    // Realistic time intervals per stage (rendering takes longer)
+    const stepDuration = isRenderingVideo ? 18000 : 3500;
+
     const stepInterval = setInterval(() => {
       setActiveStep((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
-    }, 3000);
+    }, stepDuration);
 
     return () => {
       clearInterval(timer);
       clearInterval(stepInterval);
     };
-  }, [isSceneStage, steps.length]);
+  }, [isSceneStage, isRenderingVideo, steps.length]);
+
+  const formatElapsed = (sec) => {
+    if (sec < 60) return `${sec.toFixed(1)}s`;
+    const m = Math.floor(sec / 60);
+    const s = (sec % 60).toFixed(0).padStart(2, '0');
+    return `${m}m ${s}s`;
+  };
 
   return (
     <div style={{
@@ -79,7 +103,9 @@ export default function GenerationThinkingAnimation({
           left: 0,
           right: 0,
           height: '3px',
-          background: 'linear-gradient(90deg, #6366f1, #38bdf8, #ec4899, #10b981, #6366f1)',
+          background: isRenderingVideo 
+            ? 'linear-gradient(90deg, #ec4899, #8b5cf6, #38bdf8, #10b981, #ec4899)'
+            : 'linear-gradient(90deg, #6366f1, #38bdf8, #ec4899, #10b981, #6366f1)',
           backgroundSize: '200% 100%',
           animation: 'spin 6s linear infinite'
         }} />
@@ -98,14 +124,18 @@ export default function GenerationThinkingAnimation({
               width: '44px',
               height: '44px',
               borderRadius: '50%',
-              background: 'var(--grad-gemini)',
+              background: isRenderingVideo ? 'linear-gradient(135deg, #ec4899, #8b5cf6)' : 'var(--grad-gemini)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(56, 189, 248, 0.5)',
+              boxShadow: isRenderingVideo ? '0 0 24px rgba(236, 72, 153, 0.5)' : '0 0 20px rgba(56, 189, 248, 0.5)',
               flexShrink: 0
             }}>
-              <Sparkles size={22} color="#ffffff" className="spin-animation" />
+              {isRenderingVideo ? (
+                <Video size={22} color="#ffffff" className="spin-animation" />
+              ) : (
+                <Sparkles size={22} color="#ffffff" className="spin-animation" />
+              )}
             </div>
 
             <div>
@@ -117,13 +147,23 @@ export default function GenerationThinkingAnimation({
                 alignItems: 'center',
                 gap: '8px'
               }}>
-                <span>{isSceneStage ? 'n8n Screenplay Engine Writing 5 Scenes' : 'n8n Autonomous Video Pipeline Executing'}</span>
-                <span className="badge badge-brand" style={{ fontSize: '10px', padding: '2px 8px' }}>
-                  <Radio size={10} className="spin-animation" /> LIVE N8N
+                <span>
+                  {isRenderingVideo 
+                    ? 'n8n 4K Video Rendering Engine Executing' 
+                    : isSceneStage 
+                    ? 'n8n Screenplay Engine Writing 5 Scenes' 
+                    : 'n8n Autonomous Video Pipeline Executing'}
+                </span>
+                <span className={`badge ${isRenderingVideo ? 'badge-cyan' : 'badge-brand'}`} style={{ fontSize: '10px', padding: '2px 8px' }}>
+                  <Radio size={10} className="spin-animation" /> {isRenderingVideo ? 'RENDERING 4K' : 'LIVE N8N'}
                 </span>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '3px' }}>
-                {isSceneStage ? 'Drafting 5 individual 15s visual prompts & voiceover lines' : 'Topic Analyzer & Strategy Engine generating 5-act narrative'}
+                {isRenderingVideo 
+                  ? 'Rendering 5 parallel 15s scenes, ElevenLabs voiceover & final MP4 concatenation' 
+                  : isSceneStage 
+                  ? 'Drafting 5 individual 15s visual prompts & voiceover lines' 
+                  : 'Topic Analyzer & Strategy Engine generating 5-act narrative'}
               </div>
             </div>
           </div>
@@ -143,7 +183,7 @@ export default function GenerationThinkingAnimation({
             flexShrink: 0
           }}>
             <Clock size={14} />
-            <span>{elapsed.toFixed(1)}s</span>
+            <span>{formatElapsed(elapsed)}</span>
           </div>
         </div>
 
@@ -161,14 +201,14 @@ export default function GenerationThinkingAnimation({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', flexShrink: 0 }}>
-              Active Topic:
+              Active Project:
             </span>
             <span style={{ fontSize: '13.5px', color: 'var(--text-primary)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               "{prompt || 'Generating viral story screenplay...'}"
             </span>
           </div>
-          <span className="badge badge-cyan" style={{ fontSize: '10.5px', flexShrink: 0 }}>
-            75s • 5 Acts
+          <span className={`badge ${isRenderingVideo ? 'badge-brand' : 'badge-cyan'}`} style={{ fontSize: '10.5px', flexShrink: 0 }}>
+            {isRenderingVideo ? '75s 4K Render' : '75s • 5 Acts'}
           </span>
         </div>
 
@@ -229,7 +269,7 @@ export default function GenerationThinkingAnimation({
                   )}
                   {isCurrent && (
                     <span style={{ fontSize: '11px', fontWeight: 800, color: st.color, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Loader2 size={12} className="spin-animation" /> In Progress...
+                      <Loader2 size={12} className="spin-animation" /> Rendering...
                     </span>
                   )}
                   {isPending && (
