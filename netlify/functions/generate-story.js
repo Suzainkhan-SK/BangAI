@@ -37,7 +37,7 @@ export const handler = async (event, context) => {
     }
 
     // Determine host to build the callback URL
-    const host = event.headers.host || 'shortsai-studio.netlify.app';
+    const host = event.headers.host || 'viral-shorts-ai-studio.netlify.app';
     const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
 
     console.log(`[Netlify] Sending prompt to n8n cloud webhook: "${prompt.substring(0, 50)}..."`);

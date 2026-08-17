@@ -39,27 +39,7 @@ export default function DashboardApp({
     let eventSource;
     let pollInterval;
 
-    // 1. Try SSE (Local Bridge Server)
-    try {
-      eventSource = new EventSource('http://localhost:3001/api/events');
-      eventSource.addEventListener('story_ready', (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          console.log('Received story approval event:', data);
-          audioEngine.playSfx('success');
-          setPendingApprovalStory(data);
-          setIsGenerating(false);
-        } catch (err) {}
-      });
-      eventSource.onerror = () => {
-        // SSE failed or running on Netlify - switch to Netlify function polling
-        if (!pollInterval && isGenerating) {
-          pollInterval = setInterval(checkNetlifyStoryApproval, 3000);
-        }
-      };
-    } catch (e) {}
-
-    // 2. Netlify Function Polling Check
+    // 1. Polling Netlify Serverless Function whenever isGenerating is true
     async function checkNetlifyStoryApproval() {
       try {
         const res = await fetch('/.netlify/functions/story-approval');
@@ -70,10 +50,31 @@ export default function DashboardApp({
             audioEngine.playSfx('success');
             setPendingApprovalStory(data.story);
             setIsGenerating(false);
-            clearInterval(pollInterval);
           }
         }
       } catch (err) {}
+    }
+
+    if (isGenerating) {
+      // Start polling immediately and every 2.5s
+      checkNetlifyStoryApproval();
+      pollInterval = setInterval(checkNetlifyStoryApproval, 2500);
+    }
+
+    // 2. Try Local SSE if running locally
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      try {
+        eventSource = new EventSource('http://localhost:3001/api/events');
+        eventSource.addEventListener('story_ready', (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            console.log('Received story approval event:', data);
+            audioEngine.playSfx('success');
+            setPendingApprovalStory(data);
+            setIsGenerating(false);
+          } catch (err) {}
+        });
+      } catch (e) {}
     }
 
     return () => {

@@ -4,8 +4,29 @@
 //   POST: n8n cloud posts the generated story here
 //   GET: website frontend polls or checks the latest generated story
 
-// Global in-memory cache for serverless execution context
+import fs from 'fs';
+import path from 'path';
+
 let latestStory = null;
+const CACHE_FILE = path.join('/tmp', 'latest_story.json');
+
+function getCachedStory() {
+  if (latestStory) return latestStory;
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const content = fs.readFileSync(CACHE_FILE, 'utf8');
+      return JSON.parse(content);
+    }
+  } catch (e) {}
+  return null;
+}
+
+function saveCachedStory(data) {
+  latestStory = data;
+  try {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(data), 'utf8');
+  } catch (e) {}
+}
 
 export const handler = async (event, context) => {
   // CORS Preflight
@@ -23,15 +44,17 @@ export const handler = async (event, context) => {
 
   // GET: Website checks for new story
   if (event.httpMethod === 'GET') {
+    const story = getCachedStory();
     return {
       statusCode: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate'
       },
       body: JSON.stringify({
-        hasStory: !!latestStory,
-        story: latestStory
+        hasStory: !!story,
+        story: story
       })
     };
   }
@@ -42,7 +65,7 @@ export const handler = async (event, context) => {
       const data = JSON.parse(event.body || '{}');
       console.log('[Netlify] Received Story Approval callback from n8n cloud:', data.suggestedTitle);
 
-      latestStory = data;
+      saveCachedStory(data);
 
       return {
         statusCode: 200,

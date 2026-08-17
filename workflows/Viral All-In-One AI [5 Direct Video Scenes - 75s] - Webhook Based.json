@@ -1,14 +1,14 @@
 {
   "id": "u8vcVLc00wPp2AAI",
   "name": "Viral All-In-One AI [5 Direct Video Scenes - 75s] - Webhook Based",
-  "active": false,
+  "active": true,
   "isArchived": false,
-  "versionId": "8ee6cae1-4f5c-469b-bf39-78448aee9fd9",
-  "activeVersionId": null,
-  "triggerCount": 0,
+  "versionId": "817b694b-2aa9-4a29-a59c-925e7a19ab51",
+  "activeVersionId": "817b694b-2aa9-4a29-a59c-925e7a19ab51",
+  "triggerCount": 1,
   "nodeCount": 238,
   "createdAt": "2026-08-17T06:05:30.199Z",
-  "updatedAt": "2026-08-17T06:52:45.170Z",
+  "updatedAt": "2026-08-17T07:23:45.472Z",
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
@@ -10315,17 +10315,13 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ (() => {\n  let p = {};\n  try { p = $('Filter: My Chat Only').first().json || {}; } catch(e) {}\n  return p.callbackUrl || 'https://shortsai-api-bridge.loca.lt/api/story-approval';\n})() }}",
+        "url": "={{ (() => {\n  let p = {};\n  try { p = $('Filter: My Chat Only').first().json || {}; } catch(e) {}\n  return p.callbackUrl || 'https://viral-shorts-ai-studio.netlify.app/.netlify/functions/story-approval';\n})() }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
-            },
-            {
-              "name": "bypass-tunnel-reminder",
-              "value": "true"
             }
           ]
         },
@@ -10339,7 +10335,9 @@
     }
   ],
   "nodeGroups": [],
-  "activeVersion": null,
+  "activeVersion": {
+    "sameAsDraft": true
+  },
   "meta": {
     "aiBuilderAssisted": true,
     "builderVariant": "mcp",
