@@ -1,7 +1,11 @@
 // Netlify Function: generate-story
 // Path: /.netlify/functions/generate-story
 
+import fs from 'fs';
+import path from 'path';
+
 const N8N_WEBHOOK_URL = 'https://cmpunktg22.app.n8n.cloud/webhook/viral-shorts-ai';
+const CACHE_FILE = path.join('/tmp', 'latest_story.json');
 
 export const handler = async (event, context) => {
   // Handle CORS Preflight
@@ -35,6 +39,13 @@ export const handler = async (event, context) => {
         body: JSON.stringify({ error: 'Prompt is required' })
       };
     }
+
+    // Clear previous story cache before triggering new n8n workflow
+    try {
+      if (fs.existsSync(CACHE_FILE)) {
+        fs.unlinkSync(CACHE_FILE);
+      }
+    } catch (e) {}
 
     // Determine host to build the callback URL
     const host = event.headers.host || 'viral-shorts-ai-studio.netlify.app';

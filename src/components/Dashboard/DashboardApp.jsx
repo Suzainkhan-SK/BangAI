@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import CanvasPromptBar from './CanvasPromptBar';
 import TemplateCards from './TemplateCards';
@@ -62,6 +62,9 @@ export default function DashboardApp({
   const [cancelNotice, setCancelNotice] = useState(null);
   const [duplicateNotice, setDuplicateNotice] = useState(null);
 
+  // Ref to track the start time of the active generation request
+  const generationStartTimeRef = useRef(0);
+
   // Sync real history to localStorage
   const saveHistory = (items) => {
     setPastShorts(items);
@@ -76,18 +79,31 @@ export default function DashboardApp({
     let pollInterval;
 
     async function checkNetlifyStoryApproval() {
+      if (!isGenerating) return;
       try {
-        const res = await fetch('/.netlify/functions/story-approval');
+        const sinceTime = generationStartTimeRef.current || 0;
+        const res = await fetch(`/.netlify/functions/story-approval?since=${sinceTime}&t=${Date.now()}`, {
+          cache: 'no-store'
+        });
+
         if (res.ok) {
           const data = await res.json();
           if (data.hasStory && data.story) {
-            console.log('Polled story callback from Netlify function:', data.story);
+            // Validate that story timestamp is fresh
+            const storyTimestamp = new Date(data.story.timestamp || 0).getTime();
+            if (sinceTime > 0 && storyTimestamp > 0 && storyTimestamp < sinceTime) {
+              console.log('Ignoring stale story from previous generation:', data.story.suggestedTitle);
+              return;
+            }
+
+            console.log('Received fresh story callback from n8n cloud:', data.story);
 
             // 1. If Duplicate Topic Alert received
             if (data.story.status === 'DUPLICATE_TOPIC') {
               audioEngine.playSfx('click');
               setIsGenerating(false);
               setPendingApprovalStory(null);
+              setActiveShort(null);
               setDuplicateNotice({
                 matchedTitle: data.story.matchedTitle || prompt,
                 message: data.story.message || 'This topic was already covered in your channel memory.'
@@ -100,6 +116,7 @@ export default function DashboardApp({
               audioEngine.playSfx('click');
               setIsGenerating(false);
               setPendingApprovalStory(null);
+              setActiveShort(null);
               setCancelNotice('Video generation was cancelled.');
               setTimeout(() => setCancelNotice(null), 5000);
               return;
@@ -109,6 +126,7 @@ export default function DashboardApp({
             audioEngine.playSfx('success');
             setPendingApprovalStory(data.story);
             setIsGenerating(false);
+            setActiveShort(null); // Keep activeShort null while awaiting approval!
             setDuplicateNotice(null);
             setCancelNotice(null);
 
@@ -139,8 +157,14 @@ export default function DashboardApp({
     }
 
     if (isGenerating) {
-      checkNetlifyStoryApproval();
+      // Delay first check slightly to avoid catching any in-flight cache
+      const initialTimeout = setTimeout(checkNetlifyStoryApproval, 1200);
       pollInterval = setInterval(checkNetlifyStoryApproval, 2500);
+
+      return () => {
+        clearTimeout(initialTimeout);
+        if (pollInterval) clearInterval(pollInterval);
+      };
     }
 
     // Local SSE fallback for localhost
@@ -153,6 +177,7 @@ export default function DashboardApp({
             audioEngine.playSfx('success');
             setPendingApprovalStory(data);
             setIsGenerating(false);
+            setActiveShort(null);
           } catch (err) {}
         });
       } catch (e) {}
@@ -177,6 +202,7 @@ export default function DashboardApp({
     setPendingApprovalStory(null);
     setCancelNotice(null);
     setDuplicateNotice(null);
+    setIsGenerating(false);
   };
 
   const handleSelectTemplate = (item) => {
@@ -189,6 +215,7 @@ export default function DashboardApp({
     setPendingApprovalStory(null);
     setCancelNotice(null);
     setDuplicateNotice(null);
+    setIsGenerating(false);
 
     setTimeout(() => {
       const el = document.getElementById('shorts-prompt-input');
@@ -203,6 +230,7 @@ export default function DashboardApp({
     setPendingApprovalStory(null);
     setCancelNotice(null);
     setDuplicateNotice(null);
+    setIsGenerating(false);
     setTimeout(() => {
       const el = document.getElementById('shorts-prompt-input');
       if (el) el.focus();
@@ -222,13 +250,23 @@ export default function DashboardApp({
     if (!prompt.trim()) return;
 
     audioEngine.playSfx('boom');
+    const startTime = Date.now();
+    generationStartTimeRef.current = startTime;
+
+    // Reset all previous state cleanly
     setIsGenerating(true);
-    setGenerationStage('Dispatching prompt to n8n Cloud Webhook...');
-    setPendingApprovalStory(null);
+    setActiveShort(null); // DO NOT show old short!
+    setPendingApprovalStory(null); // DO NOT show old approval!
     setCancelNotice(null);
     setDuplicateNotice(null);
+    setGenerationStage('Dispatching prompt to n8n Cloud Webhook...');
 
-    const newId = 'gen-' + Date.now();
+    // Clear serverless cache on Netlify
+    try {
+      fetch('/.netlify/functions/story-approval?clear=true', { method: 'DELETE' }).catch(() => {});
+    } catch (e) {}
+
+    const newId = 'gen-' + startTime;
     const newEntry = {
       id: newId,
       name: prompt.substring(0, 30) + (prompt.length > 30 ? '...' : ''),
@@ -240,8 +278,7 @@ export default function DashboardApp({
       language: language,
       criticScore: 98,
       status: 'GENERATING',
-      createdAt: new Date().toISOString(),
-      scenes: PRESETS.bermuda.scenes
+      createdAt: new Date().toISOString()
     };
 
     // Prepend to real history
@@ -305,14 +342,16 @@ export default function DashboardApp({
         viralHook: 'पहले 3 सेकंड में दर्शकों को हिला देने वाला रहस्यमयी हुक!',
         storyBrief: `Scene 1 (0-15s): Dramatic opening hook introducing the mystery.\nScene 2 (15-30s): Tense discovery and evidence exploration.\nScene 3 (30-45s): The shocking turning point.\nScene 4 (45-60s): Climax resolution and impossible facts.\nScene 5 (60-75s): Final wisdom and subscribe call-to-action.`,
         approveUrl: 'https://cmpunktg22.app.n8n.cloud/webhook-waiting/test?approval=yes',
-        cancelUrl: 'https://cmpunktg22.app.n8n.cloud/webhook-waiting/test?approval=no'
+        cancelUrl: 'https://cmpunktg22.app.n8n.cloud/webhook-waiting/test?approval=no',
+        timestamp: new Date().toISOString()
       };
       setPendingApprovalStory(generated);
+      setActiveShort(null);
 
       // Update real history item
       setPastShorts(prev => {
         const updated = prev.map(item => {
-          if (item.rawUserInput === prompt) {
+          if (item.rawUserInput === prompt || item.id === activeShortId) {
             return {
               ...item,
               suggestedTitle: generated.suggestedTitle,
@@ -326,7 +365,7 @@ export default function DashboardApp({
         saveHistory(updated);
         return updated;
       });
-    }, 3500);
+    }, 4500);
   };
 
   // ─── USER APPROVES STORY ─────────────────────────────────────────
@@ -396,6 +435,7 @@ export default function DashboardApp({
 
     setTimeout(() => {
       setPendingApprovalStory(null);
+      setActiveShort(null);
       setCancelNotice('Story generation cancelled.');
       setTimeout(() => setCancelNotice(null), 4000);
     }, 1200);
@@ -441,7 +481,7 @@ export default function DashboardApp({
           margin: '0 auto'
         }}>
           {/* Back to Canvas header if viewing an existing Short */}
-          {activeShort && !isGenerating && !pendingApprovalStory && (
+          {activeShort && !isGenerating && !pendingApprovalStory && !duplicateNotice && !cancelNotice && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
               <button
                 onClick={handleNewShort}
@@ -579,7 +619,7 @@ export default function DashboardApp({
             </div>
           )}
 
-          {/* Live Thinking & Reasoning Animation */}
+          {/* Live Thinking & Reasoning Animation (Displayed exclusively while generating) */}
           {isGenerating && (
             <GenerationThinkingAnimation
               prompt={prompt}
@@ -587,8 +627,8 @@ export default function DashboardApp({
             />
           )}
 
-          {/* AI Story Approval Card (When n8n responds with generated story) */}
-          {pendingApprovalStory && (
+          {/* AI Story Approval Card (When n8n responds with fresh story) */}
+          {pendingApprovalStory && !isGenerating && (
             <StoryApprovalCard
               story={pendingApprovalStory}
               onApprove={handleApproveStory}
@@ -597,13 +637,13 @@ export default function DashboardApp({
           )}
 
           {/* Completed Short Video Studio Result Card */}
-          {activeShort && !isGenerating && !pendingApprovalStory && !duplicateNotice ? (
+          {activeShort && !isGenerating && !pendingApprovalStory && !duplicateNotice && !cancelNotice ? (
             <ResultThreadCard
               key={activeShort.id}
               shortData={activeShort}
               onRegenerate={handleGenerate}
             />
-          ) : !isGenerating && !pendingApprovalStory && !duplicateNotice ? (
+          ) : !isGenerating && !pendingApprovalStory && !duplicateNotice && !cancelNotice ? (
             /* Empty State: Inspiration Story Templates */
             <TemplateCards
               onSelectTemplate={handleSelectTemplate}
