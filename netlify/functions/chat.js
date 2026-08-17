@@ -352,9 +352,52 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
       };
     }
 
-    // ─── MODE C: VIDEO GENERATION (DISPATCH DIRECTLY TO N8N CLOUD) ────
+    // ─── MODE C: VIDEO GENERATION (CLAUDE HIGH-RETENTION SCRIPT + N8N 4K PIPELINE) ────
     const host = event.headers?.host || 'viral-shorts-ai-studio.netlify.app';
     const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
+
+    // 1. Generate deep, engaging, high-retention 5-act story brief with Claude (Guarantees zero fake fallback text)
+    let generatedStory = null;
+    try {
+      const storyGenPrompt = `You are ShortsAI Master Screenplay Writer. Analyze the creator's video topic and generate a gripping, viral 75-second YouTube Short story strategy in ${detectedLanguage}.
+
+Topic / Prompt: "${message.trim()}"
+Language: "${detectedLanguage}"
+Visual Style: "${settings.visualStyle || 'Cinematic Realistic'}"
+
+CRITICAL RULES:
+1. All text (title, hook, story brief) MUST be written in ${detectedLanguage}. ${detectedLanguage === 'English' ? 'Pure English only — no Hindi or Romanized Hindi.' : ''}
+2. suggestedTitle: High-CTR, curiosity-driven YouTube Shorts title (max 50 chars) with 1 emoji.
+3. viralHook: High-impact 3-second opening hook that stops the scroll.
+4. storyBrief: Detailed 5-scene narrative breakdown:
+   - Act 1 (0-15s): The Hook & Setup
+   - Act 2 (15-30s): The Investigation / Escalation
+   - Act 3 (30-45s): The Turning Point / Hidden Truth
+   - Act 4 (45-60s): The Climax / Peak Tension
+   - Act 5 (60-75s): The Resolution & Mind-Bending Question
+
+Output ONLY a valid JSON object formatted as:
+{
+  "suggestedTitle": "Catchy Title with Emoji",
+  "viralHook": "Shocking opening hook in ${detectedLanguage}",
+  "storyBrief": "Detailed 5-act narrative brief in ${detectedLanguage}",
+  "genre": "Documentary / Mystery / History / Science",
+  "tags": ["shorts", "viral", "documentary", "mystery"]
+}
+Do NOT wrap in markdown code fences. Return raw JSON.`;
+
+      const aiStoryRaw = await callClaudeAI(storyGenPrompt, conversationHistory, 1500);
+      try {
+        const cleanJson = aiStoryRaw.replace(/```json/g, '').replace(/```/g, '').trim();
+        generatedStory = JSON.parse(cleanJson);
+        if (generatedStory) {
+          generatedStory.language = detectedLanguage;
+          generatedStory.visualStyle = settings.visualStyle || 'Cinematic Realistic';
+        }
+      } catch(e) {}
+    } catch (err) {
+      console.warn('Claude Story pre-generation notice:', err.message);
+    }
 
     let n8nRes;
     try {
@@ -362,7 +405,10 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: message.trim(),
+          prompt: generatedStory?.storyBrief || message.trim(),
+          rawUserInput: message.trim(),
+          refinedStory: generatedStory,
+          isRefined: !!generatedStory,
           voiceId: settings.voiceId || 'adam',
           visualStyle: settings.visualStyle || 'Cinematic Realistic',
           language: detectedLanguage,
