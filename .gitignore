@@ -3,10 +3,18 @@ node_modules
 .pnp
 .pnp.js
 
-# Production build (Netlify will build automatically)
+# Production build
 dist
 dist-ssr
 *.local
+
+# Environment variables & secrets
+.env
+.env.*
+*.env
+
+# Scratch & temporary test scripts
+scratch/
 
 # Logs
 npm-debug.log*

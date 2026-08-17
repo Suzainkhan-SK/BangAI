@@ -4,6 +4,9 @@
   command = "npm run build"
   functions = "netlify/functions"
 
+[functions]
+  node_bundler = "esbuild"
+
 # Handle SPA Routing (Redirect all routes to index.html)
 [[redirects]]
   from = "/*"
