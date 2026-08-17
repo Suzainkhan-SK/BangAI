@@ -1,9 +1,9 @@
 // Netlify Function Helper: db.js
-// Safe MongoDB connection pool with in-memory fallback
+// Safe MongoDB connection pool with fallback
 
 import { MongoClient } from 'mongodb';
 
-const MONGODB_URI = process.env.MONGODB_URI || null;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://suzainkhan8360_db_user:3bvuvLwwzo7kd4OH@viral-shorts-ai-studio.shfhvsw.mongodb.net/shortsai?retryWrites=true&w=majority&appName=viral-shorts-ai-studio';
 const DB_NAME = process.env.MONGODB_DB_NAME || "shortsai";
 
 let cachedClient = null;
@@ -35,7 +35,19 @@ const fallbackDb = {
           const threadId = filter.threadId;
           const existing = inMemoryStore.threads.get(threadId) || {};
           const setDoc = update.$set || {};
-          const newDoc = { ...existing, ...setDoc, threadId };
+          const pushDoc = update.$push || {};
+          
+          let messages = existing.messages || [];
+          if (pushDoc.messages) {
+            messages = [...messages, pushDoc.messages];
+          }
+
+          const newDoc = { 
+            ...existing, 
+            ...setDoc, 
+            messages,
+            threadId 
+          };
           inMemoryStore.threads.set(threadId, newDoc);
           return { acknowledged: true, upsertedId: threadId };
         },
@@ -51,9 +63,9 @@ const fallbackDb = {
         find: (q) => ({
           sort: () => ({
             limit: (n) => ({
-              toArray: async () => inMemoryStore.messages.filter(m => !q.threadId || m.threadId === q.threadId).slice(0, n)
+              toArray: async () => inMemoryStore.messages.filter(m => !q.threadId || m.threadId === q.threadId || (q.threadId?.$in && q.threadId.$in.includes(m.threadId))).slice(0, n)
             }),
-            toArray: async () => inMemoryStore.messages.filter(m => !q.threadId || m.threadId === q.threadId)
+            toArray: async () => inMemoryStore.messages.filter(m => !q.threadId || m.threadId === q.threadId || (q.threadId?.$in && q.threadId.$in.includes(m.threadId)))
           })
         }),
         insertOne: async (doc) => {
@@ -72,25 +84,22 @@ const fallbackDb = {
       findOne: async () => null,
       insertOne: async () => ({ acknowledged: true }),
       updateOne: async () => ({ acknowledged: true }),
-      deleteOne: async () => ({ acknowledged: true })
+      deleteOne: async () => ({ acknowledged: true }),
+      deleteMany: async () => ({ acknowledged: true })
     };
   }
 };
 
 export async function getDb() {
-  if (!MONGODB_URI) {
-    return fallbackDb;
-  }
-
   if (cachedClient && cachedDb) {
     return cachedDb;
   }
 
   try {
     const client = new MongoClient(MONGODB_URI, {
-      maxPoolSize: 5,
-      serverSelectionTimeoutMS: 2500,
-      connectTimeoutMS: 2500
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 4000,
+      connectTimeoutMS: 4000
     });
 
     await client.connect();
@@ -101,7 +110,7 @@ export async function getDb() {
 
     return db;
   } catch (err) {
-    console.warn('MongoDB connection failed, using fallback in-memory store:', err.message);
+    console.warn('MongoDB connection fallback:', err.message);
     return fallbackDb;
   }
 }

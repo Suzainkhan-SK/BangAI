@@ -53,13 +53,32 @@ export default function DashboardApp({
   onLogout
 }) {
   const [sessionId] = useState(getOrCreateSessionId);
-  const [pastShorts, setPastShorts] = useState([]);
+  const [pastShorts, setPastShorts] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('shortsai_all_threads');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
   const [activeThreadId, setActiveThreadId] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('shortsai_active_thread_id') || initialPresetId || null;
     }
     return initialPresetId || null;
   });
+
+  // Sync all thread changes to localStorage immediately on every change
+  useEffect(() => {
+    if (typeof window !== 'undefined' && Array.isArray(pastShorts)) {
+      localStorage.setItem('shortsai_all_threads', JSON.stringify(pastShorts));
+    }
+  }, [pastShorts]);
 
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [voiceId, setVoiceId] = useState('adam');
@@ -97,51 +116,42 @@ export default function DashboardApp({
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data.threads) && data.threads.length > 0) {
-            setPastShorts(data.threads);
+            setPastShorts(prev => {
+              const remoteMap = new Map(data.threads.map(t => [t.threadId || t.id, t]));
+              // Merge remote with local to preserve newest messages
+              const merged = data.threads.map(rt => {
+                const lt = prev.find(p => (p.threadId || p.id) === (rt.threadId || rt.id));
+                if (lt && lt.messages && lt.messages.length > (rt.messages || []).length) {
+                  return { ...rt, messages: lt.messages };
+                }
+                return rt;
+              });
+
+              // Add local-only threads that haven't synced yet
+              prev.forEach(lt => {
+                const id = lt.threadId || lt.id;
+                if (id && !remoteMap.has(id)) {
+                  merged.push(lt);
+                }
+              });
+
+              return merged;
+            });
+
             const savedId = typeof window !== 'undefined' ? localStorage.getItem('shortsai_active_thread_id') : null;
             const match = data.threads.find(t => t.threadId === savedId || t.id === savedId);
             if (match) {
               setActiveThreadId(match.threadId || match.id);
-            } else if (!activeThreadId) {
+            } else if (!activeThreadId && data.threads.length > 0) {
               const defaultId = data.threads[0].threadId || data.threads[0].id;
               setActiveThreadId(defaultId);
               if (typeof window !== 'undefined') localStorage.setItem('shortsai_active_thread_id', defaultId);
             }
-            return;
           }
         }
       } catch (err) {
         console.warn('Could not load MongoDB threads:', err.message);
       }
-
-      // Default initial templates if fresh database
-      const initialThreads = [
-        {
-          id: 'preset-bermuda',
-          threadId: 'preset-bermuda',
-          name: 'Bermuda Triangle Flight 19',
-          title: 'बरमूडा ट्रायंगल का अनसुलझा रहस्य: Flight 19 😱',
-          rawUserInput: 'Flight 19 lost in Bermuda Triangle mystery',
-          genre: 'Mystery & Thriller',
-          voiceId: 'adam',
-          visualStyleId: 'cinematic',
-          musicId: 'mystery',
-          language: 'Hinglish',
-          status: 'COMPLETED',
-          criticScore: 99,
-          viralHook: '5 नौसैनिक विमान अचानक गायब हो गए और उनका आज तक कोई सुराग नहीं मिला!',
-          youtubeDescription: 'The mysterious disappearance of Flight 19 in Bermuda Triangle.\n\n#Shorts #Mystery #BermudaTriangle',
-          tags: ['Bermuda Triangle', 'Flight 19', 'Hindi Facts', 'Shorts'],
-          scenes: PRESETS.bermuda.scenes,
-          messages: [
-            { role: 'user', content: 'Flight 19 lost in Bermuda Triangle mystery' },
-            { role: 'assistant', content: 'Here is your completed 75-second YouTube Short with 5 cinematic scenes and audio score!' }
-          ],
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-          updatedAt: new Date(Date.now() - 3600000).toISOString()
-        }
-      ];
-      setPastShorts(initialThreads);
     }
 
     loadThreadsFromDatabase();
@@ -354,10 +364,19 @@ export default function DashboardApp({
   };
 
   const handleDeleteShort = async (id) => {
-    setPastShorts(prev => prev.filter(x => x.id !== id && x.threadId !== id));
+    audioEngine.playSfx('click');
+    setPastShorts(prev => {
+      const updated = prev.filter(x => x.id !== id && x.threadId !== id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('shortsai_all_threads', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
     try {
       fetch(`/.netlify/functions/threads?threadId=${id}`, { method: 'DELETE' }).catch(() => {});
     } catch (e) {}
+
     if (activeThreadId === id) {
       handleNewShort();
     }
