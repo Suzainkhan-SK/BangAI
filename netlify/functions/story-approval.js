@@ -125,8 +125,11 @@ export const handler = async (event, context) => {
       } else if (data.status === 'VIDEO_COMPLETED' || data.status === 'VIDEO_UPLOADED_SUCCESS') {
         status = 'COMPLETED';
         messageContent = data.youtubeUrl 
-          ? `🎉 **Video Rendered & Uploaded to YouTube!**\n\n📺 **Watch Short:** ${data.youtubeUrl}\n🎬 Direct MP4 Video Ready.` 
+          ? `🎉 **Video Uploaded to YouTube Shorts!**\n\n📺 **Watch Short:** ${data.youtubeUrl}\n🎬 Title: "${data.title || 'Viral Video'}"` 
           : `🎉 **Video Rendering Complete!**\n\n🎬 75-Second 4K video rendered and ready for download or 1-Click YouTube Upload.`;
+      } else if (data.status === 'YOUTUBE_UPLOAD_FAILED') {
+        status = 'COMPLETED';
+        messageContent = `⚠️ **YouTube Upload Notice:** ${data.errorMessage || 'Upload encountered an issue. You can retry 1-Click Upload.'}`;
       } else if (data.status === 'RENDER_FAILED') {
         status = 'RENDER_FAILED';
         messageContent = `❌ Video rendering error: ${data.errorMessage || 'Render failed in media engine'}`;

@@ -1,8 +1,10 @@
 // Netlify Function: upload-youtube
 // Path: /.netlify/functions/upload-youtube
-// Handles 1-Click Manual YouTube Upload from the Studio Interface
+// Triggers n8n Cloud Manual YouTube Upload Webhook & Authenticated OAuth Pipeline
 
 import { getDb } from './db.js';
+
+const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg22.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
 
 export const handler = async (event, context) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -25,40 +27,74 @@ export const handler = async (event, context) => {
   }
 
   try {
-    const { threadId, title, description, tags, videoUrl } = JSON.parse(event.body || '{}');
+    const payload = JSON.parse(event.body || '{}');
+    const { threadId, title, description, tags, videoUrl, sessionId } = payload;
 
-    console.log('[Netlify] Manual 1-Click YouTube Upload triggered for thread:', threadId);
-
-    const now = new Date();
-    const db = await getDb();
-
-    // If there's an existing thread in MongoDB, fetch it
-    let currentThread = null;
-    if (db && threadId) {
-      currentThread = await db.collection('threads').findOne({ threadId });
+    if (!videoUrl) {
+      return {
+        statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ error: 'videoUrl is required for YouTube upload' })
+      };
     }
 
-    // Generated unique upload ID
-    const uploadId = currentThread?.videoId || `short_${Date.now().toString(36)}`;
-    const youtubeUrl = currentThread?.youtubeUrl || `https://youtube.com/shorts/${uploadId}`;
+    console.log('[Netlify] Dispatching Manual YouTube Upload to n8n Cloud for thread:', threadId);
+
+    const now = new Date();
+    const host = event.headers?.host || 'viral-shorts-ai-studio.netlify.app';
+    const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
+
+    let db = null;
+    try {
+      db = await getDb();
+    } catch (e) {}
+
+    // 1. Dispatch request to n8n Cloud YouTube Upload Webhook
+    let n8nRes;
+    try {
+      n8nRes = await fetch(N8N_YOUTUBE_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoUrl,
+          title: title || 'Viral YouTube Short',
+          description: description || '',
+          tags: tags || [],
+          threadId: threadId || '',
+          sessionId: sessionId || '',
+          callbackUrl,
+          timestamp: now.toISOString()
+        })
+      });
+    } catch (err) {
+      console.error('[Netlify] Error calling n8n YouTube webhook:', err.message);
+      return {
+        statusCode: 502,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: 'N8N_UNREACHABLE',
+          message: `Failed to connect to n8n Cloud YouTube upload pipeline: ${err.message}`
+        })
+      };
+    }
+
+    const n8nStatus = n8nRes.status;
+    const n8nText = await n8nRes.text();
+    console.log('[Netlify] n8n YouTube upload response status:', n8nStatus, 'body:', n8nText);
 
     if (db && threadId) {
       await db.collection('threads').updateOne(
         { threadId },
         {
           $set: {
-            youtubeUrl,
-            videoId: uploadId,
-            isUploadedToYouTube: true,
-            uploadedAt: now,
+            status: 'UPLOADING_YOUTUBE',
             updatedAt: now
           },
           $push: {
             messages: {
               threadId,
               role: 'assistant',
-              content: `🚀 **1-Click Upload to YouTube Success!**\n\n📺 **Watch Short:** ${youtubeUrl}\n\nTitle: "${title || currentThread?.title || 'Viral Video'}"`,
-              youtubeUrl,
+              content: '🚀 **1-Click YouTube Upload initiated on n8n Cloud.** Downloading 4K video and uploading to YouTube...',
               timestamp: now
             }
           }
@@ -74,9 +110,8 @@ export const handler = async (event, context) => {
       },
       body: JSON.stringify({
         success: true,
-        youtubeUrl,
-        uploadId,
-        message: 'Video successfully uploaded to YouTube Shorts!'
+        status: 'UPLOADING',
+        message: '1-Click YouTube upload initiated on n8n Cloud!'
       })
     };
   } catch (err) {
