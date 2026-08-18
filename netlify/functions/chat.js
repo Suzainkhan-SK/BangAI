@@ -330,8 +330,7 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
     // ─── MODE C: VIDEO GENERATION (PURE N8N AUTONOMOUS WORKFLOW) ───────
     // User requested: Let n8n RapidAPI key rotation generate EVERYTHING!
     // No Claude pre-generation. Directly dispatch to n8n Cloud webhook!
-    const host = event.headers?.host || 'viral-shorts-ai-studio.netlify.app';
-    const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
+    const callbackUrl = 'https://viral-shorts-ai-studio.netlify.app/.netlify/functions/story-approval';
 
     console.log(`[Netlify] Dispatching /video prompt to n8n Cloud Webhook: "${message.trim()}" (Thread: ${currentThreadId})`);
 
