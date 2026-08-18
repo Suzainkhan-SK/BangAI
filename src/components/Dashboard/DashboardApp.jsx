@@ -160,162 +160,160 @@ export default function DashboardApp({
   // Track when user last approved a story (prevents stale READY_FOR_APPROVAL from snapping back)
   const lastApprovalTimestampRef = React.useRef(0);
 
-  // ─── 2. LISTEN TO LIVE N8N / NETLIFY CALLBACK POLLING ────────────
+  // ─── 2. LIVE POLLING — always runs when a thread is active ────────
   useEffect(() => {
     let pollInterval;
+    let stopped = false;
 
-    async function checkNetlifyStoryApproval() {
-      if (!activeThreadId) return;
+    async function pollStatus() {
+      if (!activeThreadId || stopped) return;
 
       try {
-        const query = `threadId=${encodeURIComponent(activeThreadId)}`;
-        const res = await fetch(`/.netlify/functions/story-approval?${query}`, {
-          headers: { 'Cache-Control': 'no-cache' }
-        });
+        const res = await fetch(
+          `/.netlify/functions/story-approval?threadId=${encodeURIComponent(activeThreadId)}&_t=${Date.now()}`,
+          { headers: { 'Cache-Control': 'no-cache, no-store' } }
+        );
+        if (!res.ok || stopped) return;
+        const data = await res.json();
 
-        if (res.ok) {
-          const data = await res.json();
-          // Ensure callback belongs to the current active thread
-          if (data.threadId && data.threadId !== activeThreadId) return;
+        // Ignore if it's for a different thread
+        if (data.threadId && data.threadId !== activeThreadId) return;
+        if (!data.hasStory) return;
 
-          if (data.hasStory && (data.story || data.status === 'READY_FOR_APPROVAL' || data.status === 'SCENES_READY_FOR_APPROVAL' || data.status === 'COMPLETED' || data.status === 'RENDER_FAILED')) {
-            console.log('[Website] Received real callback from n8n Cloud:', data.status, data);
+        const status = data.status;
+        console.log('[Website] Received real callback from n8n Cloud:', status, data);
 
-            // 1. Duplicate Topic
-            if (data.status === 'DUPLICATE_TOPIC' || data.story?.status === 'DUPLICATE_TOPIC') {
-              audioEngine.playSfx('click');
-              setIsGenerating(false);
-              setPastShorts(prev => prev.map(t => 
-                (t.threadId === activeThreadId || t.id === activeThreadId)
-                  ? { ...t, status: 'DUPLICATE_TOPIC', duplicateInfo: { matchedTitle: data.story?.matchedTitle || prompt, message: data.story?.message } }
-                  : t
-              ));
-              return;
-            }
-
-            // 2. Cancelled Callback
-            if (data.status === 'CANCELLED' || data.story?.status === 'CANCELLED') {
-              audioEngine.playSfx('click');
-              setIsGenerating(false);
-              setPastShorts(prev => prev.map(t => 
-                (t.threadId === activeThreadId || t.id === activeThreadId)
-                  ? { ...t, status: 'CANCELLED', cancelReason: 'Story generation was cancelled.' }
-                  : t
-              ));
-              return;
-            }
-
-            // 3. Stage 2: Final 5 Scenes from Split Scenes node
-            if (data.status === 'SCENES_READY_FOR_APPROVAL' || data.story?.status === 'SCENES_READY_FOR_APPROVAL') {
-              audioEngine.playSfx('success');
-              setIsGenerating(false);
-              setPastShorts(prev => prev.map(t => {
-                if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
-                const existing = t.messages || [];
-                const msgText = `🎬 Final 5 scenes generated: "${data.story?.title || t.title}". Review before video rendering.`;
-                const hasDuplicate = existing.some(m => m.content === msgText);
-                return {
-                  ...t,
-                  status: 'SCENES_READY_FOR_APPROVAL',
-                  title: data.story?.title || data.story?.suggestedTitle || t.title,
-                  story: data.story || t.story,
-                  scenes: data.scenes || data.story?.scenes,
-                  messages: hasDuplicate ? existing : [...existing, { role: 'assistant', content: msgText }]
-                };
-              }));
-              return;
-            }
-
-            // 4. Stage 3: Final 4K Video Render Complete Callback from n8n
-            if (data.status === 'COMPLETED' || data.status === 'VIDEO_COMPLETED' || data.videoUrl) {
-              audioEngine.playSfx('boom');
-              setIsGenerating(false);
-              setPastShorts(prev => prev.map(t => {
-                if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
-                const existing = t.messages || [];
-                const msgText = data.youtubeUrl 
-                  ? `🎉 **4K Video Rendered & Uploaded to YouTube!**\n\n📺 **Watch Short:** ${data.youtubeUrl}` 
-                  : `🎉 **4K Video Render Complete!** 75-second master video rendered and ready for download or 1-Click YouTube Upload.`;
-                const hasDuplicate = existing.some(m => m.content === msgText);
-                return {
-                  ...t,
-                  status: 'COMPLETED',
-                  title: data.title || (data.story && data.story.title) || t.title,
-                  videoUrl: data.videoUrl || (data.story && data.story.videoUrl) || t.videoUrl,
-                  youtubeUrl: data.youtubeUrl || (data.story && data.story.youtubeUrl) || t.youtubeUrl,
-                  videoId: data.videoId || (data.story && data.story.videoId) || t.videoId,
-                  scenes: data.scenes || (data.story && data.story.scenes) || t.scenes,
-                  youtubeDescription: data.youtubeDescription || (data.story && data.story.youtubeDescription) || t.youtubeDescription,
-                  tags: data.tags || (data.story && data.story.tags) || t.tags,
-                  criticScore: 99,
-                  messages: hasDuplicate ? existing : [...existing, { role: 'assistant', content: msgText }]
-                };
-              }));
-              return;
-            }
-
-            // 5. Render Failed Callback
-            if (data.status === 'RENDER_FAILED' || data.story?.status === 'RENDER_FAILED') {
-              audioEngine.playSfx('click');
-              setIsGenerating(false);
-              setPastShorts(prev => prev.map(t => {
-                if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
-                const existing = t.messages || [];
-                const msgText = `❌ Video rendering error: ${data.errorMessage || data.story?.errorMessage || 'Failed'}`;
-                const hasDuplicate = existing.some(m => m.content === msgText);
-                return {
-                  ...t,
-                  status: 'RENDER_FAILED',
-                  errorMessage: data.errorMessage || data.story?.errorMessage || 'Video rendering failed in media engine',
-                  messages: hasDuplicate ? existing : [...existing, { role: 'assistant', content: msgText }]
-                };
-              }));
-              return;
-            }
-
-            // 6. Stage 1: Story Ready for Approval from Strategy Engine
-            // CRITICAL: Skip if the user just approved (within last 35 seconds) — prevents stale DB record from snapping UI back
-            const timeSinceApproval = Date.now() - lastApprovalTimestampRef.current;
-            if (timeSinceApproval < 35000) {
-              console.log('[Website] Skipping stale READY_FOR_APPROVAL — user approved', Math.round(timeSinceApproval / 1000), 's ago');
-              return;
-            }
-
-            if (data.status === 'READY_FOR_APPROVAL' || data.story?.status === 'STORY_READY_FOR_APPROVAL' || data.story?.suggestedTitle) {
-              audioEngine.playSfx('success');
-              setIsGenerating(false);
-              setPastShorts(prev => prev.map(t => {
-                if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
-                // Never snap back from a more advanced state
-                const advancedStates = ['GENERATING_SCENES', 'SCENES_READY_FOR_APPROVAL', 'RENDERING_VIDEO', 'COMPLETED'];
-                if (advancedStates.includes(t.status)) return t;
-                const existing = t.messages || [];
-                const msgText = `Story ready for review: "${data.story?.suggestedTitle || data.title}"`;
-                const hasDuplicate = existing.some(m => m.content === msgText);
-                return {
-                  ...t,
-                  status: 'READY_FOR_APPROVAL',
-                  title: data.story?.suggestedTitle || data.title || t.title,
-                  story: data.story,
-                  messages: hasDuplicate ? existing : [...existing, { role: 'assistant', content: msgText }]
-                };
-              }));
-            }
-          }
+        // ── DUPLICATE TOPIC ─────────────────────────────────────────
+        if (status === 'DUPLICATE_TOPIC') {
+          audioEngine.playSfx('click');
+          setIsGenerating(false);
+          setPastShorts(prev => prev.map(t =>
+            (t.threadId === activeThreadId || t.id === activeThreadId)
+              ? { ...t, status: 'DUPLICATE_TOPIC', duplicateInfo: { matchedTitle: data.story?.matchedTitle, message: data.story?.message } }
+              : t
+          ));
+          return;
         }
-      } catch (err) {}
+
+        // ── CANCELLED ───────────────────────────────────────────────
+        if (status === 'CANCELLED') {
+          audioEngine.playSfx('click');
+          setIsGenerating(false);
+          setPastShorts(prev => prev.map(t =>
+            (t.threadId === activeThreadId || t.id === activeThreadId)
+              ? { ...t, status: 'CANCELLED' }
+              : t
+          ));
+          return;
+        }
+
+        // ── RENDER FAILED ───────────────────────────────────────────
+        if (status === 'RENDER_FAILED') {
+          audioEngine.playSfx('click');
+          setIsGenerating(false);
+          setPastShorts(prev => prev.map(t => {
+            if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
+            const existing = t.messages || [];
+            const msgText = `❌ Video rendering error: ${data.errorMessage || 'Render failed'}` ;
+            return {
+              ...t, status: 'RENDER_FAILED',
+              errorMessage: data.errorMessage,
+              messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
+            };
+          }));
+          return;
+        }
+
+        // ── COMPLETED ───────────────────────────────────────────────
+        if (status === 'COMPLETED') {
+          audioEngine.playSfx('boom');
+          setIsGenerating(false);
+          setPastShorts(prev => prev.map(t => {
+            if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
+            const existing = t.messages || [];
+            const msgText = data.youtubeUrl
+              ? `🎉 **4K Video Uploaded to YouTube!**\n📺 ${data.youtubeUrl}`
+              : `🎉 **4K Video Render Complete!**`;
+            return {
+              ...t, status: 'COMPLETED', criticScore: 99,
+              title: data.title || data.story?.title || t.title,
+              videoUrl: data.videoUrl || data.story?.videoUrl || t.videoUrl,
+              youtubeUrl: data.youtubeUrl || data.story?.youtubeUrl || t.youtubeUrl,
+              videoId: data.videoId || data.story?.videoId || t.videoId,
+              scenes: data.scenes || data.story?.scenes || t.scenes,
+              youtubeDescription: data.youtubeDescription || t.youtubeDescription,
+              tags: data.tags || t.tags,
+              messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
+            };
+          }));
+          return;
+        }
+
+        // ── SCENES READY ─────────────────────────────────────────────
+        if (status === 'SCENES_READY_FOR_APPROVAL') {
+          audioEngine.playSfx('success');
+          setIsGenerating(false);
+          setGenerationStage('');
+          setPastShorts(prev => prev.map(t => {
+            if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
+            const existing = t.messages || [];
+            const titleStr = data.story?.suggestedTitle || data.story?.title || data.title || t.title;
+            const msgText = `🎬 Final 5 scenes generated: "${titleStr}". Review before video rendering.`;
+            return {
+              ...t, status: 'SCENES_READY_FOR_APPROVAL',
+              title: titleStr,
+              story: data.story || t.story,
+              scenes: data.scenes || data.story?.scenes || t.scenes,
+              approveUrl: data.approveUrl || data.story?.approveUrl || t.approveUrl,
+              cancelUrl: data.cancelUrl || data.story?.cancelUrl || t.cancelUrl,
+              messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
+            };
+          }));
+          return;
+        }
+
+        // ── STORY READY (Stage 1) ────────────────────────────────────
+        // Skip if user just approved within 120s — stops stale data from rolling back UI
+        const timeSinceApproval = Date.now() - lastApprovalTimestampRef.current;
+        if (status === 'READY_FOR_APPROVAL' && timeSinceApproval < 120000) {
+          console.log('[Website] Skipping stale READY_FOR_APPROVAL — user approved', Math.round(timeSinceApproval / 1000), 's ago');
+          return;
+        }
+
+        if (status === 'READY_FOR_APPROVAL') {
+          setPastShorts(prev => prev.map(t => {
+            if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
+            // Never snap back from a more advanced state
+            if (['GENERATING_SCENES', 'SCENES_READY_FOR_APPROVAL', 'RENDERING_VIDEO', 'COMPLETED'].includes(t.status)) return t;
+            const existing = t.messages || [];
+            const titleStr = data.story?.suggestedTitle || data.title || t.title;
+            const msgText = `Story ready for review: "${titleStr}"`;
+            return {
+              ...t, status: 'READY_FOR_APPROVAL',
+              title: titleStr,
+              story: data.story,
+              approveUrl: data.approveUrl || data.story?.approveUrl || t.approveUrl,
+              cancelUrl: data.cancelUrl || data.story?.cancelUrl || t.cancelUrl,
+              messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
+            };
+          }));
+          audioEngine.playSfx('success');
+          setIsGenerating(false);
+        }
+      } catch (_) {}
     }
 
-    if (isGenerating) {
-      const initialTimeout = setTimeout(checkNetlifyStoryApproval, 800);
-      pollInterval = setInterval(checkNetlifyStoryApproval, 2000);
-
+    // Always poll when we have an active thread — catches all stages
+    if (activeThreadId) {
+      const t0 = setTimeout(pollStatus, 1000);
+      pollInterval = setInterval(pollStatus, 3000);
       return () => {
-        clearTimeout(initialTimeout);
-        if (pollInterval) clearInterval(pollInterval);
+        stopped = true;
+        clearTimeout(t0);
+        clearInterval(pollInterval);
       };
     }
-  }, [isGenerating, activeThreadId, prompt]);
+  }, [activeThreadId]);
 
   // ─── THREAD SELECTION & ACTIONS ──────────────────────────────────
   const handleSelectShort = (threadId) => {
@@ -878,7 +876,7 @@ export default function DashboardApp({
             </div>
           )}
 
-          {/* 1. If Actively Generating: Show Clean n8n Live Pipeline Execution Timeline */}
+          {/* 1. n8n Live Pipeline Execution Animation — shown during all generating stages */}
           {isGenerating && (
             <GenerationThinkingAnimation
               prompt={activeThread?.rawUserInput || prompt}
@@ -888,7 +886,7 @@ export default function DashboardApp({
             />
           )}
 
-          {/* 2. If Workflow Inactive / Not Published Alert: Show Real Status Card */}
+          {/* 2. Workflow Inactive Alert */}
           {activeThread && activeThread.status === 'WORKFLOW_INACTIVE' && !isGenerating && (
             <div className="saas-card animate-float" style={{
               padding: '24px',
@@ -899,65 +897,31 @@ export default function DashboardApp({
               marginBottom: '24px'
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '16px' }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ef4444',
-                  flexShrink: 0
-                }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', flexShrink: 0 }}>
                   <AlertCircle size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '15.5px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                    n8n Workflow is Inactive / Not Published
-                  </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    {activeThread.errorMessage || 'The video generation webhook was rejected because workflow u8vcVLc00wPp2AAI is not currently active on n8n Cloud.'}
-                  </div>
-                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                    💡 <strong>How to fix:</strong> Open your workflow in n8n Cloud and switch the <strong>Active</strong> toggle in the top-right corner to <strong>Active</strong>.
-                  </div>
+                  <div style={{ fontSize: '15.5px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>n8n Workflow is Inactive / Not Published</div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{activeThread.errorMessage || 'The video generation webhook was rejected.'}</div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '8px' }}>💡 <strong>How to fix:</strong> Open your workflow in n8n Cloud and activate it.</div>
                 </div>
               </div>
-
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                <a
-                  href="https://cmpunktg22.app.n8n.cloud/workflow/u8vcVLc00wPp2AAI"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-glow"
-                  style={{
-                    fontSize: '12px',
-                    padding: '7px 16px',
-                    gap: '6px',
-                    textDecoration: 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center'
-                  }}
-                >
-                  <ExternalLink size={13} />
-                  <span>Open Workflow in n8n Cloud</span>
+                <a href="https://cmpunktg22.app.n8n.cloud/workflow/u8vcVLc00wPp2AAI" target="_blank" rel="noopener noreferrer" className="btn-glow" style={{ fontSize: '12px', padding: '7px 16px', gap: '6px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                  <ExternalLink size={13} /><span>Open n8n Workflow</span>
                 </a>
-
-                <button
-                  onClick={() => handleGenerate('VIDEO_GENERATION', activeThread.rawUserInput)}
-                  className="btn-outline"
-                  style={{ fontSize: '12px', padding: '7px 16px', gap: '6px' }}
-                >
-                  <RefreshCw size={13} />
-                  <span>Retry Pipeline</span>
+                <button onClick={() => handleGenerate('VIDEO_GENERATION', activeThread.rawUserInput)} className="btn-outline" style={{ fontSize: '12px', padding: '7px 16px', gap: '6px' }}>
+                  <RefreshCw size={13} /><span>Retry Pipeline</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* 3. If Story or Final 5 Scenes Ready for Approval: Show StoryApprovalCard */}
-          {activeThread && (activeThread.status === 'READY_FOR_APPROVAL' || activeThread.status === 'SCENES_READY_FOR_APPROVAL') && (activeThread.story || activeThread.scenes) && !isGenerating && (
+          {/* 3. Story / Scenes Approval Card — visible even during GENERATING_SCENES polling after approval */}
+          {activeThread && (
+            (activeThread.status === 'READY_FOR_APPROVAL' && !isGenerating) ||
+            (activeThread.status === 'SCENES_READY_FOR_APPROVAL')
+          ) && (activeThread.story || activeThread.scenes) && (
             <StoryApprovalCard
               story={activeThread.story || activeThread}
               scenes={activeThread.scenes}
