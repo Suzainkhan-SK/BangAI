@@ -95,7 +95,15 @@ export const handler = async (event, context) => {
 
     // 3. POST: n8n Cloud posts the story / final scenes / video completed / render failed callback
     if (event.httpMethod === 'POST') {
-      const data = JSON.parse(event.body || '{}');
+      let data = {};
+      try {
+        data = typeof event.body === 'object' ? event.body : JSON.parse(event.body || '{}');
+        if (typeof data === 'string') {
+          data = JSON.parse(data);
+        }
+      } catch (e) {
+        data = {};
+      }
       console.log('[Netlify] Callback from n8n cloud. Status:', data.status, 'Title:', data.title || data.suggestedTitle);
 
       const now = new Date();
