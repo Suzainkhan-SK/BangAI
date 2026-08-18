@@ -31,6 +31,9 @@ import {
 
 const SESSION_ID_KEY = 'shortsai_session_id';
 
+// Statuses that mean n8n is actively running a pipeline
+const ACTIVE_STATUSES = ['GENERATING', 'GENERATING_SCENES', 'RENDERING_VIDEO'];
+
 function getOrCreateSessionId() {
   if (typeof window !== 'undefined') {
     let sid = localStorage.getItem(SESSION_ID_KEY);
@@ -98,6 +101,26 @@ export default function DashboardApp({
   const generationStartTimeRef = useRef(0);
   const messagesEndRef = useRef(null);
 
+  // ── TRUTH-BASED: Derive isGenerating + stage from persisted thread status ──
+  // This survives page reloads, component remounts, and navigations.
+  useEffect(() => {
+    if (!activeThread) return;
+    const s = activeThread.status;
+    if (ACTIVE_STATUSES.includes(s)) {
+      setIsGenerating(true);
+      if (s === 'RENDERING_VIDEO') {
+        setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
+      } else if (s === 'GENERATING_SCENES') {
+        setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
+      } else {
+        setGenerationStage('Connecting to n8n Cloud Pipeline...');
+      }
+    } else {
+      // Only clear if we're NOT in a user-initiated pre-response phase
+      // (handled by the generate/approve handlers themselves)
+    }
+  }, [activeThread?.status]);
+
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -160,7 +183,7 @@ export default function DashboardApp({
   // Track when user last approved a story (prevents stale READY_FOR_APPROVAL from snapping back)
   const lastApprovalTimestampRef = React.useRef(0);
 
-  // ─── 2. LIVE POLLING — always runs when a thread is active ────────
+  // ─── 2. LIVE POLLING — adaptive interval, truth-based status sync ───
   useEffect(() => {
     let pollInterval;
     let stopped = false;
@@ -181,7 +204,7 @@ export default function DashboardApp({
         if (!data.hasStory) return;
 
         const status = data.status;
-        console.log('[Website] Received real callback from n8n Cloud:', status, data);
+        console.log('[Website] Poll received status from n8n Cloud:', status, '| videoUrl:', data.videoUrl || data.story?.videoUrl || 'none');
 
         // ── DUPLICATE TOPIC ─────────────────────────────────────────
         if (status === 'DUPLICATE_TOPIC') {
@@ -316,20 +339,26 @@ export default function DashboardApp({
           audioEngine.playSfx('success');
           setIsGenerating(false);
         }
-      } catch (_) {}
+      } catch (pollErr) {
+        console.warn('[Website] Poll error (non-fatal):', pollErr.message);
+      }
     }
 
-    // Always poll when we have an active thread — catches all stages
+    // Adaptive polling: 2s when actively generating, 4s otherwise
     if (activeThreadId) {
-      const t0 = setTimeout(pollStatus, 1000);
-      pollInterval = setInterval(pollStatus, 3000);
+      const currentStatus = pastShorts.find(t => t.id === activeThreadId || t.threadId === activeThreadId)?.status;
+      const isActive = ACTIVE_STATUSES.includes(currentStatus);
+      const interval = isActive ? 2000 : 4000;
+
+      const t0 = setTimeout(pollStatus, 500);
+      pollInterval = setInterval(pollStatus, interval);
       return () => {
         stopped = true;
         clearTimeout(t0);
         clearInterval(pollInterval);
       };
     }
-  }, [activeThreadId]);
+  }, [activeThreadId, pastShorts.find(t => t.id === activeThreadId || t.threadId === activeThreadId)?.status]);
 
   // ─── THREAD SELECTION & ACTIONS ──────────────────────────────────
   const handleSelectShort = (threadId) => {
@@ -345,7 +374,17 @@ export default function DashboardApp({
     if (t.visualStyleId) setStyleId(t.visualStyleId);
     if (t.musicId) setMusicId(t.musicId);
     if (t.language) setLanguage(t.language);
-    setIsGenerating(t.status === 'GENERATING' || t.status === 'GENERATING_SCENES' || t.status === 'RENDERING_VIDEO');
+    const active = ACTIVE_STATUSES.includes(t.status);
+    setIsGenerating(active);
+    if (active) {
+      if (t.status === 'RENDERING_VIDEO') {
+        setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
+      } else if (t.status === 'GENERATING_SCENES') {
+        setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
+      } else {
+        setGenerationStage('Connecting to n8n Cloud Pipeline...');
+      }
+    }
     setIsChatResponding(false);
   };
 
@@ -568,16 +607,24 @@ export default function DashboardApp({
     } catch (err) {
       console.warn('Chat dispatch warning:', err.message);
       setIsChatResponding(false);
-      setIsGenerating(false);
-      setPastShorts(prev => prev.map(t =>
-        (t.threadId === currentThreadId || t.id === currentThreadId)
-          ? {
-              ...t,
-              status: 'WORKFLOW_INACTIVE',
-              errorMessage: `Network error connecting to n8n Cloud: ${err.message}`
-            }
-          : t
-      ));
+      // For VIDEO_GENERATION, n8n runs async — a network error on the initial
+      // webhook fire does NOT mean the workflow failed. Only stop generating
+      // if we're sure it's not a fire-and-forget dispatch.
+      if (mode !== 'VIDEO_GENERATION') {
+        setIsGenerating(false);
+        setPastShorts(prev => prev.map(t =>
+          (t.threadId === currentThreadId || t.id === currentThreadId)
+            ? {
+                ...t,
+                status: 'WORKFLOW_INACTIVE',
+                errorMessage: `Network error connecting to n8n Cloud: ${err.message}`
+              }
+            : t
+        ));
+      } else {
+        // For video generation, log but keep generating — polling will pick up real status
+        console.warn('[Website] n8n webhook dispatch had an error, but keeping animation alive. Polling will resolve status.');
+      }
     }
   };
 
@@ -917,8 +964,10 @@ export default function DashboardApp({
             </div>
           )}
 
-          {/* 1. n8n Live Pipeline Execution Animation — shown during all generating stages */}
-          {isGenerating && (
+          {/* 1. n8n Live Pipeline Execution Animation
+               Truth-based: shows when isGenerating OR when thread status is an active state.
+               This means it survives page reloads and remounts correctly. */}
+          {(isGenerating || ACTIVE_STATUSES.includes(activeThread?.status)) && (
             <GenerationThinkingAnimation
               prompt={activeThread?.rawUserInput || prompt}
               stage={generationStage}
