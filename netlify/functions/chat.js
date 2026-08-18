@@ -13,10 +13,18 @@ const CLAUDE_KEYS = [
 ];
 
 async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1500, timeoutMs = 8000) {
-  const messages = conversationHistory.map(m => ({
-    role: m.role === 'user' ? 'user' : 'assistant',
-    content: m.content || m.text || ''
-  }));
+  const rawList = Array.isArray(conversationHistory) ? conversationHistory : [];
+  const messages = rawList
+    .filter(m => m && (m.content || m.text))
+    .map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: typeof m.content === 'string' ? m.content : (typeof m.text === 'string' ? m.text : JSON.stringify(m.content || m.text || ''))
+    }))
+    .filter(m => m.content.trim().length > 0);
+
+  if (messages.length === 0) {
+    messages.push({ role: 'user', content: 'Generate response' });
+  }
 
   let lastError = null;
 
