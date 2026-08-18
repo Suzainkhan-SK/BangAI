@@ -511,16 +511,38 @@ export default function DashboardApp({
       if (mode === 'REFINE_STORY') {
         audioEngine.playSfx('success');
         setIsChatResponding(false);
+        setIsGenerating(false);
         setPastShorts(prev => prev.map(t =>
           (t.threadId === currentThreadId || t.id === currentThreadId)
             ? {
                 ...t,
                 status: 'READY_FOR_APPROVAL',
-                story: chatData.story || t.story,
-                title: chatData.story?.suggestedTitle || t.title,
+                title: chatData.story?.suggestedTitle || messageText,
+                story: chatData.story,
                 messages: [
                   ...(t.messages || []),
-                  { role: 'assistant', content: chatData.message }
+                  { role: 'assistant', content: `✍️ **Script Doctor Refinement:**\n${chatData.message || 'Story adjusted.'}` }
+                ]
+              }
+            : t
+        ));
+        return;
+      }
+
+      if (mode === 'VIDEO_GENERATION' && chatData.status === 'READY_FOR_APPROVAL' && chatData.story) {
+        audioEngine.playSfx('success');
+        setIsGenerating(false);
+        setIsChatResponding(false);
+        setPastShorts(prev => prev.map(t =>
+          (t.threadId === currentThreadId || t.id === currentThreadId)
+            ? {
+                ...t,
+                status: 'READY_FOR_APPROVAL',
+                title: chatData.story.suggestedTitle || messageText,
+                story: chatData.story,
+                messages: [
+                  ...(t.messages || []),
+                  { role: 'assistant', content: `Story ready for review: "${chatData.story.suggestedTitle}"` }
                 ]
               }
             : t
@@ -553,6 +575,14 @@ export default function DashboardApp({
     const isStage1 = activeThread?.status === 'READY_FOR_APPROVAL';
     const isStage2 = activeThread?.status === 'SCENES_READY_FOR_APPROVAL';
 
+    // Show temporary generating feedback while generating scenes or rendering
+    setIsGenerating(true);
+    if (isStage1) {
+      setGenerationStage('Generating 5-scene master screenplay...');
+    } else if (isStage2) {
+      setGenerationStage('Dispatching 4K autonomous video rendering pipeline...');
+    }
+
     try {
       // 1. Resume / Launch n8n execution with refined story payload
       const res = await fetch('/.netlify/functions/approve-story', {
@@ -562,7 +592,7 @@ export default function DashboardApp({
           approveUrl,
           threadId: activeThreadId,
           sessionId,
-          action: 'APPROVE',
+          action: isStage2 ? 'APPROVE_SCENES' : 'APPROVE',
           story: activeThread?.story || null,
           refinedStory: activeThread?.story || null,
           language: activeThread?.story?.language || language || 'English',
@@ -582,25 +612,36 @@ export default function DashboardApp({
             ? { 
                 ...t, 
                 status: 'WORKFLOW_INACTIVE', 
-                errorMessage: data.message || 'n8n workflow is currently inactive. Please make sure u8vcVLc00wPp2AAI is active in n8n Cloud.' 
+                errorMessage: data.message || 'Workflow error. Please retry.' 
               }
             : t
         ));
         return;
       }
 
-      if (isStage1) {
-        // Transition to Stage 2 scene writing
-        generationStartTimeRef.current = Date.now();
-        setIsGenerating(true);
+      // 1. Stage 1 -> Stage 2: 5 scenes generated
+      if (data.status === 'SCENES_READY_FOR_APPROVAL' && data.scenes) {
+        audioEngine.playSfx('success');
+        setIsGenerating(false);
         setPastShorts(prev => prev.map(t => 
           (t.threadId === activeThreadId || t.id === activeThreadId)
-            ? { ...t, status: 'GENERATING_SCENES' }
+            ? { 
+                ...t, 
+                status: 'SCENES_READY_FOR_APPROVAL',
+                title: data.title || t.title,
+                scenes: data.scenes,
+                messages: [
+                  ...(t.messages || []),
+                  { role: 'assistant', content: `🎬 5 scenes generated: "${data.title || t.title}". Review before video rendering.` }
+                ]
+              }
             : t
         ));
-      } else if (isStage2) {
-        // Transition to Stage 3 autonomous 4K video rendering
-        generationStartTimeRef.current = Date.now();
+        return;
+      }
+
+      // 2. Stage 2 -> Stage 3: Rendering video
+      if (data.status === 'RENDERING_VIDEO') {
         setIsGenerating(true);
         setPastShorts(prev => prev.map(t => 
           (t.threadId === activeThreadId || t.id === activeThreadId)
@@ -609,11 +650,12 @@ export default function DashboardApp({
                 status: 'RENDERING_VIDEO',
                 messages: [
                   ...(t.messages || []),
-                  { role: 'assistant', content: '🎬 5 scenes approved! Autonomous 4K video rendering pipeline dispatched on n8n Cloud...' }
+                  { role: 'assistant', content: '🎬 5 scenes approved! Autonomous 4K video rendering pipeline dispatched...' }
                 ]
               }
             : t
         ));
+        return;
       }
     } catch (e) {
       console.warn('Approve story error:', e.message);

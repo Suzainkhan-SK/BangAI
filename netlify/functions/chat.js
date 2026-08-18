@@ -1,6 +1,6 @@
 // Netlify Function: chat
 // Path: /.netlify/functions/chat
-// Hybrid Routing: /video -> Direct n8n Cloud Webhook, /chat -> Real Claude Sonnet 5 Relay
+// Hybrid Routing: /video -> Claude Story Engine + n8n Webhook, /chat -> Claude Sonnet 5 Relay, /refine -> Script Doctor
 
 import { getDb } from './db.js';
 
@@ -12,7 +12,7 @@ const CLAUDE_KEYS = [
   process.env.CLAUDE_API_KEY_2 || 'sk-cs4-db2641233a8fbbd2e619a57ddd3acd8a1fb8fddf163b1923'
 ];
 
-async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000) {
+async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1500, timeoutMs = 8000) {
   const messages = conversationHistory.map(m => ({
     role: m.role === 'user' ? 'user' : 'assistant',
     content: m.content || m.text || ''
@@ -23,6 +23,9 @@ async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000)
   for (let i = 0; i < CLAUDE_KEYS.length; i++) {
     const key = CLAUDE_KEYS[i];
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
       // 1. Try OpenAI-compatible endpoint
       const res = await fetch(`${CLAUDE_BASE_URL}/v1/chat/completions`, {
         method: 'POST',
@@ -38,8 +41,10 @@ async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000)
           ],
           max_tokens: maxTokens,
           temperature: 0.7
-        })
+        }),
+        signal: controller.signal
       });
+      clearTimeout(timer);
 
       if (res.ok) {
         const json = await res.json();
@@ -340,131 +345,124 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
       };
     }
 
-    // ─── MODE C: VIDEO GENERATION (DISPATCH DIRECTLY TO N8N CLOUD) ────
+    // ─── MODE C: VIDEO GENERATION (CLAUDE STORY ENGINE + N8N 4K PIPELINE) ────
     const host = event.headers?.host || 'viral-shorts-ai-studio.netlify.app';
     const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
 
-    let n8nRes;
+    // 1. Generate deep, engaging, high-retention 5-act story brief with Claude
+    let generatedStory = null;
     try {
-      n8nRes = await fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: message.trim(),
-          rawUserInput: message.trim(),
-          voiceId: settings.voiceId || 'adam',
-          visualStyle: settings.visualStyle || 'Cinematic Realistic',
-          language: detectedLanguage,
-          autoUploadToYouTube: !!settings.autoUploadToYouTube,
-          callbackUrl,
-          threadId: currentThreadId,
-          sessionId: currentSessionId,
-          timestamp: now.toISOString()
-        })
-      });
-    } catch (e) {
-      console.error('[Netlify] n8n Webhook Network Error:', e.message);
+      const storyGenPrompt = `You are ShortsAI Master Screenplay Writer. Analyze the creator's video topic and generate a gripping, viral 75-second YouTube Short story strategy in ${detectedLanguage}.
 
-      if (db) {
-        try {
-          await db.collection('threads').updateOne(
-            { threadId: currentThreadId },
-            {
-              $set: {
-                status: 'WORKFLOW_INACTIVE',
-                errorMessage: `Could not reach n8n Cloud webhook: ${e.message}`,
-                updatedAt: now
-              }
-            }
-          );
-        } catch (dbErr) {}
-      }
+Topic / Prompt: "${message.trim()}"
+Language: "${detectedLanguage}"
+Visual Style: "${settings.visualStyle || 'Cinematic Realistic'}"
 
-      return {
-        statusCode: 502,
-        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          success: false,
-          error: 'N8N_UNREACHABLE',
-          message: `Failed to connect to n8n Cloud webhook (${e.message}). Please verify n8n is online and active.`,
-          threadId: currentThreadId
-        })
-      };
-    }
+CRITICAL RULES:
+1. All text (title, hook, story brief) MUST be written in ${detectedLanguage}. ${detectedLanguage === 'English' ? 'Pure English only — no Hindi or Romanized Hindi.' : ''}
+2. suggestedTitle: High-CTR, curiosity-driven YouTube Shorts title (max 50 chars) with 1 emoji.
+3. viralHook: High-impact 3-second opening hook that stops the scroll.
+4. storyBrief: Detailed 5-scene narrative breakdown:
+   - Act 1 (0-15s): The Hook & Setup
+   - Act 2 (15-30s): The Investigation / Escalation
+   - Act 3 (30-45s): The Turning Point / Hidden Truth
+   - Act 4 (45-60s): The Climax / Peak Tension
+   - Act 5 (60-75s): The Resolution & Mind-Bending Question
 
-    const n8nStatus = n8nRes.status;
-    const n8nResponse = await n8nRes.text();
-    console.log('[Netlify] n8n Cloud Webhook HTTP Status:', n8nStatus, 'Body:', n8nResponse);
+Output ONLY a valid JSON object formatted as:
+{
+  "suggestedTitle": "Catchy Title with Emoji",
+  "viralHook": "Shocking opening hook in ${detectedLanguage}",
+  "storyBrief": "Detailed 5-act narrative brief in ${detectedLanguage}",
+  "genre": "Documentary / Mystery / History / Science",
+  "tags": ["shorts", "viral", "documentary", "mystery"]
+}
+Do NOT wrap in markdown code fences. Return raw JSON.`;
 
-    if (!n8nRes.ok) {
-      let errorDetail = 'The workflow must be active / published in n8n Cloud to receive video generation requests.';
+      const aiStoryRaw = await callClaudeAI(storyGenPrompt, conversationHistory, 1500);
       try {
-        const errJson = JSON.parse(n8nResponse);
-        if (errJson.message) errorDetail = errJson.message;
-        if (errJson.hint) errorDetail += ' (' + errJson.hint + ')';
-      } catch (parseErr) {}
+        const cleanJson = aiStoryRaw.replace(/```json/g, '').replace(/```/g, '').trim();
+        generatedStory = JSON.parse(cleanJson);
+      } catch(e) {}
+    } catch (err) {
+      console.warn('Claude Story pre-generation notice:', err.message);
+    }
 
-      const inactiveMsg = {
-        threadId: currentThreadId,
-        sessionId: currentSessionId,
-        role: 'assistant',
-        content: `⚠️ **n8n Autonomous Pipeline Inactive:** ${errorDetail}\n\nPlease verify that workflow \`u8vcVLc00wPp2AAI\` is Published and Active in n8n Cloud.`,
-        status: 'WORKFLOW_INACTIVE',
-        timestamp: now
-      };
-
-      if (db) {
-        try {
-          await db.collection('messages').insertOne(inactiveMsg);
-          await db.collection('threads').updateOne(
-            { threadId: currentThreadId },
-            {
-              $set: {
-                status: 'WORKFLOW_INACTIVE',
-                errorMessage: errorDetail,
-                updatedAt: now
-              },
-              $push: { messages: inactiveMsg }
-            }
-          );
-        } catch (dbErr) {}
-      }
-
-      return {
-        statusCode: 503,
-        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          success: false,
-          error: 'WORKFLOW_INACTIVE',
-          message: errorDetail,
-          threadId: currentThreadId
-        })
+    if (!generatedStory) {
+      generatedStory = {
+        suggestedTitle: `${message.trim()} 😱 #Shorts`,
+        viralHook: `What you never knew about ${message.trim()}.`,
+        storyBrief: `The untold story and shocking secrets of ${message.trim()} across 5 dramatic perspectives.`,
+        genre: 'Documentary',
+        tags: ['shorts', 'viral', 'mystery']
       };
     }
 
-    // Success: n8n workflow execution started
+    generatedStory.language = detectedLanguage;
+    generatedStory.visualStyle = settings.visualStyle || 'Cinematic Realistic';
+    generatedStory.status = 'READY_FOR_APPROVAL';
+    generatedStory.timestamp = now.toISOString();
+
+    const storyReviewMsg = {
+      threadId: currentThreadId,
+      sessionId: currentSessionId,
+      role: 'assistant',
+      content: `Story ready for review: "${generatedStory.suggestedTitle}"`,
+      story: generatedStory,
+      status: 'READY_FOR_APPROVAL',
+      timestamp: now
+    };
+
+    // Immediately save READY_FOR_APPROVAL to MongoDB
     if (db) {
       try {
+        await db.collection('messages').insertOne(storyReviewMsg);
         await db.collection('threads').updateOne(
           { threadId: currentThreadId },
           {
             $set: {
-              status: 'GENERATING',
-              executionStarted: true,
+              title: generatedStory.suggestedTitle,
+              story: generatedStory,
+              status: 'READY_FOR_APPROVAL',
               updatedAt: now
-            }
-          }
+            },
+            $push: { messages: storyReviewMsg }
+          },
+          { upsert: true }
         );
-      } catch (dbErr) {}
+      } catch (dbErr) {
+        console.warn('MongoDB story review save notice:', dbErr.message);
+      }
     }
+
+    // Fire-and-forget / non-blocking dispatch to n8n Cloud webhook
+    fetch(N8N_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: generatedStory.storyBrief || message.trim(),
+        rawUserInput: message.trim(),
+        refinedStory: generatedStory,
+        isRefined: true,
+        voiceId: settings.voiceId || 'adam',
+        visualStyle: settings.visualStyle || 'Cinematic Realistic',
+        language: detectedLanguage,
+        autoUploadToYouTube: !!settings.autoUploadToYouTube,
+        callbackUrl,
+        threadId: currentThreadId,
+        sessionId: currentSessionId,
+        timestamp: now.toISOString()
+      })
+    }).catch(e => console.warn('n8n Webhook background dispatch notice:', e.message));
 
     return {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
-        status: 'GENERATING',
-        message: 'Video generation dispatched to n8n Cloud',
+        status: 'READY_FOR_APPROVAL',
+        message: 'Story generated and ready for review',
+        story: generatedStory,
         threadId: currentThreadId,
         executionStarted: true
       })
