@@ -2734,14 +2734,14 @@
       "main": [
         [
           {
-            "node": "Rotate Backup Strategy LLM Key",
+            "node": "Parse Strategy Output",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Parse Strategy Output",
+            "node": "Rotate Backup Strategy LLM Key",
             "type": "main",
             "index": 0
           }
@@ -9330,7 +9330,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Rotate Backup Strategy LLM Key — reads keys from Config: Strategy Backup LLM Master\nconst configNode = $('Config: Strategy Backup LLM Master').first().json || {};\nconst firstConfig = $('Config: Primary LLM Master').first().json || {};\nconst keys = configNode.keys || [];\nconst topicBrief = $('Parse Topic Analyzer Output').first().json || {};\nlet staticData = $getWorkflowStaticData('global');\n\nif (staticData.backupStrategyLlmIndex === undefined) {\n  staticData.backupStrategyLlmIndex = 12;\n}\n\nconst key = keys[staticData.backupStrategyLlmIndex % keys.length];\nstaticData.backupStrategyLlmIndex = (staticData.backupStrategyLlmIndex + 1) % keys.length;\n\nreturn [{\n  json: {\n    ...topicBrief,\n    strategyApiKey: key,\n    blockedTitles: firstConfig.blockedTitles || 'None',\n    blockedPlots: firstConfig.blockedPlots || 'None',\n    recentCharacters: firstConfig.recentCharacters || 'None'\n  }\n}];"
+        "jsCode": "// Rotate Backup Strategy LLM Key — reads keys from Config: Strategy Backup LLM Master\nconst configNode = $('Config: Strategy Backup LLM Master').first().json || {};\nconst firstConfig = $('Config: Primary LLM Master').first().json || {};\nconst keys = configNode.keys || [];\nconst topicBrief = $('Parse Topic Analyzer Output').first().json || {};\nlet staticData = $getWorkflowStaticData('global');\n\nif (staticData.backupStrategyLlmIndex === undefined) {\n  staticData.backupStrategyLlmIndex = 0;\n}\n\nconst key = keys[staticData.backupStrategyLlmIndex % keys.length];\n\nreturn [{\n  json: {\n    ...topicBrief,\n    strategyApiKey: key,\n    blockedTitles: firstConfig.blockedTitles || 'None',\n    blockedPlots: firstConfig.blockedPlots || 'None',\n    recentCharacters: firstConfig.recentCharacters || 'None'\n  }\n}];"
       },
       "id": "25c48de0-d30c-4c76-8946-cd833147dc53",
       "name": "Rotate Backup Strategy LLM Key",
@@ -9385,7 +9385,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Rotate Backup Strategy LLM Key on Failure — iterates through ALL backup keys\nconst configNode = $('Config: Strategy Backup LLM Master').first();\nconst keys = (configNode && configNode.json && configNode.json.keys) ? configNode.json.keys : [\n  \"523d71d7bbmsh8c5854f3f38e4dep1aadbbjsn712216c12405\"\n];\nconst totalKeys = keys.length;\nlet staticData = $getWorkflowStaticData('global');\n\nif (staticData.strategyBackupAttempts === undefined) {\n  staticData.strategyBackupAttempts = 0;\n}\nstaticData.strategyBackupAttempts += 1;\n\nif (staticData.strategyBackupAttempts > totalKeys) {\n  console.log(`[STRATEGY BACKUP EXHAUSTED] All ${totalKeys} backup keys failed. Using cached/static fallback brief.`);\n  staticData.strategyBackupAttempts = 0;\n  return [{ json: { backupExhausted: true } }];\n}\n\nconsole.log(`[STRATEGY BACKUP ERROR] Attempt ${staticData.strategyBackupAttempts}/${totalKeys}: Rotating to key index ${staticData.strategyBackupLlmIndex}`);\nreturn [{ json: { backupExhausted: false } }];"
+        "jsCode": "// Rotate Backup Strategy LLM Key on Failure — iterates through ALL backup keys\nlet staticData = $getWorkflowStaticData('global');\nconst configNode = $('Config: Strategy Backup LLM Master').first().json || {};\nconst keys = configNode.keys || [];\nconst totalKeys = keys.length || 15;\n\nif (staticData.strategyBackupAttempts === undefined) {\n  staticData.strategyBackupAttempts = 0;\n}\nif (staticData.backupStrategyLlmIndex === undefined) {\n  staticData.backupStrategyLlmIndex = 0;\n}\n\nstaticData.strategyBackupAttempts += 1;\n\nif (staticData.strategyBackupAttempts > totalKeys) {\n  console.log(`[STRATEGY BACKUP EXHAUSTED] All ${totalKeys} backup keys failed. Moving to dynamic fallback brief.`);\n  staticData.strategyBackupAttempts = 0;\n  staticData.backupStrategyLlmIndex = 0;\n  return [{ json: { backupExhausted: true } }];\n}\n\nstaticData.backupStrategyLlmIndex = (staticData.backupStrategyLlmIndex + 1) % totalKeys;\nconsole.log(`[STRATEGY BACKUP RETRY] Attempt ${staticData.strategyBackupAttempts}/${totalKeys}: Rotating to key index ${staticData.backupStrategyLlmIndex}`);\nreturn [{ json: { backupExhausted: false } }];"
       },
       "id": "ecea2dbc-f94d-4ec9-8b06-8262d0d42f11",
       "name": "Rotate Backup Strategy LLM On Failure",
@@ -9524,24 +9524,15 @@
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
+            "caseSensitive": false,
             "leftValue": "",
             "typeValidation": "loose",
             "version": 3
           },
           "conditions": [
             {
-              "id": "backup-llm-error-403",
-              "leftValue": "={{ $json.error.status }}",
-              "rightValue": "403",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            },
-            {
-              "id": "backup-llm-error-429",
-              "leftValue": "={{ $json.error.status }}",
+              "id": "backup-llm-error-status-429",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "429",
               "operator": {
                 "type": "string",
@@ -9549,19 +9540,53 @@
               }
             },
             {
-              "id": "backup-llm-error-401",
-              "leftValue": "={{ $json.error.status }}",
+              "id": "backup-llm-error-status-403",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
+              "rightValue": "403",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "backup-llm-error-status-401",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "401",
               "operator": {
                 "type": "string",
                 "operation": "equals"
               }
+            },
+            {
+              "id": "backup-llm-has-error-obj",
+              "leftValue": "={{ !!($json.error || $json.errorMessage || $json.errorDescription) }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "backup-llm-msg-429",
+              "leftValue": "={{ String($json.message || $json.error?.message || '') }}",
+              "rightValue": "429",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "backup-llm-msg-ratelimit",
+              "leftValue": "={{ String($json.message || $json.error?.message || '').toLowerCase() }}",
+              "rightValue": "rate",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
             }
           ],
           "combinator": "or"
-        },
-        "looseTypeValidation": true,
-        "options": {}
+        }
       },
       "id": "0eca63aa-0b38-43fc-882b-809a4274f247",
       "name": "IF Backup Strategy LLM Failed",
