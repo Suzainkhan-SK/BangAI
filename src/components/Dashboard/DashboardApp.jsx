@@ -165,17 +165,19 @@ export default function DashboardApp({
     let pollInterval;
 
     async function checkNetlifyStoryApproval() {
-      try {
-        const query = activeThreadId 
-          ? `threadId=${encodeURIComponent(activeThreadId)}` 
-          : '';
+      if (!activeThreadId) return;
 
+      try {
+        const query = `threadId=${encodeURIComponent(activeThreadId)}`;
         const res = await fetch(`/.netlify/functions/story-approval?${query}`, {
           headers: { 'Cache-Control': 'no-cache' }
         });
 
         if (res.ok) {
           const data = await res.json();
+          // Ensure callback belongs to the current active thread
+          if (data.threadId && data.threadId !== activeThreadId) return;
+
           if (data.hasStory && (data.story || data.status === 'READY_FOR_APPROVAL' || data.status === 'SCENES_READY_FOR_APPROVAL' || data.status === 'COMPLETED' || data.status === 'RENDER_FAILED')) {
             console.log('[Website] Received real callback from n8n Cloud:', data.status, data);
 

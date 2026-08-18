@@ -40,14 +40,19 @@ export const handler = async (event, context) => {
     if (event.httpMethod === 'GET') {
       const { threadId } = event.queryStringParameters || {};
 
-      let query = {};
-      if (threadId) {
-        query.threadId = threadId;
-      } else {
-        query.status = { $in: ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'] };
+      if (!threadId) {
+        return {
+          statusCode: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store, no-cache, must-revalidate'
+          },
+          body: JSON.stringify({ hasStory: false, story: null, status: 'IDLE', threadId: null })
+        };
       }
 
-      const thread = await threadsCol.find(query).sort({ updatedAt: -1 }).limit(1).toArray();
+      const thread = await threadsCol.find({ threadId }).sort({ updatedAt: -1 }).limit(1).toArray();
       const latest = thread?.[0] || null;
 
       const isReadyState = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'].includes(latest?.status);
