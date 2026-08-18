@@ -22,6 +22,7 @@ export default function StoryApprovalCard({
   scenes,
   onApprove,
   onReject,
+  threadLanguage = 'English',
   isSubmitting = false
 }) {
   const [approvedState, setApprovedState] = useState(null);
@@ -118,7 +119,7 @@ export default function StoryApprovalCard({
         <div style={{ background: 'var(--bg-input)', padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
           <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 700 }}>🗣 LANGUAGE</div>
           <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#10b981' }}>
-            {story.language || 'Hinglish'}
+            {story.language || threadLanguage || 'English'}
           </div>
         </div>
 

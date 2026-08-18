@@ -266,31 +266,50 @@ CRITICAL RULES:
 
     // ─── MODE B: CONVERSATIONAL AI CHAT (Pure Claude Reply) ───────────
     if (mode === 'CHAT') {
+      // Build conversation history from the thread's stored messages
+      // Sanitize all content to plain strings — complex objects break Claude API
       let conversationHistory = [];
       if (db) {
         try {
-          const pastDocs = await db.collection('messages')
-            .find({ threadId: currentThreadId })
-            .sort({ timestamp: 1 })
-            .limit(10)
-            .toArray();
+          const thread = await db.collection('threads').findOne({ threadId: currentThreadId });
+          const rawMsgs = thread?.messages || [];
+          conversationHistory = rawMsgs
+            .filter(d => d && d.role && (d.content || d.text))
+            .slice(-12) // last 12 messages for context
+            .map(d => ({
+              role: d.role === 'user' ? 'user' : 'assistant',
+              // Force to plain string — strip any objects that might sneak in
+              content: typeof d.content === 'string' ? d.content
+                : typeof d.text === 'string' ? d.text
+                : String(d.content || d.text || '')
+            }))
+            .filter(d => d.content.trim().length > 0 && d.content.length < 4000);
+        } catch (e) {
+          console.warn('[CHAT] History fetch error:', e.message);
+        }
+      }
 
-          conversationHistory = pastDocs.map(d => ({
-            role: d.role === 'user' ? 'user' : 'assistant',
-            content: d.content || d.text || ''
-          }));
-        } catch (e) {}
+      // Always ensure the new user message is at the end
+      const lastMsg = conversationHistory[conversationHistory.length - 1];
+      if (!lastMsg || lastMsg.role !== 'user' || lastMsg.content !== message.trim()) {
+        conversationHistory = [...conversationHistory, { role: 'user', content: message.trim() }];
+      }
+
+      // Must start with user role — Claude requires alternating roles
+      while (conversationHistory.length > 0 && conversationHistory[0].role !== 'user') {
+        conversationHistory.shift();
       }
 
       if (conversationHistory.length === 0) {
         conversationHistory = [{ role: 'user', content: message.trim() }];
       }
 
-      const systemPrompt = `You are ShortsAI, a professional viral YouTube Shorts and Reels AI strategist and producer. 
+      const systemPrompt = `You are ShortsAI, a professional viral YouTube Shorts and Reels AI strategist and producer.
 Answer creator questions about viral video creation, retention hooks, pacing, YouTube algorithms, storytelling psychology, scripts, and video marketing.
-Be intelligent, engaging, helpful, and concise. Use clean formatting and tasteful emojis.`;
+Be intelligent, engaging, helpful, and genuinely useful. Use clean formatting with markdown bold and bullet points. Add tasteful emojis.
+Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply in that language naturally.`;
 
-      const aiReplyText = await callClaudeAI(systemPrompt, conversationHistory, 1000);
+      const aiReplyText = await callClaudeAI(systemPrompt, conversationHistory, 1200, 25000);
 
       const assistantMsgObj = {
         threadId: currentThreadId,
@@ -303,16 +322,17 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
 
       if (db) {
         try {
-          await db.collection('messages').insertOne(assistantMsgObj);
           await db.collection('threads').updateOne(
             { threadId: currentThreadId },
             {
-              $set: { updatedAt: now },
+              $set: { updatedAt: now, status: 'CHAT', mode: 'CHAT' },
               $push: { messages: assistantMsgObj }
             },
             { upsert: true }
           );
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[CHAT] DB update error:', e.message);
+        }
       }
 
       return {

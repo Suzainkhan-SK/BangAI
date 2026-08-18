@@ -250,12 +250,28 @@ export default function DashboardApp({
         }
 
         // ── SCENES READY ─────────────────────────────────────────────
+        // Skip if user approved scenes within 120s — same guard as Stage 1
+        const timeSinceApprovalScenes = Date.now() - lastApprovalTimestampRef.current;
+        if (status === 'SCENES_READY_FOR_APPROVAL' && timeSinceApprovalScenes < 120000) {
+          console.log('[Website] Skipping stale SCENES_READY_FOR_APPROVAL — user approved', Math.round(timeSinceApprovalScenes / 1000), 's ago');
+          return;
+        }
+
         if (status === 'SCENES_READY_FOR_APPROVAL') {
+          // Never snap back from RENDERING_VIDEO or COMPLETED
+          const currentThread = (() => {
+            let found = null;
+            setPastShorts(prev => { found = prev.find(t => t.threadId === activeThreadId || t.id === activeThreadId); return prev; });
+            return found;
+          })();
+
           audioEngine.playSfx('success');
           setIsGenerating(false);
           setGenerationStage('');
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
+            // Never snap back from more advanced states
+            if (['RENDERING_VIDEO', 'COMPLETED'].includes(t.status)) return t;
             const existing = t.messages || [];
             const titleStr = data.story?.suggestedTitle || data.story?.title || data.title || t.title;
             const msgText = `🎬 Final 5 scenes generated: "${titleStr}". Review before video rendering.`;
@@ -791,87 +807,112 @@ export default function DashboardApp({
             </div>
           )}
 
-          {/* Chronological Chat Messages Timeline */}
+          {/* Chronological Chat Messages Timeline — ChatGPT/Claude style */}
           {activeThread?.messages && activeThread.messages.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
               {activeThread.messages.map((msg, idx) => {
                 const isUser = msg.role === 'user';
+                // Render markdown-style bold, bullets, and line breaks
+                const renderContent = (text) => {
+                  if (!text || typeof text !== 'string') return null;
+                  return text.split('\n').map((line, li) => {
+                    // Bold **text**
+                    const parts = line.split(/(\*\*[^*]+\*\*)/g);
+                    return (
+                      <span key={li}>
+                        {parts.map((part, pi) =>
+                          /^\*\*[^*]+\*\*$/.test(part)
+                            ? <strong key={pi}>{part.slice(2, -2)}</strong>
+                            : part
+                        )}
+                        {li < text.split('\n').length - 1 && <br />}
+                      </span>
+                    );
+                  });
+                };
                 return (
                   <div
                     key={idx}
                     style={{
                       display: 'flex',
                       justifyContent: isUser ? 'flex-end' : 'flex-start',
-                      alignItems: 'flex-start',
-                      gap: '10px'
+                      alignItems: 'flex-end',
+                      gap: '10px',
+                      animation: 'fadeSlideUp 0.3s ease'
                     }}
                   >
                     {!isUser && (
                       <div style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '50%',
-                        background: 'var(--grad-gemini)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        boxShadow: '0 0 12px rgba(56, 189, 248, 0.4)'
+                        width: '34px', height: '34px', borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #6366f1, #38bdf8)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0, boxShadow: '0 2px 12px rgba(99,102,241,0.4)',
+                        marginBottom: '2px'
                       }}>
-                        <Sparkles size={16} color="#ffffff" />
+                        <Sparkles size={15} color="#fff" />
                       </div>
                     )}
 
-                    <div
-                      className={!isUser ? 'saas-card' : ''}
-                      style={{
-                        maxWidth: '82%',
-                        background: isUser ? 'var(--grad-primary)' : 'var(--bg-card)',
-                        color: isUser ? '#ffffff' : 'var(--text-primary)',
-                        padding: '12px 18px',
-                        borderRadius: isUser ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
-                        boxShadow: isUser ? '0 4px 16px rgba(99, 102, 241, 0.25)' : 'var(--shadow-card)',
-                        fontSize: '13.5px',
-                        lineHeight: 1.6,
-                        fontWeight: isUser ? 600 : 500,
-                        border: !isUser ? '1px solid var(--border-subtle)' : 'none',
-                        whiteSpace: 'pre-wrap'
-                      }}
-                    >
-                      {msg.content}
+                    <div style={{
+                      maxWidth: isUser ? '72%' : '80%',
+                      background: isUser
+                        ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
+                        : 'var(--bg-card)',
+                      color: isUser ? '#fff' : 'var(--text-primary)',
+                      padding: isUser ? '11px 18px' : '14px 20px',
+                      borderRadius: isUser ? '20px 20px 6px 20px' : '6px 20px 20px 20px',
+                      boxShadow: isUser
+                        ? '0 4px 20px rgba(99,102,241,0.35)'
+                        : '0 2px 12px rgba(0,0,0,0.12)',
+                      fontSize: '14px',
+                      lineHeight: 1.65,
+                      fontWeight: isUser ? 500 : 400,
+                      border: !isUser ? '1px solid var(--border-subtle)' : 'none',
+                      letterSpacing: '0.01em'
+                    }}>
+                      {renderContent(msg.content)}
                     </div>
+
+                    {isUser && (
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '50%',
+                        background: 'var(--bg-input)', border: '2px solid var(--border-subtle)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0, fontSize: '13px', fontWeight: 700,
+                        color: 'var(--text-secondary)', marginBottom: '2px'
+                      }}>
+                        {(user?.name || user?.email || 'U')[0].toUpperCase()}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* Real-time Claude AI Typing Indicator */}
+
+          {/* Real-time Claude AI Typing Indicator — bouncing dots like ChatGPT */}
           {isChatResponding && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', marginBottom: '20px', animation: 'fadeSlideUp 0.3s ease' }}>
               <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: 'var(--grad-gemini)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
+                width: '34px', height: '34px', borderRadius: '50%',
+                background: 'linear-gradient(135deg, #6366f1, #38bdf8)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, boxShadow: '0 2px 12px rgba(99,102,241,0.4)'
               }}>
-                <Sparkles size={16} color="#ffffff" className="spin-animation" />
+                <Sparkles size={15} color="#fff" />
               </div>
-              <div className="saas-card" style={{
-                padding: '10px 16px',
-                borderRadius: '4px 16px 16px 16px',
-                fontSize: '13px',
-                color: 'var(--accent-cyan)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
+              <div style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: '6px 20px 20px 20px',
+                padding: '14px 20px',
+                display: 'flex', alignItems: 'center', gap: '5px',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.12)'
               }}>
-                <Loader2 size={14} className="spin-animation" />
-                <span>ShortsAI Claude is generating reply...</span>
+                <div className="typing-dot" />
+                <div className="typing-dot" />
+                <div className="typing-dot" />
               </div>
             </div>
           )}
@@ -925,6 +966,7 @@ export default function DashboardApp({
             <StoryApprovalCard
               story={activeThread.story || activeThread}
               scenes={activeThread.scenes}
+              threadLanguage={activeThread.language || language}
               onApprove={handleApproveStory}
               onReject={handleRejectStory}
             />
