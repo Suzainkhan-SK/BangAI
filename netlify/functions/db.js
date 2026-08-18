@@ -4,9 +4,19 @@
 const MASTER_STORE_ID = 'ff8081819ff5b11001a013d111a43fe3';
 const API_URL = `https://api.restful-api.dev/objects/${MASTER_STORE_ID}`;
 
-async function fetchRemoteStore() {
+// In-memory instant cache per container
+let localThreadsCache = null;
+let lastCacheTime = 0;
+
+async function fetchRemoteStore(forceFresh = false) {
+  // If cache is less than 1500ms old and not forced, use memory cache
+  const now = Date.now();
+  if (!forceFresh && localThreadsCache && (now - lastCacheTime < 1500)) {
+    return localThreadsCache;
+  }
+
   try {
-    const url = `${API_URL}?_t=${Date.now()}_${Math.random()}`;
+    const url = `${API_URL}?_t=${now}_${Math.random()}`;
     const res = await fetch(url, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -15,15 +25,21 @@ async function fetchRemoteStore() {
     });
     if (res.ok) {
       const json = await res.json();
-      return json.data?.threads || {};
+      localThreadsCache = json.data?.threads || {};
+      lastCacheTime = Date.now();
+      return localThreadsCache;
     }
   } catch (e) {
     console.warn('[DB] Remote store fetch error:', e.message);
   }
-  return {};
+
+  return localThreadsCache || {};
 }
 
 async function saveRemoteStore(threads) {
+  localThreadsCache = threads;
+  lastCacheTime = Date.now();
+
   try {
     const res = await fetch(API_URL, {
       method: 'PUT',
@@ -48,7 +64,7 @@ const cloudDb = {
     if (name === 'threads') {
       return {
         findOne: async (q) => {
-          const threads = await fetchRemoteStore();
+          const threads = await fetchRemoteStore(true);
           if (q.threadId) {
             return threads[q.threadId] || null;
           }
@@ -58,7 +74,7 @@ const cloudDb = {
           sort: () => ({
             limit: (n) => ({
               toArray: async () => {
-                const threads = await fetchRemoteStore();
+                const threads = await fetchRemoteStore(true);
                 let all = Object.values(threads);
                 if (q.threadId) {
                   all = all.filter(t => t.threadId === q.threadId || t.id === q.threadId);
@@ -70,7 +86,7 @@ const cloudDb = {
               }
             }),
             toArray: async () => {
-              const threads = await fetchRemoteStore();
+              const threads = await fetchRemoteStore(true);
               let all = Object.values(threads);
               if (q.threadId) {
                 all = all.filter(t => t.threadId === q.threadId || t.id === q.threadId);
@@ -84,7 +100,7 @@ const cloudDb = {
         }),
         updateOne: async (filter, update, options) => {
           const threadId = filter.threadId;
-          const threads = await fetchRemoteStore();
+          const threads = await fetchRemoteStore(false);
           const existing = threads[threadId] || {};
 
           const setDoc = update.$set || {};
@@ -113,7 +129,7 @@ const cloudDb = {
         },
         deleteOne: async (q) => {
           const threadId = q.threadId;
-          const threads = await fetchRemoteStore();
+          const threads = await fetchRemoteStore(false);
           delete threads[threadId];
           await saveRemoteStore(threads);
           return { acknowledged: true };
@@ -127,14 +143,14 @@ const cloudDb = {
           sort: () => ({
             limit: (n) => ({
               toArray: async () => {
-                const threads = await fetchRemoteStore();
+                const threads = await fetchRemoteStore(true);
                 const thread = q.threadId ? threads[q.threadId] : null;
                 const msgs = thread?.messages || [];
                 return msgs.slice(0, n);
               }
             }),
             toArray: async () => {
-              const threads = await fetchRemoteStore();
+              const threads = await fetchRemoteStore(true);
               const thread = q.threadId ? threads[q.threadId] : null;
               return thread?.messages || [];
             }
@@ -143,10 +159,14 @@ const cloudDb = {
         insertOne: async (doc) => {
           const threadId = doc.threadId;
           if (threadId) {
-            const threads = await fetchRemoteStore();
+            const threads = await fetchRemoteStore(false);
             if (threads[threadId]) {
-              threads[threadId].messages = [...(threads[threadId].messages || []), doc];
-              await saveRemoteStore(threads);
+              const existingMsgs = threads[threadId].messages || [];
+              const isDuplicate = existingMsgs.some(m => m.content === doc.content);
+              if (!isDuplicate) {
+                threads[threadId].messages = [...existingMsgs, doc];
+                await saveRemoteStore(threads);
+              }
             }
           }
           return { acknowledged: true, insertedId: doc._id || Date.now() };
@@ -154,7 +174,7 @@ const cloudDb = {
         deleteMany: async (q) => {
           const threadId = q.threadId;
           if (threadId) {
-            const threads = await fetchRemoteStore();
+            const threads = await fetchRemoteStore(false);
             if (threads[threadId]) {
               threads[threadId].messages = [];
               await saveRemoteStore(threads);

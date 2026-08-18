@@ -167,7 +167,7 @@ export const handler = async (event, context) => {
         timestamp: now
       };
 
-      // Persist to MongoDB threads
+      // Persist to MongoDB threads (already includes messages push)
       await threadsCol.updateOne(
         { threadId },
         {
@@ -179,9 +179,6 @@ export const handler = async (event, context) => {
         },
         { upsert: true }
       );
-
-      // Persist to MongoDB messages
-      await messagesCol.insertOne(msgObj);
 
       return {
         statusCode: 200,
