@@ -50,15 +50,9 @@ export const handler = async (event, context) => {
       const thread = await threadsCol.find(query).sort({ updatedAt: -1 }).limit(1).toArray();
       const latest = thread?.[0] || null;
 
-      if (latest && (latest.story || latest.scenes || latest.videoUrl || latest.status === 'READY_FOR_APPROVAL' || latest.status === 'SCENES_READY_FOR_APPROVAL' || latest.status === 'COMPLETED' || latest.status === 'RENDER_FAILED')) {
-        const storyObj = latest.story || {
-          suggestedTitle: latest.title,
-          viralHook: latest.viralHook,
-          storyBrief: latest.storyBrief,
-          genre: latest.genre,
-          status: latest.status
-        };
+      const isReadyState = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'].includes(latest?.status);
 
+      if (latest && isReadyState && (latest.story || latest.scenes || latest.videoUrl)) {
         return {
           statusCode: 200,
           headers: {
@@ -68,14 +62,14 @@ export const handler = async (event, context) => {
           },
           body: JSON.stringify({
             hasStory: true,
-            story: storyObj,
-            scenes: latest.scenes || storyObj.scenes || null,
-            videoUrl: latest.videoUrl || storyObj.videoUrl || null,
+            story: latest.story || null,
+            scenes: latest.scenes || null,
+            videoUrl: latest.videoUrl || null,
             youtubeUrl: latest.youtubeUrl || null,
             videoId: latest.videoId || null,
             threadId: latest.threadId,
-            status: latest.status || 'READY_FOR_APPROVAL',
-            title: latest.title || storyObj.suggestedTitle,
+            status: latest.status,
+            title: latest.title || latest.story?.suggestedTitle,
             youtubeDescription: latest.youtubeDescription,
             tags: latest.tags,
             errorMessage: latest.errorMessage || null
@@ -90,7 +84,7 @@ export const handler = async (event, context) => {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-store, no-cache, must-revalidate'
         },
-        body: JSON.stringify({ hasStory: false, story: null })
+        body: JSON.stringify({ hasStory: false, story: null, status: latest?.status || 'IDLE', threadId: latest?.threadId || null })
       };
     }
 
