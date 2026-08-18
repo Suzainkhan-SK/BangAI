@@ -88,6 +88,19 @@ export const handler = async (event, context) => {
     }
 
     // ─── 2. HANDLE APPROVE ACTION ────────────────────────────────────
+    // IMPORTANT: Mark DB as GENERATING_SCENES FIRST before resuming n8n
+    // This prevents polling from reading stale READY_FOR_APPROVAL and snapping back
+    if (db && threadId) {
+      try {
+        await db.collection('threads').updateOne(
+          { threadId },
+          { $set: { status: 'GENERATING_SCENES', 'story.approveUrl': null, updatedAt: now } }
+        );
+      } catch (dbPreErr) {
+        console.warn('[Netlify] Pre-emptive DB status update failed:', dbPreErr.message);
+      }
+    }
+
     let executionResumed = false;
 
     // A) Try waking an active n8n Wait node if approveUrl exists
