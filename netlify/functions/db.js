@@ -1,38 +1,31 @@
 // Netlify Function Helper: db.js
-// Universal Persistent Storage for Netlify Serverless Functions & n8n Callbacks
+// Universal Real-Time Persistent Storage for Netlify Serverless Functions & n8n Callbacks
 
 const MASTER_STORE_ID = 'ff8081819ff5b11001a013d111a43fe3';
 const API_URL = `https://api.restful-api.dev/objects/${MASTER_STORE_ID}`;
 
-// In-memory cache per container
-let memoryCache = {
-  threads: {},
-  lastFetched: 0
-};
-
 async function fetchRemoteStore() {
   try {
-    const res = await fetch(API_URL, {
-      headers: { 'Cache-Control': 'no-cache' }
+    const url = `${API_URL}?_t=${Date.now()}_${Math.random()}`;
+    const res = await fetch(url, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
     });
     if (res.ok) {
       const json = await res.json();
-      const threads = json.data?.threads || {};
-      memoryCache.threads = threads;
-      memoryCache.lastFetched = Date.now();
-      return threads;
+      return json.data?.threads || {};
     }
   } catch (e) {
     console.warn('[DB] Remote store fetch error:', e.message);
   }
-  return memoryCache.threads;
+  return {};
 }
 
 async function saveRemoteStore(threads) {
-  memoryCache.threads = threads;
-  memoryCache.lastFetched = Date.now();
   try {
-    await fetch(API_URL, {
+    const res = await fetch(API_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -43,8 +36,10 @@ async function saveRemoteStore(threads) {
         }
       })
     });
+    return res.ok;
   } catch (e) {
     console.warn('[DB] Remote store save error:', e.message);
+    return false;
   }
 }
 
