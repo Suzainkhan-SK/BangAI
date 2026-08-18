@@ -958,6 +958,37 @@ export default function DashboardApp({
             </div>
           )}
 
+          {/* 2B. Video Render Failed Alert */}
+          {activeThread && activeThread.status === 'RENDER_FAILED' && !isGenerating && (
+            <div className="saas-card animate-float" style={{
+              padding: '24px',
+              borderRadius: '20px',
+              border: '1.5px solid rgba(239, 68, 68, 0.4)',
+              background: 'rgba(239, 68, 68, 0.05)',
+              boxShadow: 'var(--shadow-card)',
+              marginBottom: '24px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '16px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', flexShrink: 0 }}>
+                  <XCircle size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15.5px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>Video Generation / Media Error</div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{activeThread.errorMessage || 'An error occurred during video rendering in n8n Cloud.'}</div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '8px' }}>You can retry the video generation pipeline or edit your prompt.</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                <button onClick={() => handleGenerate('VIDEO_GENERATION', activeThread.rawUserInput)} className="btn-glow" style={{ fontSize: '12px', padding: '7px 16px', gap: '6px' }}>
+                  <RefreshCw size={13} /><span>Retry Video Generation</span>
+                </button>
+                <button onClick={handleNewShort} className="btn-ghost" style={{ fontSize: '12px', padding: '7px 14px' }}>
+                  Start New Video
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 3. Story / Scenes Approval Card — visible even during GENERATING_SCENES polling after approval */}
           {activeThread && (
             (activeThread.status === 'READY_FOR_APPROVAL' && !isGenerating) ||

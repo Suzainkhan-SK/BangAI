@@ -164,21 +164,21 @@ export const handler = async (event, context) => {
         messageContent = 'Video generation was cancelled.';
       } else if (data.status === 'DUPLICATE_TOPIC') {
         status = 'DUPLICATE_TOPIC';
-        messageContent = `Topic already covered: ${data.matchedTitle}`;
+        messageContent = `Topic already covered: ${data.matchedTitle || data.message || 'Duplicate topic'}`;
       } else if (data.status === 'SCENES_READY_FOR_APPROVAL') {
         status = 'SCENES_READY_FOR_APPROVAL';
         messageContent = `🎬 Final 5 scenes ready: "${data.title || data.suggestedTitle}"`;
-      } else if (['VIDEO_COMPLETED', 'VIDEO_UPLOADED_SUCCESS'].includes(data.status)) {
+      } else if (['VIDEO_COMPLETED', 'VIDEO_UPLOADED_SUCCESS', 'COMPLETED', 'SUCCESS'].includes(data.status) || data.videoUrl) {
         status = 'COMPLETED';
         messageContent = data.youtubeUrl
-          ? `🎉 Video uploaded to YouTube!\n\n📺 ${data.youtubeUrl}`
-          : `🎉 4K Video render complete!`;
+          ? `🎉 **4K Video Uploaded to YouTube!**\n\n📺 ${data.youtubeUrl}`
+          : `🎉 **4K Video Render Complete!**`;
       } else if (data.status === 'YOUTUBE_UPLOAD_FAILED') {
         status = 'COMPLETED';
         messageContent = `⚠️ YouTube Upload: ${data.errorMessage || 'Upload failed — retry available.'}`;
-      } else if (data.status === 'RENDER_FAILED') {
+      } else if (data.status === 'RENDER_FAILED' || data.status === 'ERROR' || data.status === 'FAILED') {
         status = 'RENDER_FAILED';
-        messageContent = `❌ Render error: ${data.errorMessage || 'Failed in media engine'}`;
+        messageContent = `❌ Video rendering error: ${data.errorMessage || 'Failed in media engine'}`;
       }
 
       const updateDoc = {
