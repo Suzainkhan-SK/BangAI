@@ -213,46 +213,55 @@ export const handler = async (event, context) => {
 
     // ─── MODE A: SCRIPT DOCTOR / STORY REFINEMENT (Claude Refines Story) ───
     if (mode === 'REFINE_STORY') {
+      let existingStory = null;
+      if (db) {
+        try {
+          const t = await db.collection('threads').findOne({ threadId: currentThreadId });
+          if (t && t.story) existingStory = t.story;
+        } catch(e) {}
+      }
+
       const systemPrompt = `You are ShortsAI Master Script Doctor. 
 A creator is refining an existing 75-second YouTube Short story.
-Analyze their feedback / instructions and return a refined story brief in ${detectedLanguage}.
+${existingStory ? `Current Story Title: "${existingStory.suggestedTitle || ''}"\nCurrent Story Brief: "${existingStory.storyBrief || ''}"\nCurrent Hook: "${existingStory.viralHook || ''}"` : ''}
+
+Creator Refinement Instructions: "${message.trim()}"
 
 CRITICAL RULES:
 1. Return ONLY a valid JSON object formatted EXACTLY as:
 {
   "message": "Brief 1-sentence summary of changes made",
   "suggestedTitle": "Catchy YouTube Shorts title (max 50 chars) with 1 emoji",
-  "viralHook": "Shocking 3-second opening hook line",
-  "storyBrief": "Detailed 5-scene story summary reflecting creator requested changes",
+  "viralHook": "Shocking 3-second opening hook line in ${detectedLanguage}",
+  "storyBrief": "Detailed 5-scene story summary in ${detectedLanguage} reflecting creator requested changes",
   "genre": "Content genre/category",
   "tags": ["tag1", "tag2", "tag3", "tag4", "shorts", "viral"]
 }
 2. All text MUST be in ${detectedLanguage}. ${detectedLanguage === 'English' ? 'Pure English only — no Hindi or Romanized Hindi.' : ''}
 3. Do NOT wrap in markdown code blocks or add preamble. Return ONLY the raw JSON object.`;
 
-      const aiRaw = await callClaudeAI(systemPrompt, conversationHistory, 1200);
-
       let parsed = null;
       try {
+        const aiRaw = await callClaudeAI(systemPrompt, [{ role: 'user', content: `Refine this story according to: ${message.trim()}` }], 1500);
         const cleanJson = aiRaw.replace(/```json/g, '').replace(/```/g, '').trim();
         parsed = JSON.parse(cleanJson);
       } catch (err) {
         parsed = {
           message: 'Story refined according to your instructions.',
-          suggestedTitle: message.trim().substring(0, 45),
+          suggestedTitle: (existingStory?.suggestedTitle || message.trim()).substring(0, 45),
           viralHook: `What you never knew about ${message.trim()}.`,
-          storyBrief: aiRaw,
-          genre: 'Viral Short',
+          storyBrief: `Refined story: ${message.trim()}`,
+          genre: existingStory?.genre || 'Viral Short',
           tags: ['shorts', 'viral', 'trending']
         };
       }
 
       const updatedStory = {
-        suggestedTitle: parsed.suggestedTitle,
-        viralHook: parsed.viralHook,
-        storyBrief: parsed.storyBrief,
-        genre: parsed.genre || 'Viral Short',
-        tags: parsed.tags || ['shorts', 'viral'],
+        suggestedTitle: parsed.suggestedTitle || existingStory?.suggestedTitle || message.trim(),
+        viralHook: parsed.viralHook || existingStory?.viralHook || '',
+        storyBrief: parsed.storyBrief || existingStory?.storyBrief || '',
+        genre: parsed.genre || existingStory?.genre || 'Viral Short',
+        tags: parsed.tags || existingStory?.tags || ['shorts', 'viral'],
         language: detectedLanguage,
         status: 'READY_FOR_APPROVAL',
         approveUrl: null,
