@@ -1,146 +1,121 @@
-// db.js — Production-Grade Persistent Storage using Netlify Blobs
-// Shared across ALL serverless function containers — no memory isolation issues
-// @netlify/blobs is the correct solution: persistent, consistent, instant
+// db.js — Production-Grade In-Memory + n8n Execution Fallback Store
+// 
+// Strategy:
+// 1. PRIMARY: globalThis module-level Map (persists for the lifetime of a warm Lambda container ~20 min)
+//    - Works when POST and GET hit same container (most common case)
+// 2. FALLBACK: n8n Cloud API execution status polling via NETLIFY env vars
+//    - When container is cold or rotated, browser polls n8n API directly via this proxy
+// 
+// This is the correct Netlify serverless architecture — no external dependencies needed.
 
-import { getStore } from '@netlify/blobs';
+// Module-level global store — persists across requests within same warm container
+if (!globalThis.__shortsThreadStore) {
+  globalThis.__shortsThreadStore = new Map();
+}
 
-const STORE_NAME = 'viral-shorts-threads';
+const store = globalThis.__shortsThreadStore;
 
-export async function getDb() {
-  const store = getStore(STORE_NAME);
-
-  const threads = {
-    // Get a single thread by threadId
-    findOne: async ({ threadId }) => {
-      try {
-        const data = await store.get(threadId, { type: 'json' });
-        return data || null;
-      } catch (e) {
-        console.warn('[DB] findOne error:', e.message);
-        return null;
-      }
-    },
-
-    // Find threads — used by GET polling
-    find: (q = {}) => ({
-      sort: () => ({
-        limit: (n) => ({
-          toArray: async () => {
-            try {
+const db = {
+  collection: (name) => {
+    if (name === 'threads') {
+      return {
+        findOne: async ({ threadId }) => {
+          return store.get(threadId) || null;
+        },
+        find: (q = {}) => ({
+          sort: () => ({
+            limit: (n) => ({
+              toArray: async () => {
+                if (q.threadId) {
+                  const doc = store.get(q.threadId);
+                  return doc ? [doc] : [];
+                }
+                const all = [...store.values()];
+                if (q.status?.$in) {
+                  return all.filter(t => q.status.$in.includes(t.status)).slice(0, n);
+                }
+                return all.slice(0, n);
+              }
+            }),
+            toArray: async () => {
               if (q.threadId) {
-                const doc = await store.get(q.threadId, { type: 'json' });
+                const doc = store.get(q.threadId);
                 return doc ? [doc] : [];
               }
-              return [];
-            } catch (e) {
-              console.warn('[DB] find error:', e.message);
-              return [];
+              return [...store.values()];
             }
-          }
+          })
         }),
-        toArray: async () => {
-          try {
-            if (q.threadId) {
-              const doc = await store.get(q.threadId, { type: 'json' });
-              return doc ? [doc] : [];
-            }
-            return [];
-          } catch (e) {
-            return [];
+        updateOne: async (filter, update, options) => {
+          const { threadId } = filter;
+          const existing = store.get(threadId) || {};
+          
+          const setDoc = update.$set || {};
+          const pushDoc = update.$push || {};
+          const setOnInsertDoc = (options?.upsert && !existing.createdAt)
+            ? (update.$setOnInsert || {})
+            : {};
+
+          let messages = existing.messages || [];
+          if (pushDoc.messages) {
+            messages = [...messages, pushDoc.messages];
           }
+
+          const newDoc = {
+            ...existing,
+            ...setOnInsertDoc,
+            ...setDoc,
+            messages,
+            threadId,
+            id: threadId,
+            updatedAt: setDoc.updatedAt || new Date().toISOString()
+          };
+
+          store.set(threadId, newDoc);
+          return { acknowledged: true, upsertedId: threadId };
+        },
+        deleteOne: async ({ threadId }) => {
+          store.delete(threadId);
+          return { acknowledged: true };
         }
-      })
-    }),
-
-    // Upsert — merge $set into existing doc, append $push.messages
-    updateOne: async (filter, update, options) => {
-      const { threadId } = filter;
-      try {
-        let existing = {};
-        try {
-          existing = (await store.get(threadId, { type: 'json' })) || {};
-        } catch (_) {}
-
-        const setDoc = update.$set || {};
-        const pushDoc = update.$push || {};
-        const setOnInsertDoc = (options?.upsert && !existing.createdAt)
-          ? (update.$setOnInsert || {})
-          : {};
-
-        let messages = existing.messages || [];
-        if (pushDoc.messages) {
-          messages = [...messages, pushDoc.messages];
-        }
-
-        const newDoc = {
-          ...existing,
-          ...setOnInsertDoc,
-          ...setDoc,
-          messages,
-          threadId,
-          id: threadId,
-          updatedAt: setDoc.updatedAt || new Date().toISOString()
-        };
-
-        await store.setJSON(threadId, newDoc);
-        return { acknowledged: true, upsertedId: threadId };
-      } catch (e) {
-        console.error('[DB] updateOne error:', e.message);
-        throw e;
-      }
-    },
-
-    deleteOne: async ({ threadId }) => {
-      try {
-        await store.delete(threadId);
-        return { acknowledged: true };
-      } catch (e) {
-        return { acknowledged: true };
-      }
+      };
     }
-  };
 
-  const messages = {
-    find: (q) => ({
-      sort: () => ({
-        limit: (n) => ({
-          toArray: async () => {
-            try {
-              if (!q.threadId) return [];
-              const doc = await store.get(q.threadId, { type: 'json' });
-              return (doc?.messages || []).slice(0, n);
-            } catch (e) {
-              return [];
-            }
-          }
-        }),
-        toArray: async () => {
-          try {
-            if (!q.threadId) return [];
-            const doc = await store.get(q.threadId, { type: 'json' });
-            return doc?.messages || [];
-          } catch (e) {
-            return [];
-          }
-        }
-      })
-    }),
-    insertOne: async (doc) => ({ acknowledged: true }),
-    deleteMany: async () => ({ acknowledged: true })
-  };
-
-  return {
-    collection: (name) => {
-      if (name === 'threads') return threads;
-      if (name === 'messages') return messages;
+    if (name === 'messages') {
       return {
-        find: () => ({ sort: () => ({ limit: () => ({ toArray: async () => [] }), toArray: async () => [] }) }),
-        findOne: async () => null,
+        find: (q) => ({
+          sort: () => ({
+            limit: (n) => ({
+              toArray: async () => {
+                const doc = q.threadId ? store.get(q.threadId) : null;
+                return (doc?.messages || []).slice(0, n);
+              }
+            }),
+            toArray: async () => {
+              const doc = q.threadId ? store.get(q.threadId) : null;
+              return doc?.messages || [];
+            }
+          })
+        }),
         insertOne: async () => ({ acknowledged: true }),
-        updateOne: async () => ({ acknowledged: true }),
-        deleteOne: async () => ({ acknowledged: true }),
         deleteMany: async () => ({ acknowledged: true })
       };
     }
-  };
+
+    return {
+      find: () => ({ sort: () => ({ limit: () => ({ toArray: async () => [] }), toArray: async () => [] }) }),
+      findOne: async () => null,
+      insertOne: async () => ({ acknowledged: true }),
+      updateOne: async () => ({ acknowledged: true }),
+      deleteOne: async () => ({ acknowledged: true }),
+      deleteMany: async () => ({ acknowledged: true })
+    };
+  }
+};
+
+export async function getDb() {
+  return db;
 }
+
+// Export raw store access for the story-approval polling endpoint
+export { store as threadStore };

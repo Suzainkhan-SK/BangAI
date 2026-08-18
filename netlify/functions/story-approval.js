@@ -1,8 +1,60 @@
 // Netlify Function: story-approval
-// Path: /.netlify/functions/story-approval
-// MongoDB Atlas integrated callback & polling handler for 2-Stage Story, Scenes & Final Video Completion
+// POST: n8n posts story/scenes/video callback here → stored in memory
+// GET: Browser polls here → checks memory, falls back to n8n API if cold container
+// DELETE: Reset/clear thread
 
 import { getDb } from './db.js';
+
+const N8N_API_URL = 'https://cmpunktg22.app.n8n.cloud/api/v1';
+const N8N_API_KEY = process.env.N8N_API_KEY || 'n8n_api_d07ac84c49c0e4b37d0025c7d8cb5c6d773a14f0';
+const WORKFLOW_ID = 'u8vcVLc00wPp2AAI';
+
+const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'];
+
+// Fallback: query n8n execution API to find if this thread got a story callback
+async function checkN8nExecutionForThread(threadId) {
+  try {
+    const res = await fetch(`${N8N_API_URL}/executions?workflowId=${WORKFLOW_ID}&status=waiting&limit=5`, {
+      headers: { 'X-N8N-API-KEY': N8N_API_KEY }
+    });
+    if (!res.ok) return null;
+
+    const { data: executions } = await res.json();
+    if (!executions?.length) return null;
+
+    // Check the most recent execution for our thread data
+    for (const exec of executions) {
+      try {
+        const detailRes = await fetch(`${N8N_API_URL}/executions/${exec.id}`, {
+          headers: { 'X-N8N-API-KEY': N8N_API_KEY }
+        });
+        if (!detailRes.ok) continue;
+        const detail = await detailRes.json();
+        
+        // Look for our threadId in execution data
+        const dataStr = JSON.stringify(detail.data || {});
+        if (dataStr.includes(threadId)) {
+          // Found the execution — extract thread data from node outputs
+          const nodes = detail.data?.resultData?.runData || {};
+          const sendStoryNode = nodes['Send Story for Approval']?.[0]?.data?.main?.[0]?.[0]?.json;
+          if (sendStoryNode?.threadId === threadId) {
+            return {
+              status: 'READY_FOR_APPROVAL',
+              story: sendStoryNode,
+              title: sendStoryNode.suggestedTitle,
+              approveUrl: sendStoryNode.approveUrl,
+              cancelUrl: sendStoryNode.cancelUrl,
+              threadId
+            };
+          }
+        }
+      } catch (_) {}
+    }
+  } catch (e) {
+    console.warn('[Approval] n8n fallback check failed:', e.message);
+  }
+  return null;
+}
 
 export const handler = async (event, context) => {
   // CORS Preflight
@@ -18,54 +70,50 @@ export const handler = async (event, context) => {
     };
   }
 
+  const CORS = {
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, no-cache, must-revalidate'
+  };
+
   try {
     const db = await getDb();
     const threadsCol = db.collection('threads');
-    const messagesCol = db.collection('messages');
 
-    // 1. DELETE: Reset active story cache or clear thread
+    // ── DELETE: Reset thread ──────────────────────────────────────────
     if (event.httpMethod === 'DELETE' || event.queryStringParameters?.clear === 'true') {
       const { threadId } = event.queryStringParameters || {};
       if (threadId) {
-        await threadsCol.updateOne({ threadId }, { $set: { story: null, status: 'GENERATING' } });
+        await threadsCol.deleteOne({ threadId });
       }
-      return {
-        statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cleared: true })
-      };
+      return { statusCode: 200, headers: CORS, body: JSON.stringify({ cleared: true }) };
     }
 
-    // 2. GET: Frontend checks for fresh story, 5 scenes, or final rendered video from MongoDB
+    // ── GET: Browser polling for story/scenes/video ──────────────────
     if (event.httpMethod === 'GET') {
       const { threadId } = event.queryStringParameters || {};
 
       if (!threadId) {
-        return {
-          statusCode: 200,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-store, no-cache, must-revalidate'
-          },
-          body: JSON.stringify({ hasStory: false, story: null, status: 'IDLE', threadId: null })
-        };
+        return { statusCode: 200, headers: CORS, body: JSON.stringify({ hasStory: false, status: 'IDLE', threadId: null }) };
       }
 
-      // Direct key lookup — instant with Netlify Blobs, no iteration
-      const latest = await threadsCol.findOne({ threadId });
+      // 1. Check in-memory store first (fastest — same container)
+      let latest = await threadsCol.findOne({ threadId });
 
-      const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'];
-      const isReadyState = READY_STATES.includes(latest?.status);
+      // 2. If not found or still GENERATING, also check n8n execution API as fallback
+      if (!latest || !READY_STATES.includes(latest.status)) {
+        const n8nData = await checkN8nExecutionForThread(threadId);
+        if (n8nData) {
+          // Save to memory store for subsequent polls
+          await threadsCol.updateOne({ threadId }, { $set: n8nData }, { upsert: true });
+          latest = await threadsCol.findOne({ threadId });
+        }
+      }
 
-      if (latest && isReadyState) {
+      if (latest && READY_STATES.includes(latest.status)) {
         return {
           statusCode: 200,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-store, no-cache, must-revalidate'
-          },
+          headers: CORS,
           body: JSON.stringify({
             hasStory: true,
             story: latest.story || null,
@@ -87,36 +135,29 @@ export const handler = async (event, context) => {
 
       return {
         statusCode: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, no-cache, must-revalidate'
-        },
+        headers: CORS,
         body: JSON.stringify({ hasStory: false, story: null, status: latest?.status || 'IDLE', threadId: latest?.threadId || null })
       };
     }
 
-
-    // 3. POST: n8n Cloud posts the story / final scenes / video completed / render failed callback
+    // ── POST: n8n posts callback here ────────────────────────────────
     if (event.httpMethod === 'POST') {
       let data = {};
       try {
-        data = typeof event.body === 'object' ? event.body : JSON.parse(event.body || '{}');
-        if (typeof data === 'string') {
-          data = JSON.parse(data);
-        }
+        const raw = typeof event.body === 'string' ? event.body : JSON.stringify(event.body || '{}');
+        data = JSON.parse(raw);
+        if (typeof data === 'string') data = JSON.parse(data);
       } catch (e) {
         data = {};
       }
-      console.log('[Netlify] Callback from n8n cloud. Status:', data.status, 'Title:', data.title || data.suggestedTitle);
+
+      console.log('[story-approval] POST from n8n:', data.status, '| Thread:', data.threadId, '| Title:', data.suggestedTitle || data.title);
 
       const now = new Date();
-      if (!data.timestamp) data.timestamp = now.toISOString();
-
       const threadId = data.threadId || `thread-${Date.now()}`;
-      
+
       let status = 'READY_FOR_APPROVAL';
-      let messageContent = `Story ready for review: "${data.suggestedTitle || data.title}"`;
+      let messageContent = `Story ready for review: "${data.suggestedTitle || data.title || 'New Story'}"`;
 
       if (data.status === 'CANCELLED') {
         status = 'CANCELLED';
@@ -126,18 +167,18 @@ export const handler = async (event, context) => {
         messageContent = `Topic already covered: ${data.matchedTitle}`;
       } else if (data.status === 'SCENES_READY_FOR_APPROVAL') {
         status = 'SCENES_READY_FOR_APPROVAL';
-        messageContent = `🎬 Final 5 scenes ready for review: "${data.title || data.suggestedTitle}"`;
-      } else if (data.status === 'VIDEO_COMPLETED' || data.status === 'VIDEO_UPLOADED_SUCCESS') {
+        messageContent = `🎬 Final 5 scenes ready: "${data.title || data.suggestedTitle}"`;
+      } else if (['VIDEO_COMPLETED', 'VIDEO_UPLOADED_SUCCESS'].includes(data.status)) {
         status = 'COMPLETED';
-        messageContent = data.youtubeUrl 
-          ? `🎉 **Video Uploaded to YouTube Shorts!**\n\n📺 **Watch Short:** ${data.youtubeUrl}\n🎬 Title: "${data.title || 'Viral Video'}"` 
-          : `🎉 **Video Rendering Complete!**\n\n🎬 75-Second 4K video rendered and ready for download or 1-Click YouTube Upload.`;
+        messageContent = data.youtubeUrl
+          ? `🎉 Video uploaded to YouTube!\n\n📺 ${data.youtubeUrl}`
+          : `🎉 4K Video render complete!`;
       } else if (data.status === 'YOUTUBE_UPLOAD_FAILED') {
         status = 'COMPLETED';
-        messageContent = `⚠️ **YouTube Upload Notice:** ${data.errorMessage || 'Upload encountered an issue. You can retry 1-Click Upload.'}`;
+        messageContent = `⚠️ YouTube Upload: ${data.errorMessage || 'Upload failed — retry available.'}`;
       } else if (data.status === 'RENDER_FAILED') {
         status = 'RENDER_FAILED';
-        messageContent = `❌ Video rendering error: ${data.errorMessage || 'Render failed in media engine'}`;
+        messageContent = `❌ Render error: ${data.errorMessage || 'Failed in media engine'}`;
       }
 
       const updateDoc = {
@@ -146,15 +187,12 @@ export const handler = async (event, context) => {
         updatedAt: now
       };
 
+      // Persist the full data blob as `story` so GET always returns it
+      updateDoc.story = data;
       if (data.title || data.suggestedTitle) updateDoc.title = data.title || data.suggestedTitle;
-      if (data.story) updateDoc.story = data.story;
-      else updateDoc.story = data;
-
-      // Store approveUrl/cancelUrl at top level for easy frontend access
       if (data.approveUrl) updateDoc.approveUrl = data.approveUrl;
       if (data.cancelUrl) updateDoc.cancelUrl = data.cancelUrl;
       if (data.resumeUrl) updateDoc.resumeUrl = data.resumeUrl;
-
       if (data.scenes && Array.isArray(data.scenes)) updateDoc.scenes = data.scenes;
       if (data.videoUrl) updateDoc.videoUrl = data.videoUrl;
       if (data.youtubeUrl) updateDoc.youtubeUrl = data.youtubeUrl;
@@ -163,7 +201,6 @@ export const handler = async (event, context) => {
       if (data.tags) updateDoc.tags = data.tags;
       if (data.errorMessage) updateDoc.errorMessage = data.errorMessage;
       if (status === 'COMPLETED') updateDoc.criticScore = 99;
-
 
       const msgObj = {
         threadId,
@@ -177,18 +214,13 @@ export const handler = async (event, context) => {
         timestamp: now
       };
 
-      // Persist to MongoDB threads (already includes messages push)
       await threadsCol.updateOne(
         { threadId },
-        {
-          $set: updateDoc,
-          $push: {
-            messages: msgObj
-          },
-          $setOnInsert: { createdAt: now }
-        },
+        { $set: updateDoc, $push: { messages: msgObj }, $setOnInsert: { createdAt: now } },
         { upsert: true }
       );
+
+      console.log('[story-approval] Stored thread', threadId, 'with status', status);
 
       return {
         statusCode: 200,
@@ -197,12 +229,10 @@ export const handler = async (event, context) => {
       };
     }
 
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method Not Allowed' })
-    };
+    return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+
   } catch (err) {
-    console.error('Story Approval Function Error:', err);
+    console.error('[story-approval] Error:', err);
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
