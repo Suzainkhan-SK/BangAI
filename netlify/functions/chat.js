@@ -12,7 +12,7 @@ const CLAUDE_KEYS = [
   process.env.CLAUDE_API_KEY_2 || 'sk-cs4-db2641233a8fbbd2e619a57ddd3acd8a1fb8fddf163b1923'
 ];
 
-async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000, timeoutMs = 4500) {
+async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000) {
   const messages = conversationHistory.map(m => ({
     role: m.role === 'user' ? 'user' : 'assistant',
     content: m.content || m.text || ''
@@ -23,9 +23,6 @@ async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000,
   for (let i = 0; i < CLAUDE_KEYS.length; i++) {
     const key = CLAUDE_KEYS[i];
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-
       // 1. Try OpenAI-compatible endpoint
       const res = await fetch(`${CLAUDE_BASE_URL}/v1/chat/completions`, {
         method: 'POST',
@@ -41,10 +38,8 @@ async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000,
           ],
           max_tokens: maxTokens,
           temperature: 0.7
-        }),
-        signal: controller.signal
+        })
       });
-      clearTimeout(timer);
 
       if (res.ok) {
         const json = await res.json();
@@ -77,10 +72,7 @@ async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1000,
           return content.trim();
         }
       }
-
-      console.warn(`Claude Key ${i + 1} returned non-200. Rotating to next key...`);
     } catch (err) {
-      console.warn(`Claude Key ${i + 1} request error: ${err.message}. Rotating to next key...`);
       lastError = err;
     }
   }
@@ -136,7 +128,7 @@ export const handler = async (event, context) => {
       detectedLanguage = 'Hinglish';
     }
 
-    // 1. Connect to MongoDB Atlas and persist user message in BOTH collections
+    // 1. Connect to MongoDB Atlas
     let db = null;
     try {
       db = await getDb();
@@ -163,8 +155,9 @@ export const handler = async (event, context) => {
             $set: {
               threadId: currentThreadId,
               sessionId: currentSessionId,
-              title: message.trim(),
               rawUserInput: message.trim(),
+              lastPrompt: message.trim(),
+              mode,
               language: detectedLanguage,
               updatedAt: now
             },
@@ -173,29 +166,30 @@ export const handler = async (event, context) => {
             },
             $setOnInsert: {
               createdAt: now,
-              status: mode === 'VIDEO_GENERATION' ? 'GENERATING' : 'CHAT'
+              status: mode === 'VIDEO_GENERATION' ? 'GENERATING' : 'IDLE',
+              title: message.trim().length > 35 ? (message.trim().substring(0, 35) + '...') : message.trim()
             }
           },
           { upsert: true }
         );
       } catch (e) {
-        console.warn('MongoDB user message persist error:', e.message);
+        console.warn('MongoDB user message persistence error:', e.message);
       }
     }
 
-    // 2. Fetch conversational context from MongoDB
+    // 2. Fetch conversation history for Claude context
     let conversationHistory = [];
     if (db) {
       try {
-        const historyDocs = await db.collection('messages')
+        const pastDocs = await db.collection('messages')
           .find({ threadId: currentThreadId })
           .sort({ timestamp: 1 })
           .limit(10)
           .toArray();
 
-        conversationHistory = historyDocs.map(m => ({
-          role: m.role === 'assistant' ? 'assistant' : 'user',
-          content: m.content
+        conversationHistory = pastDocs.map(d => ({
+          role: d.role === 'user' ? 'user' : 'assistant',
+          content: d.content || d.text || ''
         }));
       } catch (e) {}
     }
@@ -204,63 +198,51 @@ export const handler = async (event, context) => {
       conversationHistory = [{ role: 'user', content: message.trim() }];
     }
 
-    // ─── MODE A: REFINE_STORY (Real Claude Screenplay Refinement) ──────
+    // ─── MODE A: SCRIPT DOCTOR / STORY REFINEMENT (Claude Refines Story) ───
     if (mode === 'REFINE_STORY') {
-      let currentStory = null;
-      if (db) {
-        try {
-          const t = await db.collection('threads').findOne({ threadId: currentThreadId });
-          currentStory = t?.story || null;
-        } catch (e) {}
-      }
+      const systemPrompt = `You are ShortsAI Master Script Doctor. 
+A creator is refining an existing 75-second YouTube Short story.
+Analyze their feedback / instructions and return a refined story brief in ${detectedLanguage}.
 
-      const systemPrompt = `You are ShortsAI Screenplay Expert. The creator has an existing 75-second YouTube Short story brief and wants to improve/refine it based on their instructions.
-
-Current Story:
-- Title: "${currentStory?.suggestedTitle || 'Unknown'}"
-- Viral Hook: "${currentStory?.viralHook || 'None'}"
-- Story Brief: "${currentStory?.storyBrief || 'None'}"
-- Language: "${detectedLanguage}"
-- Visual Style: "${settings.visualStyle || 'Cinematic Realistic'}"
-
-Creator's Instruction: "${message}"
-
-IMPORTANT LANGUAGE RULE: Write ALL text (suggestedTitle, viralHook, storyBrief) in ${detectedLanguage}. If language is English, do NOT include any Hindi or Romanized Hindi words.
-
-Output ONLY a valid JSON object formatted EXACTLY as:
+CRITICAL RULES:
+1. Return ONLY a valid JSON object formatted EXACTLY as:
 {
-  "message": "Direct, professional explanation of what changes you made",
-  "suggestedTitle": "New catchy title (max 50 chars) in ${detectedLanguage}",
-  "viralHook": "Shocking 3-second opening hook in ${detectedLanguage}",
-  "storyBrief": "5-Scene detailed narrative brief covering 0-15s, 15-30s, 30-45s, 45-60s, 60-75s in ${detectedLanguage}",
-  "genre": "Genre or viral niche"
+  "message": "Brief 1-sentence summary of changes made",
+  "suggestedTitle": "Catchy YouTube Shorts title (max 50 chars) with 1 emoji",
+  "viralHook": "Shocking 3-second opening hook line",
+  "storyBrief": "Detailed 5-scene story summary reflecting creator requested changes",
+  "genre": "Content genre/category",
+  "tags": ["tag1", "tag2", "tag3", "tag4", "shorts", "viral"]
 }
-Do NOT wrap in markdown code fences or add extraneous text. Return raw JSON.`;
+2. All text MUST be in ${detectedLanguage}. ${detectedLanguage === 'English' ? 'Pure English only — no Hindi or Romanized Hindi.' : ''}
+3. Do NOT wrap in markdown code blocks or add preamble. Return ONLY the raw JSON object.`;
 
-      const aiReplyText = await callClaudeAI(systemPrompt, conversationHistory, 1500);
+      const aiRaw = await callClaudeAI(systemPrompt, conversationHistory, 1200);
 
       let parsed = null;
       try {
-        const clean = aiReplyText.replace(/```json/g, '').replace(/```/g, '').trim();
-        parsed = JSON.parse(clean);
-      } catch (e) {
+        const cleanJson = aiRaw.replace(/```json/g, '').replace(/```/g, '').trim();
+        parsed = JSON.parse(cleanJson);
+      } catch (err) {
         parsed = {
-          message: aiReplyText,
-          suggestedTitle: (currentStory?.suggestedTitle || message).substring(0, 45),
-          viralHook: `Hook refined: ${message.substring(0, 40)}...`,
-          storyBrief: aiReplyText,
-          genre: currentStory?.genre || 'Viral Short'
+          message: 'Story refined according to your instructions.',
+          suggestedTitle: message.trim().substring(0, 45),
+          viralHook: `What you never knew about ${message.trim()}.`,
+          storyBrief: aiRaw,
+          genre: 'Viral Short',
+          tags: ['shorts', 'viral', 'trending']
         };
       }
 
       const updatedStory = {
-        ...(currentStory || {}),
         suggestedTitle: parsed.suggestedTitle,
         viralHook: parsed.viralHook,
         storyBrief: parsed.storyBrief,
-        genre: parsed.genre,
+        genre: parsed.genre || 'Viral Short',
+        tags: parsed.tags || ['shorts', 'viral'],
         language: detectedLanguage,
-        approveUrl: null, // Invalidate any old dead resume URLs
+        status: 'READY_FOR_APPROVAL',
+        approveUrl: null,
         timestamp: now.toISOString()
       };
 
@@ -268,8 +250,9 @@ Do NOT wrap in markdown code fences or add extraneous text. Return raw JSON.`;
         threadId: currentThreadId,
         sessionId: currentSessionId,
         role: 'assistant',
-        content: parsed.message,
-        storyUpdate: updatedStory,
+        content: `✍️ **Script Doctor Refinement:**\n${parsed.message || 'Story adjusted.'}\n\n**New Hook:** "${parsed.viralHook}"`,
+        story: updatedStory,
+        status: 'READY_FOR_APPROVAL',
         mode: 'REFINE_STORY',
         timestamp: now
       };
@@ -282,8 +265,8 @@ Do NOT wrap in markdown code fences or add extraneous text. Return raw JSON.`;
             { threadId: currentThreadId },
             {
               $set: {
+                title: parsed.suggestedTitle || message.trim(),
                 story: updatedStory,
-                title: parsed.suggestedTitle,
                 status: 'READY_FOR_APPROVAL',
                 updatedAt: now
               },
@@ -357,52 +340,9 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
       };
     }
 
-    // ─── MODE C: VIDEO GENERATION (CLAUDE HIGH-RETENTION SCRIPT + N8N 4K PIPELINE) ────
+    // ─── MODE C: VIDEO GENERATION (DISPATCH DIRECTLY TO N8N CLOUD) ────
     const host = event.headers?.host || 'viral-shorts-ai-studio.netlify.app';
     const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
-
-    // 1. Generate deep, engaging, high-retention 5-act story brief with Claude (Guarantees zero fake fallback text)
-    let generatedStory = null;
-    try {
-      const storyGenPrompt = `You are ShortsAI Master Screenplay Writer. Analyze the creator's video topic and generate a gripping, viral 75-second YouTube Short story strategy in ${detectedLanguage}.
-
-Topic / Prompt: "${message.trim()}"
-Language: "${detectedLanguage}"
-Visual Style: "${settings.visualStyle || 'Cinematic Realistic'}"
-
-CRITICAL RULES:
-1. All text (title, hook, story brief) MUST be written in ${detectedLanguage}. ${detectedLanguage === 'English' ? 'Pure English only — no Hindi or Romanized Hindi.' : ''}
-2. suggestedTitle: High-CTR, curiosity-driven YouTube Shorts title (max 50 chars) with 1 emoji.
-3. viralHook: High-impact 3-second opening hook that stops the scroll.
-4. storyBrief: Detailed 5-scene narrative breakdown:
-   - Act 1 (0-15s): The Hook & Setup
-   - Act 2 (15-30s): The Investigation / Escalation
-   - Act 3 (30-45s): The Turning Point / Hidden Truth
-   - Act 4 (45-60s): The Climax / Peak Tension
-   - Act 5 (60-75s): The Resolution & Mind-Bending Question
-
-Output ONLY a valid JSON object formatted as:
-{
-  "suggestedTitle": "Catchy Title with Emoji",
-  "viralHook": "Shocking opening hook in ${detectedLanguage}",
-  "storyBrief": "Detailed 5-act narrative brief in ${detectedLanguage}",
-  "genre": "Documentary / Mystery / History / Science",
-  "tags": ["shorts", "viral", "documentary", "mystery"]
-}
-Do NOT wrap in markdown code fences. Return raw JSON.`;
-
-      const aiStoryRaw = await callClaudeAI(storyGenPrompt, conversationHistory, 1500);
-      try {
-        const cleanJson = aiStoryRaw.replace(/```json/g, '').replace(/```/g, '').trim();
-        generatedStory = JSON.parse(cleanJson);
-        if (generatedStory) {
-          generatedStory.language = detectedLanguage;
-          generatedStory.visualStyle = settings.visualStyle || 'Cinematic Realistic';
-        }
-      } catch(e) {}
-    } catch (err) {
-      console.warn('Claude Story pre-generation notice:', err.message);
-    }
 
     let n8nRes;
     try {
@@ -410,10 +350,8 @@ Do NOT wrap in markdown code fences. Return raw JSON.`;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: generatedStory?.storyBrief || message.trim(),
+          prompt: message.trim(),
           rawUserInput: message.trim(),
-          refinedStory: generatedStory,
-          isRefined: !!generatedStory,
           voiceId: settings.voiceId || 'adam',
           visualStyle: settings.visualStyle || 'Cinematic Realistic',
           language: detectedLanguage,
@@ -458,7 +396,6 @@ Do NOT wrap in markdown code fences. Return raw JSON.`;
     const n8nResponse = await n8nRes.text();
     console.log('[Netlify] n8n Cloud Webhook HTTP Status:', n8nStatus, 'Body:', n8nResponse);
 
-    // If n8n returned 404/500/etc. (Workflow is NOT published / NOT active)
     if (!n8nRes.ok) {
       let errorDetail = 'The workflow must be active / published in n8n Cloud to receive video generation requests.';
       try {
@@ -471,7 +408,7 @@ Do NOT wrap in markdown code fences. Return raw JSON.`;
         threadId: currentThreadId,
         sessionId: currentSessionId,
         role: 'assistant',
-        content: `⚠️ **n8n Workflow is Inactive / Not Published** (HTTP ${n8nStatus})\n\n${errorDetail}\n\n👉 **To fix:** Open your n8n workflow (\`u8vcVLc00wPp2AAI\`) and toggle the **Active** switch in the top right to **Active/Published**, then click Retry.`,
+        content: `⚠️ **n8n Autonomous Pipeline Inactive:** ${errorDetail}\n\nPlease verify that workflow \`u8vcVLc00wPp2AAI\` is Published and Active in n8n Cloud.`,
         status: 'WORKFLOW_INACTIVE',
         timestamp: now
       };
@@ -479,63 +416,46 @@ Do NOT wrap in markdown code fences. Return raw JSON.`;
       if (db) {
         try {
           await db.collection('messages').insertOne(inactiveMsg);
-
           await db.collection('threads').updateOne(
             { threadId: currentThreadId },
             {
               $set: {
-                threadId: currentThreadId,
-                sessionId: currentSessionId,
-                rawUserInput: message.trim(),
-                title: message.trim(),
                 status: 'WORKFLOW_INACTIVE',
                 errorMessage: errorDetail,
-                n8nStatus,
                 updatedAt: now
               },
-              $push: {
-                messages: inactiveMsg
-              },
-              $setOnInsert: { createdAt: now }
-            },
-            { upsert: true }
+              $push: { messages: inactiveMsg }
+            }
           );
         } catch (dbErr) {}
       }
 
       return {
-        statusCode: 400,
+        statusCode: 503,
         headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
         body: JSON.stringify({
           success: false,
-          error: 'WORKFLOW_NOT_PUBLISHED',
+          error: 'WORKFLOW_INACTIVE',
           message: errorDetail,
-          n8nStatus,
           threadId: currentThreadId
         })
       };
     }
 
-    // Workflow is ACTIVE & Webhook Accepted!
+    // Success: n8n workflow execution started
     if (db) {
       try {
         await db.collection('threads').updateOne(
           { threadId: currentThreadId },
           {
             $set: {
-              threadId: currentThreadId,
-              sessionId: currentSessionId,
-              rawUserInput: message.trim(),
-              title: message.trim(),
               status: 'GENERATING',
-              settings,
+              executionStarted: true,
               updatedAt: now
-            },
-            $setOnInsert: { createdAt: now }
-          },
-          { upsert: true }
+            }
+          }
         );
-      } catch (e) {}
+      } catch (dbErr) {}
     }
 
     return {
@@ -543,20 +463,19 @@ Do NOT wrap in markdown code fences. Return raw JSON.`;
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
-        status: 'PROCESSING',
-        mode: 'VIDEO_GENERATION',
-        message: 'Prompt dispatched to autonomous video pipeline.',
+        status: 'GENERATING',
+        message: 'Video generation dispatched to n8n Cloud',
         threadId: currentThreadId,
-        n8nStatus: n8nStatus
+        executionStarted: true
       })
     };
 
   } catch (err) {
-    console.error('Chat API Error:', err);
+    console.error('Chat Handler Error:', err);
     return {
       statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: err.message })
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: err.message || 'Internal Server Error' })
     };
   }
 };
