@@ -52,12 +52,13 @@ export const handler = async (event, context) => {
         };
       }
 
-      const thread = await threadsCol.find({ threadId }).sort({ updatedAt: -1 }).limit(1).toArray();
-      const latest = thread?.[0] || null;
+      // Direct key lookup — instant with Netlify Blobs, no iteration
+      const latest = await threadsCol.findOne({ threadId });
 
-      const isReadyState = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'].includes(latest?.status);
+      const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'];
+      const isReadyState = READY_STATES.includes(latest?.status);
 
-      if (latest && isReadyState && (latest.story || latest.scenes || latest.videoUrl)) {
+      if (latest && isReadyState) {
         return {
           statusCode: 200,
           headers: {
@@ -77,7 +78,9 @@ export const handler = async (event, context) => {
             title: latest.title || latest.story?.suggestedTitle,
             youtubeDescription: latest.youtubeDescription,
             tags: latest.tags,
-            errorMessage: latest.errorMessage || null
+            errorMessage: latest.errorMessage || null,
+            approveUrl: latest.approveUrl || latest.story?.approveUrl || null,
+            cancelUrl: latest.cancelUrl || latest.story?.cancelUrl || null
           })
         };
       }
@@ -92,6 +95,7 @@ export const handler = async (event, context) => {
         body: JSON.stringify({ hasStory: false, story: null, status: latest?.status || 'IDLE', threadId: latest?.threadId || null })
       };
     }
+
 
     // 3. POST: n8n Cloud posts the story / final scenes / video completed / render failed callback
     if (event.httpMethod === 'POST') {
@@ -146,6 +150,11 @@ export const handler = async (event, context) => {
       if (data.story) updateDoc.story = data.story;
       else updateDoc.story = data;
 
+      // Store approveUrl/cancelUrl at top level for easy frontend access
+      if (data.approveUrl) updateDoc.approveUrl = data.approveUrl;
+      if (data.cancelUrl) updateDoc.cancelUrl = data.cancelUrl;
+      if (data.resumeUrl) updateDoc.resumeUrl = data.resumeUrl;
+
       if (data.scenes && Array.isArray(data.scenes)) updateDoc.scenes = data.scenes;
       if (data.videoUrl) updateDoc.videoUrl = data.videoUrl;
       if (data.youtubeUrl) updateDoc.youtubeUrl = data.youtubeUrl;
@@ -154,6 +163,7 @@ export const handler = async (event, context) => {
       if (data.tags) updateDoc.tags = data.tags;
       if (data.errorMessage) updateDoc.errorMessage = data.errorMessage;
       if (status === 'COMPLETED') updateDoc.criticScore = 99;
+
 
       const msgObj = {
         threadId,

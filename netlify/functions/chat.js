@@ -385,6 +385,31 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
       };
     }
 
+    // Seed thread in persistent store immediately so polling works from the first second
+    if (db) {
+      try {
+        await db.collection('threads').updateOne(
+          { threadId: currentThreadId },
+          {
+            $set: {
+              threadId: currentThreadId,
+              sessionId: currentSessionId,
+              status: 'GENERATING',
+              title: message.trim().substring(0, 60),
+              rawUserInput: message.trim(),
+              mode: 'VIDEO_GENERATION',
+              language: detectedLanguage,
+              updatedAt: now
+            },
+            $setOnInsert: { createdAt: now }
+          },
+          { upsert: true }
+        );
+      } catch (e) {
+        console.warn('[Netlify] Could not seed thread in store:', e.message);
+      }
+    }
+
     // Return GENERATING status so frontend begins polling and displays live progress
     return {
       statusCode: 200,
@@ -397,6 +422,7 @@ Be intelligent, engaging, helpful, and concise. Use clean formatting and tastefu
         executionStarted: true
       })
     };
+
 
   } catch (err) {
     console.error('Chat Handler Error:', err);
