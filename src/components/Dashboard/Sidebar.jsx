@@ -1,373 +1,302 @@
 import React, { useState } from 'react';
-import { 
-  Plus, 
-  Sparkles, 
-  MessageSquare,
-  ChevronLeft,
-  ChevronRight,
-  Settings,
-  LogOut,
-  Search,
-  Zap,
-  Trash2
+import {
+  Plus, Sparkles, MessageSquare, ChevronLeft, ChevronRight,
+  Settings, LogOut, Search, Trash2, Video, Film, Clock,
+  CheckCircle2, AlertCircle, XCircle, Loader2, Zap
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
 
+const STATUS_CONFIG = {
+  COMPLETED:                { color: '#10b981', icon: CheckCircle2, label: '✓' },
+  SCENES_READY_FOR_APPROVAL:{ color: '#06b6d4', icon: Film,        label: '🎬' },
+  READY_FOR_APPROVAL:       { color: '#6366f1', icon: Zap,         label: '⚡' },
+  GENERATING_SCENES:        { color: '#f59e0b', icon: Loader2,     label: '⏳' },
+  GENERATING:               { color: '#f59e0b', icon: Loader2,     label: '⏳' },
+  RENDERING_VIDEO:          { color: '#f59e0b', icon: Loader2,     label: '🎥' },
+  CANCELLED:                { color: '#64748b', icon: XCircle,     label: '✕' },
+  WORKFLOW_INACTIVE:        { color: '#ef4444', icon: AlertCircle, label: '!' },
+  CHAT:                     { color: '#94a3b8', icon: MessageSquare, label: '💬' },
+};
+
+function ThreadStatusDot({ status }) {
+  const cfg = STATUS_CONFIG[status] || { color: '#475569' };
+  return (
+    <div style={{
+      width: '7px', height: '7px', borderRadius: '50%',
+      background: cfg.color, flexShrink: 0,
+      boxShadow: `0 0 6px ${cfg.color}88`
+    }} />
+  );
+}
+
 export default function Sidebar({
-  pastShorts = [],
-  activeShortId,
-  onSelectShort,
-  onNewShort,
-  onDeleteShort,
-  collapsed = false,
-  onToggleCollapse,
-  user,
-  onOpenSettings,
-  onLogout
+  pastShorts = [], activeShortId, onSelectShort, onNewShort,
+  onDeleteShort, collapsed = false, onToggleCollapse,
+  user, onOpenSettings, onLogout
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredId, setHoveredId] = useState(null);
 
-  const filteredShorts = (Array.isArray(pastShorts) ? pastShorts : []).filter((s) => 
-    s && typeof s === 'object' && String(s.name || s.title || s.rawUserInput || '').toLowerCase().includes(String(searchQuery || '').toLowerCase())
+  const filtered = (Array.isArray(pastShorts) ? pastShorts : []).filter(s =>
+    s && typeof s === 'object' &&
+    String(s.name || s.title || s.rawUserInput || '').toLowerCase()
+      .includes(String(searchQuery || '').toLowerCase())
   );
 
+  // ── COLLAPSED MODE ────────────────────────────────────────────────
   if (collapsed) {
     return (
       <aside style={{
-        width: '52px',
+        width: '60px',
         background: 'var(--bg-sidebar)',
         borderRight: '1px solid var(--border-subtle)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '12px 6px',
-        height: 'calc(100vh - 66px)',
-        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-        flexShrink: 0,
-        zIndex: 20
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 0 14px 0',
+        height: 'calc(100vh - 58px)',
+        transition: 'all 0.25s cubic-bezier(0.16,1,0.3,1)',
+        flexShrink: 0, zIndex: 20, overflowY: 'auto'
       }}>
-        {/* Top Action Icons */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%' }}>
-          <button
-            onClick={() => {
-              audioEngine.playSfx('click');
-              onNewShort();
-            }}
-            className="btn-glow"
-            style={{ width: '38px', height: '38px', padding: 0, borderRadius: '12px', justifyContent: 'center' }}
-            title="New Video (+)"
-          >
-            <Plus size={18} strokeWidth={2.5} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%', padding: '0 10px' }}>
+          {/* New Short */}
+          <button onClick={() => { audioEngine.playSfx('click'); onNewShort(); }}
+            style={{
+              width: '40px', height: '40px', borderRadius: '12px', padding: 0,
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              border: 'none', cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(99,102,241,0.4)', marginBottom: '4px'
+            }} title="New Video">
+            <Plus size={18} color="#fff" strokeWidth={2.5} />
           </button>
 
-          <div style={{ width: '100%', height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
+          <div style={{ width: '32px', height: '1px', background: 'var(--border-subtle)', margin: '2px 0' }} />
 
-          {pastShorts.slice(0, 6).map((s) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                audioEngine.playSfx('click');
-                onSelectShort(s.id);
-              }}
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                background: activeShortId === s.id ? 'var(--bg-card-hover)' : 'transparent',
-                border: `1px solid ${activeShortId === s.id ? 'var(--accent-primary)' : 'transparent'}`,
-                color: activeShortId === s.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-              title={s.name || s.title || s.rawUserInput}
-            >
-              <MessageSquare size={15} />
-            </button>
-          ))}
+          {filtered.slice(0, 8).map(s => {
+            const isActive = activeShortId === s.id || activeShortId === s.threadId;
+            return (
+              <button key={s.id || s.threadId} title={s.name || s.title || s.rawUserInput}
+                onClick={() => { audioEngine.playSfx('click'); onSelectShort(s.id || s.threadId); }}
+                style={{
+                  width: '38px', height: '38px', borderRadius: '10px', padding: 0,
+                  background: isActive ? 'rgba(99,102,241,0.15)' : 'transparent',
+                  border: `1.5px solid ${isActive ? 'rgba(99,102,241,0.6)' : 'transparent'}`,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.15s ease', color: isActive ? '#6366f1' : 'var(--text-muted)'
+                }}>
+                <MessageSquare size={16} />
+              </button>
+            );
+          })}
         </div>
 
-        {/* Bottom Expand Toggle & Avatar */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-          <button
-            onClick={() => onToggleCollapse()}
-            className="btn-ghost"
-            style={{ width: '32px', height: '32px', padding: 0, justifyContent: 'center' }}
-            title="Expand Sidebar"
-          >
+        {/* Bottom */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '0 10px' }}>
+          <button onClick={onToggleCollapse} title="Expand sidebar"
+            style={{
+              width: '36px', height: '36px', borderRadius: '10px', padding: 0, background: 'transparent',
+              border: '1px solid var(--border-subtle)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-muted)', transition: 'all 0.15s ease'
+            }}>
             <ChevronRight size={16} />
           </button>
-
-          <div
-            onClick={onOpenSettings}
+          <div onClick={onOpenSettings} title={user?.name || 'Profile'}
             style={{
-              width: '30px',
-              height: '30px',
-              borderRadius: '50%',
-              background: 'var(--grad-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: '11px',
-              color: '#ffffff',
-              cursor: 'pointer'
-            }}
-            title={user?.name || 'Alex Rivera'}
-          >
-            {user?.name ? user.name[0].toUpperCase() : 'A'}
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: 'linear-gradient(135deg,#6366f1,#ec4899)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '12px', fontWeight: 800, color: '#fff', cursor: 'pointer'
+            }}>
+            {(user?.name || user?.email || 'U')[0].toUpperCase()}
           </div>
         </div>
       </aside>
     );
   }
 
+  // ── EXPANDED MODE ─────────────────────────────────────────────────
   return (
     <aside style={{
-      width: '200px',
+      width: '240px',
       background: 'var(--bg-sidebar)',
       borderRight: '1px solid var(--border-subtle)',
-      display: 'flex',
-      flexDirection: 'column',
+      display: 'flex', flexDirection: 'column',
       justifyContent: 'space-between',
-      padding: '12px 10px',
-      height: 'calc(100vh - 66px)',
-      overflowY: 'auto',
-      transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-      flexShrink: 0,
-      position: 'relative',
-      zIndex: 20
+      padding: '0',
+      height: 'calc(100vh - 58px)',
+      transition: 'all 0.25s cubic-bezier(0.16,1,0.3,1)',
+      flexShrink: 0, position: 'relative', zIndex: 20
     }}>
-      {/* Top Section */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {/* Compact New Short Button */}
-        <button
-          onClick={() => {
-            audioEngine.playSfx('click');
-            onNewShort();
-          }}
+
+      {/* Top Controls */}
+      <div style={{ padding: '14px 12px 0 12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* New Short Button */}
+        <button onClick={() => { audioEngine.playSfx('click'); onNewShort(); }}
           style={{
-            width: '100%',
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-medium)',
-            borderRadius: '99px',
-            padding: '7px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: 'var(--text-primary)',
+            width: '100%', padding: '9px 14px',
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            border: 'none', borderRadius: '12px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            color: '#fff', fontWeight: 700, fontSize: '13px',
             fontFamily: 'Space Grotesk, sans-serif',
-            fontWeight: 700,
-            fontSize: '12px',
-            cursor: 'pointer',
-            boxShadow: 'var(--shadow-card)',
-            transition: 'all 0.15s ease'
+            boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+            transition: 'all 0.2s ease'
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
-          onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-medium)')}
-        >
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(99,102,241,0.5)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(99,102,241,0.35)'; }}>
           <div style={{
-            width: '20px',
-            height: '20px',
-            borderRadius: '50%',
-            background: 'var(--grad-gemini)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
+            width: '22px', height: '22px', borderRadius: '6px',
+            background: 'rgba(255,255,255,0.2)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', flexShrink: 0
           }}>
-            <Plus size={12} color="#ffffff" strokeWidth={3} />
+            <Plus size={14} color="#fff" strokeWidth={2.5} />
           </div>
-          <span style={{ whiteSpace: 'nowrap' }}>New Short</span>
+          <span>New Video</span>
         </button>
 
-        {/* Compact Search Bar */}
+        {/* Search */}
         <div style={{ position: 'relative' }}>
-          <Search size={11} color="var(--text-muted)" style={{ position: 'absolute', left: '8px', top: '8px' }} />
-          <input
-            type="text"
-            placeholder="Search history..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+          <Search size={13} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+          <input type="text" placeholder="Search history..."
+            value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             style={{
-              width: '100%',
-              background: 'var(--bg-input)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '6px',
-              padding: '4px 8px 4px 24px',
-              fontSize: '11px',
-              color: 'var(--text-primary)',
-              outline: 'none'
+              width: '100%', background: 'var(--bg-input)',
+              border: '1px solid var(--border-subtle)', borderRadius: '10px',
+              padding: '7px 10px 7px 30px', fontSize: '12px',
+              color: 'var(--text-primary)', outline: 'none',
+              transition: 'border-color 0.15s ease'
             }}
+            onFocus={e => (e.target.style.borderColor = 'var(--accent-primary)')}
+            onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
           />
         </div>
 
-        {/* Section Label */}
+        {/* History Label */}
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 4px',
-          fontSize: '10.5px',
-          fontWeight: 700,
-          color: 'var(--text-muted)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.04em'
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 4px', fontSize: '10.5px', fontWeight: 700,
+          color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em'
         }}>
           <span>History</span>
-          <span style={{ fontSize: '10px', background: 'var(--bg-card)', padding: '1px 5px', borderRadius: '4px' }}>
-            {pastShorts.length}
-          </span>
-        </div>
-
-        {/* Scrollable Creation Items List */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '3px',
-          maxHeight: 'calc(100vh - 240px)',
-          overflowY: 'auto',
-          paddingRight: '2px'
-        }}>
-          {filteredShorts.length === 0 ? (
-            <div style={{ padding: '14px 8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
-              No history yet. Start a new video!
-            </div>
-          ) : (
-            filteredShorts.map((s) => {
-              const isSelected = activeShortId === s.id;
-              const isHovered = hoveredId === s.id;
-              return (
-                <div
-                  key={s.id}
-                  onMouseEnter={() => setHoveredId(s.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                  onClick={() => {
-                    audioEngine.playSfx('click');
-                    onSelectShort(s.id);
-                  }}
-                  style={{
-                    padding: '7px 8px',
-                    borderRadius: '8px',
-                    background: isSelected ? 'var(--bg-card-hover)' : 'transparent',
-                    border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'transparent'}`,
-                    color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '6px',
-                    fontSize: '11.5px',
-                    fontWeight: isSelected ? 700 : 500,
-                    transition: 'all 0.12s ease',
-                    position: 'relative'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', flex: 1 }}>
-                    <MessageSquare size={13} style={{ flexShrink: 0, color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)' }} />
-                    <span style={{
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {s.name || s.title || s.rawUserInput}
-                    </span>
-                  </div>
-
-                  {/* Delete Button on Hover */}
-                  {isHovered && typeof onDeleteShort === 'function' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        audioEngine.playSfx('click');
-                        onDeleteShort(s.id);
-                      }}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        padding: '2px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '4px',
-                        transition: 'color 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-                      title="Delete from history"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                </div>
-              );
-            })
+          {pastShorts.length > 0 && (
+            <span style={{
+              fontSize: '10px', background: 'rgba(99,102,241,0.15)',
+              color: 'var(--accent-primary)', padding: '1px 6px',
+              borderRadius: '99px', fontWeight: 700
+            }}>{pastShorts.length}</span>
           )}
         </div>
       </div>
 
-      {/* Bottom Section */}
+      {/* Scrollable Thread List */}
       <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-        paddingTop: '8px',
-        borderTop: '1px solid var(--border-subtle)'
+        flex: 1, overflowY: 'auto', padding: '4px 12px 8px 12px',
+        display: 'flex', flexDirection: 'column', gap: '2px'
       }}>
-        {/* Collapse Button & User Card */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div
-            onClick={onOpenSettings}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              overflow: 'hidden'
-            }}
-          >
-            <div style={{
-              width: '24px',
-              height: '24px',
-              borderRadius: '50%',
-              background: 'var(--grad-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: '10px',
-              color: '#ffffff',
-              flexShrink: 0
-            }}>
-              {user?.name ? user.name[0].toUpperCase() : 'A'}
+        {filtered.length === 0 ? (
+          <div style={{
+            padding: '24px 12px', textAlign: 'center',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'
+          }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Video size={16} color="var(--text-muted)" />
             </div>
-            <span style={{
-              fontSize: '11px',
-              fontWeight: 600,
-              color: 'var(--text-primary)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
-            }}>
-              {user?.name || 'Alex'}
-            </span>
+            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              {searchQuery ? 'No results found' : 'No videos yet.\nStart creating!'}
+            </div>
           </div>
+        ) : (
+          filtered.map(s => {
+            const id = s.threadId || s.id;
+            const isActive = activeShortId === id;
+            const isHovered = hoveredId === id;
+            const label = s.name || s.title || s.rawUserInput || 'Untitled Video';
+            return (
+              <div key={id}
+                onMouseEnter={() => setHoveredId(id)}
+                onMouseLeave={() => setHoveredId(null)}
+                onClick={() => { audioEngine.playSfx('click'); onSelectShort(id); }}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: '10px',
+                  background: isActive
+                    ? 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))'
+                    : isHovered ? 'rgba(255,255,255,0.03)' : 'transparent',
+                  border: `1px solid ${isActive ? 'rgba(99,102,241,0.35)' : 'transparent'}`,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: '8px', transition: 'all 0.15s ease'
+                }}>
+                <ThreadStatusDot status={s.status} />
+                <span style={{
+                  flex: 1, fontSize: '12.5px',
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  lineHeight: 1.4
+                }}>
+                  {label}
+                </span>
+                {(isHovered || isActive) && typeof onDeleteShort === 'function' && (
+                  <button onClick={e => { e.stopPropagation(); audioEngine.playSfx('click'); onDeleteShort(id); }}
+                    style={{
+                      background: 'transparent', border: 'none', padding: '2px',
+                      cursor: 'pointer', borderRadius: '4px', flexShrink: 0,
+                      color: 'var(--text-muted)', display: 'flex', alignItems: 'center',
+                      transition: 'color 0.15s ease'
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
 
-          <button
-            onClick={() => onToggleCollapse()}
-            className="btn-ghost"
-            style={{ width: '26px', height: '26px', padding: 0, justifyContent: 'center' }}
-            title="Collapse Sidebar"
-          >
-            <ChevronLeft size={14} />
-          </button>
+      {/* Bottom User Card */}
+      <div style={{
+        padding: '10px 12px',
+        borderTop: '1px solid var(--border-subtle)',
+        background: 'var(--bg-sidebar)',
+        display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between'
+      }}>
+        <div onClick={onOpenSettings} style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          cursor: 'pointer', overflow: 'hidden', flex: 1,
+          padding: '5px 6px', borderRadius: '10px', transition: 'background 0.15s ease'
+        }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-input)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+          <div style={{
+            width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg,#6366f1,#ec4899)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 800, fontSize: '11px', color: '#fff'
+          }}>
+            {(user?.name || user?.email || 'U')[0].toUpperCase()}
+          </div>
+          <div style={{ overflow: 'hidden' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {user?.name || user?.email?.split('@')[0] || 'Creator'}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Pro Plan</div>
+          </div>
         </div>
+
+        <button onClick={onToggleCollapse} title="Collapse sidebar"
+          style={{
+            width: '30px', height: '30px', borderRadius: '8px',
+            background: 'transparent', border: '1px solid var(--border-subtle)',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--text-muted)', flexShrink: 0, transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-input)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+          <ChevronLeft size={15} />
+        </button>
       </div>
     </aside>
   );

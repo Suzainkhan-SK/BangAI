@@ -743,7 +743,7 @@ export default function DashboardApp({
   return (
     <div style={{
       display: 'flex',
-      height: 'calc(100vh - 66px)',
+      height: 'calc(100vh - 58px)',
       width: '100vw',
       background: 'var(--bg-app)',
       overflow: 'hidden'
@@ -773,8 +773,8 @@ export default function DashboardApp({
       }}>
         <div style={{
           flex: 1,
-          padding: '24px 24px 170px 24px',
-          maxWidth: '840px',
+          padding: '28px 28px 190px 28px',
+          maxWidth: '860px',
           width: '100%',
           margin: '0 auto'
         }}>
