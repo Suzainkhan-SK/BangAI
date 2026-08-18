@@ -4046,7 +4046,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const keys = $('Config: Backup Video Master1').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\nconst sceneNum = 1;\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene1').first().json;\n\nif (staticData['fruitBackupVideoIndex_1'] === undefined) {\n  staticData['fruitBackupVideoIndex_1'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_1'] % keys.length;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_1'] += 1;\n\n// Construct clean prompt\nlet videoPrompt = vidFilter.videoPrompt || '';\nvideoPrompt = videoPrompt.replace(/\"/g, \"'\").trim();\n\n// Save the prompt\nstaticData['savedBackupVideoPrompt_1'] = {\n  startImageUrl:      vidFilter.startImageUrl,\n  videoPrompt:        videoPrompt,\n  sceneIndex:         vidFilter.sceneIndex,\n  sceneNumber:        sceneNum,\n  voiceoverText:      vidFilter.voiceoverText || '',\n  voiceStyle:         vidFilter.voiceStyle || '',\n  speaker:            vidFilter.speaker || '',\n  duration:           vidFilter.duration,\n  title:              vidFilter.title,\n  corePlot:           vidFilter.corePlot,\n  tags:               vidFilter.tags,\n  youtubeDescription: vidFilter.youtubeDescription,\n  usedKey:            currentKey\n};\n\nreturn {\n  json: {\n    startImageUrl:      vidFilter.startImageUrl,\n    videoPrompt:        videoPrompt,\n    sceneIndex:         vidFilter.sceneIndex,\n    sceneNumber:        sceneNum,\n    voiceoverText:      vidFilter.voiceoverText || '',\n    voiceStyle:         vidFilter.voiceStyle || '',\n    speaker:            vidFilter.speaker || '',\n    duration:           vidFilter.duration,\n    title:              vidFilter.title,\n    corePlot:           vidFilter.corePlot,\n    tags:               vidFilter.tags,\n    youtubeDescription: vidFilter.youtubeDescription,\n    usedKey:            currentKey,\n    __backupVideo:      sceneNum,\n    __index:            staticData['fruitBackupVideoIndex_1']\n  }\n};"
+        "jsCode": "const keys = $('Config: Backup Video Master1').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\nconst sceneNum = 1;\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene1').first().json;\n\nif (staticData['fruitBackupVideoIndex_1'] === undefined) {\n  staticData['fruitBackupVideoIndex_1'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_1'] % keys.length;\nconst currentKey = keys[currentKeyIndex];\n\n// Construct clean prompt\nlet videoPrompt = vidFilter.videoPrompt || '';\nvideoPrompt = videoPrompt.replace(/\"/g, \"'\").trim();\n\n// Save the prompt\nstaticData['savedBackupVideoPrompt_1'] = {\n  startImageUrl:      vidFilter.startImageUrl,\n  videoPrompt:        videoPrompt,\n  sceneIndex:         vidFilter.sceneIndex,\n  sceneNumber:        sceneNum,\n  voiceoverText:      vidFilter.voiceoverText || '',\n  voiceStyle:         vidFilter.voiceStyle || '',\n  speaker:            vidFilter.speaker || '',\n  duration:           vidFilter.duration,\n  title:              vidFilter.title,\n  corePlot:           vidFilter.corePlot,\n  tags:               vidFilter.tags,\n  youtubeDescription: vidFilter.youtubeDescription,\n  usedKey:            currentKey\n};\n\nreturn [{\n  json: {\n    startImageUrl:      vidFilter.startImageUrl,\n    videoPrompt:        videoPrompt,\n    sceneIndex:         vidFilter.sceneIndex,\n    sceneNumber:        sceneNum,\n    voiceoverText:      vidFilter.voiceoverText || '',\n    voiceStyle:         vidFilter.voiceStyle || '',\n    speaker:            vidFilter.speaker || '',\n    duration:           vidFilter.duration,\n    title:              vidFilter.title,\n    corePlot:           vidFilter.corePlot,\n    tags:               vidFilter.tags,\n    youtubeDescription: vidFilter.youtubeDescription,\n    usedKey:            currentKey,\n    __backupVideo:      sceneNum,\n    __index:            staticData['fruitBackupVideoIndex_1']\n  }\n}];"
       },
       "id": "a3565bb2-3a53-4430-b02e-6ffa06e38f4e",
       "name": "Rotate Backup Video Key1",
@@ -4064,43 +4064,60 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.creditsCharged }}",
+                    "id": "success-code-200",
+                    "leftValue": "={{ $json.code }}",
                     "rightValue": "200",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "success-task-id",
+                    "leftValue": "={{ $json.taskId || $json.data?.taskId }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "id": "success-credits",
+                    "leftValue": "={{ $json.creditsCharged || $json.data?.creditsCharged }}",
                     "operator": {
                       "type": "number",
                       "operation": "exists",
                       "singleValue": true
-                    },
-                    "id": "433b6a58-04af-4012-ae1c-49569d87347e"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-409",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "409",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "feac3f71-3b2b-4959-b93d-410f71a4aaff"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -4109,20 +4126,20 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-402",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "402",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "374b8bb9-3529-4648-b5bb-e8aa06bd4bf1"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -4131,45 +4148,72 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-429",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
                     "rightValue": "429",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "230e4115-d3ba-4caf-9230-e4dabfbd4187"
+                    }
+                  },
+                  {
+                    "id": "err-msg-frequency",
+                    "leftValue": "={{ String($json.msg || $json.message || $json.error?.message || '').toLowerCase() }}",
+                    "rightValue": "frequency",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  },
+                  {
+                    "id": "err-msg-rate",
+                    "leftValue": "={{ String($json.msg || $json.message || $json.error?.message || '').toLowerCase() }}",
+                    "rightValue": "rate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-500",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "500",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "707d0e8d-669d-46bd-b615-d7156ef7dff3"
+                    }
+                  },
+                  {
+                    "id": "err-has-error",
+                    "leftValue": "={{ !!($json.error || $json.errorMessage || $json.errorDescription) }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             }
           ]
@@ -4318,7 +4362,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup Video Master1').first().json.keys;\nconst totalKeys = keys.length;\nconst sceneNum = 1;\n\nconst inputRaw = ($input && $input.first()) ? $input.first().json : {};\n\n// Check for HTTP 429 rate limit or call frequency errors\nif (\n  inputRaw.code == 429 || \n  inputRaw.code == \"429\" || \n  (inputRaw.data && (inputRaw.data.code == 429 || inputRaw.data.code == \"429\")) || \n  (inputRaw.msg && inputRaw.msg.includes(\"frequency\"))\n) {\n  const delayMs = 5000 + (sceneNum * 2000);\n  console.log(`[RATE LIMIT DETECTED] Scene ${sceneNum}: Waiting ${delayMs}ms before rotating key and retrying...`);\n  await new Promise(resolve => setTimeout(resolve, delayMs));\n}\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene1').first().json;\n\n// Retrieve saved backup prompt or fallback to vidFilter\nlet savedData = staticData['savedBackupVideoPrompt_1'] || {};\n\nconst restoredData = {\n  startImageUrl:      savedData.startImageUrl      || vidFilter.startImageUrl,\n  videoPrompt:        savedData.videoPrompt        || vidFilter.videoPrompt,\n  voiceoverText:      savedData.voiceoverText      || vidFilter.voiceoverText || '',\n  voiceStyle:         savedData.voiceStyle         || vidFilter.voiceStyle    || '',\n  speaker:            savedData.speaker            || vidFilter.speaker       || '',\n  duration:           savedData.duration           || vidFilter.duration,\n  title:              savedData.title              || vidFilter.title,\n  corePlot:           savedData.corePlot           || vidFilter.corePlot,\n  tags:               savedData.tags               || vidFilter.tags,\n  youtubeDescription: savedData.youtubeDescription || vidFilter.youtubeDescription,\n  sceneIndex:         savedData.sceneIndex         || vidFilter.sceneIndex,\n  sceneNumber:        sceneNum\n};\n\nif (staticData['fruitBackupVideoAttempts_1'] === undefined) {\n  staticData['fruitBackupVideoAttempts_1'] = 0;\n}\nstaticData['fruitBackupVideoAttempts_1'] += 1;\n\nif (staticData['fruitBackupVideoAttempts_1'] > totalKeys) {\n  console.log(`All ${totalKeys} backup video API keys exhausted for scene ${sceneNum}. Stopping workflow.`);\n  staticData['fruitBackupVideoIndex_1'] = sceneNum - 1;\n  staticData['fruitBackupVideoAttempts_1'] = 0;\n  throw new Error(`All backup video API keys (${totalKeys}) exhausted for scene ${sceneNum}.`);\n}\n\nif (staticData['fruitBackupVideoIndex_1'] === undefined) {\n  staticData['fruitBackupVideoIndex_1'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_1'] % totalKeys;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_1'] += 1;\n\nconsole.log(`Backup Video Scene ${sceneNum} - Attempt ${staticData['fruitBackupVideoAttempts_1']}/${totalKeys}: Using key index ${currentKeyIndex}`);\n\n// Write new rotated key to staticData as well\nif (staticData['savedBackupVideoPrompt_1']) {\n  staticData['savedBackupVideoPrompt_1'].usedKey = currentKey;\n}\n\nreturn [{\n  json: {\n    ...restoredData,\n    usedKey: currentKey,\n    code: 500 // force retry in Switch/IF node\n  }\n}];"
+        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup Video Master1').first().json.keys;\nconst totalKeys = keys.length;\nconst sceneNum = 1;\n\nconst inputRaw = ($input && $input.first()) ? $input.first().json : {};\n\n// Check for HTTP 429 rate limit or call frequency errors\nif (\n  inputRaw.code == 429 || \n  inputRaw.code == \"429\" || \n  (inputRaw.data && (inputRaw.data.code == 429 || inputRaw.data.code == \"429\")) || \n  (inputRaw.msg && (inputRaw.msg.includes(\"frequency\") || inputRaw.msg.includes(\"rate\"))) ||\n  (inputRaw.error && (inputRaw.error.status == 429 || inputRaw.error.statusCode == 429)) ||\n  (inputRaw.message && inputRaw.message.includes(\"429\"))\n) {\n  const delayMs = 5000 + (sceneNum * 2000);\n  console.log(`[RATE LIMIT DETECTED] Scene ${sceneNum}: Waiting ${delayMs}ms before rotating key and retrying...`);\n  await new Promise(resolve => setTimeout(resolve, delayMs));\n}\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene1').first().json;\n\n// Retrieve saved backup prompt or fallback to vidFilter\nlet savedData = staticData['savedBackupVideoPrompt_1'] || {};\n\nconst restoredData = {\n  startImageUrl:      savedData.startImageUrl      || vidFilter.startImageUrl,\n  videoPrompt:        savedData.videoPrompt        || vidFilter.videoPrompt,\n  voiceoverText:      savedData.voiceoverText      || vidFilter.voiceoverText || '',\n  voiceStyle:         savedData.voiceStyle         || vidFilter.voiceStyle    || '',\n  speaker:            savedData.speaker            || vidFilter.speaker       || '',\n  duration:           savedData.duration           || vidFilter.duration,\n  title:              savedData.title              || vidFilter.title,\n  corePlot:           savedData.corePlot           || vidFilter.corePlot,\n  tags:               savedData.tags               || vidFilter.tags,\n  youtubeDescription: savedData.youtubeDescription || vidFilter.youtubeDescription,\n  sceneIndex:         savedData.sceneIndex         || vidFilter.sceneIndex,\n  sceneNumber:        sceneNum\n};\n\nif (staticData['fruitBackupVideoAttempts_1'] === undefined) {\n  staticData['fruitBackupVideoAttempts_1'] = 0;\n}\nstaticData['fruitBackupVideoAttempts_1'] += 1;\n\nif (staticData['fruitBackupVideoAttempts_1'] > totalKeys) {\n  console.log(`All ${totalKeys} backup video API keys exhausted for scene ${sceneNum}. Stopping workflow.`);\n  staticData['fruitBackupVideoIndex_1'] = sceneNum - 1;\n  staticData['fruitBackupVideoAttempts_1'] = 0;\n  throw new Error(`All backup video API keys (${totalKeys}) exhausted for scene ${sceneNum}.`);\n}\n\nif (staticData['fruitBackupVideoIndex_1'] === undefined) {\n  staticData['fruitBackupVideoIndex_1'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_1'] % totalKeys;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_1'] = (staticData['fruitBackupVideoIndex_1'] + 1) % totalKeys;\n\nconsole.log(`Backup Video Scene ${sceneNum} - Attempt ${staticData['fruitBackupVideoAttempts_1']}/${totalKeys}: Using key index ${currentKeyIndex}`);\n\nif (staticData['savedBackupVideoPrompt_1']) {\n  staticData['savedBackupVideoPrompt_1'].usedKey = currentKey;\n}\n\nreturn [{\n  json: {\n    ...restoredData,\n    usedKey: currentKey,\n    __backupVideo: sceneNum,\n    __index: staticData['fruitBackupVideoIndex_1']\n  }\n}];"
       },
       "id": "21d251d2-1ea6-4f83-9678-366f8140dd2a",
       "name": "Rotate Backup Video On Failure1",
@@ -4944,7 +4988,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const keys = $('Config: Backup Video Master2').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\nconst sceneNum = 2;\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene2').first().json;\n\nif (staticData['fruitBackupVideoIndex_2'] === undefined) {\n  staticData['fruitBackupVideoIndex_2'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_2'] % keys.length;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_2'] += 1;\n\n// Construct clean prompt\nlet videoPrompt = vidFilter.videoPrompt || '';\nvideoPrompt = videoPrompt.replace(/\"/g, \"'\").trim();\n\n// Save the prompt\nstaticData['savedBackupVideoPrompt_2'] = {\n  startImageUrl:      vidFilter.startImageUrl,\n  videoPrompt:        videoPrompt,\n  sceneIndex:         vidFilter.sceneIndex,\n  sceneNumber:        sceneNum,\n  voiceoverText:      vidFilter.voiceoverText || '',\n  voiceStyle:         vidFilter.voiceStyle || '',\n  speaker:            vidFilter.speaker || '',\n  duration:           vidFilter.duration,\n  title:              vidFilter.title,\n  corePlot:           vidFilter.corePlot,\n  tags:               vidFilter.tags,\n  youtubeDescription: vidFilter.youtubeDescription,\n  usedKey:            currentKey\n};\n\nreturn {\n  json: {\n    startImageUrl:      vidFilter.startImageUrl,\n    videoPrompt:        videoPrompt,\n    sceneIndex:         vidFilter.sceneIndex,\n    sceneNumber:        sceneNum,\n    voiceoverText:      vidFilter.voiceoverText || '',\n    voiceStyle:         vidFilter.voiceStyle || '',\n    speaker:            vidFilter.speaker || '',\n    duration:           vidFilter.duration,\n    title:              vidFilter.title,\n    corePlot:           vidFilter.corePlot,\n    tags:               vidFilter.tags,\n    youtubeDescription: vidFilter.youtubeDescription,\n    usedKey:            currentKey,\n    __backupVideo:      sceneNum,\n    __index:            staticData['fruitBackupVideoIndex_2']\n  }\n};"
+        "jsCode": "const keys = $('Config: Backup Video Master2').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\nconst sceneNum = 2;\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene2').first().json;\n\nif (staticData['fruitBackupVideoIndex_2'] === undefined) {\n  staticData['fruitBackupVideoIndex_2'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_2'] % keys.length;\nconst currentKey = keys[currentKeyIndex];\n\n// Construct clean prompt\nlet videoPrompt = vidFilter.videoPrompt || '';\nvideoPrompt = videoPrompt.replace(/\"/g, \"'\").trim();\n\n// Save the prompt\nstaticData['savedBackupVideoPrompt_2'] = {\n  startImageUrl:      vidFilter.startImageUrl,\n  videoPrompt:        videoPrompt,\n  sceneIndex:         vidFilter.sceneIndex,\n  sceneNumber:        sceneNum,\n  voiceoverText:      vidFilter.voiceoverText || '',\n  voiceStyle:         vidFilter.voiceStyle || '',\n  speaker:            vidFilter.speaker || '',\n  duration:           vidFilter.duration,\n  title:              vidFilter.title,\n  corePlot:           vidFilter.corePlot,\n  tags:               vidFilter.tags,\n  youtubeDescription: vidFilter.youtubeDescription,\n  usedKey:            currentKey\n};\n\nreturn [{\n  json: {\n    startImageUrl:      vidFilter.startImageUrl,\n    videoPrompt:        videoPrompt,\n    sceneIndex:         vidFilter.sceneIndex,\n    sceneNumber:        sceneNum,\n    voiceoverText:      vidFilter.voiceoverText || '',\n    voiceStyle:         vidFilter.voiceStyle || '',\n    speaker:            vidFilter.speaker || '',\n    duration:           vidFilter.duration,\n    title:              vidFilter.title,\n    corePlot:           vidFilter.corePlot,\n    tags:               vidFilter.tags,\n    youtubeDescription: vidFilter.youtubeDescription,\n    usedKey:            currentKey,\n    __backupVideo:      sceneNum,\n    __index:            staticData['fruitBackupVideoIndex_2']\n  }\n}];"
       },
       "id": "24e3e727-d6a6-4a82-ba2c-0c9759e078b5",
       "name": "Rotate Backup Video Key2",
@@ -4990,43 +5034,60 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.creditsCharged }}",
+                    "id": "success-code-200",
+                    "leftValue": "={{ $json.code }}",
                     "rightValue": "200",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "success-task-id",
+                    "leftValue": "={{ $json.taskId || $json.data?.taskId }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "id": "success-credits",
+                    "leftValue": "={{ $json.creditsCharged || $json.data?.creditsCharged }}",
                     "operator": {
                       "type": "number",
                       "operation": "exists",
                       "singleValue": true
-                    },
-                    "id": "433b6a58-04af-4012-ae1c-49569d87347e"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-409",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "409",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "feac3f71-3b2b-4959-b93d-410f71a4aaff"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -5035,20 +5096,20 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-402",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "402",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "374b8bb9-3529-4648-b5bb-e8aa06bd4bf1"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -5057,45 +5118,72 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-429",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
                     "rightValue": "429",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "230e4115-d3ba-4caf-9230-e4dabfbd4187"
+                    }
+                  },
+                  {
+                    "id": "err-msg-frequency",
+                    "leftValue": "={{ String($json.msg || $json.message || $json.error?.message || '').toLowerCase() }}",
+                    "rightValue": "frequency",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  },
+                  {
+                    "id": "err-msg-rate",
+                    "leftValue": "={{ String($json.msg || $json.message || $json.error?.message || '').toLowerCase() }}",
+                    "rightValue": "rate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-500",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "500",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "707d0e8d-669d-46bd-b615-d7156ef7dff3"
+                    }
+                  },
+                  {
+                    "id": "err-has-error",
+                    "leftValue": "={{ !!($json.error || $json.errorMessage || $json.errorDescription) }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             }
           ]
@@ -5244,7 +5332,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup Video Master2').first().json.keys;\nconst totalKeys = keys.length;\nconst sceneNum = 2;\n\nconst inputRaw = ($input && $input.first()) ? $input.first().json : {};\n\n// Check for HTTP 429 rate limit or call frequency errors\nif (\n  inputRaw.code == 429 || \n  inputRaw.code == \"429\" || \n  (inputRaw.data && (inputRaw.data.code == 429 || inputRaw.data.code == \"429\")) || \n  (inputRaw.msg && inputRaw.msg.includes(\"frequency\"))\n) {\n  const delayMs = 5000 + (sceneNum * 2000);\n  console.log(`[RATE LIMIT DETECTED] Scene ${sceneNum}: Waiting ${delayMs}ms before rotating key and retrying...`);\n  await new Promise(resolve => setTimeout(resolve, delayMs));\n}\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene2').first().json;\n\n// Retrieve saved backup prompt or fallback to vidFilter\nlet savedData = staticData['savedBackupVideoPrompt_2'] || {};\n\nconst restoredData = {\n  startImageUrl:      savedData.startImageUrl      || vidFilter.startImageUrl,\n  videoPrompt:        savedData.videoPrompt        || vidFilter.videoPrompt,\n  voiceoverText:      savedData.voiceoverText      || vidFilter.voiceoverText || '',\n  voiceStyle:         savedData.voiceStyle         || vidFilter.voiceStyle    || '',\n  speaker:            savedData.speaker            || vidFilter.speaker       || '',\n  duration:           savedData.duration           || vidFilter.duration,\n  title:              savedData.title              || vidFilter.title,\n  corePlot:           savedData.corePlot           || vidFilter.corePlot,\n  tags:               savedData.tags               || vidFilter.tags,\n  youtubeDescription: savedData.youtubeDescription || vidFilter.youtubeDescription,\n  sceneIndex:         savedData.sceneIndex         || vidFilter.sceneIndex,\n  sceneNumber:        sceneNum\n};\n\nif (staticData['fruitBackupVideoAttempts_2'] === undefined) {\n  staticData['fruitBackupVideoAttempts_2'] = 0;\n}\nstaticData['fruitBackupVideoAttempts_2'] += 1;\n\nif (staticData['fruitBackupVideoAttempts_2'] > totalKeys) {\n  console.log(`All ${totalKeys} backup video API keys exhausted for scene ${sceneNum}. Stopping workflow.`);\n  staticData['fruitBackupVideoIndex_2'] = sceneNum - 1;\n  staticData['fruitBackupVideoAttempts_2'] = 0;\n  throw new Error(`All backup video API keys (${totalKeys}) exhausted for scene ${sceneNum}.`);\n}\n\nif (staticData['fruitBackupVideoIndex_2'] === undefined) {\n  staticData['fruitBackupVideoIndex_2'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_2'] % totalKeys;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_2'] += 1;\n\nconsole.log(`Backup Video Scene ${sceneNum} - Attempt ${staticData['fruitBackupVideoAttempts_2']}/${totalKeys}: Using key index ${currentKeyIndex}`);\n\n// Write new rotated key to staticData as well\nif (staticData['savedBackupVideoPrompt_2']) {\n  staticData['savedBackupVideoPrompt_2'].usedKey = currentKey;\n}\n\nreturn [{\n  json: {\n    ...restoredData,\n    usedKey: currentKey,\n    code: 500 // force retry in Switch/IF node\n  }\n}];"
+        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup Video Master2').first().json.keys;\nconst totalKeys = keys.length;\nconst sceneNum = 2;\n\nconst inputRaw = ($input && $input.first()) ? $input.first().json : {};\n\n// Check for HTTP 429 rate limit or call frequency errors\nif (\n  inputRaw.code == 429 || \n  inputRaw.code == \"429\" || \n  (inputRaw.data && (inputRaw.data.code == 429 || inputRaw.data.code == \"429\")) || \n  (inputRaw.msg && (inputRaw.msg.includes(\"frequency\") || inputRaw.msg.includes(\"rate\"))) ||\n  (inputRaw.error && (inputRaw.error.status == 429 || inputRaw.error.statusCode == 429)) ||\n  (inputRaw.message && inputRaw.message.includes(\"429\"))\n) {\n  const delayMs = 5000 + (sceneNum * 2000);\n  console.log(`[RATE LIMIT DETECTED] Scene ${sceneNum}: Waiting ${delayMs}ms before rotating key and retrying...`);\n  await new Promise(resolve => setTimeout(resolve, delayMs));\n}\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene2').first().json;\n\n// Retrieve saved backup prompt or fallback to vidFilter\nlet savedData = staticData['savedBackupVideoPrompt_2'] || {};\n\nconst restoredData = {\n  startImageUrl:      savedData.startImageUrl      || vidFilter.startImageUrl,\n  videoPrompt:        savedData.videoPrompt        || vidFilter.videoPrompt,\n  voiceoverText:      savedData.voiceoverText      || vidFilter.voiceoverText || '',\n  voiceStyle:         savedData.voiceStyle         || vidFilter.voiceStyle    || '',\n  speaker:            savedData.speaker            || vidFilter.speaker       || '',\n  duration:           savedData.duration           || vidFilter.duration,\n  title:              savedData.title              || vidFilter.title,\n  corePlot:           savedData.corePlot           || vidFilter.corePlot,\n  tags:               savedData.tags               || vidFilter.tags,\n  youtubeDescription: savedData.youtubeDescription || vidFilter.youtubeDescription,\n  sceneIndex:         savedData.sceneIndex         || vidFilter.sceneIndex,\n  sceneNumber:        sceneNum\n};\n\nif (staticData['fruitBackupVideoAttempts_2'] === undefined) {\n  staticData['fruitBackupVideoAttempts_2'] = 0;\n}\nstaticData['fruitBackupVideoAttempts_2'] += 1;\n\nif (staticData['fruitBackupVideoAttempts_2'] > totalKeys) {\n  console.log(`All ${totalKeys} backup video API keys exhausted for scene ${sceneNum}. Stopping workflow.`);\n  staticData['fruitBackupVideoIndex_2'] = sceneNum - 1;\n  staticData['fruitBackupVideoAttempts_2'] = 0;\n  throw new Error(`All backup video API keys (${totalKeys}) exhausted for scene ${sceneNum}.`);\n}\n\nif (staticData['fruitBackupVideoIndex_2'] === undefined) {\n  staticData['fruitBackupVideoIndex_2'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_2'] % totalKeys;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_2'] = (staticData['fruitBackupVideoIndex_2'] + 1) % totalKeys;\n\nconsole.log(`Backup Video Scene ${sceneNum} - Attempt ${staticData['fruitBackupVideoAttempts_2']}/${totalKeys}: Using key index ${currentKeyIndex}`);\n\nif (staticData['savedBackupVideoPrompt_2']) {\n  staticData['savedBackupVideoPrompt_2'].usedKey = currentKey;\n}\n\nreturn [{\n  json: {\n    ...restoredData,\n    usedKey: currentKey,\n    __backupVideo: sceneNum,\n    __index: staticData['fruitBackupVideoIndex_2']\n  }\n}];"
       },
       "id": "eee34b93-f987-4005-b095-0fa6b18ecd21",
       "name": "Rotate Backup Video On Failure2",
@@ -5870,7 +5958,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const keys = $('Config: Backup Video Master3').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\nconst sceneNum = 3;\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene3').first().json;\n\nif (staticData['fruitBackupVideoIndex_3'] === undefined) {\n  staticData['fruitBackupVideoIndex_3'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_3'] % keys.length;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_3'] += 1;\n\n// Construct clean prompt\nlet videoPrompt = vidFilter.videoPrompt || '';\nvideoPrompt = videoPrompt.replace(/\"/g, \"'\").trim();\n\n// Save the prompt\nstaticData['savedBackupVideoPrompt_3'] = {\n  startImageUrl:      vidFilter.startImageUrl,\n  videoPrompt:        videoPrompt,\n  sceneIndex:         vidFilter.sceneIndex,\n  sceneNumber:        sceneNum,\n  voiceoverText:      vidFilter.voiceoverText || '',\n  voiceStyle:         vidFilter.voiceStyle || '',\n  speaker:            vidFilter.speaker || '',\n  duration:           vidFilter.duration,\n  title:              vidFilter.title,\n  corePlot:           vidFilter.corePlot,\n  tags:               vidFilter.tags,\n  youtubeDescription: vidFilter.youtubeDescription,\n  usedKey:            currentKey\n};\n\nreturn {\n  json: {\n    startImageUrl:      vidFilter.startImageUrl,\n    videoPrompt:        videoPrompt,\n    sceneIndex:         vidFilter.sceneIndex,\n    sceneNumber:        sceneNum,\n    voiceoverText:      vidFilter.voiceoverText || '',\n    voiceStyle:         vidFilter.voiceStyle || '',\n    speaker:            vidFilter.speaker || '',\n    duration:           vidFilter.duration,\n    title:              vidFilter.title,\n    corePlot:           vidFilter.corePlot,\n    tags:               vidFilter.tags,\n    youtubeDescription: vidFilter.youtubeDescription,\n    usedKey:            currentKey,\n    __backupVideo:      sceneNum,\n    __index:            staticData['fruitBackupVideoIndex_3']\n  }\n};"
+        "jsCode": "const keys = $('Config: Backup Video Master3').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\nconst sceneNum = 3;\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene3').first().json;\n\nif (staticData['fruitBackupVideoIndex_3'] === undefined) {\n  staticData['fruitBackupVideoIndex_3'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_3'] % keys.length;\nconst currentKey = keys[currentKeyIndex];\n\n// Construct clean prompt\nlet videoPrompt = vidFilter.videoPrompt || '';\nvideoPrompt = videoPrompt.replace(/\"/g, \"'\").trim();\n\n// Save the prompt\nstaticData['savedBackupVideoPrompt_3'] = {\n  startImageUrl:      vidFilter.startImageUrl,\n  videoPrompt:        videoPrompt,\n  sceneIndex:         vidFilter.sceneIndex,\n  sceneNumber:        sceneNum,\n  voiceoverText:      vidFilter.voiceoverText || '',\n  voiceStyle:         vidFilter.voiceStyle || '',\n  speaker:            vidFilter.speaker || '',\n  duration:           vidFilter.duration,\n  title:              vidFilter.title,\n  corePlot:           vidFilter.corePlot,\n  tags:               vidFilter.tags,\n  youtubeDescription: vidFilter.youtubeDescription,\n  usedKey:            currentKey\n};\n\nreturn [{\n  json: {\n    startImageUrl:      vidFilter.startImageUrl,\n    videoPrompt:        videoPrompt,\n    sceneIndex:         vidFilter.sceneIndex,\n    sceneNumber:        sceneNum,\n    voiceoverText:      vidFilter.voiceoverText || '',\n    voiceStyle:         vidFilter.voiceStyle || '',\n    speaker:            vidFilter.speaker || '',\n    duration:           vidFilter.duration,\n    title:              vidFilter.title,\n    corePlot:           vidFilter.corePlot,\n    tags:               vidFilter.tags,\n    youtubeDescription: vidFilter.youtubeDescription,\n    usedKey:            currentKey,\n    __backupVideo:      sceneNum,\n    __index:            staticData['fruitBackupVideoIndex_3']\n  }\n}];"
       },
       "id": "1b890f96-95be-49fe-924c-7a0fe8c64607",
       "name": "Rotate Backup Video Key3",
@@ -5916,43 +6004,60 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.creditsCharged }}",
+                    "id": "success-code-200",
+                    "leftValue": "={{ $json.code }}",
                     "rightValue": "200",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "success-task-id",
+                    "leftValue": "={{ $json.taskId || $json.data?.taskId }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "id": "success-credits",
+                    "leftValue": "={{ $json.creditsCharged || $json.data?.creditsCharged }}",
                     "operator": {
                       "type": "number",
                       "operation": "exists",
                       "singleValue": true
-                    },
-                    "id": "433b6a58-04af-4012-ae1c-49569d87347e"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-409",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "409",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "feac3f71-3b2b-4959-b93d-410f71a4aaff"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -5961,20 +6066,20 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-402",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "402",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "374b8bb9-3529-4648-b5bb-e8aa06bd4bf1"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -5983,45 +6088,72 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-429",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
                     "rightValue": "429",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "230e4115-d3ba-4caf-9230-e4dabfbd4187"
+                    }
+                  },
+                  {
+                    "id": "err-msg-frequency",
+                    "leftValue": "={{ String($json.msg || $json.message || $json.error?.message || '').toLowerCase() }}",
+                    "rightValue": "frequency",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  },
+                  {
+                    "id": "err-msg-rate",
+                    "leftValue": "={{ String($json.msg || $json.message || $json.error?.message || '').toLowerCase() }}",
+                    "rightValue": "rate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-500",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "500",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "707d0e8d-669d-46bd-b615-d7156ef7dff3"
+                    }
+                  },
+                  {
+                    "id": "err-has-error",
+                    "leftValue": "={{ !!($json.error || $json.errorMessage || $json.errorDescription) }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             }
           ]
@@ -6170,7 +6302,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup Video Master3').first().json.keys;\nconst totalKeys = keys.length;\nconst sceneNum = 3;\n\nconst inputRaw = ($input && $input.first()) ? $input.first().json : {};\n\n// Check for HTTP 429 rate limit or call frequency errors\nif (\n  inputRaw.code == 429 || \n  inputRaw.code == \"429\" || \n  (inputRaw.data && (inputRaw.data.code == 429 || inputRaw.data.code == \"429\")) || \n  (inputRaw.msg && inputRaw.msg.includes(\"frequency\"))\n) {\n  const delayMs = 5000 + (sceneNum * 2000);\n  console.log(`[RATE LIMIT DETECTED] Scene ${sceneNum}: Waiting ${delayMs}ms before rotating key and retrying...`);\n  await new Promise(resolve => setTimeout(resolve, delayMs));\n}\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene3').first().json;\n\n// Retrieve saved backup prompt or fallback to vidFilter\nlet savedData = staticData['savedBackupVideoPrompt_3'] || {};\n\nconst restoredData = {\n  startImageUrl:      savedData.startImageUrl      || vidFilter.startImageUrl,\n  videoPrompt:        savedData.videoPrompt        || vidFilter.videoPrompt,\n  voiceoverText:      savedData.voiceoverText      || vidFilter.voiceoverText || '',\n  voiceStyle:         savedData.voiceStyle         || vidFilter.voiceStyle    || '',\n  speaker:            savedData.speaker            || vidFilter.speaker       || '',\n  duration:           savedData.duration           || vidFilter.duration,\n  title:              savedData.title              || vidFilter.title,\n  corePlot:           savedData.corePlot           || vidFilter.corePlot,\n  tags:               savedData.tags               || vidFilter.tags,\n  youtubeDescription: savedData.youtubeDescription || vidFilter.youtubeDescription,\n  sceneIndex:         savedData.sceneIndex         || vidFilter.sceneIndex,\n  sceneNumber:        sceneNum\n};\n\nif (staticData['fruitBackupVideoAttempts_3'] === undefined) {\n  staticData['fruitBackupVideoAttempts_3'] = 0;\n}\nstaticData['fruitBackupVideoAttempts_3'] += 1;\n\nif (staticData['fruitBackupVideoAttempts_3'] > totalKeys) {\n  console.log(`All ${totalKeys} backup video API keys exhausted for scene ${sceneNum}. Stopping workflow.`);\n  staticData['fruitBackupVideoIndex_3'] = sceneNum - 1;\n  staticData['fruitBackupVideoAttempts_3'] = 0;\n  throw new Error(`All backup video API keys (${totalKeys}) exhausted for scene ${sceneNum}.`);\n}\n\nif (staticData['fruitBackupVideoIndex_3'] === undefined) {\n  staticData['fruitBackupVideoIndex_3'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_3'] % totalKeys;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_3'] += 1;\n\nconsole.log(`Backup Video Scene ${sceneNum} - Attempt ${staticData['fruitBackupVideoAttempts_3']}/${totalKeys}: Using key index ${currentKeyIndex}`);\n\n// Write new rotated key to staticData as well\nif (staticData['savedBackupVideoPrompt_3']) {\n  staticData['savedBackupVideoPrompt_3'].usedKey = currentKey;\n}\n\nreturn [{\n  json: {\n    ...restoredData,\n    usedKey: currentKey,\n    code: 500 // force retry in Switch/IF node\n  }\n}];"
+        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup Video Master3').first().json.keys;\nconst totalKeys = keys.length;\nconst sceneNum = 3;\n\nconst inputRaw = ($input && $input.first()) ? $input.first().json : {};\n\n// Check for HTTP 429 rate limit or call frequency errors\nif (\n  inputRaw.code == 429 || \n  inputRaw.code == \"429\" || \n  (inputRaw.data && (inputRaw.data.code == 429 || inputRaw.data.code == \"429\")) || \n  (inputRaw.msg && (inputRaw.msg.includes(\"frequency\") || inputRaw.msg.includes(\"rate\"))) ||\n  (inputRaw.error && (inputRaw.error.status == 429 || inputRaw.error.statusCode == 429)) ||\n  (inputRaw.message && inputRaw.message.includes(\"429\"))\n) {\n  const delayMs = 5000 + (sceneNum * 2000);\n  console.log(`[RATE LIMIT DETECTED] Scene ${sceneNum}: Waiting ${delayMs}ms before rotating key and retrying...`);\n  await new Promise(resolve => setTimeout(resolve, delayMs));\n}\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene3').first().json;\n\n// Retrieve saved backup prompt or fallback to vidFilter\nlet savedData = staticData['savedBackupVideoPrompt_3'] || {};\n\nconst restoredData = {\n  startImageUrl:      savedData.startImageUrl      || vidFilter.startImageUrl,\n  videoPrompt:        savedData.videoPrompt        || vidFilter.videoPrompt,\n  voiceoverText:      savedData.voiceoverText      || vidFilter.voiceoverText || '',\n  voiceStyle:         savedData.voiceStyle         || vidFilter.voiceStyle    || '',\n  speaker:            savedData.speaker            || vidFilter.speaker       || '',\n  duration:           savedData.duration           || vidFilter.duration,\n  title:              savedData.title              || vidFilter.title,\n  corePlot:           savedData.corePlot           || vidFilter.corePlot,\n  tags:               savedData.tags               || vidFilter.tags,\n  youtubeDescription: savedData.youtubeDescription || vidFilter.youtubeDescription,\n  sceneIndex:         savedData.sceneIndex         || vidFilter.sceneIndex,\n  sceneNumber:        sceneNum\n};\n\nif (staticData['fruitBackupVideoAttempts_3'] === undefined) {\n  staticData['fruitBackupVideoAttempts_3'] = 0;\n}\nstaticData['fruitBackupVideoAttempts_3'] += 1;\n\nif (staticData['fruitBackupVideoAttempts_3'] > totalKeys) {\n  console.log(`All ${totalKeys} backup video API keys exhausted for scene ${sceneNum}. Stopping workflow.`);\n  staticData['fruitBackupVideoIndex_3'] = sceneNum - 1;\n  staticData['fruitBackupVideoAttempts_3'] = 0;\n  throw new Error(`All backup video API keys (${totalKeys}) exhausted for scene ${sceneNum}.`);\n}\n\nif (staticData['fruitBackupVideoIndex_3'] === undefined) {\n  staticData['fruitBackupVideoIndex_3'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_3'] % totalKeys;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_3'] = (staticData['fruitBackupVideoIndex_3'] + 1) % totalKeys;\n\nconsole.log(`Backup Video Scene ${sceneNum} - Attempt ${staticData['fruitBackupVideoAttempts_3']}/${totalKeys}: Using key index ${currentKeyIndex}`);\n\nif (staticData['savedBackupVideoPrompt_3']) {\n  staticData['savedBackupVideoPrompt_3'].usedKey = currentKey;\n}\n\nreturn [{\n  json: {\n    ...restoredData,\n    usedKey: currentKey,\n    __backupVideo: sceneNum,\n    __index: staticData['fruitBackupVideoIndex_3']\n  }\n}];"
       },
       "id": "7f1c68d9-9d44-41bb-a882-c7c3410be941",
       "name": "Rotate Backup Video On Failure3",
@@ -6796,7 +6928,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const keys = $('Config: Backup Video Master4').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\nconst sceneNum = 4;\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene4').first().json;\n\nif (staticData['fruitBackupVideoIndex_4'] === undefined) {\n  staticData['fruitBackupVideoIndex_4'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_4'] % keys.length;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_4'] += 1;\n\n// Construct clean prompt\nlet videoPrompt = vidFilter.videoPrompt || '';\nvideoPrompt = videoPrompt.replace(/\"/g, \"'\").trim();\n\n// Save the prompt\nstaticData['savedBackupVideoPrompt_4'] = {\n  startImageUrl:      vidFilter.startImageUrl,\n  videoPrompt:        videoPrompt,\n  sceneIndex:         vidFilter.sceneIndex,\n  sceneNumber:        sceneNum,\n  voiceoverText:      vidFilter.voiceoverText || '',\n  voiceStyle:         vidFilter.voiceStyle || '',\n  speaker:            vidFilter.speaker || '',\n  duration:           vidFilter.duration,\n  title:              vidFilter.title,\n  corePlot:           vidFilter.corePlot,\n  tags:               vidFilter.tags,\n  youtubeDescription: vidFilter.youtubeDescription,\n  usedKey:            currentKey\n};\n\nreturn {\n  json: {\n    startImageUrl:      vidFilter.startImageUrl,\n    videoPrompt:        videoPrompt,\n    sceneIndex:         vidFilter.sceneIndex,\n    sceneNumber:        sceneNum,\n    voiceoverText:      vidFilter.voiceoverText || '',\n    voiceStyle:         vidFilter.voiceStyle || '',\n    speaker:            vidFilter.speaker || '',\n    duration:           vidFilter.duration,\n    title:              vidFilter.title,\n    corePlot:           vidFilter.corePlot,\n    tags:               vidFilter.tags,\n    youtubeDescription: vidFilter.youtubeDescription,\n    usedKey:            currentKey,\n    __backupVideo:      sceneNum,\n    __index:            staticData['fruitBackupVideoIndex_4']\n  }\n};"
+        "jsCode": "const keys = $('Config: Backup Video Master4').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\nconst sceneNum = 4;\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene4').first().json;\n\nif (staticData['fruitBackupVideoIndex_4'] === undefined) {\n  staticData['fruitBackupVideoIndex_4'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_4'] % keys.length;\nconst currentKey = keys[currentKeyIndex];\n\n// Construct clean prompt\nlet videoPrompt = vidFilter.videoPrompt || '';\nvideoPrompt = videoPrompt.replace(/\"/g, \"'\").trim();\n\n// Save the prompt\nstaticData['savedBackupVideoPrompt_4'] = {\n  startImageUrl:      vidFilter.startImageUrl,\n  videoPrompt:        videoPrompt,\n  sceneIndex:         vidFilter.sceneIndex,\n  sceneNumber:        sceneNum,\n  voiceoverText:      vidFilter.voiceoverText || '',\n  voiceStyle:         vidFilter.voiceStyle || '',\n  speaker:            vidFilter.speaker || '',\n  duration:           vidFilter.duration,\n  title:              vidFilter.title,\n  corePlot:           vidFilter.corePlot,\n  tags:               vidFilter.tags,\n  youtubeDescription: vidFilter.youtubeDescription,\n  usedKey:            currentKey\n};\n\nreturn [{\n  json: {\n    startImageUrl:      vidFilter.startImageUrl,\n    videoPrompt:        videoPrompt,\n    sceneIndex:         vidFilter.sceneIndex,\n    sceneNumber:        sceneNum,\n    voiceoverText:      vidFilter.voiceoverText || '',\n    voiceStyle:         vidFilter.voiceStyle || '',\n    speaker:            vidFilter.speaker || '',\n    duration:           vidFilter.duration,\n    title:              vidFilter.title,\n    corePlot:           vidFilter.corePlot,\n    tags:               vidFilter.tags,\n    youtubeDescription: vidFilter.youtubeDescription,\n    usedKey:            currentKey,\n    __backupVideo:      sceneNum,\n    __index:            staticData['fruitBackupVideoIndex_4']\n  }\n}];"
       },
       "id": "a25092c4-3531-480f-b6e3-fbb725fe0d67",
       "name": "Rotate Backup Video Key4",
@@ -6842,43 +6974,60 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.creditsCharged }}",
+                    "id": "success-code-200",
+                    "leftValue": "={{ $json.code }}",
                     "rightValue": "200",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "success-task-id",
+                    "leftValue": "={{ $json.taskId || $json.data?.taskId }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "id": "success-credits",
+                    "leftValue": "={{ $json.creditsCharged || $json.data?.creditsCharged }}",
                     "operator": {
                       "type": "number",
                       "operation": "exists",
                       "singleValue": true
-                    },
-                    "id": "433b6a58-04af-4012-ae1c-49569d87347e"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-409",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "409",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "feac3f71-3b2b-4959-b93d-410f71a4aaff"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -6887,20 +7036,20 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-402",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "402",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "374b8bb9-3529-4648-b5bb-e8aa06bd4bf1"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -6909,45 +7058,72 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-429",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
                     "rightValue": "429",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "230e4115-d3ba-4caf-9230-e4dabfbd4187"
+                    }
+                  },
+                  {
+                    "id": "err-msg-frequency",
+                    "leftValue": "={{ String($json.msg || $json.message || $json.error?.message || '').toLowerCase() }}",
+                    "rightValue": "frequency",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  },
+                  {
+                    "id": "err-msg-rate",
+                    "leftValue": "={{ String($json.msg || $json.message || $json.error?.message || '').toLowerCase() }}",
+                    "rightValue": "rate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-500",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "500",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "707d0e8d-669d-46bd-b615-d7156ef7dff3"
+                    }
+                  },
+                  {
+                    "id": "err-has-error",
+                    "leftValue": "={{ !!($json.error || $json.errorMessage || $json.errorDescription) }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             }
           ]
@@ -7096,7 +7272,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup Video Master4').first().json.keys;\nconst totalKeys = keys.length;\nconst sceneNum = 4;\n\nconst inputRaw = ($input && $input.first()) ? $input.first().json : {};\n\n// Check for HTTP 429 rate limit or call frequency errors\nif (\n  inputRaw.code == 429 || \n  inputRaw.code == \"429\" || \n  (inputRaw.data && (inputRaw.data.code == 429 || inputRaw.data.code == \"429\")) || \n  (inputRaw.msg && inputRaw.msg.includes(\"frequency\"))\n) {\n  const delayMs = 5000 + (sceneNum * 2000);\n  console.log(`[RATE LIMIT DETECTED] Scene ${sceneNum}: Waiting ${delayMs}ms before rotating key and retrying...`);\n  await new Promise(resolve => setTimeout(resolve, delayMs));\n}\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene4').first().json;\n\n// Retrieve saved backup prompt or fallback to vidFilter\nlet savedData = staticData['savedBackupVideoPrompt_4'] || {};\n\nconst restoredData = {\n  startImageUrl:      savedData.startImageUrl      || vidFilter.startImageUrl,\n  videoPrompt:        savedData.videoPrompt        || vidFilter.videoPrompt,\n  voiceoverText:      savedData.voiceoverText      || vidFilter.voiceoverText || '',\n  voiceStyle:         savedData.voiceStyle         || vidFilter.voiceStyle    || '',\n  speaker:            savedData.speaker            || vidFilter.speaker       || '',\n  duration:           savedData.duration           || vidFilter.duration,\n  title:              savedData.title              || vidFilter.title,\n  corePlot:           savedData.corePlot           || vidFilter.corePlot,\n  tags:               savedData.tags               || vidFilter.tags,\n  youtubeDescription: savedData.youtubeDescription || vidFilter.youtubeDescription,\n  sceneIndex:         savedData.sceneIndex         || vidFilter.sceneIndex,\n  sceneNumber:        sceneNum\n};\n\nif (staticData['fruitBackupVideoAttempts_4'] === undefined) {\n  staticData['fruitBackupVideoAttempts_4'] = 0;\n}\nstaticData['fruitBackupVideoAttempts_4'] += 1;\n\nif (staticData['fruitBackupVideoAttempts_4'] > totalKeys) {\n  console.log(`All ${totalKeys} backup video API keys exhausted for scene ${sceneNum}. Stopping workflow.`);\n  staticData['fruitBackupVideoIndex_4'] = sceneNum - 1;\n  staticData['fruitBackupVideoAttempts_4'] = 0;\n  throw new Error(`All backup video API keys (${totalKeys}) exhausted for scene ${sceneNum}.`);\n}\n\nif (staticData['fruitBackupVideoIndex_4'] === undefined) {\n  staticData['fruitBackupVideoIndex_4'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_4'] % totalKeys;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_4'] += 1;\n\nconsole.log(`Backup Video Scene ${sceneNum} - Attempt ${staticData['fruitBackupVideoAttempts_4']}/${totalKeys}: Using key index ${currentKeyIndex}`);\n\n// Write new rotated key to staticData as well\nif (staticData['savedBackupVideoPrompt_4']) {\n  staticData['savedBackupVideoPrompt_4'].usedKey = currentKey;\n}\n\nreturn [{\n  json: {\n    ...restoredData,\n    usedKey: currentKey,\n    code: 500 // force retry in Switch/IF node\n  }\n}];"
+        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup Video Master4').first().json.keys;\nconst totalKeys = keys.length;\nconst sceneNum = 4;\n\nconst inputRaw = ($input && $input.first()) ? $input.first().json : {};\n\n// Check for HTTP 429 rate limit or call frequency errors\nif (\n  inputRaw.code == 429 || \n  inputRaw.code == \"429\" || \n  (inputRaw.data && (inputRaw.data.code == 429 || inputRaw.data.code == \"429\")) || \n  (inputRaw.msg && (inputRaw.msg.includes(\"frequency\") || inputRaw.msg.includes(\"rate\"))) ||\n  (inputRaw.error && (inputRaw.error.status == 429 || inputRaw.error.statusCode == 429)) ||\n  (inputRaw.message && inputRaw.message.includes(\"429\"))\n) {\n  const delayMs = 5000 + (sceneNum * 2000);\n  console.log(`[RATE LIMIT DETECTED] Scene ${sceneNum}: Waiting ${delayMs}ms before rotating key and retrying...`);\n  await new Promise(resolve => setTimeout(resolve, delayMs));\n}\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene4').first().json;\n\n// Retrieve saved backup prompt or fallback to vidFilter\nlet savedData = staticData['savedBackupVideoPrompt_4'] || {};\n\nconst restoredData = {\n  startImageUrl:      savedData.startImageUrl      || vidFilter.startImageUrl,\n  videoPrompt:        savedData.videoPrompt        || vidFilter.videoPrompt,\n  voiceoverText:      savedData.voiceoverText      || vidFilter.voiceoverText || '',\n  voiceStyle:         savedData.voiceStyle         || vidFilter.voiceStyle    || '',\n  speaker:            savedData.speaker            || vidFilter.speaker       || '',\n  duration:           savedData.duration           || vidFilter.duration,\n  title:              savedData.title              || vidFilter.title,\n  corePlot:           savedData.corePlot           || vidFilter.corePlot,\n  tags:               savedData.tags               || vidFilter.tags,\n  youtubeDescription: savedData.youtubeDescription || vidFilter.youtubeDescription,\n  sceneIndex:         savedData.sceneIndex         || vidFilter.sceneIndex,\n  sceneNumber:        sceneNum\n};\n\nif (staticData['fruitBackupVideoAttempts_4'] === undefined) {\n  staticData['fruitBackupVideoAttempts_4'] = 0;\n}\nstaticData['fruitBackupVideoAttempts_4'] += 1;\n\nif (staticData['fruitBackupVideoAttempts_4'] > totalKeys) {\n  console.log(`All ${totalKeys} backup video API keys exhausted for scene ${sceneNum}. Stopping workflow.`);\n  staticData['fruitBackupVideoIndex_4'] = sceneNum - 1;\n  staticData['fruitBackupVideoAttempts_4'] = 0;\n  throw new Error(`All backup video API keys (${totalKeys}) exhausted for scene ${sceneNum}.`);\n}\n\nif (staticData['fruitBackupVideoIndex_4'] === undefined) {\n  staticData['fruitBackupVideoIndex_4'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_4'] % totalKeys;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_4'] = (staticData['fruitBackupVideoIndex_4'] + 1) % totalKeys;\n\nconsole.log(`Backup Video Scene ${sceneNum} - Attempt ${staticData['fruitBackupVideoAttempts_4']}/${totalKeys}: Using key index ${currentKeyIndex}`);\n\nif (staticData['savedBackupVideoPrompt_4']) {\n  staticData['savedBackupVideoPrompt_4'].usedKey = currentKey;\n}\n\nreturn [{\n  json: {\n    ...restoredData,\n    usedKey: currentKey,\n    __backupVideo: sceneNum,\n    __index: staticData['fruitBackupVideoIndex_4']\n  }\n}];"
       },
       "id": "ebf8741a-eb1e-4989-9aab-6d5a6afa67b7",
       "name": "Rotate Backup Video On Failure4",
@@ -7722,7 +7898,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const keys = $('Config: Backup Video Master5').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\nconst sceneNum = 5;\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene5').first().json;\n\nif (staticData['fruitBackupVideoIndex_5'] === undefined) {\n  staticData['fruitBackupVideoIndex_5'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_5'] % keys.length;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_5'] += 1;\n\n// Construct clean prompt\nlet videoPrompt = vidFilter.videoPrompt || '';\nvideoPrompt = videoPrompt.replace(/\"/g, \"'\").trim();\n\n// Save the prompt\nstaticData['savedBackupVideoPrompt_5'] = {\n  startImageUrl:      vidFilter.startImageUrl,\n  videoPrompt:        videoPrompt,\n  sceneIndex:         vidFilter.sceneIndex,\n  sceneNumber:        sceneNum,\n  voiceoverText:      vidFilter.voiceoverText || '',\n  voiceStyle:         vidFilter.voiceStyle || '',\n  speaker:            vidFilter.speaker || '',\n  duration:           vidFilter.duration,\n  title:              vidFilter.title,\n  corePlot:           vidFilter.corePlot,\n  tags:               vidFilter.tags,\n  youtubeDescription: vidFilter.youtubeDescription,\n  usedKey:            currentKey\n};\n\nreturn {\n  json: {\n    startImageUrl:      vidFilter.startImageUrl,\n    videoPrompt:        videoPrompt,\n    sceneIndex:         vidFilter.sceneIndex,\n    sceneNumber:        sceneNum,\n    voiceoverText:      vidFilter.voiceoverText || '',\n    voiceStyle:         vidFilter.voiceStyle || '',\n    speaker:            vidFilter.speaker || '',\n    duration:           vidFilter.duration,\n    title:              vidFilter.title,\n    corePlot:           vidFilter.corePlot,\n    tags:               vidFilter.tags,\n    youtubeDescription: vidFilter.youtubeDescription,\n    usedKey:            currentKey,\n    __backupVideo:      sceneNum,\n    __index:            staticData['fruitBackupVideoIndex_5']\n  }\n};"
+        "jsCode": "const keys = $('Config: Backup Video Master5').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\nconst sceneNum = 5;\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene5').first().json;\n\nif (staticData['fruitBackupVideoIndex_5'] === undefined) {\n  staticData['fruitBackupVideoIndex_5'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_5'] % keys.length;\nconst currentKey = keys[currentKeyIndex];\n\n// Construct clean prompt\nlet videoPrompt = vidFilter.videoPrompt || '';\nvideoPrompt = videoPrompt.replace(/\"/g, \"'\").trim();\n\n// Save the prompt\nstaticData['savedBackupVideoPrompt_5'] = {\n  startImageUrl:      vidFilter.startImageUrl,\n  videoPrompt:        videoPrompt,\n  sceneIndex:         vidFilter.sceneIndex,\n  sceneNumber:        sceneNum,\n  voiceoverText:      vidFilter.voiceoverText || '',\n  voiceStyle:         vidFilter.voiceStyle || '',\n  speaker:            vidFilter.speaker || '',\n  duration:           vidFilter.duration,\n  title:              vidFilter.title,\n  corePlot:           vidFilter.corePlot,\n  tags:               vidFilter.tags,\n  youtubeDescription: vidFilter.youtubeDescription,\n  usedKey:            currentKey\n};\n\nreturn [{\n  json: {\n    startImageUrl:      vidFilter.startImageUrl,\n    videoPrompt:        videoPrompt,\n    sceneIndex:         vidFilter.sceneIndex,\n    sceneNumber:        sceneNum,\n    voiceoverText:      vidFilter.voiceoverText || '',\n    voiceStyle:         vidFilter.voiceStyle || '',\n    speaker:            vidFilter.speaker || '',\n    duration:           vidFilter.duration,\n    title:              vidFilter.title,\n    corePlot:           vidFilter.corePlot,\n    tags:               vidFilter.tags,\n    youtubeDescription: vidFilter.youtubeDescription,\n    usedKey:            currentKey,\n    __backupVideo:      sceneNum,\n    __index:            staticData['fruitBackupVideoIndex_5']\n  }\n}];"
       },
       "id": "aaa5427e-e92a-401e-a6b9-a9a90b7b280c",
       "name": "Rotate Backup Video Key5",
@@ -7768,43 +7944,60 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.creditsCharged }}",
+                    "id": "success-code-200",
+                    "leftValue": "={{ $json.code }}",
                     "rightValue": "200",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "success-task-id",
+                    "leftValue": "={{ $json.taskId || $json.data?.taskId }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "id": "success-credits",
+                    "leftValue": "={{ $json.creditsCharged || $json.data?.creditsCharged }}",
                     "operator": {
                       "type": "number",
                       "operation": "exists",
                       "singleValue": true
-                    },
-                    "id": "433b6a58-04af-4012-ae1c-49569d87347e"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-409",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "409",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "feac3f71-3b2b-4959-b93d-410f71a4aaff"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -7813,20 +8006,20 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-402",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "402",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "374b8bb9-3529-4648-b5bb-e8aa06bd4bf1"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -7835,45 +8028,72 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-429",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
                     "rightValue": "429",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "230e4115-d3ba-4caf-9230-e4dabfbd4187"
+                    }
+                  },
+                  {
+                    "id": "err-msg-frequency",
+                    "leftValue": "={{ String($json.msg || $json.message || $json.error?.message || '').toLowerCase() }}",
+                    "rightValue": "frequency",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  },
+                  {
+                    "id": "err-msg-rate",
+                    "leftValue": "={{ String($json.msg || $json.message || $json.error?.message || '').toLowerCase() }}",
+                    "rightValue": "rate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             },
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "caseSensitive": false,
                   "leftValue": "",
                   "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.error.status }}",
+                    "id": "err-500",
+                    "leftValue": "={{ $json.code || $json.error?.status || $json.error?.statusCode }}",
                     "rightValue": "500",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
-                    },
-                    "id": "707d0e8d-669d-46bd-b615-d7156ef7dff3"
+                    }
+                  },
+                  {
+                    "id": "err-has-error",
+                    "leftValue": "={{ !!($json.error || $json.errorMessage || $json.errorDescription) }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "or"
               }
             }
           ]
@@ -8022,7 +8242,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup Video Master5').first().json.keys;\nconst totalKeys = keys.length;\nconst sceneNum = 5;\n\nconst inputRaw = ($input && $input.first()) ? $input.first().json : {};\n\n// Check for HTTP 429 rate limit or call frequency errors\nif (\n  inputRaw.code == 429 || \n  inputRaw.code == \"429\" || \n  (inputRaw.data && (inputRaw.data.code == 429 || inputRaw.data.code == \"429\")) || \n  (inputRaw.msg && inputRaw.msg.includes(\"frequency\"))\n) {\n  const delayMs = 5000 + (sceneNum * 2000);\n  console.log(`[RATE LIMIT DETECTED] Scene ${sceneNum}: Waiting ${delayMs}ms before rotating key and retrying...`);\n  await new Promise(resolve => setTimeout(resolve, delayMs));\n}\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene5').first().json;\n\n// Retrieve saved backup prompt or fallback to vidFilter\nlet savedData = staticData['savedBackupVideoPrompt_5'] || {};\n\nconst restoredData = {\n  startImageUrl:      savedData.startImageUrl      || vidFilter.startImageUrl,\n  videoPrompt:        savedData.videoPrompt        || vidFilter.videoPrompt,\n  voiceoverText:      savedData.voiceoverText      || vidFilter.voiceoverText || '',\n  voiceStyle:         savedData.voiceStyle         || vidFilter.voiceStyle    || '',\n  speaker:            savedData.speaker            || vidFilter.speaker       || '',\n  duration:           savedData.duration           || vidFilter.duration,\n  title:              savedData.title              || vidFilter.title,\n  corePlot:           savedData.corePlot           || vidFilter.corePlot,\n  tags:               savedData.tags               || vidFilter.tags,\n  youtubeDescription: savedData.youtubeDescription || vidFilter.youtubeDescription,\n  sceneIndex:         savedData.sceneIndex         || vidFilter.sceneIndex,\n  sceneNumber:        sceneNum\n};\n\nif (staticData['fruitBackupVideoAttempts_5'] === undefined) {\n  staticData['fruitBackupVideoAttempts_5'] = 0;\n}\nstaticData['fruitBackupVideoAttempts_5'] += 1;\n\nif (staticData['fruitBackupVideoAttempts_5'] > totalKeys) {\n  console.log(`All ${totalKeys} backup video API keys exhausted for scene ${sceneNum}. Stopping workflow.`);\n  staticData['fruitBackupVideoIndex_5'] = sceneNum - 1;\n  staticData['fruitBackupVideoAttempts_5'] = 0;\n  throw new Error(`All backup video API keys (${totalKeys}) exhausted for scene ${sceneNum}.`);\n}\n\nif (staticData['fruitBackupVideoIndex_5'] === undefined) {\n  staticData['fruitBackupVideoIndex_5'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_5'] % totalKeys;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_5'] += 1;\n\nconsole.log(`Backup Video Scene ${sceneNum} - Attempt ${staticData['fruitBackupVideoAttempts_5']}/${totalKeys}: Using key index ${currentKeyIndex}`);\n\n// Write new rotated key to staticData as well\nif (staticData['savedBackupVideoPrompt_5']) {\n  staticData['savedBackupVideoPrompt_5'].usedKey = currentKey;\n}\n\nreturn [{\n  json: {\n    ...restoredData,\n    usedKey: currentKey,\n    code: 500 // force retry in Switch/IF node\n  }\n}];"
+        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup Video Master5').first().json.keys;\nconst totalKeys = keys.length;\nconst sceneNum = 5;\n\nconst inputRaw = ($input && $input.first()) ? $input.first().json : {};\n\n// Check for HTTP 429 rate limit or call frequency errors\nif (\n  inputRaw.code == 429 || \n  inputRaw.code == \"429\" || \n  (inputRaw.data && (inputRaw.data.code == 429 || inputRaw.data.code == \"429\")) || \n  (inputRaw.msg && (inputRaw.msg.includes(\"frequency\") || inputRaw.msg.includes(\"rate\"))) ||\n  (inputRaw.error && (inputRaw.error.status == 429 || inputRaw.error.statusCode == 429)) ||\n  (inputRaw.message && inputRaw.message.includes(\"429\"))\n) {\n  const delayMs = 5000 + (sceneNum * 2000);\n  console.log(`[RATE LIMIT DETECTED] Scene ${sceneNum}: Waiting ${delayMs}ms before rotating key and retrying...`);\n  await new Promise(resolve => setTimeout(resolve, delayMs));\n}\n\n// ALWAYS read from static Filter Video Scene node (direct ancestor)\nconst vidFilter = $('Filter Video Scene5').first().json;\n\n// Retrieve saved backup prompt or fallback to vidFilter\nlet savedData = staticData['savedBackupVideoPrompt_5'] || {};\n\nconst restoredData = {\n  startImageUrl:      savedData.startImageUrl      || vidFilter.startImageUrl,\n  videoPrompt:        savedData.videoPrompt        || vidFilter.videoPrompt,\n  voiceoverText:      savedData.voiceoverText      || vidFilter.voiceoverText || '',\n  voiceStyle:         savedData.voiceStyle         || vidFilter.voiceStyle    || '',\n  speaker:            savedData.speaker            || vidFilter.speaker       || '',\n  duration:           savedData.duration           || vidFilter.duration,\n  title:              savedData.title              || vidFilter.title,\n  corePlot:           savedData.corePlot           || vidFilter.corePlot,\n  tags:               savedData.tags               || vidFilter.tags,\n  youtubeDescription: savedData.youtubeDescription || vidFilter.youtubeDescription,\n  sceneIndex:         savedData.sceneIndex         || vidFilter.sceneIndex,\n  sceneNumber:        sceneNum\n};\n\nif (staticData['fruitBackupVideoAttempts_5'] === undefined) {\n  staticData['fruitBackupVideoAttempts_5'] = 0;\n}\nstaticData['fruitBackupVideoAttempts_5'] += 1;\n\nif (staticData['fruitBackupVideoAttempts_5'] > totalKeys) {\n  console.log(`All ${totalKeys} backup video API keys exhausted for scene ${sceneNum}. Stopping workflow.`);\n  staticData['fruitBackupVideoIndex_5'] = sceneNum - 1;\n  staticData['fruitBackupVideoAttempts_5'] = 0;\n  throw new Error(`All backup video API keys (${totalKeys}) exhausted for scene ${sceneNum}.`);\n}\n\nif (staticData['fruitBackupVideoIndex_5'] === undefined) {\n  staticData['fruitBackupVideoIndex_5'] = sceneNum - 1;\n}\n\nconst currentKeyIndex = staticData['fruitBackupVideoIndex_5'] % totalKeys;\nconst currentKey = keys[currentKeyIndex];\nstaticData['fruitBackupVideoIndex_5'] = (staticData['fruitBackupVideoIndex_5'] + 1) % totalKeys;\n\nconsole.log(`Backup Video Scene ${sceneNum} - Attempt ${staticData['fruitBackupVideoAttempts_5']}/${totalKeys}: Using key index ${currentKeyIndex}`);\n\nif (staticData['savedBackupVideoPrompt_5']) {\n  staticData['savedBackupVideoPrompt_5'].usedKey = currentKey;\n}\n\nreturn [{\n  json: {\n    ...restoredData,\n    usedKey: currentKey,\n    __backupVideo: sceneNum,\n    __index: staticData['fruitBackupVideoIndex_5']\n  }\n}];"
       },
       "id": "cd47c53d-ca44-4285-8660-f04d1bce354e",
       "name": "Rotate Backup Video On Failure5",
