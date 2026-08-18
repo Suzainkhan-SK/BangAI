@@ -619,30 +619,19 @@ export default function DashboardApp({
         return;
       }
 
-      // 1. Stage 1 -> Stage 2: 5 scenes generated
-      if (data.status === 'SCENES_READY_FOR_APPROVAL' && data.scenes) {
-        audioEngine.playSfx('success');
-        setIsGenerating(false);
+      if (isStage1) {
+        generationStartTimeRef.current = Date.now();
+        setIsGenerating(true);
+        setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
         setPastShorts(prev => prev.map(t => 
           (t.threadId === activeThreadId || t.id === activeThreadId)
-            ? { 
-                ...t, 
-                status: 'SCENES_READY_FOR_APPROVAL',
-                title: data.title || t.title,
-                scenes: data.scenes,
-                messages: [
-                  ...(t.messages || []),
-                  { role: 'assistant', content: `🎬 5 scenes generated: "${data.title || t.title}". Review before video rendering.` }
-                ]
-              }
+            ? { ...t, status: 'GENERATING_SCENES' }
             : t
         ));
-        return;
-      }
-
-      // 2. Stage 2 -> Stage 3: Rendering video
-      if (data.status === 'RENDERING_VIDEO') {
+      } else if (isStage2) {
+        generationStartTimeRef.current = Date.now();
         setIsGenerating(true);
+        setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
         setPastShorts(prev => prev.map(t => 
           (t.threadId === activeThreadId || t.id === activeThreadId)
             ? { 
@@ -650,12 +639,11 @@ export default function DashboardApp({
                 status: 'RENDERING_VIDEO',
                 messages: [
                   ...(t.messages || []),
-                  { role: 'assistant', content: '🎬 5 scenes approved! Autonomous 4K video rendering pipeline dispatched...' }
+                  { role: 'assistant', content: '🎬 5 scenes approved! Autonomous 4K video rendering pipeline dispatched on n8n Cloud...' }
                 ]
               }
             : t
         ));
-        return;
       }
     } catch (e) {
       console.warn('Approve story error:', e.message);
