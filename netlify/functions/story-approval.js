@@ -97,20 +97,43 @@ export const handler = async (event, context) => {
         return { statusCode: 200, headers: CORS, body: JSON.stringify({ hasStory: false, status: 'IDLE', threadId: null }) };
       }
 
-      // 1. Check in-memory store first (fastest — same container)
+      // 1. Check MongoDB store first
       let latest = await threadsCol.findOne({ threadId });
 
       // 2. If not found or still GENERATING, also check n8n execution API as fallback
       if (!latest || !READY_STATES.includes(latest.status)) {
         const n8nData = await checkN8nExecutionForThread(threadId);
         if (n8nData) {
-          // Save to memory store for subsequent polls
           await threadsCol.updateOne({ threadId }, { $set: n8nData }, { upsert: true });
           latest = await threadsCol.findOne({ threadId });
         }
       }
 
-      if (latest && READY_STATES.includes(latest.status)) {
+      // 3. Execution stall detection — n8n can timeout/crash silently
+      //    If thread is stuck in an active generation state for > 90 minutes
+      //    with no update from n8n, surface it as EXECUTION_TIMEOUT so the
+      //    website stops animating and shows a retry card.
+      const ACTIVE_GEN_STATUSES = ['GENERATING', 'GENERATING_SCENES', 'RENDERING_VIDEO'];
+      const STALL_TIMEOUT_MS = 90 * 60 * 1000; // 90 minutes max — covers 60 min renders + buffer
+
+      if (latest && ACTIVE_GEN_STATUSES.includes(latest.status)) {
+        const lastUpdate = latest.updatedAt ? new Date(latest.updatedAt).getTime() : 0;
+        const timeSinceUpdate = Date.now() - lastUpdate;
+
+        if (lastUpdate > 0 && timeSinceUpdate > STALL_TIMEOUT_MS) {
+          // Mark as execution timeout
+          const stallDoc = {
+            status: 'EXECUTION_TIMEOUT',
+            errorMessage: `n8n workflow execution timed out or was cancelled after ${Math.round(timeSinceUpdate / 60000)} minutes. Please retry.`,
+            updatedAt: new Date()
+          };
+          await threadsCol.updateOne({ threadId }, { $set: stallDoc });
+          latest = { ...latest, ...stallDoc };
+          console.log(`[story-approval] Detected stalled execution for thread ${threadId} — ${Math.round(timeSinceUpdate / 60000)} minutes with no update`);
+        }
+      }
+
+      if (latest && (READY_STATES.includes(latest.status) || latest.status === 'EXECUTION_TIMEOUT')) {
         return {
           statusCode: 200,
           headers: CORS,
@@ -139,6 +162,7 @@ export const handler = async (event, context) => {
         body: JSON.stringify({ hasStory: false, story: null, status: latest?.status || 'IDLE', threadId: latest?.threadId || null })
       };
     }
+
 
     // ── POST: n8n posts callback here ────────────────────────────────
     if (event.httpMethod === 'POST') {

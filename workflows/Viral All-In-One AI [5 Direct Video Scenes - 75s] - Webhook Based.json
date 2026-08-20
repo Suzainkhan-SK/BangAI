@@ -15,8 +15,7 @@
     "availableInMCP": true,
     "saveExecutionProgress": true,
     "saveDataErrorExecution": "all",
-    "saveDataSuccessExecution": "all",
-    "executionTimeout": 180
+    "saveDataSuccessExecution": "all"
   },
   "tags": [],
   "parentFolderId": null,

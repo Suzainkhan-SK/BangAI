@@ -230,6 +230,27 @@ export default function DashboardApp({
           return;
         }
 
+        // ── EXECUTION TIMEOUT / WORKFLOW CRASHED ─────────────────────
+        // n8n workflow timed out (e.g. 3-min timeout) or execution was cancelled
+        // externally. Stop the animation and show a retry card.
+        if (status === 'EXECUTION_TIMEOUT' || status === 'WORKFLOW_CRASHED') {
+          audioEngine.playSfx('click');
+          setIsGenerating(false);
+          setPastShorts(prev => prev.map(t => {
+            if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
+            const existing = t.messages || [];
+            const msgText = `⏱️ Workflow execution was cancelled or timed out. ${data.errorMessage || 'You can retry the pipeline.'}`;
+            return {
+              ...t,
+              status: 'WORKFLOW_INACTIVE',
+              errorMessage: data.errorMessage || 'n8n workflow execution was cancelled or timed out. Please check your n8n Cloud settings and retry.',
+              messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
+            };
+          }));
+          return;
+        }
+
+
         // ── RENDER FAILED ───────────────────────────────────────────
         if (status === 'RENDER_FAILED') {
           audioEngine.playSfx('click');
