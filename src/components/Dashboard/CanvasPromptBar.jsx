@@ -9,9 +9,11 @@ import {
   Film, 
   Flame, 
   Tag, 
-  HelpCircle,
   Command,
-  Video
+  Loader2,
+  Globe,
+  Palette,
+  Mic
 } from 'lucide-react';
 import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
@@ -26,7 +28,7 @@ const SLASH_COMMANDS = [
     label: 'Generate 75s Video',
     desc: 'Full 5-act cinematic screenplay & audio pipeline',
     icon: Film,
-    color: 'var(--accent-primary)',
+    color: '#6366f1',
     placeholder: 'Enter a topic to generate a 75s YouTube Short...'
   },
   {
@@ -35,7 +37,7 @@ const SLASH_COMMANDS = [
     label: 'Ask ShortsAI Claude Coach',
     desc: 'Ask anything about viral hooks, pacing, YouTube algorithms',
     icon: MessageSquare,
-    color: 'var(--accent-cyan)',
+    color: '#0ea5e9',
     placeholder: 'Ask anything about retention, hooks, algorithms, or strategy...'
   },
   {
@@ -95,12 +97,6 @@ export default function CanvasPromptBar(props) {
     if (typeof props.onStyleChange === 'function') props.onStyleChange(val);
   };
 
-  const currentMusicId = props.musicId || props.selectedMusic || 'mystery';
-  const setMusicValue = (val) => {
-    if (typeof props.setMusicId === 'function') props.setMusicId(val);
-    if (typeof props.onMusicChange === 'function') props.onMusicChange(val);
-  };
-
   const currentLanguage = props.language || props.selectedLanguage || 'Hinglish';
   const setLanguageValue = (val) => {
     if (typeof props.setLanguage === 'function') props.setLanguage(val);
@@ -146,7 +142,7 @@ export default function CanvasPromptBar(props) {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 130)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 140)}px`;
     }
   }, [promptValue]);
 
@@ -213,7 +209,6 @@ export default function CanvasPromptBar(props) {
   return (
     <div style={{
       width: '100%',
-      maxWidth: '780px',
       margin: '0 auto',
       position: 'relative'
     }}>
@@ -224,23 +219,23 @@ export default function CanvasPromptBar(props) {
           bottom: '100%',
           left: 0,
           right: 0,
-          marginBottom: '10px',
-          padding: '8px',
-          borderRadius: '18px',
+          marginBottom: '12px',
+          padding: '10px',
+          borderRadius: '20px',
           border: '1.5px solid var(--border-glow)',
           background: 'var(--bg-card)',
           boxShadow: 'var(--shadow-prompt)',
           zIndex: 200,
-          maxHeight: '280px',
+          maxHeight: '290px',
           overflowY: 'auto'
         }}>
           <div style={{
-            fontSize: '10.5px',
+            fontSize: '11px',
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            padding: '4px 8px 8px 8px',
+            letterSpacing: '0.05em',
+            padding: '4px 10px 8px 10px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between'
@@ -252,41 +247,41 @@ export default function CanvasPromptBar(props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {filteredCommands.map((cmd, idx) => {
               const Icon = cmd.icon;
-              const isSelected = idx === selectedIndex;
+              const isSelected = selectedIndex === idx;
               return (
                 <div
                   key={cmd.cmd}
                   onClick={() => handleSelectCommand(cmd)}
                   style={{
+                    padding: '9px 12px',
+                    borderRadius: '12px',
+                    background: isSelected ? 'var(--bg-card-hover)' : 'transparent',
+                    border: `1.5px solid ${isSelected ? cmd.color : 'transparent'}`,
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    borderRadius: '12px',
-                    background: isSelected ? 'var(--bg-card-hover)' : 'transparent',
-                    border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'transparent'}`,
-                    cursor: 'pointer',
-                    transition: 'all 0.12s ease'
+                    transition: 'all 0.15s ease'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{
-                      width: '28px',
-                      height: '28px',
+                      width: '30px',
+                      height: '30px',
                       borderRadius: '8px',
-                      background: 'var(--bg-input)',
+                      background: `${cmd.color}18`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       color: cmd.color,
-                      border: '1px solid var(--border-subtle)'
+                      border: `1px solid ${cmd.color}35`
                     }}>
                       <Icon size={15} />
                     </div>
                     <div>
                       <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span>{cmd.label}</span>
-                        <code style={{ fontSize: '11px', color: cmd.color, background: 'var(--bg-input)', padding: '1px 6px', borderRadius: '4px' }}>
+                        <code style={{ fontSize: '11px', color: cmd.color, background: 'var(--bg-input)', padding: '2px 6px', borderRadius: '4px' }}>
                           {cmd.cmd}
                         </code>
                       </div>
@@ -302,26 +297,26 @@ export default function CanvasPromptBar(props) {
         </div>
       )}
 
-      {/* ─── 2. GEMINI FLOATING PROMPT BOX ───────────────────────── */}
+      {/* ─── 2. GEMINI / GROK FLOATING PROMPT BOX ───────────────────────── */}
       <form
         onSubmit={handleSubmit}
         style={{
           background: 'var(--bg-gemini-input)',
           border: '1.5px solid var(--border-glow)',
-          borderRadius: '26px',
+          borderRadius: '24px',
           padding: '12px 18px',
           boxShadow: 'var(--shadow-prompt)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
+          gap: '10px',
+          backdropFilter: 'blur(28px)',
+          WebkitBackdropFilter: 'blur(28px)',
           transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
         }}
       >
         {/* Top Direct Mode Switcher Pills + Auto-Upload Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => {
@@ -333,8 +328,8 @@ export default function CanvasPromptBar(props) {
                 color: effectiveMode === 'VIDEO_GENERATION' ? '#ffffff' : 'var(--text-secondary)',
                 border: `1px solid ${effectiveMode === 'VIDEO_GENERATION' ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
                 borderRadius: '99px',
-                padding: '3px 10px',
-                fontSize: '11px',
+                padding: '4px 12px',
+                fontSize: '11.5px',
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
@@ -343,7 +338,7 @@ export default function CanvasPromptBar(props) {
                 transition: 'all 0.15s ease'
               }}
             >
-              <Film size={11} />
+              <Film size={12} />
               <span>/video</span>
             </button>
 
@@ -358,8 +353,8 @@ export default function CanvasPromptBar(props) {
                 color: effectiveMode === 'CHAT' ? '#ffffff' : 'var(--text-secondary)',
                 border: `1px solid ${effectiveMode === 'CHAT' ? '#0ea5e9' : 'var(--border-subtle)'}`,
                 borderRadius: '99px',
-                padding: '3px 10px',
-                fontSize: '11px',
+                padding: '4px 12px',
+                fontSize: '11.5px',
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
@@ -368,7 +363,7 @@ export default function CanvasPromptBar(props) {
                 transition: 'all 0.15s ease'
               }}
             >
-              <MessageSquare size={11} />
+              <MessageSquare size={12} />
               <span>/chat</span>
             </button>
 
@@ -383,8 +378,8 @@ export default function CanvasPromptBar(props) {
                 color: effectiveMode === 'REFINE_STORY' ? '#ffffff' : 'var(--text-secondary)',
                 border: `1px solid ${effectiveMode === 'REFINE_STORY' ? '#ec4899' : 'var(--border-subtle)'}`,
                 borderRadius: '99px',
-                padding: '3px 10px',
-                fontSize: '11px',
+                padding: '4px 12px',
+                fontSize: '11.5px',
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
@@ -393,7 +388,7 @@ export default function CanvasPromptBar(props) {
                 transition: 'all 0.15s ease'
               }}
             >
-              <Wand2 size={11} />
+              <Wand2 size={12} />
               <span>/refine</span>
             </button>
           </div>
@@ -409,8 +404,8 @@ export default function CanvasPromptBar(props) {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '5px',
-                padding: '3px 10px',
+                gap: '6px',
+                padding: '4px 12px',
                 borderRadius: '99px',
                 fontSize: '11px',
                 fontWeight: 700,
@@ -428,8 +423,8 @@ export default function CanvasPromptBar(props) {
               <span>Auto-Upload: {autoUploadToYouTube ? 'ON' : 'OFF'}</span>
             </button>
 
-            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <Command size={10} /> Type <code>/</code>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+              <Command size={10} /> <code>/</code>
             </span>
           </div>
         </div>
@@ -443,7 +438,7 @@ export default function CanvasPromptBar(props) {
             onChange={(e) => setPromptValue(e.target.value)}
             placeholder={
               effectiveMode === 'CHAT' ? "Ask ShortsAI anything... (e.g. 'What makes a 3-second hook viral in Hindi?')" :
-              effectiveMode === 'REFINE_STORY' ? "Tell ShortsAI how to refine the story... (e.g. 'Make hook more dramatic')" :
+              effectiveMode === 'REFINE_STORY' ? "Tell ShortsAI how to refine the story... (e.g. 'Make hook more dramatic and focus on the ending')" :
               "Ask ShortsAI to generate any video... (Type '/' for commands or enter topic)"
             }
             rows={2}
@@ -453,12 +448,12 @@ export default function CanvasPromptBar(props) {
               border: 'none',
               outline: 'none',
               color: 'var(--text-primary)',
-              fontSize: '14px',
+              fontSize: '14.5px',
               fontFamily: "'Plus Jakarta Sans', sans-serif",
               fontWeight: 500,
-              lineHeight: 1.45,
+              lineHeight: 1.5,
               resize: 'none',
-              paddingRight: promptValue ? '28px' : '0'
+              paddingRight: promptValue ? '32px' : '0'
             }}
             onKeyDown={handleKeyDown}
           />
@@ -473,12 +468,12 @@ export default function CanvasPromptBar(props) {
               style={{
                 position: 'absolute',
                 right: 0,
-                top: '2px',
+                top: '4px',
                 background: 'var(--border-subtle)',
                 border: 'none',
                 borderRadius: '50%',
-                width: '20px',
-                height: '20px',
+                width: '22px',
+                height: '22px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -486,87 +481,100 @@ export default function CanvasPromptBar(props) {
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
+              title="Clear input"
             >
-              <X size={12} />
+              <X size={13} />
             </button>
           )}
         </div>
 
-        {/* Settings Pills + Send Action Row */}
+        {/* Settings Dropdowns + Send Action Row */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '8px',
-          paddingTop: '4px',
+          paddingTop: '6px',
           borderTop: '1px solid var(--border-subtle)'
         }}>
           {/* Quick Config Dropdowns */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <select
-              value={currentVoiceId}
-              onChange={(e) => setVoiceValue(e.target.value)}
-              style={{
-                background: 'var(--bg-input)',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '99px',
-                padding: '4px 10px',
-                fontSize: '11.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                outline: 'none'
-              }}
-            >
-              {VOICES.map((v) => (
-                <option key={v.id} value={v.id}>
-                  🎙️ {v.name} ({v.gender})
-                </option>
-              ))}
-            </select>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <select
+                value={currentVoiceId}
+                onChange={(e) => setVoiceValue(e.target.value)}
+                style={{
+                  background: 'var(--bg-input)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '99px',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  outline: 'none',
+                  appearance: 'none',
+                  paddingRight: '14px'
+                }}
+              >
+                {VOICES.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    🎙️ {v.name} ({v.gender})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <select
-              value={currentStyleId}
-              onChange={(e) => setStyleValue(e.target.value)}
-              style={{
-                background: 'var(--bg-input)',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '99px',
-                padding: '4px 10px',
-                fontSize: '11.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                outline: 'none'
-              }}
-            >
-              {VISUAL_STYLES.map((s) => (
-                <option key={s.id} value={s.id}>
-                  🎨 {s.name}
-                </option>
-              ))}
-            </select>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <select
+                value={currentStyleId}
+                onChange={(e) => setStyleValue(e.target.value)}
+                style={{
+                  background: 'var(--bg-input)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '99px',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  outline: 'none',
+                  appearance: 'none',
+                  paddingRight: '14px'
+                }}
+              >
+                {VISUAL_STYLES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    🎨 {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <select
-              value={currentLanguage}
-              onChange={(e) => setLanguageValue(e.target.value)}
-              style={{
-                background: 'var(--bg-input)',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '99px',
-                padding: '4px 10px',
-                fontSize: '11.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                outline: 'none'
-              }}
-            >
-              <option value="Hinglish">🗣️ Hinglish</option>
-              <option value="Hindi">🗣️ Hindi</option>
-              <option value="English">🗣️ English</option>
-            </select>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <select
+                value={currentLanguage}
+                onChange={(e) => setLanguageValue(e.target.value)}
+                style={{
+                  background: 'var(--bg-input)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '99px',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  outline: 'none',
+                  appearance: 'none',
+                  paddingRight: '14px'
+                }}
+              >
+                <option value="Hinglish">🗣️ Hinglish</option>
+                <option value="Hindi">🗣️ Hindi</option>
+                <option value="English">🗣️ English</option>
+              </select>
+            </div>
           </div>
 
           {/* Send Button */}
@@ -574,22 +582,27 @@ export default function CanvasPromptBar(props) {
             type="submit"
             disabled={!promptValue.trim() || isGenerating}
             style={{
-              width: '32px',
-              height: '32px',
+              width: '36px',
+              height: '36px',
               borderRadius: '50%',
-              background: promptValue.trim() ? 'var(--grad-gemini)' : 'var(--bg-input)',
+              background: promptValue.trim() && !isGenerating ? 'var(--grad-gemini)' : 'var(--bg-input)',
               border: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: promptValue.trim() ? '#ffffff' : 'var(--text-muted)',
+              color: promptValue.trim() && !isGenerating ? '#ffffff' : 'var(--text-muted)',
               cursor: promptValue.trim() && !isGenerating ? 'pointer' : 'not-allowed',
-              boxShadow: promptValue.trim() ? '0 0 16px rgba(56, 189, 248, 0.4)' : 'none',
+              boxShadow: promptValue.trim() && !isGenerating ? '0 0 20px rgba(56, 189, 248, 0.45)' : 'none',
               transition: 'all 0.2s ease',
               flexShrink: 0
             }}
+            title={isGenerating ? 'Processing...' : 'Send (Enter)'}
           >
-            <ArrowUp size={16} strokeWidth={2.5} />
+            {isGenerating ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <ArrowUp size={18} strokeWidth={2.5} />
+            )}
           </button>
         </div>
       </form>

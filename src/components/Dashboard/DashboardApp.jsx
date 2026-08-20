@@ -89,6 +89,7 @@ export default function DashboardApp({
   const [musicId, setMusicId] = useState('mystery');
   const [language, setLanguage] = useState('Hinglish');
   const [autoUploadToYouTube, setAutoUploadToYouTube] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isChatResponding, setIsChatResponding] = useState(false);
@@ -100,6 +101,7 @@ export default function DashboardApp({
   // Ref to track active request timestamp
   const generationStartTimeRef = useRef(0);
   const messagesEndRef = useRef(null);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
 
   // ── TRUTH-BASED: Derive isGenerating + stage from persisted thread status ──
   // This survives page reloads, component remounts, and navigations.
@@ -816,19 +818,27 @@ export default function DashboardApp({
       background: 'var(--bg-app)',
       overflow: 'hidden'
     }}>
-      {/* Real Persistent History Sidebar */}
-      <Sidebar
-        pastShorts={pastShorts}
-        activeShortId={activeThreadId}
-        onSelectShort={handleSelectShort}
-        onNewShort={handleNewShort}
-        onDeleteShort={handleDeleteShort}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={onToggleSidebar}
-        user={user}
-        onOpenSettings={onNavigateToSettings}
-        onLogout={onLogout}
+      {/* Mobile Sidebar Overlay */}
+      <div
+        className={`sidebar-mobile-overlay ${isMobileSidebarOpen ? 'visible' : ''}`}
+        onClick={() => setIsMobileSidebarOpen(false)}
       />
+
+      {/* Real Persistent History Sidebar */}
+      <div className={`sidebar-wrapper-mobile ${isMobileSidebarOpen ? 'open' : ''}`}>
+        <Sidebar
+          pastShorts={pastShorts}
+          activeShortId={activeThreadId}
+          onSelectShort={(id) => { handleSelectShort(id); setIsMobileSidebarOpen(false); }}
+          onNewShort={() => { handleNewShort(); setIsMobileSidebarOpen(false); }}
+          onDeleteShort={handleDeleteShort}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={onToggleSidebar}
+          user={user}
+          onOpenSettings={onNavigateToSettings}
+          onLogout={onLogout}
+        />
+      </div>
 
       {/* Main Center Studio Canvas */}
       <main style={{
@@ -837,26 +847,32 @@ export default function DashboardApp({
         overflowY: 'auto',
         position: 'relative',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        minWidth: 0
       }}>
-        <div style={{
-          flex: 1,
-          padding: '28px 28px 190px 28px',
-          maxWidth: '860px',
-          width: '100%',
-          margin: '0 auto'
-        }}>
+        <div className="studio-main-content">
           {/* Header Bar if active thread is selected */}
           {activeThread && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <button
-                onClick={handleNewShort}
-                className="btn-outline"
-                style={{ fontSize: '12px', padding: '5px 12px', gap: '6px' }}
-              >
-                <ArrowLeft size={13} />
-                <span>New Video Studio</span>
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* Mobile hamburger */}
+                <button
+                  onClick={() => setIsMobileSidebarOpen(true)}
+                  className="btn-outline"
+                  style={{ fontSize: '12px', padding: '5px 10px', display: 'none' }}
+                  id="mobile-menu-btn"
+                >
+                  ☰
+                </button>
+                <button
+                  onClick={handleNewShort}
+                  className="btn-outline"
+                  style={{ fontSize: '12px', padding: '5px 12px', gap: '6px' }}
+                >
+                  <ArrowLeft size={13} />
+                  <span>New Video</span>
+                </button>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className={`badge ${
                   activeThread.status === 'COMPLETED' ? 'badge-cyan' :
@@ -875,10 +891,25 @@ export default function DashboardApp({
             </div>
           )}
 
-          {/* Chronological Chat Messages Timeline — ChatGPT/Claude style */}
-          {activeThread?.messages && activeThread.messages.length > 0 && (
+          {/* Chronological Chat Messages Timeline — ChatGPT/Claude style
+               Only shows messages BEFORE completion. YouTube upload success
+               messages are shown BELOW the ResultThreadCard. */}
+          {activeThread?.messages && activeThread.messages.length > 0 && (() => {
+            // Separate pre-completion messages from post-completion (YouTube upload etc.)
+            const isCompleted = activeThread.status === 'COMPLETED';
+            const youtubeKeywords = ['1-Click Upload to YouTube', 'YouTube Success', 'Uploaded to YouTube', 'Watch Short:', '🚀', '📺'];
+            const isYouTubeMsg = (msg) => youtubeKeywords.some(kw => (msg.content || '').includes(kw));
+            
+            // When completed: show only non-YouTube messages in the timeline above the card
+            const timelineMessages = isCompleted
+              ? activeThread.messages.filter(m => !isYouTubeMsg(m))
+              : activeThread.messages;
+
+            if (timelineMessages.length === 0) return null;
+
+            return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
-              {activeThread.messages.map((msg, idx) => {
+              {timelineMessages.map((msg, idx) => {
                 const isUser = msg.role === 'user';
                 // Render markdown-style bold, bullets, and line breaks
                 const renderContent = (text) => {
@@ -956,7 +987,8 @@ export default function DashboardApp({
                 );
               })}
             </div>
-          )}
+            );
+          })()}
 
 
           {/* Real-time Claude AI Typing Indicator — bouncing dots like ChatGPT */}
@@ -1208,12 +1240,40 @@ export default function DashboardApp({
 
           {/* 6. If Completed Video: Show Full Result Card with Real n8n Scenes & Video Stream */}
           {activeThread && activeThread.status === 'COMPLETED' && !isGenerating && (
-            <ResultThreadCard
-              key={activeThread.id || activeThread.threadId}
-              shortData={activeThread}
-              onUploadYouTube={handleUploadYouTube}
-              onRegenerate={() => handleGenerate('VIDEO_GENERATION')}
-            />
+            <>
+              <ResultThreadCard
+                key={activeThread.id || activeThread.threadId}
+                shortData={activeThread}
+                onUploadYouTube={handleUploadYouTube}
+                onRegenerate={() => handleGenerate('VIDEO_GENERATION')}
+              />
+
+              {/* YouTube Upload Success Messages — rendered BELOW the card, not above */}
+              {activeThread.messages?.filter(m => {
+                const youtubeKeywords = ['1-Click Upload to YouTube', 'YouTube Success', 'Uploaded to YouTube', 'Watch Short:', '🚀', '📺'];
+                return youtubeKeywords.some(kw => (m.content || '').includes(kw));
+              }).map((msg, idx) => {
+                const urlMatch = (msg.content || '').match(/(https?:\/\/[^\s]+)/);
+                const ytUrl = urlMatch?.[1];
+                return (
+                  <div key={`yt-${idx}`} className="youtube-success-msg">
+                    <div className="youtube-success-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                      </svg>
+                    </div>
+                    <div className="youtube-success-text">
+                      <strong>🚀 Upload Successful!</strong>
+                      {ytUrl && (
+                        <div style={{ marginTop: '4px' }}>
+                          📺 <a href={ytUrl} target="_blank" rel="noopener noreferrer" className="youtube-success-link">{ytUrl}</a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
           )}
 
           {/* 7. If Empty Canvas: Show Inspiration Templates */}
@@ -1228,20 +1288,23 @@ export default function DashboardApp({
         </div>
 
         {/* Floating Gemini Prompt Bar (Fixed Bottom Center) */}
-        <div style={{
-          position: 'fixed',
-          bottom: 0,
-          left: sidebarCollapsed ? '52px' : '200px',
-          right: 0,
-          background: 'linear-gradient(to top, var(--bg-app) 80%, transparent 100%)',
-          padding: '12px 20px 16px 20px',
-          display: 'flex',
-          justifyContent: 'center',
-          zIndex: 100,
-          pointerEvents: 'none',
-          transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}>
-          <div style={{ width: '100%', maxWidth: '780px', pointerEvents: 'auto' }}>
+        <div
+          className="prompt-bar-wrapper"
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: sidebarCollapsed ? '52px' : '200px',
+            right: 0,
+            background: 'linear-gradient(to top, var(--bg-app) 80%, transparent 100%)',
+            padding: '12px 24px 16px',
+            display: 'flex',
+            justifyContent: 'center',
+            zIndex: 100,
+            pointerEvents: 'none',
+            transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >
+          <div className="prompt-bar-inner" style={{ width: '100%', maxWidth: '900px', pointerEvents: 'auto' }}>
             <CanvasPromptBar
               prompt={prompt}
               setPrompt={setPrompt}
