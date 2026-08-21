@@ -4,7 +4,7 @@
 
 import { getDb } from './db.js';
 
-const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg22.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
+const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg23.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
 
 export const handler = async (event, context) => {
   if (event.httpMethod === 'OPTIONS') {

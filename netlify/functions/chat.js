@@ -7,7 +7,7 @@
 
 import { getDb } from './db.js';
 
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg22.app.n8n.cloud/webhook/viral-shorts-ai';
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg23.app.n8n.cloud/webhook/viral-shorts-ai';
 const CLAUDE_BASE_URL = process.env.CLAUDE_BASE_URL || 'https://api.llmsrelay.com';
 
 const CLAUDE_KEYS = [

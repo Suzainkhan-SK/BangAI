@@ -4,7 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const N8N_WEBHOOK_URL = 'https://cmpunktg22.app.n8n.cloud/webhook/viral-shorts-ai';
+const N8N_WEBHOOK_URL = 'https://cmpunktg23.app.n8n.cloud/webhook/viral-shorts-ai';
 const CACHE_FILE = path.join('/tmp', 'latest_story.json');
 
 export const handler = async (event, context) => {
