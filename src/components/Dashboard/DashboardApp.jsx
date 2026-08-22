@@ -182,8 +182,9 @@ export default function DashboardApp({
     loadThreadsFromDatabase();
   }, [sessionId]);
 
-  // Track when user last approved a story (prevents stale READY_FOR_APPROVAL from snapping back)
-  const lastApprovalTimestampRef = React.useRef(0);
+  // Track distinct approval timestamps to prevent stale responses from interrupting active generation
+  const lastStoryApprovalTimeRef = React.useRef(0);
+  const lastScenesApprovalTimeRef = React.useRef(0);
   // Track when user initiated refinement (keeps animation alive until new refined story arrives)
   const refiningStartTimeRef = React.useRef(0);
   // Track previous brief to detect changes upon refinement
@@ -209,7 +210,6 @@ export default function DashboardApp({
 
         // Ignore if it's for a different thread
         if (data.threadId && data.threadId !== activeThreadId) return;
-        if (!data.hasStory) return;
 
         const status = data.status;
         const prevStatus = prevPollStatusRef.current[activeThreadId];
@@ -217,6 +217,22 @@ export default function DashboardApp({
         prevPollStatusRef.current[activeThreadId] = status;
 
         console.log('[Website] Poll received status from n8n Cloud:', status, '| isTransition:', isStatusTransition, '| videoUrl:', data.videoUrl || data.story?.videoUrl || 'none');
+
+        // ── ACTIVE SERVER GENERATION / RENDERING STATES ──────────────
+        if (status === 'GENERATING_SCENES' || status === 'RENDERING_VIDEO' || status === 'GENERATING') {
+          setIsGenerating(true);
+          const stageMsg = status === 'RENDERING_VIDEO'
+            ? 'Autonomous 4K video rendering dispatched on n8n Cloud...'
+            : (status === 'GENERATING_SCENES' ? 'Generating 5-scene master screenplay in n8n Cloud...' : 'Connecting to n8n Cloud Pipeline...');
+          setGenerationStage(stageMsg);
+          setPastShorts(prev => prev.map(t => {
+            if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
+            return { ...t, status, generationStage: stageMsg };
+          }));
+          return;
+        }
+
+        if (!data.hasStory && !['COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC', 'WORKFLOW_INACTIVE', 'EXECUTION_TIMEOUT'].includes(status)) return;
 
         // ── DUPLICATE TOPIC ─────────────────────────────────────────
         if (status === 'DUPLICATE_TOPIC') {
@@ -287,9 +303,12 @@ export default function DashboardApp({
         }
 
         // ── COMPLETED ───────────────────────────────────────────────
-        if (status === 'COMPLETED') {
+        if (status === 'COMPLETED' || status === 'VIDEO_COMPLETED') {
+          lastScenesApprovalTimeRef.current = 0;
+          lastStoryApprovalTimeRef.current = 0;
           if (isStatusTransition) audioEngine.playSfx('boom');
           setIsGenerating(false);
+          setGenerationStage('');
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
             const existing = t.messages || [];
@@ -311,10 +330,13 @@ export default function DashboardApp({
           return;
         }
 
-        // ── SCENES READY ─────────────────────────────────────────────
-        const timeSinceApprovalScenes = Date.now() - lastApprovalTimestampRef.current;
-        if (status === 'SCENES_READY_FOR_APPROVAL' && timeSinceApprovalScenes < 120000 && lastApprovalTimestampRef.current > 0) {
-          console.log('[Website] Skipping stale SCENES_READY_FOR_APPROVAL — user approved', Math.round(timeSinceApprovalScenes / 1000), 's ago');
+        // ── SCENES READY (Stage 2) ───────────────────────────────────
+        // Guard against stale SCENES_READY_FOR_APPROVAL when user already approved Stage 2 for video rendering
+        const timeSinceScenesApproval = Date.now() - lastScenesApprovalTimeRef.current;
+        if (lastScenesApprovalTimeRef.current > 0 && timeSinceScenesApproval < 3600000) {
+          console.log('[Website] Skipping stale SCENES_READY_FOR_APPROVAL — video rendering in progress');
+          setIsGenerating(true);
+          setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
           return;
         }
 
@@ -335,6 +357,9 @@ export default function DashboardApp({
         }
 
         if (status === 'SCENES_READY_FOR_APPROVAL') {
+          // Scenes have successfully arrived! Unset stage 1 approval lock
+          lastStoryApprovalTimeRef.current = 0;
+
           if (isStatusTransition && refiningStartTimeRef.current === 0) audioEngine.playSfx('success');
           setIsGenerating(false);
           setGenerationStage('');
@@ -359,9 +384,12 @@ export default function DashboardApp({
         }
 
         // ── STORY READY (Stage 1) ────────────────────────────────────
-        const timeSinceApproval = Date.now() - lastApprovalTimestampRef.current;
-        if (status === 'READY_FOR_APPROVAL' && timeSinceApproval < 120000 && lastApprovalTimestampRef.current > 0) {
-          console.log('[Website] Skipping stale READY_FOR_APPROVAL — user approved', Math.round(timeSinceApproval / 1000), 's ago');
+        // Guard against stale READY_FOR_APPROVAL when user already approved Stage 1 for scene generation
+        const timeSinceStoryApproval = Date.now() - lastStoryApprovalTimeRef.current;
+        if (lastStoryApprovalTimeRef.current > 0 && timeSinceStoryApproval < 180000) {
+          console.log('[Website] Skipping stale READY_FOR_APPROVAL — scene generation in progress');
+          setIsGenerating(true);
+          setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
           return;
         }
 
@@ -389,6 +417,7 @@ export default function DashboardApp({
         if (status === 'READY_FOR_APPROVAL') {
           if (isStatusTransition && refiningStartTimeRef.current === 0) audioEngine.playSfx('success');
           setIsGenerating(false);
+          setGenerationStage('');
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
             // Never snap back from a more advanced state
@@ -401,7 +430,8 @@ export default function DashboardApp({
             return {
               ...t, status: 'READY_FOR_APPROVAL',
               title: titleStr,
-              story: data.story,
+              story: data.story || data,
+              scenes: null,
               approveUrl: data.approveUrl || data.story?.approveUrl || t.approveUrl,
               cancelUrl: data.cancelUrl || data.story?.cancelUrl || t.cancelUrl,
               messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
@@ -803,18 +833,19 @@ export default function DashboardApp({
   const handleApproveStory = async (approveUrl) => {
     audioEngine.playSfx('success');
 
-    // Stamp approval time IMMEDIATELY so polling skips stale READY_FOR_APPROVAL for 35 seconds
-    lastApprovalTimestampRef.current = Date.now();
-
     const isStage1 = activeThread?.status === 'READY_FOR_APPROVAL';
     const isStage2 = activeThread?.status === 'SCENES_READY_FOR_APPROVAL';
 
-    // Show temporary generating feedback while generating scenes or rendering
-    setIsGenerating(true);
     if (isStage1) {
-      setGenerationStage('Generating 5-scene master screenplay...');
+      lastStoryApprovalTimeRef.current = Date.now();
+      lastScenesApprovalTimeRef.current = 0;
+      setIsGenerating(true);
+      setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
     } else if (isStage2) {
-      setGenerationStage('Dispatching 4K autonomous video rendering pipeline...');
+      lastScenesApprovalTimeRef.current = Date.now();
+      lastStoryApprovalTimeRef.current = 0;
+      setIsGenerating(true);
+      setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
     }
 
     try {
@@ -1239,10 +1270,10 @@ export default function DashboardApp({
             </div>
           )}
 
-          {/* 3. Story / Scenes Approval Card — visible even during GENERATING_SCENES polling after approval */}
-          {activeThread && (
-            (activeThread.status === 'READY_FOR_APPROVAL' && !isGenerating) ||
-            (activeThread.status === 'SCENES_READY_FOR_APPROVAL')
+          {/* 3. Story / Scenes Approval Card */}
+          {activeThread && !isGenerating && (
+            activeThread.status === 'READY_FOR_APPROVAL' ||
+            activeThread.status === 'SCENES_READY_FOR_APPROVAL'
           ) && (activeThread.story || activeThread.scenes) && (
             <StoryApprovalCard
               story={activeThread.story || activeThread}
