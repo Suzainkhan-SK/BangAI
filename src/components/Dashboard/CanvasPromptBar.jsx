@@ -42,17 +42,8 @@ const SLASH_COMMANDS = [
     placeholder: 'Ask anything about retention, hooks, algorithms, or strategy...'
   },
   {
-    cmd: '/refine',
-    mode: 'REFINE_STORY',
-    label: 'Refine Active Story',
-    desc: 'Adjust pacing, tone, style, or hook of current script',
-    icon: Wand2,
-    color: '#ec4899',
-    placeholder: 'Tell Claude how to improve the current story brief...'
-  },
-  {
     cmd: '/hook',
-    mode: 'REFINE_STORY',
+    mode: 'CHAT',
     label: 'Generate Viral Hooks',
     desc: 'Craft 3-second pattern interrupts for maximum retention',
     icon: Flame,
@@ -366,31 +357,6 @@ export default function CanvasPromptBar(props) {
             >
               <MessageSquare size={12} />
               <span>/chat</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                audioEngine.playSfx('click');
-                setExplicitMode(explicitMode === 'REFINE_STORY' ? null : 'REFINE_STORY');
-              }}
-              style={{
-                background: effectiveMode === 'REFINE_STORY' ? 'linear-gradient(135deg, #ec4899, #8b5cf6)' : 'var(--bg-input)',
-                color: effectiveMode === 'REFINE_STORY' ? '#ffffff' : 'var(--text-secondary)',
-                border: `1px solid ${effectiveMode === 'REFINE_STORY' ? '#ec4899' : 'var(--border-subtle)'}`,
-                borderRadius: '99px',
-                padding: '4px 12px',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <Wand2 size={12} />
-              <span>/refine</span>
             </button>
           </div>
 

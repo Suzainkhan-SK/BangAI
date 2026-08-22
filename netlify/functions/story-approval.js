@@ -100,8 +100,8 @@ export const handler = async (event, context) => {
       // 1. Check MongoDB store first
       let latest = await threadsCol.findOne({ threadId });
 
-      // 2. If not found or still GENERATING, also check n8n execution API as fallback
-      if (!latest || !READY_STATES.includes(latest.status)) {
+      // 2. Only check n8n execution API as fallback if NO record exists in MongoDB at all
+      if (!latest) {
         const n8nData = await checkN8nExecutionForThread(threadId);
         if (n8nData) {
           await threadsCol.updateOne({ threadId }, { $set: n8nData }, { upsert: true });
@@ -130,6 +130,17 @@ export const handler = async (event, context) => {
           await threadsCol.updateOne({ threadId }, { $set: stallDoc });
           latest = { ...latest, ...stallDoc };
           console.log(`[story-approval] Detected stalled execution for thread ${threadId} — ${Math.round(timeSinceUpdate / 60000)} minutes with no update`);
+        } else {
+          // Actively generating/rendering — return current active status to keep website animation running
+          return {
+            statusCode: 200,
+            headers: CORS,
+            body: JSON.stringify({
+              hasStory: false,
+              status: latest.status,
+              threadId: latest.threadId
+            })
+          };
         }
       }
 
