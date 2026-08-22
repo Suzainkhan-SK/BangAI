@@ -184,6 +184,8 @@ export default function DashboardApp({
 
   // Track when user last approved a story (prevents stale READY_FOR_APPROVAL from snapping back)
   const lastApprovalTimestampRef = React.useRef(0);
+  // Track when user initiated refinement (keeps animation alive until new refined story arrives)
+  const refiningStartTimeRef = React.useRef(0);
   // Track last known status per thread to prevent repetitive sound beeping on continuous polling
   const prevPollStatusRef = React.useRef({});
 
@@ -218,11 +220,16 @@ export default function DashboardApp({
         if (status === 'DUPLICATE_TOPIC') {
           if (isStatusTransition) audioEngine.playSfx('click');
           setIsGenerating(false);
-          setPastShorts(prev => prev.map(t =>
-            (t.threadId === activeThreadId || t.id === activeThreadId)
-              ? { ...t, status: 'DUPLICATE_TOPIC', duplicateInfo: { matchedTitle: data.story?.matchedTitle, message: data.story?.message } }
-              : t
-          ));
+          setPastShorts(prev => prev.map(t => {
+            if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
+            const existing = t.messages || [];
+            const msgText = `⚠️ Topic already covered: "${data.matchedTitle || data.story?.matchedTitle || 'Duplicate topic'}".`;
+            return {
+              ...t, status: 'DUPLICATE_TOPIC',
+              errorMessage: data.message || 'Duplicate topic detected',
+              messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
+            };
+          }));
           return;
         }
 
@@ -230,18 +237,20 @@ export default function DashboardApp({
         if (status === 'CANCELLED') {
           if (isStatusTransition) audioEngine.playSfx('click');
           setIsGenerating(false);
-          setPastShorts(prev => prev.map(t =>
-            (t.threadId === activeThreadId || t.id === activeThreadId)
-              ? { ...t, status: 'CANCELLED' }
-              : t
-          ));
+          setPastShorts(prev => prev.map(t => {
+            if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
+            const existing = t.messages || [];
+            const msgText = `⏹️ Generation was cancelled by creator.`;
+            return {
+              ...t, status: 'CANCELLED',
+              messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
+            };
+          }));
           return;
         }
 
-        // ── EXECUTION TIMEOUT / WORKFLOW CRASHED ─────────────────────
-        // n8n workflow timed out (e.g. 3-min timeout) or execution was cancelled
-        // externally. Stop the animation and show a retry card.
-        if (status === 'EXECUTION_TIMEOUT' || status === 'WORKFLOW_CRASHED') {
+        // ── WORKFLOW INACTIVE / EXECUTION TIMEOUT ───────────────────
+        if (status === 'WORKFLOW_INACTIVE' || status === 'EXECUTION_TIMEOUT') {
           if (isStatusTransition) audioEngine.playSfx('click');
           setIsGenerating(false);
           setPastShorts(prev => prev.map(t => {
@@ -257,7 +266,6 @@ export default function DashboardApp({
           }));
           return;
         }
-
 
         // ── RENDER FAILED ───────────────────────────────────────────
         if (status === 'RENDER_FAILED') {
@@ -302,15 +310,30 @@ export default function DashboardApp({
         }
 
         // ── SCENES READY ─────────────────────────────────────────────
-        // Skip if user approved scenes within 120s — same guard as Stage 1
         const timeSinceApprovalScenes = Date.now() - lastApprovalTimestampRef.current;
-        if (status === 'SCENES_READY_FOR_APPROVAL' && timeSinceApprovalScenes < 120000) {
+        if (status === 'SCENES_READY_FOR_APPROVAL' && timeSinceApprovalScenes < 120000 && lastApprovalTimestampRef.current > 0) {
           console.log('[Website] Skipping stale SCENES_READY_FOR_APPROVAL — user approved', Math.round(timeSinceApprovalScenes / 1000), 's ago');
           return;
         }
 
+        // If user actively requested scene refinement, check if this is the new refined response
+        if (refiningStartTimeRef.current > 0 && status === 'SCENES_READY_FOR_APPROVAL') {
+          const isNewRefined = (data.story?.refined === true || (data.scenes && data.scenes[0]?.refined === true)) &&
+            (new Date(data.story?.refineTimestamp || data.timestamp || 0).getTime() >= (refiningStartTimeRef.current - 3000));
+          if (!isNewRefined) {
+            console.log('[Website] n8n is still refining scenes... keeping animation active');
+            setIsGenerating(true);
+            setGenerationStage('AI Agent Screenplay Doctor is refining 5 scenes with full memory...');
+            return;
+          } else {
+            console.log('[Website] Newly refined scenes received from Screenplay Doctor!');
+            refiningStartTimeRef.current = 0;
+            audioEngine.playSfx('success');
+          }
+        }
+
         if (status === 'SCENES_READY_FOR_APPROVAL') {
-          if (isStatusTransition) audioEngine.playSfx('success');
+          if (isStatusTransition && refiningStartTimeRef.current === 0) audioEngine.playSfx('success');
           setIsGenerating(false);
           setGenerationStage('');
           setPastShorts(prev => prev.map(t => {
@@ -334,15 +357,30 @@ export default function DashboardApp({
         }
 
         // ── STORY READY (Stage 1) ────────────────────────────────────
-        // Skip if user just approved within 120s — stops stale data from rolling back UI
         const timeSinceApproval = Date.now() - lastApprovalTimestampRef.current;
-        if (status === 'READY_FOR_APPROVAL' && timeSinceApproval < 120000) {
+        if (status === 'READY_FOR_APPROVAL' && timeSinceApproval < 120000 && lastApprovalTimestampRef.current > 0) {
           console.log('[Website] Skipping stale READY_FOR_APPROVAL — user approved', Math.round(timeSinceApproval / 1000), 's ago');
           return;
         }
 
+        // If user actively requested refinement, check if this is the newly refined story
+        if (refiningStartTimeRef.current > 0) {
+          const isNewRefined = (data.story?.refined === true) &&
+            (new Date(data.story?.refineTimestamp || data.timestamp || 0).getTime() >= (refiningStartTimeRef.current - 3000));
+          if (!isNewRefined) {
+            console.log('[Website] n8n is still refining story... keeping animation active');
+            setIsGenerating(true);
+            setGenerationStage('AI Agent Story Doctor is refining story brief with full memory...');
+            return;
+          } else {
+            console.log('[Website] Newly refined story received from Story Doctor!');
+            refiningStartTimeRef.current = 0;
+            audioEngine.playSfx('success');
+          }
+        }
+
         if (status === 'READY_FOR_APPROVAL') {
-          if (isStatusTransition) audioEngine.playSfx('success');
+          if (isStatusTransition && refiningStartTimeRef.current === 0) audioEngine.playSfx('success');
           setIsGenerating(false);
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
@@ -350,7 +388,9 @@ export default function DashboardApp({
             if (['GENERATING_SCENES', 'SCENES_READY_FOR_APPROVAL', 'RENDERING_VIDEO', 'COMPLETED'].includes(t.status)) return t;
             const existing = t.messages || [];
             const titleStr = data.story?.suggestedTitle || data.title || t.title;
-            const msgText = `Story ready for review: "${titleStr}"`;
+            const msgText = data.story?.refined 
+              ? `✍️ Refined story ready for review: "${titleStr}"`
+              : `Story ready for review: "${titleStr}"`;
             return {
               ...t, status: 'READY_FOR_APPROVAL',
               title: titleStr,
@@ -690,8 +730,9 @@ export default function DashboardApp({
     if (!activeThread || !refinePrompt.trim()) return;
     audioEngine.playSfx('shimmer');
 
-    // Reset approval guard timestamp so the newly refined story is accepted immediately
+    // Reset approval guard timestamp and start refinement tracking
     lastApprovalTimestampRef.current = 0;
+    refiningStartTimeRef.current = Date.now();
 
     const effectiveApproveUrl = customApproveUrl || activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl;
 
