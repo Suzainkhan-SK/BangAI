@@ -690,6 +690,9 @@ export default function DashboardApp({
     if (!activeThread || !refinePrompt.trim()) return;
     audioEngine.playSfx('shimmer');
 
+    // Reset approval guard timestamp so the newly refined story is accepted immediately
+    lastApprovalTimestampRef.current = 0;
+
     const effectiveApproveUrl = customApproveUrl || activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl;
 
     const stageMsg = actionType === 'REFINE_SCENES'
