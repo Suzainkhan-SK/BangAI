@@ -150,6 +150,8 @@ export const handler = async (event, context) => {
             youtubeDescription: latest.youtubeDescription,
             tags: latest.tags,
             errorMessage: latest.errorMessage || null,
+            refined: !!(latest.story?.refined || latest.refined),
+            refineTimestamp: latest.story?.refineTimestamp || latest.refineTimestamp || null,
             approveUrl: latest.approveUrl || latest.story?.approveUrl || null,
             cancelUrl: latest.cancelUrl || latest.story?.cancelUrl || null
           })

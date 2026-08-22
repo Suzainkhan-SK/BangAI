@@ -186,6 +186,8 @@ export default function DashboardApp({
   const lastApprovalTimestampRef = React.useRef(0);
   // Track when user initiated refinement (keeps animation alive until new refined story arrives)
   const refiningStartTimeRef = React.useRef(0);
+  // Track previous brief to detect changes upon refinement
+  const previousBriefRef = React.useRef('');
   // Track last known status per thread to prevent repetitive sound beeping on continuous polling
   const prevPollStatusRef = React.useRef({});
 
@@ -318,9 +320,9 @@ export default function DashboardApp({
 
         // If user actively requested scene refinement, check if this is the new refined response
         if (refiningStartTimeRef.current > 0 && status === 'SCENES_READY_FOR_APPROVAL') {
-          const isNewRefined = (data.story?.refined === true || (data.scenes && data.scenes[0]?.refined === true)) &&
-            (new Date(data.story?.refineTimestamp || data.timestamp || 0).getTime() >= (refiningStartTimeRef.current - 3000));
-          if (!isNewRefined) {
+          const timeElapsed = Date.now() - refiningStartTimeRef.current;
+          const isReady = (data.story?.refined === true || (data.scenes && data.scenes[0]?.refined === true)) || (timeElapsed >= 3500 && data.hasStory);
+          if (!isReady) {
             console.log('[Website] n8n is still refining scenes... keeping animation active');
             setIsGenerating(true);
             setGenerationStage('AI Agent Screenplay Doctor is refining 5 scenes with full memory...');
@@ -364,11 +366,16 @@ export default function DashboardApp({
         }
 
         // If user actively requested refinement, check if this is the newly refined story
-        if (refiningStartTimeRef.current > 0) {
-          const isNewRefined = (data.story?.refined === true) &&
-            (new Date(data.story?.refineTimestamp || data.timestamp || 0).getTime() >= (refiningStartTimeRef.current - 3000));
-          if (!isNewRefined) {
-            console.log('[Website] n8n is still refining story... keeping animation active');
+        if (refiningStartTimeRef.current > 0 && status === 'READY_FOR_APPROVAL') {
+          const currentBrief = (data.story?.storyBrief || data.storyBrief || '').trim();
+          const storyChanged = currentBrief && previousBriefRef.current && (currentBrief !== previousBriefRef.current);
+          const isMarkedRefined = (data.refined === true || data.story?.refined === true);
+          const timeElapsed = Date.now() - refiningStartTimeRef.current;
+
+          const isReady = storyChanged || isMarkedRefined || (timeElapsed >= 3500 && data.hasStory);
+
+          if (!isReady) {
+            console.log('[Website] n8n is refining story... keeping animation active');
             setIsGenerating(true);
             setGenerationStage('AI Agent Story Doctor is refining story brief with full memory...');
             return;
@@ -388,7 +395,7 @@ export default function DashboardApp({
             if (['GENERATING_SCENES', 'SCENES_READY_FOR_APPROVAL', 'RENDERING_VIDEO', 'COMPLETED'].includes(t.status)) return t;
             const existing = t.messages || [];
             const titleStr = data.story?.suggestedTitle || data.title || t.title;
-            const msgText = data.story?.refined 
+            const msgText = (data.refined || data.story?.refined) 
               ? `✍️ Refined story ready for review: "${titleStr}"`
               : `Story ready for review: "${titleStr}"`;
             return {
@@ -733,6 +740,7 @@ export default function DashboardApp({
     // Reset approval guard timestamp and start refinement tracking
     lastApprovalTimestampRef.current = 0;
     refiningStartTimeRef.current = Date.now();
+    previousBriefRef.current = activeThread.story?.storyBrief || activeThread.storyBrief || '';
 
     const effectiveApproveUrl = customApproveUrl || activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl;
 
