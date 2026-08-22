@@ -1,8 +1,37 @@
 // Netlify Function: approve-story
 // Path: /.netlify/functions/approve-story
-// Handles 2-Stage Approvals, Story & Scene Refinements, and Cancellations
+// Handles 2-Stage Approvals, Story & Scene Refinements, and Cancellations while preserving cryptographic tokens
 
 import { getDb } from './db.js';
+
+function buildResumeUrl(rawUrl, action, refinePrompt = '') {
+  if (!rawUrl) return null;
+  try {
+    const u = new URL(rawUrl);
+    if (action === 'CANCEL') {
+      u.searchParams.set('approval', 'no');
+      u.searchParams.set('action', 'CANCEL');
+    } else if (action === 'REFINE_STORY' || action === 'REFINE') {
+      u.searchParams.set('approval', 'refine');
+      u.searchParams.set('action', 'REFINE_STORY');
+      if (refinePrompt) u.searchParams.set('refinePrompt', refinePrompt);
+    } else if (action === 'REFINE_SCENES') {
+      u.searchParams.set('approval', 'refine');
+      u.searchParams.set('action', 'REFINE_SCENES');
+      if (refinePrompt) u.searchParams.set('refinePrompt', refinePrompt);
+    } else if (action === 'APPROVE_SCENES' || action === 'RENDER_VIDEO') {
+      u.searchParams.set('approval', 'yes');
+      u.searchParams.set('action', 'APPROVE_SCENES');
+    } else {
+      u.searchParams.set('approval', 'yes');
+      u.searchParams.set('action', 'APPROVE');
+    }
+    return u.toString();
+  } catch (err) {
+    const sep = rawUrl.includes('?') ? '&' : '?';
+    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(refinePrompt)}`;
+  }
+}
 
 export const handler = async (event, context) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -47,16 +76,30 @@ export const handler = async (event, context) => {
       db = await getDb();
     } catch (e) {}
 
-    // Clean base resume URL (strip any pre-existing query parameters like ?approval=yes)
-    const cleanBaseUrl = (approveUrl || '').split('?')[0].trim();
+    let effectiveApproveUrl = approveUrl;
+
+    // Fallback: If approveUrl is missing from payload, query MongoDB thread
+    if (!effectiveApproveUrl && threadId && db) {
+      try {
+        const found = await db.collection('threads').findOne({ threadId });
+        if (found) {
+          effectiveApproveUrl = found.approveUrl || found.resumeUrl || found.story?.approveUrl || found.story?.resumeUrl;
+          console.log('[approve-story] Resolved approveUrl from DB:', effectiveApproveUrl);
+        }
+      } catch (dbFindErr) {
+        console.warn('[approve-story] DB find fallback notice:', dbFindErr.message);
+      }
+    }
+
+    const targetResumeUrl = buildResumeUrl(effectiveApproveUrl, action, refinePrompt);
+    console.log(`[approve-story] Built n8n target URL for action "${action}":`, targetResumeUrl);
 
     // ─── 1. HANDLE CANCEL / REJECT ACTION ─────────────────────────────
     if (action === 'CANCEL') {
-      if (cleanBaseUrl) {
-        const cancelTarget = `${cleanBaseUrl}?approval=no&action=CANCEL`;
-        console.log('[Netlify] Sending cancellation to n8n webhook:', cancelTarget);
+      if (targetResumeUrl) {
         try {
-          await fetch(cancelTarget, { method: 'GET' });
+          const res = await fetch(targetResumeUrl, { method: 'GET' });
+          console.log(`[Netlify] n8n cancellation response HTTP ${res.status}`);
         } catch (e) {
           console.warn('[Netlify] n8n cancellation fetch warning:', e.message);
         }
@@ -114,12 +157,9 @@ export const handler = async (event, context) => {
       }
 
       let n8nResumed = false;
-      if (cleanBaseUrl) {
-        const refineTarget = `${cleanBaseUrl}?approval=refine&action=REFINE_STORY&refinePrompt=${encodeURIComponent(refinePrompt)}`;
-        console.log('[Netlify] Resuming n8n Wait node via GET:', refineTarget);
-
+      if (targetResumeUrl) {
         try {
-          const res = await fetch(refineTarget, { method: 'GET' });
+          const res = await fetch(targetResumeUrl, { method: 'GET' });
           console.log(`[Netlify] n8n Wait node resume response HTTP ${res.status}`);
           n8nResumed = res.ok;
         } catch (err) {
@@ -166,12 +206,9 @@ export const handler = async (event, context) => {
       }
 
       let n8nResumed = false;
-      if (cleanBaseUrl) {
-        const refineTarget = `${cleanBaseUrl}?approval=refine&action=REFINE_SCENES&refinePrompt=${encodeURIComponent(refinePrompt)}`;
-        console.log('[Netlify] Resuming n8n Scenes Wait node via GET:', refineTarget);
-
+      if (targetResumeUrl) {
         try {
-          const res = await fetch(refineTarget, { method: 'GET' });
+          const res = await fetch(targetResumeUrl, { method: 'GET' });
           console.log(`[Netlify] n8n Scenes Wait node resume response HTTP ${res.status}`);
           n8nResumed = res.ok;
         } catch (err) {
@@ -215,11 +252,10 @@ export const handler = async (event, context) => {
         );
       }
 
-      if (cleanBaseUrl) {
-        const targetUrl = `${cleanBaseUrl}?approval=yes&action=APPROVE_SCENES`;
-        console.log('[Netlify] Resuming n8n Stage 2 Scenes Wait node:', targetUrl);
+      if (targetResumeUrl) {
         try {
-          await fetch(targetUrl, { method: 'GET' });
+          const res = await fetch(targetResumeUrl, { method: 'GET' });
+          console.log(`[Netlify] n8n Stage 2 resume response HTTP ${res.status}`);
         } catch (e) {
           console.warn('[Netlify] n8n Stage 2 resume fetch warning:', e.message);
         }
@@ -263,11 +299,9 @@ export const handler = async (event, context) => {
     }
 
     let resumedN8n = false;
-    if (cleanBaseUrl) {
-      const targetUrl = `${cleanBaseUrl}?approval=yes&action=APPROVE`;
-      console.log('[Netlify] Resuming n8n Stage 1 Story Wait node via GET:', targetUrl);
+    if (targetResumeUrl) {
       try {
-        const n8nResumeRes = await fetch(targetUrl, { method: 'GET' });
+        const n8nResumeRes = await fetch(targetResumeUrl, { method: 'GET' });
         console.log(`[Netlify] n8n Wait node resume response HTTP ${n8nResumeRes?.status || 200}`);
         resumedN8n = n8nResumeRes.ok;
       } catch (resumeErr) {

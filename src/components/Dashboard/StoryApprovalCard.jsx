@@ -62,7 +62,11 @@ export default function StoryApprovalCard({
     audioEngine.playSfx('shimmer');
     setIsRefining(true);
     if (typeof onRefine === 'function') {
-      onRefine(refineText.trim(), isFinalScenesStage ? 'REFINE_SCENES' : 'REFINE_STORY');
+      onRefine(
+        refineText.trim(), 
+        isFinalScenesStage ? 'REFINE_SCENES' : 'REFINE_STORY',
+        story?.approveUrl || story?.resumeUrl || story?.cancelUrl
+      );
     }
   };
 

@@ -686,9 +686,11 @@ export default function DashboardApp({
   };
 
   // ─── AI AGENT REFINEMENT HANDLER (Stage 1 & Stage 2) ───────────────
-  const handleRefineStory = async (refinePrompt, actionType = 'REFINE_STORY') => {
+  const handleRefineStory = async (refinePrompt, actionType = 'REFINE_STORY', customApproveUrl = null) => {
     if (!activeThread || !refinePrompt.trim()) return;
     audioEngine.playSfx('shimmer');
+
+    const effectiveApproveUrl = customApproveUrl || activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl;
 
     const stageMsg = actionType === 'REFINE_SCENES'
       ? 'AI Agent Screenplay Doctor is refining 5 scenes with full memory...'
@@ -713,7 +715,7 @@ export default function DashboardApp({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          approveUrl: activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl,
+          approveUrl: effectiveApproveUrl,
           threadId: activeThreadId,
           sessionId,
           action: actionType,
