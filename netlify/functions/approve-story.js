@@ -40,28 +40,23 @@ export const handler = async (event, context) => {
     } = payload;
 
     const now = new Date();
-    console.log(`[Netlify approve-story] Relaying action "${action}" to n8n Cloud resume webhook:`, approveUrl, 'Thread:', threadId);
+    console.log(`[Netlify approve-story] Action: "${action}" | approveUrl: "${approveUrl}" | Thread: "${threadId}"`);
 
     let db = null;
     try {
       db = await getDb();
     } catch (e) {}
 
+    // Clean base resume URL (strip any pre-existing query parameters like ?approval=yes)
+    const cleanBaseUrl = (approveUrl || '').split('?')[0].trim();
+
     // ─── 1. HANDLE CANCEL / REJECT ACTION ─────────────────────────────
     if (action === 'CANCEL') {
-      if (approveUrl) {
-        const sep = approveUrl.includes('?') ? '&' : '?';
-        const cancelTarget = approveUrl.includes('approval=') 
-          ? approveUrl.replace(/approval=[^&]+/, 'approval=no&action=CANCEL')
-          : `${approveUrl}${sep}approval=no&action=CANCEL`;
-
+      if (cleanBaseUrl) {
+        const cancelTarget = `${cleanBaseUrl}?approval=no&action=CANCEL`;
         console.log('[Netlify] Sending cancellation to n8n webhook:', cancelTarget);
         try {
-          await fetch(cancelTarget, { 
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ approval: 'no', action: 'CANCEL', threadId })
-          }).catch(() => fetch(cancelTarget, { method: 'GET' }));
+          await fetch(cancelTarget, { method: 'GET' });
         } catch (e) {
           console.warn('[Netlify] n8n cancellation fetch warning:', e.message);
         }
@@ -119,29 +114,14 @@ export const handler = async (event, context) => {
       }
 
       let n8nResumed = false;
-      if (approveUrl) {
-        const sep = approveUrl.includes('?') ? '&' : '?';
-        const refineTarget = `${approveUrl}${sep}approval=refine&action=REFINE_STORY&refinePrompt=${encodeURIComponent(refinePrompt)}`;
-        console.log('[Netlify] Sending Refinement to n8n Wait node:', refineTarget);
+      if (cleanBaseUrl) {
+        const refineTarget = `${cleanBaseUrl}?approval=refine&action=REFINE_STORY&refinePrompt=${encodeURIComponent(refinePrompt)}`;
+        console.log('[Netlify] Resuming n8n Wait node via GET:', refineTarget);
 
         try {
-          const res = await fetch(refineTarget, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              approval: 'refine',
-              action: 'REFINE_STORY',
-              refinePrompt,
-              threadId,
-              sessionId,
-              story,
-              language,
-              voiceId,
-              visualStyle
-            })
-          }).catch(() => fetch(refineTarget, { method: 'GET' }));
-
-          n8nResumed = true;
+          const res = await fetch(refineTarget, { method: 'GET' });
+          console.log(`[Netlify] n8n Wait node resume response HTTP ${res.status}`);
+          n8nResumed = res.ok;
         } catch (err) {
           console.warn('[Netlify] Refine dispatch warning:', err.message);
         }
@@ -154,6 +134,7 @@ export const handler = async (event, context) => {
           success: true,
           action: 'REFINE_STORY',
           status: 'GENERATING',
+          n8nResumed,
           message: 'Refinement dispatched to n8n AI Agent',
           threadId
         })
@@ -185,30 +166,14 @@ export const handler = async (event, context) => {
       }
 
       let n8nResumed = false;
-      if (approveUrl) {
-        const sep = approveUrl.includes('?') ? '&' : '?';
-        const refineTarget = `${approveUrl}${sep}approval=refine&action=REFINE_SCENES&refinePrompt=${encodeURIComponent(refinePrompt)}`;
-        console.log('[Netlify] Sending Scene Refinement to n8n Scenes Wait node:', refineTarget);
+      if (cleanBaseUrl) {
+        const refineTarget = `${cleanBaseUrl}?approval=refine&action=REFINE_SCENES&refinePrompt=${encodeURIComponent(refinePrompt)}`;
+        console.log('[Netlify] Resuming n8n Scenes Wait node via GET:', refineTarget);
 
         try {
-          await fetch(refineTarget, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              approval: 'refine',
-              action: 'REFINE_SCENES',
-              refinePrompt,
-              threadId,
-              sessionId,
-              scenes,
-              story,
-              language,
-              voiceId,
-              visualStyle
-            })
-          }).catch(() => fetch(refineTarget, { method: 'GET' }));
-
-          n8nResumed = true;
+          const res = await fetch(refineTarget, { method: 'GET' });
+          console.log(`[Netlify] n8n Scenes Wait node resume response HTTP ${res.status}`);
+          n8nResumed = res.ok;
         } catch (err) {
           console.warn('[Netlify] Scene refine dispatch warning:', err.message);
         }
@@ -221,6 +186,7 @@ export const handler = async (event, context) => {
           success: true,
           action: 'REFINE_SCENES',
           status: 'GENERATING',
+          n8nResumed,
           message: 'Scene refinement dispatched to n8n AI Agent',
           threadId
         })
@@ -249,16 +215,11 @@ export const handler = async (event, context) => {
         );
       }
 
-      if (approveUrl) {
-        const sep = approveUrl.includes('?') ? '&' : '?';
-        const targetUrl = approveUrl.includes('approval=') ? approveUrl : `${approveUrl}${sep}approval=yes&action=APPROVE_SCENES`;
+      if (cleanBaseUrl) {
+        const targetUrl = `${cleanBaseUrl}?approval=yes&action=APPROVE_SCENES`;
         console.log('[Netlify] Resuming n8n Stage 2 Scenes Wait node:', targetUrl);
         try {
-          await fetch(targetUrl, { 
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ approval: 'yes', action: 'APPROVE_SCENES', threadId })
-          }).catch(() => fetch(targetUrl, { method: 'GET' }));
+          await fetch(targetUrl, { method: 'GET' });
         } catch (e) {
           console.warn('[Netlify] n8n Stage 2 resume fetch warning:', e.message);
         }
@@ -302,19 +263,13 @@ export const handler = async (event, context) => {
     }
 
     let resumedN8n = false;
-    if (approveUrl) {
-      const sep = approveUrl.includes('?') ? '&' : '?';
-      const targetUrl = approveUrl.includes('approval=') ? approveUrl : `${approveUrl}${sep}approval=yes&action=APPROVE`;
-      console.log('[Netlify] Resuming n8n Stage 1 Story Wait node:', targetUrl);
+    if (cleanBaseUrl) {
+      const targetUrl = `${cleanBaseUrl}?approval=yes&action=APPROVE`;
+      console.log('[Netlify] Resuming n8n Stage 1 Story Wait node via GET:', targetUrl);
       try {
-        const n8nResumeRes = await fetch(targetUrl, { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ approval: 'yes', action: 'APPROVE', threadId })
-        }).catch(() => fetch(targetUrl, { method: 'GET' }));
-
+        const n8nResumeRes = await fetch(targetUrl, { method: 'GET' });
         console.log(`[Netlify] n8n Wait node resume response HTTP ${n8nResumeRes?.status || 200}`);
-        resumedN8n = true;
+        resumedN8n = n8nResumeRes.ok;
       } catch (resumeErr) {
         console.error('[Netlify] Error resuming n8n Wait node:', resumeErr.message);
       }

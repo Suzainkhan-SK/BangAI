@@ -690,19 +690,30 @@ export default function DashboardApp({
     if (!activeThread || !refinePrompt.trim()) return;
     audioEngine.playSfx('shimmer');
 
+    const stageMsg = actionType === 'REFINE_SCENES'
+      ? 'AI Agent Screenplay Doctor is refining 5 scenes with full memory...'
+      : 'AI Agent Story Doctor is refining story brief with full memory...';
+
     setIsGenerating(true);
-    setGenerationStage(
-      actionType === 'REFINE_SCENES'
-        ? 'AI Agent Screenplay Doctor is refining 5 scenes with full memory...'
-        : 'AI Agent Story Doctor is refining story brief with full memory...'
-    );
+    setGenerationStage(stageMsg);
+
+    // Update local state immediately so thinking animation replaces review card
+    setPastShorts(prev => prev.map(t =>
+      (t.threadId === activeThreadId || t.id === activeThreadId)
+        ? {
+            ...t,
+            status: 'GENERATING',
+            generationStage: stageMsg
+          }
+        : t
+    ));
 
     try {
       const res = await fetch('/.netlify/functions/approve-story', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          approveUrl: activeThread.approveUrl || activeThread.story?.approveUrl,
+          approveUrl: activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl,
           threadId: activeThreadId,
           sessionId,
           action: actionType,
