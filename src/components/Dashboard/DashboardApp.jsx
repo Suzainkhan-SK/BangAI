@@ -647,6 +647,93 @@ export default function DashboardApp({
     }
   };
 
+  // ─── STOP / TERMINATE EXECUTION (Instant Cancel) ───────────────────
+  const handleTerminateExecution = async () => {
+    audioEngine.playSfx('click');
+    setIsGenerating(false);
+    setIsChatResponding(false);
+
+    const targetThreadId = activeThreadId;
+    if (!targetThreadId) return;
+
+    setPastShorts(prev => prev.map(t =>
+      (t.threadId === targetThreadId || t.id === targetThreadId)
+        ? {
+            ...t,
+            status: 'CANCELLED',
+            messages: [
+              ...(t.messages || []),
+              { role: 'assistant', content: '⏹️ Generation cancelled by creator.' }
+            ]
+          }
+        : t
+    ));
+
+    try {
+      await fetch('/.netlify/functions/terminate-execution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          threadId: targetThreadId,
+          sessionId,
+          approveUrl: activeThread?.approveUrl || activeThread?.story?.approveUrl,
+          reason: 'Creator clicked Stop / Terminate'
+        })
+      });
+    } catch (err) {
+      console.warn('Terminate execution error:', err.message);
+    }
+  };
+
+  // ─── AI AGENT REFINEMENT HANDLER (Stage 1 & Stage 2) ───────────────
+  const handleRefineStory = async (refinePrompt, actionType = 'REFINE_STORY') => {
+    if (!activeThread || !refinePrompt.trim()) return;
+    audioEngine.playSfx('shimmer');
+
+    setIsGenerating(true);
+    setGenerationStage(
+      actionType === 'REFINE_SCENES'
+        ? 'AI Agent Screenplay Doctor is refining 5 scenes with full memory...'
+        : 'AI Agent Story Doctor is refining story brief with full memory...'
+    );
+
+    try {
+      const res = await fetch('/.netlify/functions/approve-story', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approveUrl: activeThread.approveUrl || activeThread.story?.approveUrl,
+          threadId: activeThreadId,
+          sessionId,
+          action: actionType,
+          refinePrompt: refinePrompt.trim(),
+          story: activeThread.story || null,
+          scenes: activeThread.scenes || null,
+          language: activeThread.story?.language || language || 'English',
+          voiceId: activeThread.voiceId || voiceId || 'adam',
+          visualStyle: activeThread.visualStyleId || styleId || 'cinematic'
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        setIsGenerating(false);
+        setPastShorts(prev => prev.map(t =>
+          (t.threadId === activeThreadId || t.id === activeThreadId)
+            ? {
+                ...t,
+                status: 'WORKFLOW_INACTIVE',
+                errorMessage: data.message || 'Failed to dispatch refinement to AI Agent. Please retry.'
+              }
+            : t
+        ));
+      }
+    } catch (err) {
+      console.warn('Refine story dispatch error:', err.message);
+      setIsGenerating(false);
+    }
+  };
+
   // ─── USER APPROVES STORY (2-STAGE APPROVAL WORKFLOW) ───────────────
   const handleApproveStory = async (approveUrl) => {
     audioEngine.playSfx('success');
@@ -1046,7 +1133,7 @@ export default function DashboardApp({
                 </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                <a href="https://cmpunktg23.app.n8n.cloud/workflow/7CP6EoSSlqQNsKAs" target="_blank" rel="noopener noreferrer" className="btn-glow" style={{ fontSize: '12px', padding: '7px 16px', gap: '6px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                <a href="https://cmpunktg23.app.n8n.cloud/workflow/fX5hdD9TwchvfdSD" target="_blank" rel="noopener noreferrer" className="btn-glow" style={{ fontSize: '12px', padding: '7px 16px', gap: '6px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
                   <ExternalLink size={13} /><span>Open n8n Workflow</span>
                 </a>
                 <button onClick={() => handleGenerate('VIDEO_GENERATION', activeThread.rawUserInput)} className="btn-outline" style={{ fontSize: '12px', padding: '7px 16px', gap: '6px' }}>
@@ -1098,6 +1185,7 @@ export default function DashboardApp({
               threadLanguage={activeThread.language || language}
               onApprove={handleApproveStory}
               onReject={handleRejectStory}
+              onRefine={handleRefineStory}
             />
           )}
 
@@ -1326,6 +1414,7 @@ export default function DashboardApp({
               onLanguageChange={setLanguage}
               autoUploadToYouTube={autoUploadToYouTube}
               setAutoUploadToYouTube={setAutoUploadToYouTube}
+              onStop={handleTerminateExecution}
             />
           </div>
         </div>

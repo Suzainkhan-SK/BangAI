@@ -13,7 +13,8 @@ import {
   Loader2,
   Globe,
   Palette,
-  Mic
+  Mic,
+  Square
 } from 'lucide-react';
 import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
@@ -577,33 +578,58 @@ export default function CanvasPromptBar(props) {
             </div>
           </div>
 
-          {/* Send Button */}
-          <button
-            type="submit"
-            disabled={!promptValue.trim() || isGenerating}
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              background: promptValue.trim() && !isGenerating ? 'var(--grad-gemini)' : 'var(--bg-input)',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: promptValue.trim() && !isGenerating ? '#ffffff' : 'var(--text-muted)',
-              cursor: promptValue.trim() && !isGenerating ? 'pointer' : 'not-allowed',
-              boxShadow: promptValue.trim() && !isGenerating ? '0 0 20px rgba(56, 189, 248, 0.45)' : 'none',
-              transition: 'all 0.2s ease',
-              flexShrink: 0
-            }}
-            title={isGenerating ? 'Processing...' : 'Send (Enter)'}
-          >
-            {isGenerating ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
+          {/* Send / Stop Button */}
+          {isGenerating ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                audioEngine.playSfx('click');
+                if (typeof props.onStop === 'function') props.onStop();
+              }}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                cursor: 'pointer',
+                boxShadow: '0 0 16px rgba(239, 68, 68, 0.55)',
+                transition: 'all 0.2s ease',
+                flexShrink: 0
+              }}
+              title="Stop / Terminate Generation"
+            >
+              <Square size={13} fill="#ffffff" strokeWidth={0} />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!promptValue.trim()}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: promptValue.trim() ? 'var(--grad-gemini)' : 'var(--bg-input)',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: promptValue.trim() ? '#ffffff' : 'var(--text-muted)',
+                cursor: promptValue.trim() ? 'pointer' : 'not-allowed',
+                boxShadow: promptValue.trim() ? '0 0 20px rgba(56, 189, 248, 0.45)' : 'none',
+                transition: 'all 0.2s ease',
+                flexShrink: 0
+              }}
+              title="Send (Enter)"
+            >
               <ArrowUp size={18} strokeWidth={2.5} />
-            )}
-          </button>
+            </button>
+          )}
         </div>
       </form>
     </div>

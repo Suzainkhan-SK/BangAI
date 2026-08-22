@@ -400,7 +400,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
         body: JSON.stringify({
           success: false,
           error: 'WORKFLOW_INACTIVE',
-          message: `n8n Cloud returned HTTP ${n8nResponseStatus}. Please ensure workflow 7CP6EoSSlqQNsKAs is Published & Active in cmpunktg23.`
+          message: `n8n Cloud returned HTTP ${n8nResponseStatus}. Please ensure workflow fX5hdD9TwchvfdSD is Published & Active in cmpunktg23.`
         })
       };
     }

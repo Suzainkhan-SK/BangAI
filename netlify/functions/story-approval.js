@@ -7,7 +7,7 @@ import { getDb } from './db.js';
 
 const N8N_API_URL = 'https://cmpunktg23.app.n8n.cloud/api/v1';
 const N8N_API_KEY = process.env.N8N_API_KEY || 'n8n_api_d07ac84c49c0e4b37d0025c7d8cb5c6d773a14f0';
-const WORKFLOW_ID = '7CP6EoSSlqQNsKAs';
+const WORKFLOW_ID = 'fX5hdD9TwchvfdSD';
 
 const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'];
 
