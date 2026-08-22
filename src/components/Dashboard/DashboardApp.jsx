@@ -770,8 +770,9 @@ export default function DashboardApp({
     if (!activeThread || !refinePrompt.trim()) return;
     audioEngine.playSfx('shimmer');
 
-    // Reset approval guard timestamp and start refinement tracking
-    lastApprovalTimestampRef.current = 0;
+    // Reset approval guard timestamps and start refinement tracking
+    lastStoryApprovalTimeRef.current = 0;
+    lastScenesApprovalTimeRef.current = 0;
     refiningStartTimeRef.current = Date.now();
     previousBriefRef.current = (activeThread.story?.storyBrief || activeThread.storyBrief || '').trim();
     previousTitleRef.current = (activeThread.story?.suggestedTitle || activeThread.title || '').trim();
