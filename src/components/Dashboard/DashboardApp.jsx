@@ -184,6 +184,8 @@ export default function DashboardApp({
 
   // Track when user last approved a story (prevents stale READY_FOR_APPROVAL from snapping back)
   const lastApprovalTimestampRef = React.useRef(0);
+  // Track last known status per thread to prevent repetitive sound beeping on continuous polling
+  const prevPollStatusRef = React.useRef({});
 
   // ─── 2. LIVE POLLING — adaptive interval, truth-based status sync ───
   useEffect(() => {
@@ -206,11 +208,15 @@ export default function DashboardApp({
         if (!data.hasStory) return;
 
         const status = data.status;
-        console.log('[Website] Poll received status from n8n Cloud:', status, '| videoUrl:', data.videoUrl || data.story?.videoUrl || 'none');
+        const prevStatus = prevPollStatusRef.current[activeThreadId];
+        const isStatusTransition = prevStatus !== status;
+        prevPollStatusRef.current[activeThreadId] = status;
+
+        console.log('[Website] Poll received status from n8n Cloud:', status, '| isTransition:', isStatusTransition, '| videoUrl:', data.videoUrl || data.story?.videoUrl || 'none');
 
         // ── DUPLICATE TOPIC ─────────────────────────────────────────
         if (status === 'DUPLICATE_TOPIC') {
-          audioEngine.playSfx('click');
+          if (isStatusTransition) audioEngine.playSfx('click');
           setIsGenerating(false);
           setPastShorts(prev => prev.map(t =>
             (t.threadId === activeThreadId || t.id === activeThreadId)
@@ -222,7 +228,7 @@ export default function DashboardApp({
 
         // ── CANCELLED ───────────────────────────────────────────────
         if (status === 'CANCELLED') {
-          audioEngine.playSfx('click');
+          if (isStatusTransition) audioEngine.playSfx('click');
           setIsGenerating(false);
           setPastShorts(prev => prev.map(t =>
             (t.threadId === activeThreadId || t.id === activeThreadId)
@@ -236,7 +242,7 @@ export default function DashboardApp({
         // n8n workflow timed out (e.g. 3-min timeout) or execution was cancelled
         // externally. Stop the animation and show a retry card.
         if (status === 'EXECUTION_TIMEOUT' || status === 'WORKFLOW_CRASHED') {
-          audioEngine.playSfx('click');
+          if (isStatusTransition) audioEngine.playSfx('click');
           setIsGenerating(false);
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
@@ -255,7 +261,7 @@ export default function DashboardApp({
 
         // ── RENDER FAILED ───────────────────────────────────────────
         if (status === 'RENDER_FAILED') {
-          audioEngine.playSfx('click');
+          if (isStatusTransition) audioEngine.playSfx('click');
           setIsGenerating(false);
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
@@ -272,7 +278,7 @@ export default function DashboardApp({
 
         // ── COMPLETED ───────────────────────────────────────────────
         if (status === 'COMPLETED') {
-          audioEngine.playSfx('boom');
+          if (isStatusTransition) audioEngine.playSfx('boom');
           setIsGenerating(false);
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
@@ -304,14 +310,7 @@ export default function DashboardApp({
         }
 
         if (status === 'SCENES_READY_FOR_APPROVAL') {
-          // Never snap back from RENDERING_VIDEO or COMPLETED
-          const currentThread = (() => {
-            let found = null;
-            setPastShorts(prev => { found = prev.find(t => t.threadId === activeThreadId || t.id === activeThreadId); return prev; });
-            return found;
-          })();
-
-          audioEngine.playSfx('success');
+          if (isStatusTransition) audioEngine.playSfx('success');
           setIsGenerating(false);
           setGenerationStage('');
           setPastShorts(prev => prev.map(t => {
@@ -343,6 +342,8 @@ export default function DashboardApp({
         }
 
         if (status === 'READY_FOR_APPROVAL') {
+          if (isStatusTransition) audioEngine.playSfx('success');
+          setIsGenerating(false);
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
             // Never snap back from a more advanced state
@@ -359,8 +360,6 @@ export default function DashboardApp({
               messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
             };
           }));
-          audioEngine.playSfx('success');
-          setIsGenerating(false);
         }
       } catch (pollErr) {
         console.warn('[Website] Poll error (non-fatal):', pollErr.message);
@@ -547,25 +546,30 @@ export default function DashboardApp({
         })
       });
 
-      const chatData = await res.json();
+      let chatData = {};
+      try {
+        chatData = await res.json();
+      } catch (parseErr) {
+        chatData = { error: 'INVALID_RESPONSE', message: 'Failed to parse response from server.' };
+      }
 
-      if (!res.ok) {
-        if (chatData.error === 'WORKFLOW_NOT_PUBLISHED') {
-          audioEngine.playSfx('click');
-          setIsGenerating(false);
-          setIsChatResponding(false);
-          setPastShorts(prev => prev.map(t =>
-            (t.threadId === currentThreadId || t.id === currentThreadId)
-              ? {
-                  ...t,
-                  status: 'WORKFLOW_INACTIVE',
-                  errorMessage: chatData.message,
-                  n8nStatus: chatData.n8nStatus
-                }
-              : t
-          ));
-          return;
-        }
+      // If server returned an error (e.g. 502 Workflow Inactive / Unreachable)
+      if (!res.ok || chatData.success === false || chatData.error) {
+        audioEngine.playSfx('click');
+        setIsGenerating(false);
+        setIsChatResponding(false);
+        const errMsg = chatData.message || chatData.error || `Server responded with HTTP ${res.status}. Please ensure n8n workflow is published.`;
+        setPastShorts(prev => prev.map(t =>
+          (t.threadId === currentThreadId || t.id === currentThreadId)
+            ? {
+                ...t,
+                status: 'WORKFLOW_INACTIVE',
+                errorMessage: errMsg,
+                n8nStatus: chatData.n8nStatus
+              }
+            : t
+        ));
+        return;
       }
 
       if (mode === 'CHAT') {
@@ -628,26 +632,18 @@ export default function DashboardApp({
         return;
       }
     } catch (err) {
-      console.warn('Chat dispatch warning:', err.message);
+      console.warn('Chat dispatch error:', err.message);
       setIsChatResponding(false);
-      // For VIDEO_GENERATION, n8n runs async — a network error on the initial
-      // webhook fire does NOT mean the workflow failed. Only stop generating
-      // if we're sure it's not a fire-and-forget dispatch.
-      if (mode !== 'VIDEO_GENERATION') {
-        setIsGenerating(false);
-        setPastShorts(prev => prev.map(t =>
-          (t.threadId === currentThreadId || t.id === currentThreadId)
-            ? {
-                ...t,
-                status: 'WORKFLOW_INACTIVE',
-                errorMessage: `Network error connecting to n8n Cloud: ${err.message}`
-              }
-            : t
-        ));
-      } else {
-        // For video generation, log but keep generating — polling will pick up real status
-        console.warn('[Website] n8n webhook dispatch had an error, but keeping animation alive. Polling will resolve status.');
-      }
+      setIsGenerating(false);
+      setPastShorts(prev => prev.map(t =>
+        (t.threadId === currentThreadId || t.id === currentThreadId)
+          ? {
+              ...t,
+              status: 'WORKFLOW_INACTIVE',
+              errorMessage: `Could not connect to n8n Cloud: ${err.message}. Please verify the workflow is published.`
+            }
+          : t
+      ));
     }
   };
 
