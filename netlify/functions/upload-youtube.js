@@ -50,11 +50,15 @@ export const handler = async (event, context) => {
     } catch (e) {}
 
     // 1. Dispatch request to n8n Cloud YouTube Upload Webhook
+    const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
     let n8nRes;
     try {
       n8nRes = await fetch(N8N_YOUTUBE_WEBHOOK_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-webhook-secret': webhookSecret
+        },
         body: JSON.stringify({
           videoUrl,
           title: title || 'Viral YouTube Short',
@@ -62,6 +66,7 @@ export const handler = async (event, context) => {
           tags: tags || [],
           threadId: threadId || '',
           sessionId: sessionId || '',
+          webhookSecret: webhookSecret,
           callbackUrl,
           timestamp: now.toISOString()
         })

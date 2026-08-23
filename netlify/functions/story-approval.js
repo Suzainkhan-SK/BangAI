@@ -89,9 +89,9 @@ export const handler = async (event, context) => {
       return { statusCode: 200, headers: CORS, body: JSON.stringify({ cleared: true }) };
     }
 
-    // ── GET: Browser polling for story/scenes/video ──────────────────
+    // ── GET: Browser polling for story/scenes/video & Cancellation Check ──
     if (event.httpMethod === 'GET') {
-      const { threadId } = event.queryStringParameters || {};
+      const { threadId, checkCancelled } = event.queryStringParameters || {};
 
       if (!threadId) {
         return { statusCode: 200, headers: CORS, body: JSON.stringify({ hasStory: false, status: 'IDLE', threadId: null }) };
@@ -99,6 +99,20 @@ export const handler = async (event, context) => {
 
       // 1. Check MongoDB store first
       let latest = await threadsCol.findOne({ threadId });
+
+      // Fast-path: Quick cancellation query for n8n in-flight check
+      if (checkCancelled === 'true') {
+        const isCancelled = latest ? (latest.status === 'CANCELLED') : false;
+        return {
+          statusCode: 200,
+          headers: CORS,
+          body: JSON.stringify({
+            isCancelled,
+            status: latest?.status || 'UNKNOWN',
+            threadId
+          })
+        };
+      }
 
       // 2. Only check n8n execution API as fallback if NO record exists in MongoDB at all
       if (!latest) {
@@ -199,6 +213,9 @@ export const handler = async (event, context) => {
       if (data.status === 'CANCELLED') {
         status = 'CANCELLED';
         messageContent = 'Video generation was cancelled.';
+      } else if (data.status === 'EXECUTION_TIMEOUT' || data.status === 'TIMEOUT') {
+        status = 'EXECUTION_TIMEOUT';
+        messageContent = `⏱️ **Approval Timed Out (30m):** Generation stopped to preserve resources. You can restart anytime.`;
       } else if (data.status === 'DUPLICATE_TOPIC') {
         status = 'DUPLICATE_TOPIC';
         messageContent = `Topic already covered: ${data.matchedTitle || data.message || 'Duplicate topic'}`;

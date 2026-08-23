@@ -54,19 +54,24 @@ export const handler = async (event, context) => {
     console.log(`[Netlify] Sending prompt to n8n cloud webhook: "${prompt.substring(0, 50)}..."`);
     console.log(`[Netlify] Callback URL: ${callbackUrl}`);
 
+    const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
     const postData = JSON.stringify({
       prompt: prompt.trim(),
       voiceId: payload.voiceId || 'adam',
       visualStyle: payload.visualStyle || 'Cinematic Realistic',
       language: payload.language || 'Hinglish',
       callbackUrl: callbackUrl,
+      threadId: payload.threadId || '',
+      sessionId: payload.sessionId || '',
+      webhookSecret: webhookSecret,
       timestamp: new Date().toISOString()
     });
 
     const res = await fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-webhook-secret': webhookSecret
       },
       body: postData
     });
