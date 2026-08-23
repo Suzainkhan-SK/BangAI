@@ -186,6 +186,7 @@ export const handler = async (event, context) => {
             refineMode: latest.refineMode || latest.story?.refineMode || null,
             approveUrl: latest.approveUrl || latest.story?.approveUrl || null,
             cancelUrl: latest.cancelUrl || latest.story?.cancelUrl || null,
+            storyTimestamp: latest.storyTimestamp || latest.story?.timestamp || latest.timestamp || null,
             updatedAt: latest.updatedAt || null
           })
         };
@@ -270,6 +271,7 @@ export const handler = async (event, context) => {
       if (data.refineMode) updateDoc.refineMode = data.refineMode;
       if (data.refined !== undefined || data.isRefined !== undefined) updateDoc.refined = !!(data.refined || data.isRefined);
       if (data.refineTimestamp) updateDoc.refineTimestamp = data.refineTimestamp;
+      if (data.timestamp) updateDoc.storyTimestamp = data.timestamp;
       if (status === 'COMPLETED') updateDoc.criticScore = 99;
       if (status === 'COMPLETED') updateDoc.criticScore = 99;
 

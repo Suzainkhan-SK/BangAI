@@ -118,9 +118,14 @@ export default function DashboardApp({
         setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
       } else if (s === 'GENERATING_SCENES') {
         setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
+      } else if (refiningStartTimeRef.current > 0) {
+        // Keep existing refinement stage message
       } else {
         setGenerationStage('Connecting to n8n Cloud Pipeline...');
       }
+    } else if (refiningStartTimeRef.current > 0) {
+      // User is actively refining — keep animation alive!
+      setIsGenerating(true);
     } else {
       setIsGenerating(false);
       setGenerationStage('');
@@ -374,18 +379,12 @@ export default function DashboardApp({
 
         // If user actively requested scene refinement, check if this is the genuinely new refined response
         if (refiningStartTimeRef.current > 0 && status === 'SCENES_READY_FOR_APPROVAL') {
-          const refineTime = data.refineTimestamp ? new Date(data.refineTimestamp).getTime() : 0;
-          const updateTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+          const rawSceneTime = data.storyTimestamp || data.story?.timestamp || data.timestamp || data.refineTimestamp || data.updatedAt || 0;
+          const sceneTime = rawSceneTime ? new Date(rawSceneTime).getTime() : 0;
 
-          const isTimestampNew = (refineTime >= refiningStartTimeRef.current - 1500);
-          const isRoundNew = expectedRefineRoundRef.current > 0 && 
-            (data.refineRound >= expectedRefineRoundRef.current || data.story?.refineRound >= expectedRefineRoundRef.current) && 
-            (updateTime >= refiningStartTimeRef.current - 2000) &&
-            (data.refined === true || data.story?.refined === true);
-          
-          const isNewRefined = isTimestampNew || isRoundNew;
+          const isTimestampNew = sceneTime >= refiningStartTimeRef.current - 1000;
 
-          if (!isNewRefined) {
+          if (!isTimestampNew) {
             console.log('[Website] Screenplay Doctor is still refining scenes in n8n... keeping animation active');
             setIsGenerating(true);
             setGenerationStage(`AI Agent Screenplay Doctor is refining 5 scenes (Round ${expectedRefineRoundRef.current || 1})...`);
@@ -456,16 +455,11 @@ export default function DashboardApp({
           const currentTitle = (data.story?.suggestedTitle || data.title || '').trim();
           const storyChanged = (currentBrief && previousBriefRef.current && currentBrief !== previousBriefRef.current) || (currentTitle && previousTitleRef.current && currentTitle !== previousTitleRef.current);
           
-          const refineTime = data.refineTimestamp ? new Date(data.refineTimestamp).getTime() : 0;
-          const updateTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+          const rawStoryTime = data.storyTimestamp || data.story?.timestamp || data.timestamp || data.refineTimestamp || data.updatedAt || 0;
+          const storyTime = rawStoryTime ? new Date(rawStoryTime).getTime() : 0;
           
-          const isTimestampNew = (refineTime >= refiningStartTimeRef.current - 1500);
-          const isRoundNew = expectedRefineRoundRef.current > 0 && 
-            (data.refineRound >= expectedRefineRoundRef.current || data.story?.refineRound >= expectedRefineRoundRef.current) && 
-            (updateTime >= refiningStartTimeRef.current - 2000) &&
-            (data.refined === true || data.story?.refined === true);
-          
-          const isNewRefined = storyChanged || isTimestampNew || isRoundNew;
+          const isTimestampNew = storyTime >= refiningStartTimeRef.current - 1000;
+          const isNewRefined = storyChanged || isTimestampNew;
 
           if (!isNewRefined) {
             console.log('[Website] Story Doctor is still refining story in n8n... keeping animation active');
@@ -931,10 +925,29 @@ export default function DashboardApp({
       ? `AI Agent Screenplay Doctor is refining 5 scenes (Round ${currentRound})...`
       : `AI Agent Story Doctor is refining story brief (Round ${currentRound})...`;
 
-    // Clear previous error message
+    // ─── INSTANT UI ANIMATION (Millisecond 0) ────────────────────────
+    audioEngine.playSfx('shimmer');
+    refineRoundsMapRef.current[currentThreadId] = currentRound;
+    expectedRefineRoundRef.current = currentRound;
+    lastStoryApprovalTimeRef.current = 0;
+    lastScenesApprovalTimeRef.current = 0;
+    refiningStartTimeRef.current = Date.now();
+    previousBriefRef.current = (activeThread.story?.storyBrief || activeThread.storyBrief || '').trim();
+    previousTitleRef.current = (activeThread.story?.suggestedTitle || activeThread.title || '').trim();
+
+    setIsGenerating(true);
+    setGenerationStage(stageMsg);
+
     setPastShorts(prev => prev.map(t =>
       (t.threadId === currentThreadId || t.id === currentThreadId)
-        ? { ...t, errorMessage: null }
+        ? {
+            ...t,
+            status: 'GENERATING',
+            generationStage: stageMsg,
+            refineRound: currentRound,
+            refineMode: refineMode,
+            errorMessage: null
+          }
         : t
     ));
 
@@ -961,9 +974,11 @@ export default function DashboardApp({
 
       const data = await res.json();
 
-      // Only enter generating animation state IF n8n was ACTUALLY triggered successfully!
+      // Only enter error state IF n8n resume failed!
       if (!res.ok || data.success === false || data.n8nResumed === false) {
         audioEngine.playSfx('click');
+        refiningStartTimeRef.current = 0;
+        expectedRefineRoundRef.current = 0;
         setIsGenerating(false);
         setGenerationStage('');
         const errMsg = data.message || data.error || 'Failed to dispatch refinement to n8n AI Agent. The wait step may have timed out. Please retry.';
@@ -971,6 +986,7 @@ export default function DashboardApp({
           (t.threadId === currentThreadId || t.id === currentThreadId)
             ? {
                 ...t,
+                status: effectiveActionType === 'REFINE_SCENES' ? 'SCENES_READY_FOR_APPROVAL' : 'READY_FOR_APPROVAL',
                 errorMessage: errMsg
               }
             : t
@@ -978,41 +994,19 @@ export default function DashboardApp({
         return;
       }
 
-      // DISPATCH VERIFIED: Now show thinking animation and track refinement
-      refineRoundsMapRef.current[currentThreadId] = currentRound;
-      expectedRefineRoundRef.current = currentRound;
-      lastStoryApprovalTimeRef.current = 0;
-      lastScenesApprovalTimeRef.current = 0;
-      refiningStartTimeRef.current = Date.now();
-      previousBriefRef.current = (activeThread.story?.storyBrief || activeThread.storyBrief || '').trim();
-      previousTitleRef.current = (activeThread.story?.suggestedTitle || activeThread.title || '').trim();
-
-      audioEngine.playSfx('shimmer');
-      setIsGenerating(true);
-      setGenerationStage(stageMsg);
-
-      setPastShorts(prev => prev.map(t =>
-        (t.threadId === currentThreadId || t.id === currentThreadId)
-          ? {
-              ...t,
-              status: 'GENERATING',
-              generationStage: stageMsg,
-              refineRound: currentRound,
-              refineMode: refineMode,
-              errorMessage: null
-            }
-          : t
-      ));
-
+      console.log('[Website] Refinement successfully running in n8n Cloud Pipeline');
     } catch (err) {
       console.warn('Refine story dispatch error:', err.message);
       audioEngine.playSfx('click');
+      refiningStartTimeRef.current = 0;
+      expectedRefineRoundRef.current = 0;
       setIsGenerating(false);
       setGenerationStage('');
       setPastShorts(prev => prev.map(t =>
         (t.threadId === currentThreadId || t.id === currentThreadId)
           ? {
               ...t,
+              status: effectiveActionType === 'REFINE_SCENES' ? 'SCENES_READY_FOR_APPROVAL' : 'READY_FOR_APPROVAL',
               errorMessage: `Network error connecting to AI Agent: ${err.message}`
             }
           : t
