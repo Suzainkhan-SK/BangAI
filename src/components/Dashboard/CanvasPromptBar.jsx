@@ -497,6 +497,7 @@ export default function CanvasPromptBar(props) {
               <select
                 value={currentStyleId}
                 onChange={(e) => setStyleValue(e.target.value)}
+                title="Style Preference: AI may override based on your prompt text"
                 style={{
                   background: 'var(--bg-input)',
                   color: 'var(--text-secondary)',
@@ -513,7 +514,7 @@ export default function CanvasPromptBar(props) {
               >
                 {VISUAL_STYLES.map((s) => (
                   <option key={s.id} value={s.id}>
-                    🎨 {s.name}
+                    🎨 Style Preference: {s.name}
                   </option>
                 ))}
               </select>
@@ -598,6 +599,23 @@ export default function CanvasPromptBar(props) {
           )}
         </div>
       </form>
+
+      {/* Style & Prompt Priority Helper Note */}
+      <div style={{
+        marginTop: '6px',
+        textAlign: 'center',
+        fontSize: '11px',
+        color: 'var(--text-muted)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '4px'
+      }}>
+        <span>💡</span>
+        <span>
+          <strong>Tip:</strong> You can also name a style directly in your prompt, e.g. <em>"anime style"</em>, <em>"documentary look"</em> — words in your prompt take priority.
+        </span>
+      </div>
     </div>
   );
 }

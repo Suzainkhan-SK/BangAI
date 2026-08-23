@@ -192,6 +192,8 @@ export default function DashboardApp({
   const previousTitleRef = React.useRef('');
   // Track last known status per thread to prevent repetitive sound beeping on continuous polling
   const prevPollStatusRef = React.useRef({});
+  // Track refinement round per threadId
+  const refineRoundsMapRef = React.useRef({});
 
   // ─── 2. LIVE POLLING — adaptive interval, truth-based status sync ───
   useEffect(() => {
@@ -376,8 +378,23 @@ export default function DashboardApp({
             return {
               ...t, status: 'SCENES_READY_FOR_APPROVAL',
               title: titleStr,
-              story: data.story || t.story,
+              story: {
+                ...(data.story || t.story || {}),
+                changedFields: data.changedFields || data.story?.changedFields || null,
+                changedScenes: data.changedScenes || data.story?.changedScenes || null,
+                changeSummary: data.changeSummary || data.story?.changeSummary || null,
+                refineFailed: data.refineFailed ?? data.story?.refineFailed ?? false,
+                failReason: data.failReason || data.story?.failReason || null,
+                refineRound: data.refineRound || data.story?.refineRound || t.refineRound || 1,
+                refineMode: data.refineMode || data.story?.refineMode || null
+              },
               scenes: data.scenes || data.story?.scenes || t.scenes,
+              changedFields: data.changedFields || data.story?.changedFields || null,
+              changedScenes: data.changedScenes || data.story?.changedScenes || null,
+              changeSummary: data.changeSummary || data.story?.changeSummary || null,
+              refineFailed: data.refineFailed ?? data.story?.refineFailed ?? false,
+              failReason: data.failReason || data.story?.failReason || null,
+              refineRound: data.refineRound || data.story?.refineRound || t.refineRound || 1,
               approveUrl: data.approveUrl || data.story?.approveUrl || t.approveUrl,
               cancelUrl: data.cancelUrl || data.story?.cancelUrl || t.cancelUrl,
               messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
@@ -433,8 +450,23 @@ export default function DashboardApp({
             return {
               ...t, status: 'READY_FOR_APPROVAL',
               title: titleStr,
-              story: data.story || data,
+              story: {
+                ...(data.story || data),
+                changedFields: data.changedFields || data.story?.changedFields || null,
+                changedScenes: data.changedScenes || data.story?.changedScenes || null,
+                changeSummary: data.changeSummary || data.story?.changeSummary || null,
+                refineFailed: data.refineFailed ?? data.story?.refineFailed ?? false,
+                failReason: data.failReason || data.story?.failReason || null,
+                refineRound: data.refineRound || data.story?.refineRound || t.refineRound || 1,
+                refineMode: data.refineMode || data.story?.refineMode || null
+              },
               scenes: null,
+              changedFields: data.changedFields || data.story?.changedFields || null,
+              changedScenes: data.changedScenes || data.story?.changedScenes || null,
+              changeSummary: data.changeSummary || data.story?.changeSummary || null,
+              refineFailed: data.refineFailed ?? data.story?.refineFailed ?? false,
+              failReason: data.failReason || data.story?.failReason || null,
+              refineRound: data.refineRound || data.story?.refineRound || t.refineRound || 1,
               approveUrl: data.approveUrl || data.story?.approveUrl || t.approveUrl,
               cancelUrl: data.cancelUrl || data.story?.cancelUrl || t.cancelUrl,
               messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
@@ -766,9 +798,30 @@ export default function DashboardApp({
   };
 
   // ─── AI AGENT REFINEMENT HANDLER (Stage 1 & Stage 2) ───────────────
-  const handleRefineStory = async (refinePrompt, actionType = 'REFINE_STORY', customApproveUrl = null) => {
+  const handleRefineStory = async (params, actionType = 'REFINE_STORY', customApproveUrl = null) => {
+    let refinePrompt = '';
+    let refineMode = 'full';
+    let refineScenes = [];
+    let effectiveActionType = actionType;
+    let customUrl = customApproveUrl;
+
+    if (typeof params === 'object' && params !== null) {
+      refinePrompt = params.refinePrompt || '';
+      refineMode = params.refineMode || 'full';
+      refineScenes = params.refineScenes || [];
+      effectiveActionType = params.actionType || actionType;
+      customUrl = params.approveUrl || customApproveUrl;
+    } else {
+      refinePrompt = String(params || '');
+    }
+
     if (!activeThread || !refinePrompt.trim()) return;
     audioEngine.playSfx('shimmer');
+
+    // Increment refineRound for this thread
+    const currentThreadId = activeThreadId || activeThread.threadId || activeThread.id;
+    const currentRound = (refineRoundsMapRef.current[currentThreadId] || activeThread.refineRound || 0) + 1;
+    refineRoundsMapRef.current[currentThreadId] = currentRound;
 
     // Reset approval guard timestamps and start refinement tracking
     lastStoryApprovalTimeRef.current = 0;
@@ -777,11 +830,11 @@ export default function DashboardApp({
     previousBriefRef.current = (activeThread.story?.storyBrief || activeThread.storyBrief || '').trim();
     previousTitleRef.current = (activeThread.story?.suggestedTitle || activeThread.title || '').trim();
 
-    const effectiveApproveUrl = customApproveUrl || activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl;
+    const effectiveApproveUrl = customUrl || activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl;
 
-    const stageMsg = actionType === 'REFINE_SCENES'
-      ? 'AI Agent Screenplay Doctor is refining 5 scenes with full memory...'
-      : 'AI Agent Story Doctor is refining story brief with full memory...';
+    const stageMsg = effectiveActionType === 'REFINE_SCENES'
+      ? `AI Agent Screenplay Doctor is refining 5 scenes (Round ${currentRound})...`
+      : `AI Agent Story Doctor is refining story brief (Round ${currentRound})...`;
 
     setIsGenerating(true);
     setGenerationStage(stageMsg);
@@ -792,7 +845,9 @@ export default function DashboardApp({
         ? {
             ...t,
             status: 'GENERATING',
-            generationStage: stageMsg
+            generationStage: stageMsg,
+            refineRound: currentRound,
+            refineMode: refineMode
           }
         : t
     ));
@@ -803,10 +858,13 @@ export default function DashboardApp({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           approveUrl: effectiveApproveUrl,
-          threadId: activeThreadId,
+          threadId: currentThreadId,
           sessionId,
-          action: actionType,
+          action: effectiveActionType,
           refinePrompt: refinePrompt.trim(),
+          refineMode,
+          refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
+          refineRound: currentRound,
           story: activeThread.story || null,
           scenes: activeThread.scenes || null,
           language: activeThread.story?.language || language || 'English',

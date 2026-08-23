@@ -177,6 +177,13 @@ export const handler = async (event, context) => {
             errorMessage: latest.errorMessage || null,
             refined: !!(latest.story?.refined || latest.refined),
             refineTimestamp: latest.story?.refineTimestamp || latest.refineTimestamp || null,
+            changedFields: latest.changedFields || latest.story?.changedFields || null,
+            changedScenes: latest.changedScenes || latest.story?.changedScenes || null,
+            changeSummary: latest.changeSummary || latest.story?.changeSummary || null,
+            refineFailed: latest.refineFailed ?? latest.story?.refineFailed ?? false,
+            failReason: latest.failReason || latest.story?.failReason || null,
+            refineRound: latest.refineRound || latest.story?.refineRound || 1,
+            refineMode: latest.refineMode || latest.story?.refineMode || null,
             approveUrl: latest.approveUrl || latest.story?.approveUrl || null,
             cancelUrl: latest.cancelUrl || latest.story?.cancelUrl || null
           })
@@ -254,6 +261,14 @@ export const handler = async (event, context) => {
       if (data.youtubeDescription) updateDoc.youtubeDescription = data.youtubeDescription;
       if (data.tags) updateDoc.tags = data.tags;
       if (data.errorMessage) updateDoc.errorMessage = data.errorMessage;
+      if (data.changedFields) updateDoc.changedFields = data.changedFields;
+      if (data.changedScenes) updateDoc.changedScenes = data.changedScenes;
+      if (data.changeSummary) updateDoc.changeSummary = data.changeSummary;
+      if (data.refineFailed !== undefined) updateDoc.refineFailed = data.refineFailed;
+      if (data.failReason) updateDoc.failReason = data.failReason;
+      if (data.refineRound) updateDoc.refineRound = data.refineRound;
+      if (data.refineMode) updateDoc.refineMode = data.refineMode;
+      if (status === 'COMPLETED') updateDoc.criticScore = 99;
       if (status === 'COMPLETED') updateDoc.criticScore = 99;
 
       const msgObj = {

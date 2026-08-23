@@ -98,6 +98,19 @@ export default function VisualStyleGrid({ selectedStyleId, onSelectStyle }) {
           );
         })}
       </div>
+
+      {/* Style Priority Tip */}
+      <div style={{
+        padding: '8px 10px',
+        background: 'rgba(255, 255, 255, 0.02)',
+        borderRadius: '8px',
+        border: '1px solid var(--border-subtle)',
+        fontSize: '10.5px',
+        color: 'var(--text-muted)',
+        lineHeight: 1.4
+      }}>
+        💡 <strong>Tip:</strong> You can also name a style directly in your prompt, e.g. <em>"anime style"</em>, <em>"documentary look"</em> — words in your prompt take priority.
+      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@
 
 import { getDb } from './db.js';
 
-function buildResumeUrl(rawUrl, action, refinePrompt = '') {
+function buildResumeUrl(rawUrl, action, refineParams = {}) {
   if (!rawUrl) return null;
   try {
     const u = new URL(rawUrl);
@@ -14,11 +14,21 @@ function buildResumeUrl(rawUrl, action, refinePrompt = '') {
     } else if (action === 'REFINE_STORY' || action === 'REFINE') {
       u.searchParams.set('approval', 'refine');
       u.searchParams.set('action', 'REFINE_STORY');
-      if (refinePrompt) u.searchParams.set('refinePrompt', refinePrompt);
+      if (refineParams.refinePrompt) u.searchParams.set('refinePrompt', refineParams.refinePrompt);
+      if (refineParams.refineMode) u.searchParams.set('refineMode', refineParams.refineMode);
+      if (refineParams.refineScenes && refineParams.refineScenes.length) {
+        u.searchParams.set('refineScenes', JSON.stringify(refineParams.refineScenes));
+      }
+      if (refineParams.refineRound) u.searchParams.set('refineRound', String(refineParams.refineRound));
     } else if (action === 'REFINE_SCENES') {
       u.searchParams.set('approval', 'refine');
       u.searchParams.set('action', 'REFINE_SCENES');
-      if (refinePrompt) u.searchParams.set('refinePrompt', refinePrompt);
+      if (refineParams.refinePrompt) u.searchParams.set('refinePrompt', refineParams.refinePrompt);
+      if (refineParams.refineMode) u.searchParams.set('refineMode', refineParams.refineMode);
+      if (refineParams.refineScenes && refineParams.refineScenes.length) {
+        u.searchParams.set('refineScenes', JSON.stringify(refineParams.refineScenes));
+      }
+      if (refineParams.refineRound) u.searchParams.set('refineRound', String(refineParams.refineRound));
     } else if (action === 'APPROVE_SCENES' || action === 'RENDER_VIDEO') {
       u.searchParams.set('approval', 'yes');
       u.searchParams.set('action', 'APPROVE_SCENES');
@@ -29,7 +39,7 @@ function buildResumeUrl(rawUrl, action, refinePrompt = '') {
     return u.toString();
   } catch (err) {
     const sep = rawUrl.includes('?') ? '&' : '?';
-    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(refinePrompt)}`;
+    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(refineParams.refinePrompt || '')}`;
   }
 }
 
@@ -61,6 +71,9 @@ export const handler = async (event, context) => {
       sessionId,
       action = 'APPROVE',
       refinePrompt = '',
+      refineMode = 'full',
+      refineScenes = [],
+      refineRound = 1,
       story = null,
       scenes = null,
       language = 'English',
@@ -69,7 +82,8 @@ export const handler = async (event, context) => {
     } = payload;
 
     const now = new Date();
-    console.log(`[Netlify approve-story] Action: "${action}" | approveUrl: "${approveUrl}" | Thread: "${threadId}"`);
+    const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
+    console.log(`[Netlify approve-story] Action: "${action}" | Mode: "${refineMode}" | Round: ${refineRound} | Thread: "${threadId}"`);
 
     let db = null;
     try {
@@ -91,14 +105,23 @@ export const handler = async (event, context) => {
       }
     }
 
-    const targetResumeUrl = buildResumeUrl(effectiveApproveUrl, action, refinePrompt);
+    const targetResumeUrl = buildResumeUrl(effectiveApproveUrl, action, {
+      refinePrompt,
+      refineMode,
+      refineScenes,
+      refineRound
+    });
     console.log(`[approve-story] Built n8n target URL for action "${action}":`, targetResumeUrl);
 
     // ─── 1. HANDLE CANCEL / REJECT ACTION ─────────────────────────────
     if (action === 'CANCEL') {
       if (targetResumeUrl) {
         try {
-          const res = await fetch(targetResumeUrl, { method: 'GET' });
+          const res = await fetch(targetResumeUrl, { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-webhook-secret': webhookSecret },
+            body: JSON.stringify({ approval: 'no', action: 'CANCEL', threadId, sessionId })
+          }).catch(async () => fetch(targetResumeUrl, { method: 'GET' }));
           console.log(`[Netlify] n8n cancellation response HTTP ${res.status}`);
         } catch (e) {
           console.warn('[Netlify] n8n cancellation fetch warning:', e.message);
@@ -134,7 +157,7 @@ export const handler = async (event, context) => {
 
     // ─── 2. HANDLE STAGE 1 REFINEMENT: REFINE STORY BRIEF ─────────────
     if (action === 'REFINE_STORY' || action === 'REFINE') {
-      console.log(`[Netlify] Refinement requested for Story Brief: "${refinePrompt}"`);
+      console.log(`[Netlify] Refinement requested for Story Brief: [${refineMode}] "${refinePrompt}"`);
 
       if (db && threadId) {
         await db.collection('threads').updateOne(
@@ -142,13 +165,15 @@ export const handler = async (event, context) => {
           {
             $set: {
               status: 'GENERATING',
+              refineRound,
+              refineMode,
               generationStage: 'AI Agent is refining story with full memory...',
               updatedAt: now
             },
             $push: {
               messages: {
                 role: 'user',
-                content: `✍️ **Refine Story Brief:** ${refinePrompt}`,
+                content: `✍️ **Refine Story Brief (${refineMode}):** ${refinePrompt}`,
                 timestamp: now
               }
             }
@@ -159,7 +184,24 @@ export const handler = async (event, context) => {
       let n8nResumed = false;
       if (targetResumeUrl) {
         try {
-          const res = await fetch(targetResumeUrl, { method: 'GET' });
+          const res = await fetch(targetResumeUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-webhook-secret': webhookSecret },
+            body: JSON.stringify({
+              approval: 'refine',
+              action: 'REFINE_STORY',
+              refinePrompt,
+              refineMode,
+              refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
+              refineRound,
+              threadId,
+              sessionId,
+              language,
+              voiceId,
+              visualStyle,
+              webhookSecret
+            })
+          }).catch(async () => fetch(targetResumeUrl, { method: 'GET' }));
           console.log(`[Netlify] n8n Wait node resume response HTTP ${res.status}`);
           n8nResumed = res.ok;
         } catch (err) {
@@ -173,6 +215,8 @@ export const handler = async (event, context) => {
         body: JSON.stringify({
           success: true,
           action: 'REFINE_STORY',
+          refineMode,
+          refineRound,
           status: 'GENERATING',
           n8nResumed,
           message: 'Refinement dispatched to n8n AI Agent',
@@ -183,7 +227,7 @@ export const handler = async (event, context) => {
 
     // ─── 3. HANDLE STAGE 2 REFINEMENT: REFINE 5 SCENES SCREENPLAY ─────
     if (action === 'REFINE_SCENES') {
-      console.log(`[Netlify] Refinement requested for 5 Scenes: "${refinePrompt}"`);
+      console.log(`[Netlify] Refinement requested for 5 Scenes: [${refineMode}] "${refinePrompt}"`);
 
       if (db && threadId) {
         await db.collection('threads').updateOne(
@@ -191,13 +235,16 @@ export const handler = async (event, context) => {
           {
             $set: {
               status: 'GENERATING',
+              refineRound,
+              refineMode,
+              refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
               generationStage: 'AI Agent is refining 5-scene master screenplay...',
               updatedAt: now
             },
             $push: {
               messages: {
                 role: 'user',
-                content: `🎬 **Refine Scenes:** ${refinePrompt}`,
+                content: `🎬 **Refine Scenes (${refineMode}):** ${refinePrompt}`,
                 timestamp: now
               }
             }
@@ -208,7 +255,24 @@ export const handler = async (event, context) => {
       let n8nResumed = false;
       if (targetResumeUrl) {
         try {
-          const res = await fetch(targetResumeUrl, { method: 'GET' });
+          const res = await fetch(targetResumeUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-webhook-secret': webhookSecret },
+            body: JSON.stringify({
+              approval: 'refine',
+              action: 'REFINE_SCENES',
+              refinePrompt,
+              refineMode,
+              refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
+              refineRound,
+              threadId,
+              sessionId,
+              language,
+              voiceId,
+              visualStyle,
+              webhookSecret
+            })
+          }).catch(async () => fetch(targetResumeUrl, { method: 'GET' }));
           console.log(`[Netlify] n8n Scenes Wait node resume response HTTP ${res.status}`);
           n8nResumed = res.ok;
         } catch (err) {
@@ -222,6 +286,9 @@ export const handler = async (event, context) => {
         body: JSON.stringify({
           success: true,
           action: 'REFINE_SCENES',
+          refineMode,
+          refineScenes,
+          refineRound,
           status: 'GENERATING',
           n8nResumed,
           message: 'Scene refinement dispatched to n8n AI Agent',
