@@ -816,19 +816,10 @@ export default function DashboardApp({
     }
 
     if (!activeThread || !refinePrompt.trim()) return;
-    audioEngine.playSfx('shimmer');
 
     // Increment refineRound for this thread
     const currentThreadId = activeThreadId || activeThread.threadId || activeThread.id;
     const currentRound = (refineRoundsMapRef.current[currentThreadId] || activeThread.refineRound || 0) + 1;
-    refineRoundsMapRef.current[currentThreadId] = currentRound;
-
-    // Reset approval guard timestamps and start refinement tracking
-    lastStoryApprovalTimeRef.current = 0;
-    lastScenesApprovalTimeRef.current = 0;
-    refiningStartTimeRef.current = Date.now();
-    previousBriefRef.current = (activeThread.story?.storyBrief || activeThread.storyBrief || '').trim();
-    previousTitleRef.current = (activeThread.story?.suggestedTitle || activeThread.title || '').trim();
 
     const effectiveApproveUrl = customUrl || activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl;
 
@@ -836,19 +827,10 @@ export default function DashboardApp({
       ? `AI Agent Screenplay Doctor is refining 5 scenes (Round ${currentRound})...`
       : `AI Agent Story Doctor is refining story brief (Round ${currentRound})...`;
 
-    setIsGenerating(true);
-    setGenerationStage(stageMsg);
-
-    // Update local state immediately so thinking animation replaces review card
+    // Clear previous error message
     setPastShorts(prev => prev.map(t =>
-      (t.threadId === activeThreadId || t.id === activeThreadId)
-        ? {
-            ...t,
-            status: 'GENERATING',
-            generationStage: stageMsg,
-            refineRound: currentRound,
-            refineMode: refineMode
-          }
+      (t.threadId === currentThreadId || t.id === currentThreadId)
+        ? { ...t, errorMessage: null }
         : t
     ));
 
@@ -874,42 +856,71 @@ export default function DashboardApp({
       });
 
       const data = await res.json();
-      if (!res.ok || data.success === false) {
+
+      // Only enter generating animation state IF n8n was ACTUALLY triggered successfully!
+      if (!res.ok || data.success === false || data.n8nResumed === false) {
+        audioEngine.playSfx('click');
         setIsGenerating(false);
+        setGenerationStage('');
+        const errMsg = data.message || data.error || 'Failed to dispatch refinement to n8n AI Agent. The wait step may have timed out. Please retry.';
         setPastShorts(prev => prev.map(t =>
-          (t.threadId === activeThreadId || t.id === activeThreadId)
+          (t.threadId === currentThreadId || t.id === currentThreadId)
             ? {
                 ...t,
-                status: 'WORKFLOW_INACTIVE',
-                errorMessage: data.message || 'Failed to dispatch refinement to AI Agent. Please retry.'
+                errorMessage: errMsg
               }
             : t
         ));
+        return;
       }
+
+      // DISPATCH VERIFIED: Now show thinking animation and track refinement
+      refineRoundsMapRef.current[currentThreadId] = currentRound;
+      lastStoryApprovalTimeRef.current = 0;
+      lastScenesApprovalTimeRef.current = 0;
+      refiningStartTimeRef.current = Date.now();
+      previousBriefRef.current = (activeThread.story?.storyBrief || activeThread.storyBrief || '').trim();
+      previousTitleRef.current = (activeThread.story?.suggestedTitle || activeThread.title || '').trim();
+
+      audioEngine.playSfx('shimmer');
+      setIsGenerating(true);
+      setGenerationStage(stageMsg);
+
+      setPastShorts(prev => prev.map(t =>
+        (t.threadId === currentThreadId || t.id === currentThreadId)
+          ? {
+              ...t,
+              status: 'GENERATING',
+              generationStage: stageMsg,
+              refineRound: currentRound,
+              refineMode: refineMode,
+              errorMessage: null
+            }
+          : t
+      ));
+
     } catch (err) {
       console.warn('Refine story dispatch error:', err.message);
+      audioEngine.playSfx('click');
       setIsGenerating(false);
+      setGenerationStage('');
+      setPastShorts(prev => prev.map(t =>
+        (t.threadId === currentThreadId || t.id === currentThreadId)
+          ? {
+              ...t,
+              errorMessage: `Network error connecting to AI Agent: ${err.message}`
+            }
+          : t
+      ));
     }
   };
 
   // ─── USER APPROVES STORY (2-STAGE APPROVAL WORKFLOW) ───────────────
   const handleApproveStory = async (approveUrl) => {
-    audioEngine.playSfx('success');
-
     const isStage1 = activeThread?.status === 'READY_FOR_APPROVAL';
     const isStage2 = activeThread?.status === 'SCENES_READY_FOR_APPROVAL';
 
-    if (isStage1) {
-      lastStoryApprovalTimeRef.current = Date.now();
-      lastScenesApprovalTimeRef.current = 0;
-      setIsGenerating(true);
-      setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
-    } else if (isStage2) {
-      lastScenesApprovalTimeRef.current = Date.now();
-      lastStoryApprovalTimeRef.current = 0;
-      setIsGenerating(true);
-      setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
-    }
+    const currentThreadId = activeThreadId || activeThread?.threadId || activeThread?.id;
 
     try {
       // 1. Resume / Launch n8n execution with refined story payload
@@ -917,8 +928,8 @@ export default function DashboardApp({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          approveUrl,
-          threadId: activeThreadId,
+          approveUrl: approveUrl || activeThread?.approveUrl || activeThread?.story?.approveUrl,
+          threadId: currentThreadId,
           sessionId,
           action: isStage2 ? 'APPROVE_SCENES' : 'APPROVE',
           story: activeThread?.story || null,
@@ -932,36 +943,43 @@ export default function DashboardApp({
 
       const data = await res.json();
 
-      if (!res.ok || data.success === false) {
+      if (!res.ok || data.success === false || data.n8nResumed === false) {
         // Workflow was inactive or offline -> DO NOT SHOW FAKE GENERATION
+        audioEngine.playSfx('click');
         setIsGenerating(false);
+        setGenerationStage('');
         setPastShorts(prev => prev.map(t => 
-          (t.threadId === activeThreadId || t.id === activeThreadId)
+          (t.threadId === currentThreadId || t.id === currentThreadId)
             ? { 
                 ...t, 
-                status: 'WORKFLOW_INACTIVE', 
-                errorMessage: data.message || 'Workflow error. Please retry.' 
+                errorMessage: data.message || 'Workflow approval failed. Please retry.' 
               }
             : t
         ));
         return;
       }
 
+      // DISPATCH VERIFIED: Enter next stage
+      audioEngine.playSfx('success');
       if (isStage1) {
+        lastStoryApprovalTimeRef.current = Date.now();
+        lastScenesApprovalTimeRef.current = 0;
         generationStartTimeRef.current = Date.now();
         setIsGenerating(true);
         setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
         setPastShorts(prev => prev.map(t => 
-          (t.threadId === activeThreadId || t.id === activeThreadId)
-            ? { ...t, status: 'GENERATING_SCENES' }
+          (t.threadId === currentThreadId || t.id === currentThreadId)
+            ? { ...t, status: 'GENERATING_SCENES', errorMessage: null }
             : t
         ));
       } else if (isStage2) {
+        lastScenesApprovalTimeRef.current = Date.now();
+        lastStoryApprovalTimeRef.current = 0;
         generationStartTimeRef.current = Date.now();
         setIsGenerating(true);
         setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
         setPastShorts(prev => prev.map(t => 
-          (t.threadId === activeThreadId || t.id === activeThreadId)
+          (t.threadId === currentThreadId || t.id === currentThreadId)
             ? { 
                 ...t, 
                 status: 'RENDERING_VIDEO',

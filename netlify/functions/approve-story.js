@@ -43,6 +43,62 @@ function buildResumeUrl(rawUrl, action, refineParams = {}) {
   }
 }
 
+async function dispatchToN8n(targetUrl, payload, webhookSecret) {
+  let resumed = false;
+  let lastStatus = 0;
+  let lastError = null;
+
+  if (!targetUrl) {
+    return { ok: false, status: 400, error: 'No target resume URL available' };
+  }
+
+  // 1. Try POST with JSON body and secret header
+  try {
+    const postRes = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-webhook-secret': webhookSecret
+      },
+      body: JSON.stringify(payload)
+    });
+    lastStatus = postRes.status;
+    if (postRes.ok) {
+      console.log(`[Netlify] n8n POST resume succeeded with HTTP ${postRes.status}`);
+      return { ok: true, status: postRes.status };
+    }
+    console.warn(`[Netlify] n8n POST resume returned HTTP ${postRes.status}, attempting GET fallback...`);
+  } catch (postErr) {
+    lastError = postErr.message;
+    console.warn('[Netlify] n8n POST resume network error:', postErr.message);
+  }
+
+  // 2. Fallback to GET with URL parameters
+  try {
+    const getRes = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'x-webhook-secret': webhookSecret
+      }
+    });
+    lastStatus = getRes.status;
+    if (getRes.ok) {
+      console.log(`[Netlify] n8n GET resume fallback succeeded with HTTP ${getRes.status}`);
+      return { ok: true, status: getRes.status };
+    }
+    console.warn(`[Netlify] n8n GET resume fallback returned HTTP ${getRes.status}`);
+  } catch (getErr) {
+    lastError = getErr.message;
+    console.warn('[Netlify] n8n GET resume network error:', getErr.message);
+  }
+
+  return {
+    ok: false,
+    status: lastStatus || 502,
+    error: lastError || `n8n webhook-waiting returned HTTP ${lastStatus}`
+  };
+}
+
 export const handler = async (event, context) => {
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -62,6 +118,11 @@ export const handler = async (event, context) => {
       body: JSON.stringify({ error: 'Method Not Allowed' })
     };
   }
+
+  const CORS = {
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'application/json'
+  };
 
   try {
     const payload = JSON.parse(event.body || '{}');
@@ -105,6 +166,20 @@ export const handler = async (event, context) => {
       }
     }
 
+    if (!effectiveApproveUrl) {
+      console.warn(`[approve-story] No approveUrl found for thread "${threadId}". Cannot resume workflow.`);
+      return {
+        statusCode: 400,
+        headers: CORS,
+        body: JSON.stringify({
+          success: false,
+          n8nResumed: false,
+          error: 'NO_RESUME_URL',
+          message: 'No active n8n wait hook found for this thread. Please ensure the workflow execution is running and waiting for review.'
+        })
+      };
+    }
+
     const targetResumeUrl = buildResumeUrl(effectiveApproveUrl, action, {
       refinePrompt,
       refineMode,
@@ -115,18 +190,11 @@ export const handler = async (event, context) => {
 
     // ─── 1. HANDLE CANCEL / REJECT ACTION ─────────────────────────────
     if (action === 'CANCEL') {
-      if (targetResumeUrl) {
-        try {
-          const res = await fetch(targetResumeUrl, { 
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-webhook-secret': webhookSecret },
-            body: JSON.stringify({ approval: 'no', action: 'CANCEL', threadId, sessionId })
-          }).catch(async () => fetch(targetResumeUrl, { method: 'GET' }));
-          console.log(`[Netlify] n8n cancellation response HTTP ${res.status}`);
-        } catch (e) {
-          console.warn('[Netlify] n8n cancellation fetch warning:', e.message);
-        }
-      }
+      const dispatchResult = await dispatchToN8n(
+        targetResumeUrl,
+        { approval: 'no', action: 'CANCEL', threadId, sessionId, webhookSecret },
+        webhookSecret
+      );
 
       if (db && threadId) {
         await db.collection('threads').updateOne(
@@ -150,8 +218,14 @@ export const handler = async (event, context) => {
 
       return {
         statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ success: true, action: 'CANCEL', status: 'CANCELLED', threadId })
+        headers: CORS,
+        body: JSON.stringify({
+          success: true,
+          action: 'CANCEL',
+          status: 'CANCELLED',
+          n8nResumed: dispatchResult.ok,
+          threadId
+        })
       };
     }
 
@@ -159,6 +233,39 @@ export const handler = async (event, context) => {
     if (action === 'REFINE_STORY' || action === 'REFINE') {
       console.log(`[Netlify] Refinement requested for Story Brief: [${refineMode}] "${refinePrompt}"`);
 
+      const dispatchPayload = {
+        approval: 'refine',
+        action: 'REFINE_STORY',
+        refinePrompt,
+        refineMode,
+        refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
+        refineRound,
+        threadId,
+        sessionId,
+        language,
+        voiceId,
+        visualStyle,
+        webhookSecret
+      };
+
+      const dispatchResult = await dispatchToN8n(targetResumeUrl, dispatchPayload, webhookSecret);
+
+      if (!dispatchResult.ok) {
+        console.error('[Netlify] Stage 1 Refine dispatch failed:', dispatchResult.error);
+        return {
+          statusCode: 502,
+          headers: CORS,
+          body: JSON.stringify({
+            success: false,
+            n8nResumed: false,
+            error: 'N8N_RESUME_FAILED',
+            message: `Could not trigger Story Doctor in n8n Cloud (HTTP ${dispatchResult.status}). ${dispatchResult.error || 'The wait step may have timed out. Please retry.'}`,
+            threadId
+          })
+        };
+      }
+
+      // ONLY update database when n8n was ACTUALLY triggered successfully
       if (db && threadId) {
         await db.collection('threads').updateOne(
           { threadId },
@@ -167,7 +274,7 @@ export const handler = async (event, context) => {
               status: 'GENERATING',
               refineRound,
               refineMode,
-              generationStage: 'AI Agent is refining story with full memory...',
+              generationStage: `AI Agent Story Doctor is refining story brief (Round ${refineRound})...`,
               updatedAt: now
             },
             $push: {
@@ -181,44 +288,16 @@ export const handler = async (event, context) => {
         );
       }
 
-      let n8nResumed = false;
-      if (targetResumeUrl) {
-        try {
-          const res = await fetch(targetResumeUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-webhook-secret': webhookSecret },
-            body: JSON.stringify({
-              approval: 'refine',
-              action: 'REFINE_STORY',
-              refinePrompt,
-              refineMode,
-              refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
-              refineRound,
-              threadId,
-              sessionId,
-              language,
-              voiceId,
-              visualStyle,
-              webhookSecret
-            })
-          }).catch(async () => fetch(targetResumeUrl, { method: 'GET' }));
-          console.log(`[Netlify] n8n Wait node resume response HTTP ${res.status}`);
-          n8nResumed = res.ok;
-        } catch (err) {
-          console.warn('[Netlify] Refine dispatch warning:', err.message);
-        }
-      }
-
       return {
         statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        headers: CORS,
         body: JSON.stringify({
           success: true,
           action: 'REFINE_STORY',
           refineMode,
           refineRound,
           status: 'GENERATING',
-          n8nResumed,
+          n8nResumed: true,
           message: 'Refinement dispatched to n8n AI Agent',
           threadId
         })
@@ -229,6 +308,39 @@ export const handler = async (event, context) => {
     if (action === 'REFINE_SCENES') {
       console.log(`[Netlify] Refinement requested for 5 Scenes: [${refineMode}] "${refinePrompt}"`);
 
+      const dispatchPayload = {
+        approval: 'refine',
+        action: 'REFINE_SCENES',
+        refinePrompt,
+        refineMode,
+        refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
+        refineRound,
+        threadId,
+        sessionId,
+        language,
+        voiceId,
+        visualStyle,
+        webhookSecret
+      };
+
+      const dispatchResult = await dispatchToN8n(targetResumeUrl, dispatchPayload, webhookSecret);
+
+      if (!dispatchResult.ok) {
+        console.error('[Netlify] Stage 2 Refine dispatch failed:', dispatchResult.error);
+        return {
+          statusCode: 502,
+          headers: CORS,
+          body: JSON.stringify({
+            success: false,
+            n8nResumed: false,
+            error: 'N8N_RESUME_FAILED',
+            message: `Could not trigger Screenplay Doctor in n8n Cloud (HTTP ${dispatchResult.status}). ${dispatchResult.error || 'The wait step may have timed out. Please retry.'}`,
+            threadId
+          })
+        };
+      }
+
+      // ONLY update database when n8n was ACTUALLY triggered successfully
       if (db && threadId) {
         await db.collection('threads').updateOne(
           { threadId },
@@ -238,7 +350,7 @@ export const handler = async (event, context) => {
               refineRound,
               refineMode,
               refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
-              generationStage: 'AI Agent is refining 5-scene master screenplay...',
+              generationStage: `AI Agent Screenplay Doctor is refining 5 scenes (Round ${refineRound})...`,
               updatedAt: now
             },
             $push: {
@@ -252,37 +364,9 @@ export const handler = async (event, context) => {
         );
       }
 
-      let n8nResumed = false;
-      if (targetResumeUrl) {
-        try {
-          const res = await fetch(targetResumeUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-webhook-secret': webhookSecret },
-            body: JSON.stringify({
-              approval: 'refine',
-              action: 'REFINE_SCENES',
-              refinePrompt,
-              refineMode,
-              refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
-              refineRound,
-              threadId,
-              sessionId,
-              language,
-              voiceId,
-              visualStyle,
-              webhookSecret
-            })
-          }).catch(async () => fetch(targetResumeUrl, { method: 'GET' }));
-          console.log(`[Netlify] n8n Scenes Wait node resume response HTTP ${res.status}`);
-          n8nResumed = res.ok;
-        } catch (err) {
-          console.warn('[Netlify] Scene refine dispatch warning:', err.message);
-        }
-      }
-
       return {
         statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        headers: CORS,
         body: JSON.stringify({
           success: true,
           action: 'REFINE_SCENES',
@@ -290,7 +374,7 @@ export const handler = async (event, context) => {
           refineScenes,
           refineRound,
           status: 'GENERATING',
-          n8nResumed,
+          n8nResumed: true,
           message: 'Scene refinement dispatched to n8n AI Agent',
           threadId
         })
@@ -299,6 +383,31 @@ export const handler = async (event, context) => {
 
     // ─── 4. HANDLE STAGE 2 APPROVAL: APPROVE SCENES & RENDER VIDEO ────
     if (action === 'APPROVE_SCENES' || action === 'RENDER_VIDEO') {
+      const dispatchPayload = {
+        approval: 'yes',
+        action: 'APPROVE_SCENES',
+        threadId,
+        sessionId,
+        webhookSecret
+      };
+
+      const dispatchResult = await dispatchToN8n(targetResumeUrl, dispatchPayload, webhookSecret);
+
+      if (!dispatchResult.ok) {
+        console.error('[Netlify] Stage 2 Approve dispatch failed:', dispatchResult.error);
+        return {
+          statusCode: 502,
+          headers: CORS,
+          body: JSON.stringify({
+            success: false,
+            n8nResumed: false,
+            error: 'N8N_RESUME_FAILED',
+            message: `Could not trigger video rendering in n8n Cloud (HTTP ${dispatchResult.status}). ${dispatchResult.error || 'The wait step may have timed out.'}`,
+            threadId
+          })
+        };
+      }
+
       if (db && threadId) {
         await db.collection('threads').updateOne(
           { threadId },
@@ -319,28 +428,45 @@ export const handler = async (event, context) => {
         );
       }
 
-      if (targetResumeUrl) {
-        try {
-          const res = await fetch(targetResumeUrl, { method: 'GET' });
-          console.log(`[Netlify] n8n Stage 2 resume response HTTP ${res.status}`);
-        } catch (e) {
-          console.warn('[Netlify] n8n Stage 2 resume fetch warning:', e.message);
-        }
-      }
-
       return {
         statusCode: 200,
-        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        headers: CORS,
         body: JSON.stringify({
           success: true,
           action: 'APPROVE_SCENES',
           status: 'RENDERING_VIDEO',
+          n8nResumed: true,
           threadId
         })
       };
     }
 
     // ─── 5. HANDLE STAGE 1 APPROVAL: APPROVE STORY -> GENERATE 5 SCENES ─
+    const dispatchPayload = {
+      approval: 'yes',
+      action: 'APPROVE',
+      threadId,
+      sessionId,
+      webhookSecret
+    };
+
+    const dispatchResult = await dispatchToN8n(targetResumeUrl, dispatchPayload, webhookSecret);
+
+    if (!dispatchResult.ok) {
+      console.error('[Netlify] Stage 1 Approve dispatch failed:', dispatchResult.error);
+      return {
+        statusCode: 502,
+        headers: CORS,
+        body: JSON.stringify({
+          success: false,
+          n8nResumed: false,
+          error: 'N8N_RESUME_FAILED',
+          message: `Could not trigger screenplay generation in n8n Cloud (HTTP ${dispatchResult.status}). ${dispatchResult.error || 'The wait step may have timed out.'}`,
+          threadId
+        })
+      };
+    }
+
     if (db && threadId) {
       try {
         await db.collection('threads').updateOne(
@@ -365,25 +491,14 @@ export const handler = async (event, context) => {
       }
     }
 
-    let resumedN8n = false;
-    if (targetResumeUrl) {
-      try {
-        const n8nResumeRes = await fetch(targetResumeUrl, { method: 'GET' });
-        console.log(`[Netlify] n8n Wait node resume response HTTP ${n8nResumeRes?.status || 200}`);
-        resumedN8n = n8nResumeRes.ok;
-      } catch (resumeErr) {
-        console.error('[Netlify] Error resuming n8n Wait node:', resumeErr.message);
-      }
-    }
-
     return {
       statusCode: 200,
-      headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+      headers: CORS,
       body: JSON.stringify({
         success: true,
         action: 'APPROVE',
         status: 'GENERATING_SCENES',
-        n8nResumed: resumedN8n,
+        n8nResumed: true,
         threadId
       })
     };

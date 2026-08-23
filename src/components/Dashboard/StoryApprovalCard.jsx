@@ -149,6 +149,10 @@ export default function StoryApprovalCard({
   const [selectedScenes, setSelectedScenes] = useState([]); // [1, 2, 3, 4, 5] for scene-specific
   const [isRefining, setIsRefining] = useState(false);
 
+  useEffect(() => {
+    setIsRefining(false);
+  }, [story?.errorMessage, story?.storyBrief, story?.suggestedTitle, story?.scenes, isSubmitting]);
+
   if (!story) return null;
 
   const displayScenes = (scenes && Array.isArray(scenes) && scenes.length > 0) 
@@ -164,6 +168,7 @@ export default function StoryApprovalCard({
   const refineFailed = story.refineFailed === true;
   const failReason = story.failReason || null;
   const refineRound = story.refineRound || 1;
+  const errorMessage = story.errorMessage || null;
 
   // Helper to check if a field changed
   const isFieldChanged = (fieldName) => {
@@ -311,6 +316,49 @@ export default function StoryApprovalCard({
       borderRadius: '20px'
     }}>
       {/* ─── 0. REFINEMENT RESULT BANNERS ─────────────────────────────── */}
+      {/* Case 0: Dispatch / Network Error Banner */}
+      {errorMessage && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px 16px',
+          borderRadius: '12px',
+          background: 'rgba(239, 68, 68, 0.12)',
+          border: '1.5px solid rgba(239, 68, 68, 0.4)',
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <AlertTriangle size={18} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#ef4444', marginBottom: '2px' }}>
+                Dispatch Notice
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                {errorMessage}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsRefineOpen(true)}
+            className="btn-outline"
+            style={{
+              borderColor: 'rgba(239, 68, 68, 0.5)',
+              color: '#ef4444',
+              fontSize: '11.5px',
+              padding: '4px 10px',
+              flexShrink: 0,
+              gap: '4px'
+            }}
+          >
+            <RefreshCw size={12} />
+            <span>Retry</span>
+          </button>
+        </div>
+      )}
+
       {/* Case A: Refinement Failure Banner */}
       {refineFailed && (
         <div style={{
