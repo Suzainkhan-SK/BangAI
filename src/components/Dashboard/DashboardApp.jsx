@@ -198,6 +198,8 @@ export default function DashboardApp({
   const prevPollStatusRef = React.useRef({});
   // Track refinement round per threadId
   const refineRoundsMapRef = React.useRef({});
+  // Track expected refinement round during active refinement to avoid premature dismissals
+  const expectedRefineRoundRef = React.useRef(0);
   // Track locally cancelled threads to prevent race conditions from reviving generating animations
   const cancelledThreadsRef = React.useRef(new Set());
 
@@ -370,20 +372,28 @@ export default function DashboardApp({
           return;
         }
 
-        // If user actively requested scene refinement, check if this is the new refined response
+        // If user actively requested scene refinement, check if this is the genuinely new refined response
         if (refiningStartTimeRef.current > 0 && status === 'SCENES_READY_FOR_APPROVAL') {
-          const hasRefinedTimestamp = data.refineTimestamp && (new Date(data.refineTimestamp).getTime() >= refiningStartTimeRef.current - 1000);
-          const isSceneRefinedFlag = data.refined === true || data.story?.refined === true || (Array.isArray(data.scenes) && data.scenes.some(s => s.refined === true));
-          const isNewRefined = hasRefinedTimestamp || (isSceneRefinedFlag && (Date.now() - refiningStartTimeRef.current > 1500));
+          const refineTime = data.refineTimestamp ? new Date(data.refineTimestamp).getTime() : 0;
+          const updateTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+
+          const isTimestampNew = (refineTime >= refiningStartTimeRef.current - 1500);
+          const isRoundNew = expectedRefineRoundRef.current > 0 && 
+            (data.refineRound >= expectedRefineRoundRef.current || data.story?.refineRound >= expectedRefineRoundRef.current) && 
+            (updateTime >= refiningStartTimeRef.current - 2000) &&
+            (data.refined === true || data.story?.refined === true);
+          
+          const isNewRefined = isTimestampNew || isRoundNew;
 
           if (!isNewRefined) {
-            console.log('[Website] Screenplay Doctor is refining scenes in n8n... keeping animation active');
+            console.log('[Website] Screenplay Doctor is still refining scenes in n8n... keeping animation active');
             setIsGenerating(true);
-            setGenerationStage('AI Agent Screenplay Doctor is refining 5 scenes with full memory...');
+            setGenerationStage(`AI Agent Screenplay Doctor is refining 5 scenes (Round ${expectedRefineRoundRef.current || 1})...`);
             return;
           } else {
             console.log('[Website] Newly refined scenes received from Screenplay Doctor!');
             refiningStartTimeRef.current = 0;
+            expectedRefineRoundRef.current = 0;
             audioEngine.playSfx('success');
           }
         }
@@ -440,23 +450,32 @@ export default function DashboardApp({
           return;
         }
 
-        // If user actively requested refinement, check if this is the newly refined story
+        // If user actively requested refinement, check if this is the genuinely new refined story
         if (refiningStartTimeRef.current > 0 && status === 'READY_FOR_APPROVAL') {
           const currentBrief = (data.story?.storyBrief || data.storyBrief || '').trim();
           const currentTitle = (data.story?.suggestedTitle || data.title || '').trim();
           const storyChanged = (currentBrief && previousBriefRef.current && currentBrief !== previousBriefRef.current) || (currentTitle && previousTitleRef.current && currentTitle !== previousTitleRef.current);
-          const hasRefinedTimestamp = data.refineTimestamp && (new Date(data.refineTimestamp).getTime() >= refiningStartTimeRef.current - 1000);
-          const isMarkedRefined = (data.refined === true || data.story?.refined === true);
-          const isNewRefined = storyChanged || hasRefinedTimestamp || (isMarkedRefined && (Date.now() - refiningStartTimeRef.current > 1500));
+          
+          const refineTime = data.refineTimestamp ? new Date(data.refineTimestamp).getTime() : 0;
+          const updateTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+          
+          const isTimestampNew = (refineTime >= refiningStartTimeRef.current - 1500);
+          const isRoundNew = expectedRefineRoundRef.current > 0 && 
+            (data.refineRound >= expectedRefineRoundRef.current || data.story?.refineRound >= expectedRefineRoundRef.current) && 
+            (updateTime >= refiningStartTimeRef.current - 2000) &&
+            (data.refined === true || data.story?.refined === true);
+          
+          const isNewRefined = storyChanged || isTimestampNew || isRoundNew;
 
           if (!isNewRefined) {
-            console.log('[Website] Story Doctor is refining story in n8n... keeping animation active');
+            console.log('[Website] Story Doctor is still refining story in n8n... keeping animation active');
             setIsGenerating(true);
-            setGenerationStage('AI Agent Story Doctor is refining story brief with full memory...');
+            setGenerationStage(`AI Agent Story Doctor is refining story brief (Round ${expectedRefineRoundRef.current || 1})...`);
             return;
           } else {
             console.log('[Website] Newly refined story received from Story Doctor!');
             refiningStartTimeRef.current = 0;
+            expectedRefineRoundRef.current = 0;
             audioEngine.playSfx('success');
           }
         }
@@ -961,6 +980,7 @@ export default function DashboardApp({
 
       // DISPATCH VERIFIED: Now show thinking animation and track refinement
       refineRoundsMapRef.current[currentThreadId] = currentRound;
+      expectedRefineRoundRef.current = currentRound;
       lastStoryApprovalTimeRef.current = 0;
       lastScenesApprovalTimeRef.current = 0;
       refiningStartTimeRef.current = Date.now();

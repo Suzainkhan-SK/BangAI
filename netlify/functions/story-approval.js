@@ -185,7 +185,8 @@ export const handler = async (event, context) => {
             refineRound: latest.refineRound || latest.story?.refineRound || 1,
             refineMode: latest.refineMode || latest.story?.refineMode || null,
             approveUrl: latest.approveUrl || latest.story?.approveUrl || null,
-            cancelUrl: latest.cancelUrl || latest.story?.cancelUrl || null
+            cancelUrl: latest.cancelUrl || latest.story?.cancelUrl || null,
+            updatedAt: latest.updatedAt || null
           })
         };
       }
@@ -260,7 +261,6 @@ export const handler = async (event, context) => {
       if (data.videoId) updateDoc.videoId = data.videoId;
       if (data.youtubeDescription) updateDoc.youtubeDescription = data.youtubeDescription;
       if (data.tags) updateDoc.tags = data.tags;
-      if (data.errorMessage) updateDoc.errorMessage = data.errorMessage;
       if (data.changedFields) updateDoc.changedFields = data.changedFields;
       if (data.changedScenes) updateDoc.changedScenes = data.changedScenes;
       if (data.changeSummary) updateDoc.changeSummary = data.changeSummary;
@@ -268,6 +268,8 @@ export const handler = async (event, context) => {
       if (data.failReason) updateDoc.failReason = data.failReason;
       if (data.refineRound) updateDoc.refineRound = data.refineRound;
       if (data.refineMode) updateDoc.refineMode = data.refineMode;
+      if (data.refined !== undefined || data.isRefined !== undefined) updateDoc.refined = !!(data.refined || data.isRefined);
+      if (data.refineTimestamp) updateDoc.refineTimestamp = data.refineTimestamp;
       if (status === 'COMPLETED') updateDoc.criticScore = 99;
       if (status === 'COMPLETED') updateDoc.criticScore = 99;
 

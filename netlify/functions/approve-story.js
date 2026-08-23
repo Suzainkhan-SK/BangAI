@@ -274,6 +274,10 @@ export const handler = async (event, context) => {
               status: 'GENERATING',
               refineRound,
               refineMode,
+              refined: false,
+              'story.refined': false,
+              refineTimestamp: null,
+              'story.refineTimestamp': null,
               generationStage: `AI Agent Story Doctor is refining story brief (Round ${refineRound})...`,
               updatedAt: now
             },
@@ -349,6 +353,10 @@ export const handler = async (event, context) => {
               status: 'GENERATING',
               refineRound,
               refineMode,
+              refined: false,
+              'story.refined': false,
+              refineTimestamp: null,
+              'story.refineTimestamp': null,
               refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
               generationStage: `AI Agent Screenplay Doctor is refining 5 scenes (Round ${refineRound})...`,
               updatedAt: now
