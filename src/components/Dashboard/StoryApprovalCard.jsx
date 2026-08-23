@@ -220,7 +220,9 @@ export default function StoryApprovalCard({
   const handleReject = () => {
     audioEngine.playSfx('click');
     setApprovedState('rejected');
-    onReject(story.cancelUrl);
+    if (typeof onReject === 'function') {
+      onReject(story.cancelUrl || story.approveUrl);
+    }
   };
 
   // Toggle scene selection for scene-specific refinement

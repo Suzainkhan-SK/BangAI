@@ -106,7 +106,11 @@ export default function DashboardApp({
   // ── TRUTH-BASED: Derive isGenerating + stage from persisted thread status ──
   // This survives page reloads, component remounts, and navigations.
   useEffect(() => {
-    if (!activeThread) return;
+    if (!activeThread) {
+      setIsGenerating(false);
+      setGenerationStage('');
+      return;
+    }
     const s = activeThread.status;
     if (ACTIVE_STATUSES.includes(s)) {
       setIsGenerating(true);
@@ -118,8 +122,8 @@ export default function DashboardApp({
         setGenerationStage('Connecting to n8n Cloud Pipeline...');
       }
     } else {
-      // Only clear if we're NOT in a user-initiated pre-response phase
-      // (handled by the generate/approve handlers themselves)
+      setIsGenerating(false);
+      setGenerationStage('');
     }
   }, [activeThread?.status]);
 
@@ -194,6 +198,8 @@ export default function DashboardApp({
   const prevPollStatusRef = React.useRef({});
   // Track refinement round per threadId
   const refineRoundsMapRef = React.useRef({});
+  // Track locally cancelled threads to prevent race conditions from reviving generating animations
+  const cancelledThreadsRef = React.useRef(new Set());
 
   // ─── 2. LIVE POLLING — adaptive interval, truth-based status sync ───
   useEffect(() => {
@@ -215,6 +221,21 @@ export default function DashboardApp({
         if (data.threadId && data.threadId !== activeThreadId) return;
 
         const status = data.status;
+
+        // If thread was cancelled locally by creator, strictly prevent any animation resurrection!
+        if (cancelledThreadsRef.current.has(activeThreadId)) {
+          if (status === 'CANCELLED') {
+            cancelledThreadsRef.current.delete(activeThreadId);
+          }
+          setIsGenerating(false);
+          setGenerationStage('');
+          lastStoryApprovalTimeRef.current = 0;
+          lastScenesApprovalTimeRef.current = 0;
+          refiningStartTimeRef.current = 0;
+          generationStartTimeRef.current = 0;
+          return;
+        }
+
         const prevStatus = prevPollStatusRef.current[activeThreadId];
         const isStatusTransition = prevStatus !== status;
         prevPollStatusRef.current[activeThreadId] = status;
@@ -241,6 +262,7 @@ export default function DashboardApp({
         if (status === 'DUPLICATE_TOPIC') {
           if (isStatusTransition) audioEngine.playSfx('click');
           setIsGenerating(false);
+          setGenerationStage('');
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
             const existing = t.messages || [];
@@ -258,6 +280,11 @@ export default function DashboardApp({
         if (status === 'CANCELLED') {
           if (isStatusTransition) audioEngine.playSfx('click');
           setIsGenerating(false);
+          setGenerationStage('');
+          lastStoryApprovalTimeRef.current = 0;
+          lastScenesApprovalTimeRef.current = 0;
+          refiningStartTimeRef.current = 0;
+          generationStartTimeRef.current = 0;
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
             const existing = t.messages || [];
@@ -593,6 +620,8 @@ export default function DashboardApp({
       }
     }
 
+    cancelledThreadsRef.current.delete(currentThreadId);
+
     const newThreadEntry = {
       id: currentThreadId,
       threadId: currentThreadId,
@@ -759,20 +788,29 @@ export default function DashboardApp({
     }
   };
 
-  // ─── STOP / TERMINATE EXECUTION (Instant Cancel) ───────────────────
+  // ─── STOP / TERMINATE EXECUTION (Instant Cancel from Prompt Bar) ───
   const handleTerminateExecution = async () => {
     audioEngine.playSfx('click');
     setIsGenerating(false);
     setIsChatResponding(false);
+    setGenerationStage('');
+
+    lastStoryApprovalTimeRef.current = 0;
+    lastScenesApprovalTimeRef.current = 0;
+    refiningStartTimeRef.current = 0;
+    generationStartTimeRef.current = 0;
 
     const targetThreadId = activeThreadId;
     if (!targetThreadId) return;
+
+    cancelledThreadsRef.current.add(targetThreadId);
 
     setPastShorts(prev => prev.map(t =>
       (t.threadId === targetThreadId || t.id === targetThreadId)
         ? {
             ...t,
             status: 'CANCELLED',
+            errorMessage: 'Generation was cancelled by creator.',
             messages: [
               ...(t.messages || []),
               { role: 'assistant', content: '⏹️ Generation cancelled by creator.' }
@@ -788,12 +826,59 @@ export default function DashboardApp({
         body: JSON.stringify({
           threadId: targetThreadId,
           sessionId,
-          approveUrl: activeThread?.approveUrl || activeThread?.story?.approveUrl,
+          approveUrl: activeThread?.cancelUrl || activeThread?.approveUrl || activeThread?.story?.cancelUrl || activeThread?.story?.approveUrl,
           reason: 'Creator clicked Stop / Terminate'
         })
       });
     } catch (err) {
       console.warn('Terminate execution error:', err.message);
+    }
+  };
+
+  // ─── REJECT STORY / SCENES (Cancel from Approval Card) ────────────
+  const handleRejectStory = async (cancelUrl) => {
+    audioEngine.playSfx('click');
+    setIsGenerating(false);
+    setIsChatResponding(false);
+    setGenerationStage('');
+
+    lastStoryApprovalTimeRef.current = 0;
+    lastScenesApprovalTimeRef.current = 0;
+    refiningStartTimeRef.current = 0;
+    generationStartTimeRef.current = 0;
+
+    const targetThreadId = activeThreadId || activeThread?.threadId || activeThread?.id;
+    if (!targetThreadId) return;
+
+    cancelledThreadsRef.current.add(targetThreadId);
+
+    setPastShorts(prev => prev.map(t =>
+      (t.threadId === targetThreadId || t.id === targetThreadId)
+        ? {
+            ...t,
+            status: 'CANCELLED',
+            errorMessage: 'Generation was cancelled by creator.',
+            messages: [
+              ...(t.messages || []),
+              { role: 'assistant', content: '⏹️ Generation cancelled by creator.' }
+            ]
+          }
+        : t
+    ));
+
+    try {
+      await fetch('/.netlify/functions/approve-story', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approveUrl: cancelUrl || activeThread?.cancelUrl || activeThread?.approveUrl || activeThread?.story?.cancelUrl || activeThread?.story?.approveUrl,
+          threadId: targetThreadId,
+          sessionId,
+          action: 'CANCEL'
+        })
+      });
+    } catch (err) {
+      console.warn('Reject story error:', err.message);
     }
   };
 
@@ -1041,34 +1126,7 @@ export default function DashboardApp({
     }
   };
 
-  // ─── USER REJECTS STORY ──────────────────────────────────────────
-  const handleRejectStory = async (cancelUrl) => {
-    try {
-      fetch('/.netlify/functions/approve-story', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approveUrl: cancelUrl, action: 'CANCEL', threadId: activeThreadId })
-      }).catch(() => {});
-    } catch (e) {}
 
-    audioEngine.playSfx('click');
-    setIsGenerating(false);
-
-    setPastShorts(prev => prev.map(t => 
-      (t.threadId === activeThreadId || t.id === activeThreadId)
-        ? { 
-            ...t, 
-            status: 'CANCELLED', 
-            cancelReason: 'Story was cancelled by creator.',
-            story: t.story ? { ...t.story, approveUrl: null } : null,
-            messages: [
-              ...(t.messages || []),
-              { role: 'assistant', content: 'Story generation was cancelled. Type `/refine` with instructions to twist the angle or `/video` for a fresh topic!' }
-            ]
-          }
-        : t
-    ));
-  };
 
   return (
     <div style={{
