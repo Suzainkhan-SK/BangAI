@@ -352,8 +352,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
     // No Claude pre-generation. Directly dispatch to n8n Cloud webhook!
     const callbackUrl = 'https://viral-shorts-ai-studio.netlify.app/.netlify/functions/story-approval';
 
-    console.log(`[Netlify] Dispatching /video prompt to n8n Cloud Webhook: "${message.trim()}" (Thread: ${currentThreadId})`);
-
+    const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
     const n8nPayload = {
       prompt: message.trim(),
       rawUserInput: message.trim(),
@@ -364,6 +363,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
       callbackUrl,
       threadId: currentThreadId,
       sessionId: currentSessionId,
+      webhookSecret: webhookSecret,
       timestamp: now.toISOString()
     };
 
@@ -373,7 +373,10 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
     try {
       const n8nRes = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-webhook-secret': webhookSecret
+        },
         body: JSON.stringify(n8nPayload)
       });
 
