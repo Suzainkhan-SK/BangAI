@@ -924,21 +924,31 @@ export default function DashboardApp({
   };
 
   // ─── AI AGENT REFINEMENT HANDLER (Stage 1 & Stage 2) ───────────────
-  const handleRefineStory = async (params, actionType = 'REFINE_STORY', customApproveUrl = null) => {
+  const handleRefineStory = async (params, actionType = 'REFINE_STORY', mode = 'full', scenes = [], round = 1, customApproveUrl = null) => {
     let refinePrompt = '';
     let refineMode = 'full';
     let refineScenes = [];
-    let effectiveActionType = actionType;
+    let effectiveActionType = 'REFINE_STORY';
     let customUrl = customApproveUrl;
 
     if (typeof params === 'object' && params !== null) {
-      refinePrompt = params.refinePrompt || '';
-      refineMode = params.refineMode || 'full';
-      refineScenes = params.refineScenes || [];
-      effectiveActionType = params.actionType || actionType;
-      customUrl = params.approveUrl || customApproveUrl;
+      // Called with object: { actionType, refinePrompt, refineMode, refineScenes, refineRound, approveUrl }
+      refinePrompt = params.refinePrompt || params.prompt || '';
+      refineMode = params.refineMode || params.mode || 'full';
+      refineScenes = params.refineScenes || params.scenes || [];
+      effectiveActionType = params.actionType || params.action || actionType || 'REFINE_STORY';
+      customUrl = params.approveUrl || params.customUrl || customApproveUrl;
+    } else if (typeof params === 'string' && (params === 'REFINE_STORY' || params === 'REFINE_SCENES' || params.startsWith('REFINE'))) {
+      // Called with (actionType, prompt, mode, scenes, round, url)
+      effectiveActionType = params;
+      refinePrompt = String(actionType || '');
+      refineMode = typeof mode === 'string' ? mode : 'full';
+      refineScenes = Array.isArray(scenes) ? scenes : [];
+      customUrl = customApproveUrl;
     } else {
+      // Called with (refinePrompt, actionType, url)
       refinePrompt = String(params || '');
+      effectiveActionType = (typeof actionType === 'string' && actionType.startsWith('REFINE')) ? actionType : 'REFINE_STORY';
     }
 
     if (!activeThread || !refinePrompt.trim()) return;
@@ -947,7 +957,7 @@ export default function DashboardApp({
     const currentThreadId = activeThreadId || activeThread.threadId || activeThread.id;
     const currentRound = (refineRoundsMapRef.current[currentThreadId] || activeThread.refineRound || 0) + 1;
 
-    const effectiveApproveUrl = customUrl || activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl;
+    const effectiveApproveUrl = customUrl || activeThread.approveUrl || activeThread.story?.approveUrl || activeThread.story?.resumeUrl || activeThread.resumeUrl;
 
     const stageMsg = effectiveActionType === 'REFINE_SCENES'
       ? `AI Agent Screenplay Doctor is refining 5 scenes (Round ${currentRound})...`

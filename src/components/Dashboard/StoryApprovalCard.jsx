@@ -621,7 +621,7 @@ export default function StoryApprovalCard({
   };
 
   const handleRefineSubmit = (e) => {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (!refineText.trim() && !selectedPresetId) return;
 
     audioEngine.playSfx('shimmer');
@@ -637,14 +637,17 @@ export default function StoryApprovalCard({
       promptToSend = `${preset.canonicalPrompt}\nUser custom note: ${promptToSend}`;
     }
 
+    const action = isFinalScenesStage ? 'REFINE_SCENES' : 'REFINE_STORY';
+
     if (typeof onRefine === 'function') {
-      onRefine(
-        isFinalScenesStage ? 'REFINE_SCENES' : 'REFINE_STORY',
-        promptToSend,
-        modeToSend,
-        selectedScenes,
-        refineRound
-      );
+      onRefine({
+        actionType: action,
+        refinePrompt: promptToSend,
+        refineMode: modeToSend,
+        refineScenes: selectedScenes,
+        refineRound: refineRound,
+        approveUrl: story?.approveUrl || story?.resumeUrl
+      });
     }
   };
 
@@ -1679,7 +1682,8 @@ export default function StoryApprovalCard({
             </div>
 
             <button
-              type="submit"
+              type="button"
+              onClick={handleRefineSubmit}
               disabled={isRefining || (!refineText.trim() && !selectedPresetId)}
               style={{
                 background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
