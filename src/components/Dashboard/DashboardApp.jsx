@@ -1225,7 +1225,54 @@ export default function DashboardApp({
         minWidth: 0
       }}>
         <div className="studio-main-content">
-          {/* Header Bar if active thread is selected */}
+          {/* ── DEDICATED DESIGN STUDIO SCREEN ── */}
+          {isStudioOpen ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '60px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                background: 'var(--bg-card)',
+                borderRadius: '16px',
+                border: '1px solid var(--border-subtle)',
+                boxShadow: 'var(--shadow-card)'
+              }}>
+                <button
+                  onClick={() => setIsStudioOpen(false)}
+                  className="btn-outline"
+                  style={{ fontSize: '12.5px', padding: '6px 14px', gap: '6px', fontWeight: 700 }}
+                >
+                  <ArrowLeft size={14} />
+                  <span>Back to Shorts Canvas</span>
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="badge badge-brand" style={{ fontSize: '11px', fontWeight: 800 }}>
+                    ✨ Standalone Audiovisual Studio
+                  </span>
+                </div>
+              </div>
+
+              <StudioLab
+                selectedVoiceId={voiceId}
+                onSelectVoice={(vId) => setVoiceId(vId)}
+                subtitleSettings={subtitleSettings}
+                onSubtitleChange={(subs) => setSubtitleSettings(subs)}
+                selectedMusicId={musicId}
+                onSelectMusic={(mId) => setMusicId(mId)}
+                onApplySettingsToVideo={(settings) => {
+                  if (settings.voiceId) setVoiceId(settings.voiceId);
+                  if (settings.subtitleSettings) setSubtitleSettings(settings.subtitleSettings);
+                  if (settings.musicId) setMusicId(settings.musicId);
+                  if (settings.musicVolume !== undefined) setMusicVolume(settings.musicVolume);
+                  setIsStudioOpen(false);
+                }}
+                onClose={() => setIsStudioOpen(false)}
+              />
+            </div>
+          ) : (
+            <>
+              {/* Header Bar if active thread is selected */}
           {activeThread && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1474,6 +1521,10 @@ export default function DashboardApp({
               story={activeThread.story || activeThread}
               scenes={activeThread.scenes}
               threadLanguage={activeThread.language || language}
+              initialVoiceId={voiceId}
+              initialSubtitleSettings={subtitleSettings}
+              initialMusicId={musicId}
+              initialMusicVolume={musicVolume}
               onApprove={handleApproveStory}
               onReject={handleRejectStory}
               onRefine={handleRefineStory}
@@ -1651,29 +1702,10 @@ export default function DashboardApp({
             </>
           )}
 
-          {/* 7. Standalone Audiovisual Studio Lab (/studio mode) */}
-          {isStudioOpen && (
-            <div style={{ marginBottom: '24px' }}>
-              <StudioLab
-                selectedVoiceId={voiceId}
-                onSelectVoice={(vId) => setVoiceId(vId)}
-                subtitleSettings={subtitleSettings}
-                onSubtitleChange={(subs) => setSubtitleSettings(subs)}
-                selectedMusicId={musicId}
-                onSelectMusic={(mId) => setMusicId(mId)}
-                onApplySettingsToVideo={(settings) => {
-                  if (settings.voiceId) setVoiceId(settings.voiceId);
-                  if (settings.subtitleSettings) setSubtitleSettings(settings.subtitleSettings);
-                  if (settings.musicId) setMusicId(settings.musicId);
-                  if (settings.musicVolume !== undefined) setMusicVolume(settings.musicVolume);
-                  setIsStudioOpen(false);
-                }}
-                onClose={() => setIsStudioOpen(false)}
-              />
-            </div>
+            </>
           )}
 
-          {/* 8. If Empty Canvas: Show Inspiration Templates */}
+          {/* If Empty Canvas: Show Inspiration Templates */}
           {!activeThread && !isGenerating && !isStudioOpen && (
             <TemplateCards
               onSelectTemplate={handleSelectTemplate}
@@ -1684,23 +1716,24 @@ export default function DashboardApp({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Floating Gemini Prompt Bar (Fixed Bottom Center) */}
-        <div
-          className="prompt-bar-wrapper"
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: sidebarCollapsed ? '52px' : '200px',
-            right: 0,
-            background: 'linear-gradient(to top, var(--bg-app) 80%, transparent 100%)',
-            padding: '12px 24px 16px',
-            display: 'flex',
-            justifyContent: 'center',
-            zIndex: 100,
-            pointerEvents: 'none',
-            transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
-          }}
-        >
+        {/* Floating Gemini Prompt Bar (Fixed Bottom Center) - Hidden when in Dedicated Studio Mode */}
+        {!isStudioOpen && (
+          <div
+            className="prompt-bar-wrapper"
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: sidebarCollapsed ? '52px' : '200px',
+              right: 0,
+              background: 'linear-gradient(to top, var(--bg-app) 80%, transparent 100%)',
+              padding: '12px 24px 16px',
+              display: 'flex',
+              justifyContent: 'center',
+              zIndex: 100,
+              pointerEvents: 'none',
+              transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
           <div className="prompt-bar-inner" style={{ width: '100%', maxWidth: '900px', pointerEvents: 'auto' }}>
             <CanvasPromptBar
               prompt={prompt}
@@ -1732,7 +1765,9 @@ export default function DashboardApp({
             />
           </div>
         </div>
+        )}
       </main>
     </div>
   );
 }
+
