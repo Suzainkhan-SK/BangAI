@@ -230,6 +230,14 @@ export default function StoryApprovalCard({
   const [isSubtitleRendering, setIsSubtitleRendering] = useState(false);
   const [subtitlePreviewVideoUrl, setSubtitlePreviewVideoUrl] = useState(null);
   const [subtitlePreviewError, setSubtitlePreviewError] = useState(null);
+  const [activeSubtitleWordIndex, setActiveSubtitleWordIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveSubtitleWordIndex(prev => (prev + 1) % 7);
+    }, 450);
+    return () => clearInterval(interval);
+  }, []);
 
   const audioPlayerRef = useRef(null);
   const musicPlayerRef = useRef(null);
@@ -999,6 +1007,74 @@ export default function StoryApprovalCard({
           {/* TAB 2: SUBTITLES */}
           {activeMediaTab === 'subtitles' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 1. Live Animated Kinetic Subtitle Screen Preview (0ms delay) */}
+              <div style={{
+                background: 'radial-gradient(ellipse at center, #18181b 0%, #09090b 100%)',
+                border: '1.5px solid var(--border-subtle)',
+                borderRadius: '14px',
+                padding: '28px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: selectedSubtitleSettings.position === 'center-top' ? 'flex-start' : (selectedSubtitleSettings.position === 'center-bottom' ? 'flex-end' : 'center'),
+                minHeight: '130px',
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: 'inset 0 0 30px rgba(0,0,0,0.9)'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '8px',
+                  left: '12px',
+                  fontSize: '9.5px',
+                  fontWeight: 800,
+                  color: 'rgba(255,255,255,0.4)',
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <span>⚡ Instant Live Kinetic Subtitle Simulation</span>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '8px 10px',
+                  maxWidth: '90%',
+                  textAlign: 'center'
+                }}>
+                  {['WATCH', 'HOW', 'THESE', 'VIRAL', 'SUBTITLES', 'BOOST', 'RETENTION'].map((word, idx) => {
+                    const isCurrent = idx === activeSubtitleWordIndex;
+                    const formattedWord = selectedSubtitleSettings.allCaps ? word.toUpperCase() : word.toLowerCase();
+                    return (
+                      <span
+                        key={idx}
+                        style={{
+                          fontFamily: selectedSubtitleSettings.fontFamily || 'Montserrat',
+                          fontWeight: 900,
+                          fontSize: `${Math.round((selectedSubtitleSettings.fontSize || 78) * 0.28)}px`,
+                          color: isCurrent ? (selectedSubtitleSettings.wordColor || '#FFE600') : (selectedSubtitleSettings.lineColor || '#FFFFFF'),
+                          textShadow: `0 0 6px ${selectedSubtitleSettings.outlineColor || '#000000'}, 0 3px 6px rgba(0,0,0,0.9)`,
+                          WebkitTextStroke: `${Math.max(1, Math.round((selectedSubtitleSettings.outlineWidth || 8) * 0.15))}px ${selectedSubtitleSettings.outlineColor || '#000000'}`,
+                          background: (isCurrent && selectedSubtitleSettings.boxColor) ? selectedSubtitleSettings.boxColor : 'transparent',
+                          padding: (isCurrent && selectedSubtitleSettings.boxColor) ? '3px 8px' : '0',
+                          borderRadius: selectedSubtitleSettings.boxColor ? '5px' : '0',
+                          transform: isCurrent ? 'scale(1.14)' : 'scale(1)',
+                          transition: 'all 0.12s ease',
+                          lineHeight: 1.2
+                        }}
+                      >
+                        {formattedWord}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Top YouTuber Preset Cards Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '10px' }}>
                 {SUBTITLE_STYLES.map(preset => {

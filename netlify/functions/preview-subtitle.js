@@ -3,7 +3,7 @@
 // GET  /.netlify/functions/preview-subtitle?project={id}&apiKey={key}
 // Renders and polls subtitle preview clips via json2video API with zero Netlify timeouts
 
-import { json2videoCreateMovie, json2videoPollUntilDone } from './api-keys.js';
+import { json2videoCreateMovie } from './api-keys.js';
 
 export const handler = async (event) => {
   const headers = {
@@ -17,7 +17,7 @@ export const handler = async (event) => {
     return { statusCode: 200, headers, body: '' };
   }
 
-  // ─── 1. GET: POLL EXISTING PROJECT ──────────────────────────────────
+  // ─── 1. GET: POLL PROJECT STATUS ────────────────────────────────────
   if (event.httpMethod === 'GET') {
     try {
       const projectId = event.queryStringParameters?.project;
@@ -27,7 +27,7 @@ export const handler = async (event) => {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'project and apiKey query parameters are required' })
+          body: JSON.stringify({ success: false, error: 'project and apiKey parameters are required' })
         };
       }
 
@@ -39,9 +39,9 @@ export const handler = async (event) => {
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
         return {
-          statusCode: res.status,
+          statusCode: 200,
           headers,
-          body: JSON.stringify({ success: false, error: `json2video status error: ${errText}` })
+          body: JSON.stringify({ success: false, error: `json2video status error (${res.status}): ${errText}` })
         };
       }
 
@@ -70,7 +70,7 @@ export const handler = async (event) => {
           body: JSON.stringify({
             success: false,
             status: 'error',
-            error: movie.message || movie.error || 'Subtitle render failed on json2video'
+            error: movie.message || movie.error || 'Subtitle video rendering failed on json2video'
           })
         };
       }
@@ -94,7 +94,7 @@ export const handler = async (event) => {
     }
   }
 
-  // ─── 2. POST: CREATE NEW PREVIEW MOVIE ──────────────────────────────
+  // ─── 2. POST: CREATE PREVIEW PROJECT (FAST DISPATCH) ────────────────
   if (event.httpMethod === 'POST') {
     try {
       const { subtitleSettings, text, voiceId } = JSON.parse(event.body || '{}');
@@ -103,7 +103,7 @@ export const handler = async (event) => {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'subtitleSettings is required' })
+          body: JSON.stringify({ success: false, error: 'subtitleSettings is required' })
         };
       }
 
@@ -114,10 +114,10 @@ export const handler = async (event) => {
         width: 1080,
         height: 1920,
         quality: 'low',
-        cache: true,
+        cache: false,
         scenes: [
           {
-            duration: 4,
+            duration: 3,
             elements: [
               {
                 type: 'voice',
@@ -136,34 +136,11 @@ export const handler = async (event) => {
         ]
       };
 
-      console.log('[preview-subtitle] Creating json2video movie for subtitle preview...');
+      console.log('[preview-subtitle] Creating json2video project...');
       const createResult = await json2videoCreateMovie(moviePayload);
 
       if (!createResult.project) {
         throw new Error('json2video did not return a project ID: ' + JSON.stringify(createResult));
-      }
-
-      const projectId = createResult.project;
-      const apiKey = createResult.apiKey;
-
-      // Fast-poll for up to 6 seconds before returning async status
-      try {
-        const movie = await json2videoPollUntilDone(projectId, apiKey, 1500, 6000);
-        if (movie && movie.url) {
-          return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({
-              success: true,
-              status: 'done',
-              videoUrl: movie.url,
-              duration: movie.duration,
-              project: projectId
-            })
-          };
-        }
-      } catch (pollTimeout) {
-        // Still rendering -> return project details for client-side polling
       }
 
       return {
@@ -172,8 +149,8 @@ export const handler = async (event) => {
         body: JSON.stringify({
           success: true,
           status: 'rendering',
-          project: projectId,
-          apiKey: apiKey
+          project: createResult.project,
+          apiKey: createResult.apiKey
         })
       };
 
@@ -184,7 +161,7 @@ export const handler = async (event) => {
         headers,
         body: JSON.stringify({
           success: false,
-          error: err.message || 'Failed to render subtitle preview'
+          error: err.message || 'Failed to initialize subtitle preview'
         })
       };
     }
@@ -194,13 +171,14 @@ export const handler = async (event) => {
 };
 
 /**
- * Convert frontend subtitle settings to json2video subtitle settings format.
+ * Convert frontend subtitle settings to strict json2video subtitle settings format.
  */
 function buildSubtitleSettings(settings) {
   const j2vSettings = {};
 
-  // Style preset
-  const style = settings.style === 'classic-progressive' ? 'highlight' : (settings.style || 'highlight');
+  // Style preset (docs support: 'classic', 'highlight', 'boxed-word', 'boxed-line', 'classic-one-word')
+  let style = settings.style || 'highlight';
+  if (style === 'classic-progressive') style = 'highlight';
   j2vSettings.style = style;
 
   // Font
@@ -214,13 +192,14 @@ function buildSubtitleSettings(settings) {
   j2vSettings['word-color'] = settings.wordColor || '#FFE600';
   j2vSettings['line-color'] = settings.lineColor || '#FFFFFF';
   j2vSettings['outline-color'] = settings.outlineColor || '#000000';
-  if (settings.boxColor) j2vSettings['box-color'] = settings.boxColor;
-  if (settings.shadowColor) j2vSettings['shadow-color'] = settings.shadowColor;
+  if (settings.boxColor && settings.boxColor.trim()) {
+    j2vSettings['box-color'] = settings.boxColor.trim();
+  }
 
   // Sizing & Positioning
   j2vSettings['outline-width'] = Number(settings.outlineWidth !== undefined ? settings.outlineWidth : 8);
   j2vSettings.position = settings.position || 'center-center';
-  j2vSettings['all-caps'] = settings.allCaps !== undefined ? settings.allCaps : true;
+  j2vSettings['all-caps'] = settings.allCaps !== undefined ? Boolean(settings.allCaps) : true;
   j2vSettings['max-words-per-line'] = Number(settings.maxWordsPerLine) || 3;
 
   return j2vSettings;
