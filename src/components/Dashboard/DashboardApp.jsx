@@ -1209,6 +1209,8 @@ export default function DashboardApp({
           user={user}
           onOpenSettings={onNavigateToSettings}
           onLogout={onLogout}
+          isStudioOpen={isStudioOpen}
+          onToggleStudio={() => setIsStudioOpen(prev => !prev)}
         />
       </div>
 
@@ -1707,8 +1709,7 @@ export default function DashboardApp({
               onSubmit={(mode, customPrompt) => handleGenerate(mode, customPrompt)}
               onGenerate={(mode, customPrompt) => handleGenerate(mode, customPrompt)}
               isGenerating={isGenerating || isChatResponding}
-              isStudioOpen={isStudioOpen}
-              onToggleStudio={() => setIsStudioOpen(prev => !prev)}
+
               voiceId={voiceId}
               setVoiceId={setVoiceId}
               selectedVoice={voiceId}

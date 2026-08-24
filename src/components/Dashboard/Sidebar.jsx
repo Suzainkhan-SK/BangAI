@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   Plus, Sparkles, MessageSquare, ChevronLeft, ChevronRight,
   Settings, LogOut, Search, Trash2, Video, Film, Clock,
-  CheckCircle2, AlertCircle, XCircle, Loader2, Zap
+  CheckCircle2, AlertCircle, XCircle, Loader2, Zap,
+  Mic2, Music, Type
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
 
@@ -32,10 +33,12 @@ function ThreadStatusDot({ status }) {
 export default function Sidebar({
   pastShorts = [], activeShortId, onSelectShort, onNewShort,
   onDeleteShort, collapsed = false, onToggleCollapse,
-  user, onOpenSettings, onLogout
+  user, onOpenSettings, onLogout,
+  isStudioOpen = false, onToggleStudio
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredId, setHoveredId] = useState(null);
+  const [studioHovered, setStudioHovered] = useState(false);
 
   const filtered = (Array.isArray(pastShorts) ? pastShorts : []).filter(s =>
     s && typeof s === 'object' &&
@@ -65,10 +68,35 @@ export default function Sidebar({
               background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
               border: 'none', cursor: 'pointer', display: 'flex',
               alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(99,102,241,0.4)', marginBottom: '4px'
+              boxShadow: '0 4px 12px rgba(99,102,241,0.4)', marginBottom: '2px'
             }} title="New Video">
             <Plus size={18} color="#fff" strokeWidth={2.5} />
           </button>
+
+          {/* Design Studio Button — Collapsed */}
+          {typeof onToggleStudio === 'function' && (
+            <button
+              onClick={() => { audioEngine.playSfx('click'); onToggleStudio(); }}
+              title="Design Studio"
+              style={{
+                width: '40px', height: '40px', borderRadius: '12px', padding: 0,
+                background: isStudioOpen
+                  ? 'linear-gradient(135deg, #10b981, #059669)'
+                  : 'transparent',
+                border: isStudioOpen
+                  ? '1.5px solid #10b981'
+                  : '1.5px solid var(--border-subtle)',
+                cursor: 'pointer', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                boxShadow: isStudioOpen ? '0 0 14px rgba(16,185,129,0.4)' : 'none',
+                transition: 'all 0.2s ease',
+                color: isStudioOpen ? '#fff' : 'var(--text-muted)',
+                marginBottom: '2px'
+              }}
+            >
+              <Sparkles size={16} />
+            </button>
+          )}
 
           <div style={{ width: '32px', height: '1px', background: 'var(--border-subtle)', margin: '2px 0' }} />
 
@@ -154,6 +182,57 @@ export default function Sidebar({
           </div>
           <span>New Video</span>
         </button>
+
+        {/* ✨ Design Studio Button */}
+        {typeof onToggleStudio === 'function' && (
+          <button
+            onClick={() => { audioEngine.playSfx('click'); onToggleStudio(); }}
+            onMouseEnter={() => setStudioHovered(true)}
+            onMouseLeave={() => setStudioHovered(false)}
+            style={{
+              width: '100%', padding: '9px 14px',
+              background: isStudioOpen
+                ? 'linear-gradient(135deg, #10b981, #059669)'
+                : studioHovered
+                  ? 'var(--bg-card-hover)'
+                  : 'var(--bg-card)',
+              border: isStudioOpen
+                ? '1.5px solid rgba(16,185,129,0.6)'
+                : '1.5px solid var(--border-subtle)',
+              borderRadius: '12px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '8px',
+              color: isStudioOpen ? '#fff' : 'var(--text-primary)',
+              fontWeight: 700, fontSize: '13px',
+              fontFamily: 'Space Grotesk, sans-serif',
+              boxShadow: isStudioOpen
+                ? '0 4px 16px rgba(16,185,129,0.35)'
+                : studioHovered
+                  ? '0 2px 8px rgba(0,0,0,0.1)'
+                  : 'none',
+              transition: 'all 0.2s ease',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{
+              width: '22px', height: '22px', borderRadius: '6px',
+              background: isStudioOpen ? 'rgba(255,255,255,0.2)' : 'rgba(16,185,129,0.12)',
+              display: 'flex',
+              alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}>
+              <Sparkles size={14} color={isStudioOpen ? '#fff' : '#10b981'} strokeWidth={2.5} />
+            </div>
+            <span>Design Studio</span>
+            {/* Subtle icon row */}
+            <div style={{
+              marginLeft: 'auto', display: 'flex', gap: '3px', opacity: 0.5
+            }}>
+              <Mic2 size={10} />
+              <Type size={10} />
+              <Music size={10} />
+            </div>
+          </button>
+        )}
 
         {/* Search */}
         <div style={{ position: 'relative' }}>
