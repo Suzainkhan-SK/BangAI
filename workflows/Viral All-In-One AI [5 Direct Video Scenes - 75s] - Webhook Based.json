@@ -3,12 +3,12 @@
   "name": "Viral All-In-One AI [5 Direct Video Scenes - 75s] - Webhook Based",
   "active": true,
   "isArchived": false,
-  "versionId": "e9a2ea07-7bb1-4e2c-acd7-58018d304aac",
-  "activeVersionId": "e9a2ea07-7bb1-4e2c-acd7-58018d304aac",
+  "versionId": "07ff34b9-bdb2-406a-b718-8380cefc56bf",
+  "activeVersionId": "07ff34b9-bdb2-406a-b718-8380cefc56bf",
   "triggerCount": 2,
   "nodeCount": 258,
   "createdAt": "2026-08-22T10:58:59.514Z",
-  "updatedAt": "2026-08-23T11:53:53.868Z",
+  "updatedAt": "2026-08-24T05:33:39.814Z",
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
@@ -3419,7 +3419,7 @@
         ]
       ]
     },
-    "Anthropic Chat Model": {
+    "OpenRouter Chat Model": {
       "ai_languageModel": [
         [
           {
@@ -3430,7 +3430,7 @@
         ]
       ]
     },
-    "Anthropic Chat Model1": {
+    "OpenRouter Chat Model1": {
       "ai_languageModel": [
         [
           {
@@ -8673,7 +8673,7 @@
     },
     {
       "parameters": {
-        "operation": "append",
+        "operation": "appendOrUpdate",
         "documentId": {
           "__rl": true,
           "value": "16EeZ2y1Xn1TCpmfcXEv7eeQM3Z-ARxkdRunsiQaWUQc",
@@ -10581,7 +10581,8 @@
             "Main Character": "={{ $('Parse Strategy Output').first().json.mainCharacterHint || '' }}",
             "Visual Style": "={{ $('Parse Strategy Output').first().json.visualStyle || '' }}",
             "Language": "={{ $('Parse Strategy Output').first().json.language || '' }}",
-            "Angle Differentiator": "={{ ($('Parse Strategy Output').first().json.angleDifferentiator || '').toString().slice(0,300) }}"
+            "Angle Differentiator": "={{ ($('Parse Strategy Output').first().json.angleDifferentiator || '').toString().slice(0,300) }}",
+            "Run ID": "={{ $execution.id }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -10593,7 +10594,7 @@
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true,
-              "removed": true
+              "removed": false
             },
             {
               "id": "Timestamp",
@@ -11019,8 +11020,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        16080,
-        2016
+        16288,
+        2032
       ]
     },
     {
@@ -11580,51 +11581,41 @@
     },
     {
       "parameters": {
-        "model": {
-          "__rl": true,
-          "value": "claude-sonnet-5",
-          "mode": "list",
-          "cachedResultName": "Claude Sonnet 5"
-        },
+        "model": "openrouter/free",
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
-      "typeVersion": 1.5,
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
       "position": [
-        -2288,
+        -2432,
         2288
       ],
-      "id": "bde3b48e-30be-44c1-ad7f-f6151f78378f",
-      "name": "Anthropic Chat Model",
+      "id": "5607a588-62a5-4f10-a053-6e74f00bd75a",
+      "name": "OpenRouter Chat Model",
       "credentials": {
-        "anthropicApi": {
-          "id": "fVWAovxdQv0aItSM",
-          "name": "Anthropic account"
+        "openRouterApi": {
+          "id": "aMjHrtC2sBcp3cZz",
+          "name": "OpenRouter account"
         }
       }
     },
     {
       "parameters": {
-        "model": {
-          "__rl": true,
-          "value": "claude-sonnet-5",
-          "mode": "list",
-          "cachedResultName": "Claude Sonnet 5"
-        },
+        "model": "openrouter/free",
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
-      "typeVersion": 1.5,
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
       "position": [
-        6736,
-        2480
+        6608,
+        2496
       ],
-      "id": "15e22f99-8474-4b19-9f5f-031106bb386f",
-      "name": "Anthropic Chat Model1",
+      "id": "13a6977e-24ee-4b29-9a10-beb2a756ef6e",
+      "name": "OpenRouter Chat Model1",
       "credentials": {
-        "anthropicApi": {
-          "id": "fVWAovxdQv0aItSM",
-          "name": "Anthropic account"
+        "openRouterApi": {
+          "id": "aMjHrtC2sBcp3cZz",
+          "name": "OpenRouter account"
         }
       }
     }

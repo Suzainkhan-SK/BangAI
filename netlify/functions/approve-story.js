@@ -139,7 +139,12 @@ export const handler = async (event, context) => {
       scenes = null,
       language = 'English',
       voiceId = 'adam',
-      visualStyle = 'Cinematic Realistic'
+      elevenLabsVoiceId = '',
+      visualStyle = 'Cinematic Realistic',
+      subtitleSettings = null,
+      musicId = 'mystery',
+      musicTrackUrl = '',
+      musicVolume = 0.2
     } = payload;
 
     const now = new Date();
@@ -396,6 +401,14 @@ export const handler = async (event, context) => {
         action: 'APPROVE_SCENES',
         threadId,
         sessionId,
+        voiceId,
+        elevenLabsVoiceId,
+        visualStyle,
+        subtitleSettings,
+        musicId,
+        musicTrackUrl,
+        musicVolume,
+        language,
         webhookSecret
       };
 

@@ -1,23 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import { Mic2, Volume2, Square, Sliders, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Mic2, Volume2, Square, Sliders, Check, Loader2, Sparkles, Play, RefreshCw } from 'lucide-react';
 import { VOICES } from '../../data/voices';
-import { audioEngine } from '../../audio/audioEngine';
 
 export default function VoiceMatrix({ selectedVoiceId, onSelectVoice }) {
-  const [audioState, setAudioState] = useState({ isPlayingVoice: false, currentVoiceId: null });
+  const [playingVoiceId, setPlayingVoiceId] = useState(null);
+  const [generatingVoiceId, setGeneratingVoiceId] = useState(null);
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [stability, setStability] = useState(75);
+  const [customText, setCustomText] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const audioRef = useRef(null);
 
+  // Cleanup audio on unmount
   useEffect(() => {
-    return audioEngine.subscribe((state) => setAudioState(state));
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
   }, []);
 
+  // Play pre-recorded ElevenLabs preview sample
   const handlePlaySample = (e, voice) => {
     e.stopPropagation();
-    if (audioState.isPlayingVoice && audioState.currentVoiceId === voice.id) {
-      audioEngine.stopVoice();
-    } else {
-      audioEngine.playVoice(voice.id, voice.sampleText);
+
+    // If already playing this voice, stop
+    if (playingVoiceId === voice.id) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setPlayingVoiceId(null);
+      return;
+    }
+
+    // Stop any current audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    if (voice.previewUrl) {
+      const audio = new Audio(voice.previewUrl);
+      audioRef.current = audio;
+      setPlayingVoiceId(voice.id);
+
+      audio.play().catch(err => {
+        console.warn('Audio play failed:', err);
+        setPlayingVoiceId(null);
+      });
+
+      audio.onended = () => {
+        setPlayingVoiceId(null);
+        audioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        setPlayingVoiceId(null);
+        audioRef.current = null;
+      };
+    }
+  };
+
+  // Generate real TTS preview via ElevenLabs API
+  const handleGeneratePreview = async (e, voice) => {
+    e.stopPropagation();
+
+    if (generatingVoiceId) return; // Already generating
+
+    const textToSpeak = customText.trim() || voice.sampleText;
+    setGeneratingVoiceId(voice.id);
+
+    try {
+      const res = await fetch('/.netlify/functions/preview-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voiceId: voice.elevenLabsId,
+          text: textToSpeak
+        })
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.audio) {
+        // Stop any current audio
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+
+        // Play the base64 audio
+        const audio = new Audio(`data:audio/mpeg;base64,${data.audio}`);
+        audioRef.current = audio;
+        setPlayingVoiceId(voice.id);
+
+        audio.play().catch(err => {
+          console.warn('TTS audio play failed:', err);
+          setPlayingVoiceId(null);
+        });
+
+        audio.onended = () => {
+          setPlayingVoiceId(null);
+          audioRef.current = null;
+        };
+      } else {
+        console.error('TTS generation failed:', data.error);
+      }
+    } catch (err) {
+      console.error('TTS preview error:', err);
+    } finally {
+      setGeneratingVoiceId(null);
     }
   };
 
@@ -46,19 +138,66 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice }) {
         </span>
       </div>
 
+      {/* Custom Text Input Toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <button
+          onClick={() => setShowCustomInput(!showCustomInput)}
+          style={{
+            background: showCustomInput ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+            border: `1px solid ${showCustomInput ? '#34d399' : 'var(--border-subtle)'}`,
+            borderRadius: '6px',
+            padding: '4px 8px',
+            fontSize: '10px',
+            fontWeight: 600,
+            color: showCustomInput ? '#34d399' : 'var(--text-muted)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <Sparkles size={10} />
+          Custom Preview Text
+        </button>
+        <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+          Uses real ElevenLabs TTS
+        </span>
+      </div>
+
+      {showCustomInput && (
+        <textarea
+          value={customText}
+          onChange={(e) => setCustomText(e.target.value)}
+          placeholder="Type custom text to preview with any voice... (max 500 chars)"
+          maxLength={500}
+          style={{
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '8px',
+            padding: '8px 10px',
+            fontSize: '11px',
+            color: '#ffffff',
+            resize: 'vertical',
+            minHeight: '48px',
+            maxHeight: '80px',
+            fontFamily: 'inherit',
+            outline: 'none'
+          }}
+        />
+      )}
+
       {/* Voice Selection Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto', paddingRight: '4px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
         {VOICES.map((voice) => {
           const isSelected = selectedVoiceId === voice.id;
-          const isPlayingThis = audioState.isPlayingVoice && audioState.currentVoiceId === voice.id;
+          const isPlayingThis = playingVoiceId === voice.id;
+          const isGeneratingThis = generatingVoiceId === voice.id;
 
           return (
             <div
               key={voice.id}
-              onClick={() => {
-                audioEngine.playSfx('click');
-                onSelectVoice(voice.id);
-              }}
+              onClick={() => onSelectVoice(voice.id)}
               style={{
                 background: isSelected ? 'rgba(30, 41, 69, 0.9)' : 'rgba(255, 255, 255, 0.03)',
                 border: `1px solid ${isSelected ? voice.color : 'var(--border-subtle)'}`,
@@ -105,36 +244,74 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice }) {
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {/* Quick Preview (pre-recorded sample) */}
                 <button
                   onClick={(e) => handlePlaySample(e, voice)}
+                  title="Play pre-recorded sample"
                   style={{
-                    background: isPlayingThis ? voice.color : 'rgba(255, 255, 255, 0.08)',
-                    color: isPlayingThis ? '#000000' : '#ffffff',
+                    background: isPlayingThis && !isGeneratingThis ? voice.color : 'rgba(255, 255, 255, 0.08)',
+                    color: isPlayingThis && !isGeneratingThis ? '#000000' : '#ffffff',
                     border: 'none',
-                    borderRadius: '8px',
-                    padding: '5px 9px',
-                    fontSize: '11px',
+                    borderRadius: '6px',
+                    padding: '4px 7px',
+                    fontSize: '10px',
                     fontWeight: 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
+                    gap: '3px',
                     transition: 'all 0.15s ease'
                   }}
                 >
                   {isPlayingThis ? (
                     <>
-                      <Square size={10} fill="#000000" />
-                      <span>Playing</span>
+                      <Square size={9} fill="#000000" />
+                      <span>Stop</span>
                     </>
                   ) : (
                     <>
-                      <Volume2 size={12} />
+                      <Volume2 size={10} />
                       <span>Sample</span>
                     </>
                   )}
                 </button>
+
+                {/* Generate TTS Preview */}
+                <button
+                  onClick={(e) => handleGeneratePreview(e, voice)}
+                  title="Generate real AI voice preview"
+                  disabled={!!generatingVoiceId}
+                  style={{
+                    background: isGeneratingThis ? `${voice.color}30` : 'rgba(16, 185, 129, 0.1)',
+                    color: isGeneratingThis ? voice.color : '#34d399',
+                    border: `1px solid ${isGeneratingThis ? voice.color : '#34d39940'}`,
+                    borderRadius: '6px',
+                    padding: '4px 7px',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    cursor: generatingVoiceId ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    transition: 'all 0.15s ease',
+                    opacity: generatingVoiceId && !isGeneratingThis ? 0.5 : 1
+                  }}
+                >
+                  {isGeneratingThis ? (
+                    <>
+                      <Loader2 size={10} className="spin-animation" />
+                      <span>AI...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={9} />
+                      <span>AI</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Selected checkmark */}
                 {isSelected && (
                   <div style={{
                     width: '18px',

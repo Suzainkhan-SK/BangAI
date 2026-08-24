@@ -21,9 +21,17 @@ import {
   RefreshCw,
   Sliders,
   CheckSquare,
-  Square
+  Square,
+  Mic2,
+  Type,
+  Music,
+  Play,
+  Palette
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
+import { VOICES } from '../../data/voices';
+import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS } from '../../data/subtitleStyles';
+import { MUSIC_TRACKS } from '../../data/musicTracks';
 
 // Canonical Preset Definitions for Story Brief (Stage 1)
 const STORY_PRESETS = [
@@ -211,10 +219,190 @@ export default function StoryApprovalCard({
     }
   };
 
+  // ─── AUDIOVISUAL CUSTOMIZATION STATE (Stage 2) ───────────────────
+  const [selectedVoiceId, setSelectedVoiceId] = useState(story?.voiceId || 'adam');
+  const [selectedSubtitleSettings, setSelectedSubtitleSettings] = useState(() => {
+    const base = SUBTITLE_STYLES[0];
+    return {
+      presetId: base.id,
+      style: base.style,
+      fontFamily: base.fontFamily,
+      fontSize: base.fontSize,
+      wordColor: base.wordColor,
+      lineColor: base.lineColor,
+      outlineColor: base.outlineColor,
+      outlineWidth: base.outlineWidth,
+      boxColor: base.boxColor || '',
+      position: base.position,
+      allCaps: base.allCaps
+    };
+  });
+  const [selectedMusicId, setSelectedMusicId] = useState(story?.musicId || 'mystery');
+  const [activeMediaTab, setActiveMediaTab] = useState('voice'); // 'voice' | 'subtitles' | 'music'
+  const [isMediaStudioOpen, setIsMediaStudioOpen] = useState(true);
+
+  // Audio Playback & TTS states
+  const [playingVoiceSampleId, setPlayingVoiceSampleId] = useState(null);
+  const [isVoiceAuditioning, setIsVoiceAuditioning] = useState(false);
+  const [auditioningVoiceId, setAuditioningVoiceId] = useState(null);
+  const [playingMusicId, setPlayingMusicId] = useState(null);
+  const [musicVolume, setMusicVolume] = useState(0.2);
+
+  // Subtitle real preview states
+  const [isSubtitleRendering, setIsSubtitleRendering] = useState(false);
+  const [subtitlePreviewVideoUrl, setSubtitlePreviewVideoUrl] = useState(null);
+  const [subtitlePreviewError, setSubtitlePreviewError] = useState(null);
+
+  const audioPlayerRef = React.useRef(null);
+  const musicPlayerRef = React.useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioPlayerRef.current) audioPlayerRef.current.pause();
+      if (musicPlayerRef.current) musicPlayerRef.current.pause();
+    };
+  }, []);
+
+  // Play pre-recorded ElevenLabs voice sample
+  const handlePlayVoiceSample = (e, voice) => {
+    e.stopPropagation();
+    if (playingVoiceSampleId === voice.id) {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+      setPlayingVoiceSampleId(null);
+      return;
+    }
+
+    if (audioPlayerRef.current) audioPlayerRef.current.pause();
+
+    if (voice.previewUrl) {
+      const audio = new Audio(voice.previewUrl);
+      audioPlayerRef.current = audio;
+      setPlayingVoiceSampleId(voice.id);
+      audio.play().catch(() => setPlayingVoiceSampleId(null));
+      audio.onended = () => setPlayingVoiceSampleId(null);
+      audio.onerror = () => setPlayingVoiceSampleId(null);
+    }
+  };
+
+  // Generate real ElevenLabs TTS audio for Scene 1 voiceover
+  const handleAuditionSceneVoice = async (e, voice) => {
+    e.stopPropagation();
+    if (isVoiceAuditioning) return;
+
+    const sceneText = displayScenes && displayScenes[0]?.voiceoverText
+      ? displayScenes[0].voiceoverText
+      : (story?.viralHook || voice.sampleText);
+
+    setIsVoiceAuditioning(true);
+    setAuditioningVoiceId(voice.id);
+
+    try {
+      const res = await fetch('/.netlify/functions/preview-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voiceId: voice.elevenLabsId || voice.id,
+          text: sceneText
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && data.audio) {
+        if (audioPlayerRef.current) audioPlayerRef.current.pause();
+        const audio = new Audio(`data:audio/mpeg;base64,${data.audio}`);
+        audioPlayerRef.current = audio;
+        setPlayingVoiceSampleId(voice.id);
+        audio.play().catch(() => setPlayingVoiceSampleId(null));
+        audio.onended = () => setPlayingVoiceSampleId(null);
+      }
+    } catch (err) {
+      console.warn('TTS preview audition error:', err.message);
+    } finally {
+      setIsVoiceAuditioning(false);
+      setAuditioningVoiceId(null);
+    }
+  };
+
+  // Play background music track
+  const handlePlayMusic = (e, track) => {
+    e.stopPropagation();
+    if (playingMusicId === track.id) {
+      if (musicPlayerRef.current) {
+        musicPlayerRef.current.pause();
+        musicPlayerRef.current = null;
+      }
+      setPlayingMusicId(null);
+      return;
+    }
+
+    if (musicPlayerRef.current) musicPlayerRef.current.pause();
+
+    const audioUrl = track.previewUrl || track.audioUrl;
+    if (audioUrl) {
+      const audio = new Audio(audioUrl);
+      audio.volume = musicVolume;
+      musicPlayerRef.current = audio;
+      setPlayingMusicId(track.id);
+      audio.play().catch(() => setPlayingMusicId(null));
+      audio.onended = () => setPlayingMusicId(null);
+      audio.onerror = () => setPlayingMusicId(null);
+    }
+  };
+
+  // Render real subtitle preview via json2video API
+  const handleRenderSubtitlePreview = async () => {
+    setIsSubtitleRendering(true);
+    setSubtitlePreviewError(null);
+    setSubtitlePreviewVideoUrl(null);
+
+    const sampleText = displayScenes && displayScenes[0]?.voiceoverText
+      ? displayScenes[0].voiceoverText.substring(0, 140)
+      : 'This is how your subtitles will look in the final video.';
+
+    const chosenVoice = VOICES.find(v => v.id === selectedVoiceId) || VOICES[0];
+
+    try {
+      const res = await fetch('/.netlify/functions/preview-subtitle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subtitleSettings: selectedSubtitleSettings,
+          text: sampleText,
+          voiceId: chosenVoice.name || 'Adam'
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && data.videoUrl) {
+        setSubtitlePreviewVideoUrl(data.videoUrl);
+      } else {
+        setSubtitlePreviewError(data.error || 'Failed to render preview');
+      }
+    } catch (err) {
+      setSubtitlePreviewError(err.message || 'Network error');
+    } finally {
+      setIsSubtitleRendering(false);
+    }
+  };
+
   const handleApprove = () => {
     audioEngine.playSfx('success');
     setApprovedState('approved');
-    onApprove(story.approveUrl);
+    if (typeof onApprove === 'function') {
+      const chosenVoice = VOICES.find(v => v.id === selectedVoiceId) || VOICES[0];
+      const chosenMusic = MUSIC_TRACKS.find(m => m.id === selectedMusicId) || MUSIC_TRACKS[0];
+      onApprove(story.approveUrl, {
+        voiceId: selectedVoiceId,
+        elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
+        subtitleSettings: selectedSubtitleSettings,
+        musicId: selectedMusicId,
+        musicTrackUrl: chosenMusic?.audioUrl || '',
+        musicVolume: musicVolume
+      });
+    }
   };
 
   const handleReject = () => {
@@ -667,6 +855,479 @@ export default function StoryApprovalCard({
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── 5.5 AUDIOVISUAL DESIGN STUDIO (Stage 2 Voice, Subtitles & BGM) ── */}
+      {displayScenes && (
+        <div style={{
+          marginBottom: '20px',
+          borderRadius: '16px',
+          border: '1.5px solid rgba(99, 102, 241, 0.35)',
+          background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.45), rgba(15, 23, 42, 0.6))',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          overflow: 'hidden'
+        }}>
+          {/* Header Bar */}
+          <div
+            onClick={() => setIsMediaStudioOpen(!isMediaStudioOpen)}
+            style={{
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              borderBottom: isMediaStudioOpen ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
+              background: 'rgba(255, 255, 255, 0.03)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #6366f1, #ec4899)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff'
+              }}>
+                <Sparkles size={14} />
+              </div>
+              <div>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff' }}>
+                  Audiovisual Design Studio
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                  Audition voices, customize subtitles & select BGM before final render
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#a5b4fc', fontSize: '10.5px' }}>
+                🎙️ {VOICES.find(v => v.id === selectedVoiceId)?.name || selectedVoiceId} • ✨ {selectedSubtitleSettings.style} • 🎵 {selectedMusicId}
+              </span>
+              {isMediaStudioOpen ? <ChevronUp size={16} color="#a5b4fc" /> : <ChevronDown size={16} color="#a5b4fc" />}
+            </div>
+          </div>
+
+          {isMediaStudioOpen && (
+            <div style={{ padding: '16px' }}>
+              {/* Tab Selector */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveMediaTab('voice')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    border: `1px solid ${activeMediaTab === 'voice' ? '#34d399' : 'rgba(255, 255, 255, 0.08)'}`,
+                    background: activeMediaTab === 'voice' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                    color: activeMediaTab === 'voice' ? '#34d399' : 'var(--text-muted)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Mic2 size={13} />
+                  <span>ElevenLabs Voices</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveMediaTab('subtitles')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    border: `1px solid ${activeMediaTab === 'subtitles' ? '#fbbf24' : 'rgba(255, 255, 255, 0.08)'}`,
+                    background: activeMediaTab === 'subtitles' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                    color: activeMediaTab === 'subtitles' ? '#fbbf24' : 'var(--text-muted)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Type size={13} />
+                  <span>Subtitle Styles & Preview</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveMediaTab('music')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    border: `1px solid ${activeMediaTab === 'music' ? '#67e8f9' : 'rgba(255, 255, 255, 0.08)'}`,
+                    background: activeMediaTab === 'music' ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                    color: activeMediaTab === 'music' ? '#67e8f9' : 'var(--text-muted)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Music size={13} />
+                  <span>Background Music</span>
+                </button>
+              </div>
+
+              {/* ─── TAB 1: ELEVENLABS VOICES ──────────────────────────── */}
+              {activeMediaTab === 'voice' && (
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Select voice and click <strong>"Audition Scene 1"</strong> to hear real AI audio of your scene:</span>
+                    <span style={{ color: '#34d399', fontWeight: 600 }}>Active Voice: {VOICES.find(v => v.id === selectedVoiceId)?.name}</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {VOICES.map((voice) => {
+                      const isSelected = selectedVoiceId === voice.id;
+                      const isPlayingThis = playingVoiceSampleId === voice.id;
+                      const isAuditioningThis = auditioningVoiceId === voice.id;
+
+                      return (
+                        <div
+                          key={voice.id}
+                          onClick={() => setSelectedVoiceId(voice.id)}
+                          style={{
+                            background: isSelected ? 'rgba(30, 41, 69, 0.95)' : 'rgba(255, 255, 255, 0.03)',
+                            border: `1.5px solid ${isSelected ? voice.color : 'var(--border-subtle)'}`,
+                            borderRadius: '10px',
+                            padding: '10px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                            boxShadow: isSelected ? `0 0 14px ${voice.color}40` : 'none'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '7px',
+                                background: `${voice.color}25`,
+                                border: `1px solid ${voice.color}50`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 800,
+                                fontSize: '12px',
+                                color: voice.color
+                              }}>
+                                {voice.name[0]}
+                              </div>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '12.5px', color: '#ffffff' }}>{voice.name}</span>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{voice.flag}</span>
+                                </div>
+                                <div style={{ fontSize: '10.5px', color: voice.color }}>{voice.tag}</div>
+                              </div>
+                            </div>
+
+                            {isSelected && (
+                              <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: voice.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Check size={11} color="#000" strokeWidth={3} />
+                              </div>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => handlePlayVoiceSample(e, voice)}
+                              style={{
+                                flex: 1,
+                                background: isPlayingThis ? voice.color : 'rgba(255, 255, 255, 0.08)',
+                                color: isPlayingThis ? '#000000' : '#ffffff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '4px 8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {isPlayingThis ? <Square size={10} fill="#000" /> : <Volume2 size={11} />}
+                              <span>{isPlayingThis ? 'Stop' : 'Sample'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(e) => handleAuditionSceneVoice(e, voice)}
+                              disabled={isVoiceAuditioning}
+                              style={{
+                                flex: 1.3,
+                                background: isAuditioningThis ? `${voice.color}30` : 'rgba(16, 185, 129, 0.15)',
+                                color: isAuditioningThis ? voice.color : '#34d399',
+                                border: `1px solid ${isAuditioningThis ? voice.color : '#34d39950'}`,
+                                borderRadius: '6px',
+                                padding: '4px 8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                cursor: isVoiceAuditioning ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {isAuditioningThis ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                              <span>{isAuditioningThis ? 'Generating...' : 'Audition Scene 1'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ─── TAB 2: SUBTITLE STYLES & REAL PREVIEW ─────────────── */}
+              {activeMediaTab === 'subtitles' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Pick a subtitle style, customize colors, and render a real video preview via json2video API:
+                  </div>
+
+                  {/* Preset Pills */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '6px' }}>
+                    {SUBTITLE_STYLES.map((preset) => {
+                      const isActive = selectedSubtitleSettings.presetId === preset.id || selectedSubtitleSettings.style === preset.style;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => setSelectedSubtitleSettings({
+                            presetId: preset.id,
+                            style: preset.style,
+                            fontFamily: preset.fontFamily,
+                            fontSize: preset.fontSize,
+                            wordColor: preset.wordColor,
+                            lineColor: preset.lineColor,
+                            outlineColor: preset.outlineColor,
+                            outlineWidth: preset.outlineWidth,
+                            boxColor: preset.boxColor || '',
+                            position: preset.position,
+                            allCaps: preset.allCaps
+                          })}
+                          style={{
+                            background: isActive ? `${preset.color}25` : 'rgba(255, 255, 255, 0.03)',
+                            border: `1.5px solid ${isActive ? preset.color : 'var(--border-subtle)'}`,
+                            borderRadius: '8px',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <span style={{ fontSize: '16px' }}>{preset.icon}</span>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: isActive ? preset.color : '#fff', textAlign: 'center' }}>
+                            {preset.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Custom Color & Font Controls */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                    gap: '8px',
+                    padding: '10px',
+                    background: 'rgba(0, 0, 0, 0.25)',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-subtle)'
+                  }}>
+                    <div>
+                      <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Font Family</label>
+                      <select
+                        value={selectedSubtitleSettings.fontFamily}
+                        onChange={(e) => setSelectedSubtitleSettings(prev => ({ ...prev, fontFamily: e.target.value }))}
+                        style={{ width: '100%', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '4px 6px', color: '#fff', fontSize: '11px', outline: 'none' }}
+                      >
+                        {SUBTITLE_FONTS.map(f => (
+                          <option key={f.id} value={f.family} style={{ background: '#1a1a2e' }}>{f.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Word Highlight Color</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <input
+                          type="color"
+                          value={selectedSubtitleSettings.wordColor || '#FFFF00'}
+                          onChange={(e) => setSelectedSubtitleSettings(prev => ({ ...prev, wordColor: e.target.value }))}
+                          style={{ width: '28px', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '10px', color: '#fff', fontFamily: 'monospace' }}>{selectedSubtitleSettings.wordColor}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Line Text Color</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <input
+                          type="color"
+                          value={selectedSubtitleSettings.lineColor || '#FFFFFF'}
+                          onChange={(e) => setSelectedSubtitleSettings(prev => ({ ...prev, lineColor: e.target.value }))}
+                          style={{ width: '28px', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '10px', color: '#fff', fontFamily: 'monospace' }}>{selectedSubtitleSettings.lineColor}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Outline Color</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <input
+                          type="color"
+                          value={selectedSubtitleSettings.outlineColor || '#000000'}
+                          onChange={(e) => setSelectedSubtitleSettings(prev => ({ ...prev, outlineColor: e.target.value }))}
+                          style={{ width: '28px', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '10px', color: '#fff', fontFamily: 'monospace' }}>{selectedSubtitleSettings.outlineColor}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Render Real Subtitle Preview Button */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={handleRenderSubtitlePreview}
+                      disabled={isSubtitleRendering}
+                      style={{
+                        background: isSubtitleRendering ? 'rgba(245, 158, 11, 0.1)' : 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(234, 88, 12, 0.25))',
+                        border: '1.5px solid rgba(245, 158, 11, 0.5)',
+                        borderRadius: '8px',
+                        padding: '8px 16px',
+                        color: '#fbbf24',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: isSubtitleRendering ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      {isSubtitleRendering ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                      <span>{isSubtitleRendering ? 'Rendering Real Video via json2video API...' : 'Generate Real Subtitle Preview'}</span>
+                    </button>
+                  </div>
+
+                  {subtitlePreviewVideoUrl && (
+                    <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1.5px solid rgba(245, 158, 11, 0.4)', background: '#000', maxWidth: '300px' }}>
+                      <video src={subtitlePreviewVideoUrl} autoPlay loop muted playsInline style={{ width: '100%', display: 'block', maxHeight: '180px', objectFit: 'contain' }} />
+                      <div style={{ padding: '4px 8px', fontSize: '9px', color: '#fbbf24', textAlign: 'center', background: 'rgba(0,0,0,0.5)' }}>
+                        ✅ Rendered by json2video API
+                      </div>
+                    </div>
+                  )}
+
+                  {subtitlePreviewError && (
+                    <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', fontSize: '11px' }}>
+                      ⚠️ {subtitlePreviewError}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ─── TAB 3: BACKGROUND MUSIC ───────────────────────────── */}
+              {activeMediaTab === 'music' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Audition and select background score for your video:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '10px' }}>Volume: {Math.round(musicVolume * 100)}%</span>
+                      <input
+                        type="range" min="0.05" max="0.5" step="0.05"
+                        value={musicVolume}
+                        onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
+                        style={{ width: '80px', accentColor: '#67e8f9', cursor: 'pointer' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {MUSIC_TRACKS.map((track) => {
+                      const isSelected = selectedMusicId === track.id;
+                      const isPlayingThis = playingMusicId === track.id;
+
+                      return (
+                        <div
+                          key={track.id}
+                          onClick={() => setSelectedMusicId(track.id)}
+                          style={{
+                            background: isSelected ? 'rgba(30, 41, 69, 0.95)' : 'rgba(255, 255, 255, 0.03)',
+                            border: `1.5px solid ${isSelected ? track.color : 'var(--border-subtle)'}`,
+                            borderRadius: '10px',
+                            padding: '10px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            transition: 'all 0.15s ease',
+                            boxShadow: isSelected ? `0 0 14px ${track.color}35` : 'none'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => handlePlayMusic(e, track)}
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '7px',
+                                background: isPlayingThis ? track.color : 'rgba(255, 255, 255, 0.08)',
+                                color: isPlayingThis ? '#000' : '#fff',
+                                border: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {isPlayingThis ? <Square size={10} fill="#000" /> : <Play size={11} fill="#fff" />}
+                            </button>
+                            <div>
+                              <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#fff' }}>{track.name}</div>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{track.genre} • {track.tempo}</div>
+                            </div>
+                          </div>
+
+                          {isSelected && (
+                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: track.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Check size={10} color="#000" strokeWidth={3} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

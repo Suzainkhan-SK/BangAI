@@ -9,6 +9,7 @@ import { PRESETS } from '../../data/presets';
 import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS } from '../../data/musicTracks';
+import { SUBTITLE_STYLES } from '../../data/subtitleStyles';
 import { audioEngine } from '../../audio/audioEngine';
 import { detectMode } from '../../utils/detectIntent';
 import { 
@@ -89,6 +90,19 @@ export default function DashboardApp({
   const [musicId, setMusicId] = useState('mystery');
   const [language, setLanguage] = useState('Hinglish');
   const [autoUploadToYouTube, setAutoUploadToYouTube] = useState(false);
+  const [subtitleSettings, setSubtitleSettings] = useState({
+    presetId: 'viral-progressive',
+    style: 'classic-progressive',
+    fontFamily: 'Montserrat',
+    fontSize: 280,
+    wordColor: '#FFFF00',
+    lineColor: '#FFFFFF',
+    outlineColor: '#000000',
+    outlineWidth: 10,
+    position: 'center-center',
+    allCaps: true
+  });
+  const [musicVolume, setMusicVolume] = useState(0.2);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -692,8 +706,12 @@ export default function DashboardApp({
           mode: mode,
           settings: {
             voiceId,
+            elevenLabsVoiceId: (VOICES.find(v => v.id === voiceId) || {}).elevenLabsId || voiceId,
             visualStyle: styleId,
             musicId,
+            musicTrackUrl: (MUSIC_TRACKS.find(t => t.id === musicId) || {}).audioUrl || '',
+            musicVolume,
+            subtitleSettings,
             language,
             autoUploadToYouTube
           }
@@ -1015,14 +1033,21 @@ export default function DashboardApp({
   };
 
   // ─── USER APPROVES STORY (2-STAGE APPROVAL WORKFLOW) ───────────────
-  const handleApproveStory = async (approveUrl) => {
+  const handleApproveStory = async (approveUrl, customSettings = {}) => {
     const isStage1 = activeThread?.status === 'READY_FOR_APPROVAL';
     const isStage2 = activeThread?.status === 'SCENES_READY_FOR_APPROVAL';
 
     const currentThreadId = activeThreadId || activeThread?.threadId || activeThread?.id;
 
+    const chosenVoiceId = customSettings.voiceId || activeThread?.voiceId || voiceId || 'adam';
+    const chosenElevenLabsVoiceId = customSettings.elevenLabsVoiceId || (VOICES.find(v => v.id === chosenVoiceId) || {}).elevenLabsId || chosenVoiceId;
+    const chosenSubtitleSettings = customSettings.subtitleSettings || subtitleSettings;
+    const chosenMusicId = customSettings.musicId || activeThread?.musicId || musicId || 'mystery';
+    const chosenMusicTrackUrl = customSettings.musicTrackUrl || (MUSIC_TRACKS.find(t => t.id === chosenMusicId) || {}).audioUrl || '';
+    const chosenMusicVolume = customSettings.musicVolume ?? musicVolume ?? 0.2;
+
     try {
-      // 1. Resume / Launch n8n execution with refined story payload
+      // 1. Resume / Launch n8n execution with refined story payload + audiovisual customization
       const res = await fetch('/.netlify/functions/approve-story', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1034,8 +1059,13 @@ export default function DashboardApp({
           story: activeThread?.story || null,
           refinedStory: activeThread?.story || null,
           language: activeThread?.story?.language || language || 'English',
-          voiceId: activeThread?.voiceId || voiceId || 'adam',
+          voiceId: chosenVoiceId,
+          elevenLabsVoiceId: chosenElevenLabsVoiceId,
           visualStyle: activeThread?.visualStyleId || styleId || 'cinematic',
+          subtitleSettings: chosenSubtitleSettings,
+          musicId: chosenMusicId,
+          musicTrackUrl: chosenMusicTrackUrl,
+          musicVolume: chosenMusicVolume,
           autoUploadToYouTube: !!autoUploadToYouTube
         })
       });
