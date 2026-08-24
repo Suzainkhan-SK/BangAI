@@ -76,16 +76,16 @@ export default function StudioLab({
   // ─── 2. SUBTITLE STUDIO STATE ────────────────────────────────────
   const [currentSubtitleSettings, setCurrentSubtitleSettings] = useState(() => {
     return subtitleSettings || {
-      presetId: 'viral-progressive',
-      style: 'classic-progressive',
+      presetId: 'mrbeast-viral',
+      style: 'highlight',
       fontFamily: 'Montserrat',
-      fontSize: 280,
-      wordColor: '#FFFF00',
+      fontSize: 78,
+      wordColor: '#FFE600',
       lineColor: '#FFFFFF',
       outlineColor: '#000000',
       outlineWidth: 10,
       shadowColor: '#000000',
-      boxColor: '#FF0000',
+      boxColor: '',
       position: 'center-center',
       allCaps: true,
       maxWordsPerLine: 3
@@ -840,26 +840,61 @@ export default function StudioLab({
             {/* Presets Grid */}
             <div>
               <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-                1. Select Style Preset:
+                1. Select YouTuber Subtitle Preset:
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '6px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
                 {SUBTITLE_STYLES.map((preset) => {
-                  const isActive = currentSubtitleSettings.presetId === preset.id || currentSubtitleSettings.style === preset.style;
+                  const isActive = currentSubtitleSettings.presetId === preset.id;
                   return (
-                    <button key={preset.id} type="button"
+                    <div
+                      key={preset.id}
                       onClick={() => handleSelectSubtitlePreset(preset)}
                       style={{
-                        background: isActive ? `${preset.color}20` : 'var(--bg-input)',
+                        background: isActive ? `${preset.color}15` : 'var(--bg-input)',
                         border: `1.5px solid ${isActive ? preset.color : 'var(--border-subtle)'}`,
-                        borderRadius: '10px', padding: '10px 8px', cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        gap: '4px', transition: 'all 0.15s ease'
+                        borderRadius: '12px', padding: '12px', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', gap: '6px',
+                        boxShadow: isActive ? `0 0 16px ${preset.color}30` : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '16px' }}>{preset.icon}</span>
+                          <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                            {preset.name}
+                          </span>
+                        </div>
+                        <span style={{
+                          fontSize: '9px', fontWeight: 800, padding: '2px 5px', borderRadius: '5px',
+                          background: `${preset.color}25`, color: preset.color
+                        }}>
+                          {preset.badge}
+                        </span>
+                      </div>
+
+                      <div style={{
+                        background: '#09090b', borderRadius: '7px', padding: '6px 8px',
+                        textAlign: 'center', border: '1px solid rgba(255,255,255,0.08)'
                       }}>
-                      <span style={{ fontSize: '18px' }}>{preset.icon}</span>
-                      <span style={{ fontSize: '10px', fontWeight: 800, color: isActive ? preset.color : 'var(--text-primary)', textAlign: 'center' }}>
-                        {preset.name}
-                      </span>
-                    </button>
+                        <span style={{
+                          fontFamily: preset.fontFamily,
+                          fontWeight: 900,
+                          fontSize: '10.5px',
+                          color: preset.wordColor,
+                          textTransform: preset.allCaps ? 'uppercase' : 'none',
+                          background: preset.boxColor ? `${preset.boxColor}90` : 'transparent',
+                          padding: preset.boxColor ? '2px 5px' : '0',
+                          borderRadius: '3px'
+                        }}>
+                          {preset.samplePreview}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                        {preset.description}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -890,9 +925,9 @@ export default function StudioLab({
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>
                     <span>Font Size</span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{currentSubtitleSettings.fontSize}px</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{currentSubtitleSettings.fontSize}px</span>
                   </div>
-                  <input type="range" min="180" max="400" step="20"
+                  <input type="range" min="56" max="100" step="2"
                     value={currentSubtitleSettings.fontSize}
                     onChange={(e) => handleUpdateSubtitleSetting('fontSize', parseInt(e.target.value))}
                     style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }} />

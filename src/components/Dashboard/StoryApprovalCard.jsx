@@ -183,16 +183,16 @@ export default function StoryApprovalCard({
   const [voiceCategoryFilter, setVoiceCategoryFilter] = useState('all');
   const [selectedSubtitleSettings, setSelectedSubtitleSettings] = useState(() => {
     return initialSubtitleSettings || {
-      presetId: 'viral-progressive',
-      style: 'classic-progressive',
+      presetId: 'mrbeast-viral',
+      style: 'highlight',
       fontFamily: 'Montserrat',
-      fontSize: 280,
-      wordColor: '#FFFF00',
+      fontSize: 78,
+      wordColor: '#FFE600',
       lineColor: '#FFFFFF',
       outlineColor: '#000000',
       outlineWidth: 10,
       shadowColor: '#000000',
-      boxColor: '#FF0000',
+      boxColor: '',
       position: 'center-center',
       allCaps: true,
       maxWordsPerLine: 3
@@ -974,15 +974,14 @@ export default function StoryApprovalCard({
 
           {/* TAB 2: SUBTITLES */}
           {activeMediaTab === 'subtitles' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Preset Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Top YouTuber Preset Cards Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '10px' }}>
                 {SUBTITLE_STYLES.map(preset => {
-                  const isActive = selectedSubtitleSettings.presetId === preset.id || selectedSubtitleSettings.style === preset.style;
+                  const isActive = selectedSubtitleSettings.presetId === preset.id;
                   return (
-                    <button
+                    <div
                       key={preset.id}
-                      type="button"
                       onClick={() => {
                         setSelectedSubtitleSettings(prev => ({
                           ...prev,
@@ -994,39 +993,80 @@ export default function StoryApprovalCard({
                           lineColor: preset.lineColor,
                           outlineColor: preset.outlineColor,
                           outlineWidth: preset.outlineWidth,
+                          shadowColor: preset.shadowColor || '#000000',
                           boxColor: preset.boxColor || '',
                           position: preset.position,
-                          allCaps: preset.allCaps
+                          allCaps: preset.allCaps,
+                          maxWordsPerLine: preset.maxWordsPerLine || 3
                         }));
                       }}
                       style={{
-                        background: isActive ? `${preset.color}15` : 'var(--bg-card)',
+                        background: isActive ? `${preset.color}14` : 'var(--bg-card)',
                         border: `1.5px solid ${isActive ? preset.color : 'var(--border-subtle)'}`,
-                        borderRadius: '10px', padding: '10px 8px', cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'
+                        borderRadius: '12px', padding: '12px', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', gap: '8px',
+                        boxShadow: isActive ? `0 0 16px ${preset.color}30` : 'none',
+                        transition: 'all 0.2s ease',
+                        position: 'relative'
                       }}
                     >
-                      <span style={{ fontSize: '18px' }}>{preset.icon}</span>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: isActive ? preset.color : 'var(--text-primary)' }}>
-                        {preset.name}
-                      </span>
-                    </button>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '16px' }}>{preset.icon}</span>
+                          <div>
+                            <div style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--text-primary)' }}>{preset.name}</div>
+                            <div style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>Used by {preset.creator}</div>
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '6px',
+                          background: `${preset.color}25`, color: preset.color
+                        }}>
+                          {preset.badge}
+                        </span>
+                      </div>
+
+                      {/* Live Mini Preview */}
+                      <div style={{
+                        background: '#09090b', borderRadius: '8px', padding: '8px 10px',
+                        textAlign: 'center', border: '1px solid rgba(255,255,255,0.08)'
+                      }}>
+                        <span style={{
+                          fontFamily: preset.fontFamily,
+                          fontWeight: 900,
+                          fontSize: '11px',
+                          color: preset.wordColor,
+                          textTransform: preset.allCaps ? 'uppercase' : 'none',
+                          letterSpacing: '0.04em',
+                          textShadow: `0 0 4px ${preset.outlineColor}, 0 2px 4px rgba(0,0,0,0.8)`,
+                          background: preset.boxColor ? `${preset.boxColor}90` : 'transparent',
+                          padding: preset.boxColor ? '2px 6px' : '0',
+                          borderRadius: preset.boxColor ? '4px' : '0'
+                        }}>
+                          {preset.samplePreview}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', lineHeight: 1.35 }}>
+                        {preset.description}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
 
-              {/* Subtitle Customization Form */}
+              {/* Advanced Subtitle Customization */}
               <div style={{
-                background: 'var(--bg-card)', borderRadius: '12px', padding: '12px',
+                background: 'var(--bg-card)', borderRadius: '12px', padding: '14px',
                 border: '1px solid var(--border-subtle)', display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px'
+                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px'
               }}>
                 <div>
-                  <label style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Font Family</label>
+                  <label style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Font Family</label>
                   <select
                     value={selectedSubtitleSettings.fontFamily}
                     onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, fontFamily: e.target.value }))}
-                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}
+                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}
                   >
                     {SUBTITLE_FONTS.map(f => (
                       <option key={f.id} value={f.family}>{f.name}</option>
@@ -1035,12 +1075,12 @@ export default function StoryApprovalCard({
                 </div>
 
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px' }}>
                     <span>Font Size</span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{selectedSubtitleSettings.fontSize}px</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{selectedSubtitleSettings.fontSize}px</span>
                   </div>
                   <input
-                    type="range" min="180" max="400" step="20"
+                    type="range" min="56" max="100" step="2"
                     value={selectedSubtitleSettings.fontSize}
                     onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, fontSize: parseInt(e.target.value) }))}
                     style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }}
@@ -1048,16 +1088,52 @@ export default function StoryApprovalCard({
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Screen Position</label>
+                  <label style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Screen Position</label>
                   <select
                     value={selectedSubtitleSettings.position}
                     onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, position: e.target.value }))}
-                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}
+                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}
                   >
                     {SUBTITLE_POSITIONS.map(p => (
                       <option key={p.id} value={p.value}>{p.name}</option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Active Word Color</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <input
+                      type="color"
+                      value={selectedSubtitleSettings.wordColor || '#FFE600'}
+                      onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, wordColor: e.target.value }))}
+                      style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'transparent' }}
+                    />
+                    <input
+                      type="text"
+                      value={selectedSubtitleSettings.wordColor || '#FFE600'}
+                      onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, wordColor: e.target.value }))}
+                      style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Base Text Color</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <input
+                      type="color"
+                      value={selectedSubtitleSettings.lineColor || '#FFFFFF'}
+                      onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, lineColor: e.target.value }))}
+                      style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'transparent' }}
+                    />
+                    <input
+                      type="text"
+                      value={selectedSubtitleSettings.lineColor || '#FFFFFF'}
+                      onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, lineColor: e.target.value }))}
+                      style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}
+                    />
+                  </div>
                 </div>
               </div>
 

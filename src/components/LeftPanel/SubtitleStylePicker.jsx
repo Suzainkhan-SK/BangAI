@@ -3,7 +3,7 @@ import { Type, Loader2, Play, Check, Palette, ChevronDown, ChevronUp } from 'luc
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS } from '../../data/subtitleStyles';
 
 export default function SubtitleStylePicker({ subtitleSettings, onSubtitleChange }) {
-  const [selectedPresetId, setSelectedPresetId] = useState(subtitleSettings?.presetId || 'viral-progressive');
+  const [selectedPresetId, setSelectedPresetId] = useState(subtitleSettings?.presetId || 'mrbeast-viral');
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
   const [previewVideoUrl, setPreviewVideoUrl] = useState(null);
@@ -217,7 +217,7 @@ export default function SubtitleStylePicker({ subtitleSettings, onSubtitleChange
               <span style={{ color: '#fff', fontWeight: 600 }}>{settings.fontSize}px</span>
             </div>
             <input
-              type="range" min="180" max="400" step="20"
+              type="range" min="56" max="100" step="2"
               value={settings.fontSize}
               onChange={(e) => handleSettingChange('fontSize', parseInt(e.target.value))}
               style={{ width: '100%', accentColor: '#fbbf24', cursor: 'pointer' }}

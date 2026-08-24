@@ -92,16 +92,19 @@ export default function DashboardApp({
   const [language, setLanguage] = useState('Hinglish');
   const [autoUploadToYouTube, setAutoUploadToYouTube] = useState(false);
   const [subtitleSettings, setSubtitleSettings] = useState({
-    presetId: 'viral-progressive',
-    style: 'classic-progressive',
+    presetId: 'mrbeast-viral',
+    style: 'highlight',
     fontFamily: 'Montserrat',
-    fontSize: 280,
-    wordColor: '#FFFF00',
+    fontSize: 78,
+    wordColor: '#FFE600',
     lineColor: '#FFFFFF',
     outlineColor: '#000000',
     outlineWidth: 10,
+    shadowColor: '#000000',
+    boxColor: '',
     position: 'center-center',
-    allCaps: true
+    allCaps: true,
+    maxWordsPerLine: 3
   });
   const [musicVolume, setMusicVolume] = useState(0.2);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);

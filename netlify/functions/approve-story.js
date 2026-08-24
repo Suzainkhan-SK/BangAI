@@ -4,7 +4,7 @@
 
 import { getDb } from './db.js';
 
-function buildResumeUrl(rawUrl, action, refineParams = {}) {
+function buildResumeUrl(rawUrl, action, extraParams = {}) {
   if (!rawUrl) return null;
   try {
     const u = new URL(rawUrl);
@@ -14,21 +14,21 @@ function buildResumeUrl(rawUrl, action, refineParams = {}) {
     } else if (action === 'REFINE_STORY' || action === 'REFINE') {
       u.searchParams.set('approval', 'refine');
       u.searchParams.set('action', 'REFINE_STORY');
-      if (refineParams.refinePrompt) u.searchParams.set('refinePrompt', refineParams.refinePrompt);
-      if (refineParams.refineMode) u.searchParams.set('refineMode', refineParams.refineMode);
-      if (refineParams.refineScenes && refineParams.refineScenes.length) {
-        u.searchParams.set('refineScenes', JSON.stringify(refineParams.refineScenes));
+      if (extraParams.refinePrompt) u.searchParams.set('refinePrompt', extraParams.refinePrompt);
+      if (extraParams.refineMode) u.searchParams.set('refineMode', extraParams.refineMode);
+      if (extraParams.refineScenes && extraParams.refineScenes.length) {
+        u.searchParams.set('refineScenes', JSON.stringify(extraParams.refineScenes));
       }
-      if (refineParams.refineRound) u.searchParams.set('refineRound', String(refineParams.refineRound));
+      if (extraParams.refineRound) u.searchParams.set('refineRound', String(extraParams.refineRound));
     } else if (action === 'REFINE_SCENES') {
       u.searchParams.set('approval', 'refine');
       u.searchParams.set('action', 'REFINE_SCENES');
-      if (refineParams.refinePrompt) u.searchParams.set('refinePrompt', refineParams.refinePrompt);
-      if (refineParams.refineMode) u.searchParams.set('refineMode', refineParams.refineMode);
-      if (refineParams.refineScenes && refineParams.refineScenes.length) {
-        u.searchParams.set('refineScenes', JSON.stringify(refineParams.refineScenes));
+      if (extraParams.refinePrompt) u.searchParams.set('refinePrompt', extraParams.refinePrompt);
+      if (extraParams.refineMode) u.searchParams.set('refineMode', extraParams.refineMode);
+      if (extraParams.refineScenes && extraParams.refineScenes.length) {
+        u.searchParams.set('refineScenes', JSON.stringify(extraParams.refineScenes));
       }
-      if (refineParams.refineRound) u.searchParams.set('refineRound', String(refineParams.refineRound));
+      if (extraParams.refineRound) u.searchParams.set('refineRound', String(extraParams.refineRound));
     } else if (action === 'APPROVE_SCENES' || action === 'RENDER_VIDEO') {
       u.searchParams.set('approval', 'yes');
       u.searchParams.set('action', 'APPROVE_SCENES');
@@ -36,10 +36,20 @@ function buildResumeUrl(rawUrl, action, refineParams = {}) {
       u.searchParams.set('approval', 'yes');
       u.searchParams.set('action', 'APPROVE');
     }
+
+    if (extraParams.voiceId) u.searchParams.set('voiceId', extraParams.voiceId);
+    if (extraParams.elevenLabsVoiceId) u.searchParams.set('elevenLabsVoiceId', extraParams.elevenLabsVoiceId);
+    if (extraParams.musicId) u.searchParams.set('musicId', extraParams.musicId);
+    if (extraParams.musicTrackUrl) u.searchParams.set('musicTrackUrl', extraParams.musicTrackUrl);
+    if (extraParams.musicVolume !== undefined) u.searchParams.set('musicVolume', String(extraParams.musicVolume));
+    if (extraParams.subtitleSettings) {
+      u.searchParams.set('subtitleSettings', typeof extraParams.subtitleSettings === 'string' ? extraParams.subtitleSettings : JSON.stringify(extraParams.subtitleSettings));
+    }
+
     return u.toString();
   } catch (err) {
     const sep = rawUrl.includes('?') ? '&' : '?';
-    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(refineParams.refinePrompt || '')}`;
+    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(extraParams.refinePrompt || '')}&voiceId=${encodeURIComponent(extraParams.voiceId || '')}`;
   }
 }
 
@@ -189,7 +199,13 @@ export const handler = async (event, context) => {
       refinePrompt,
       refineMode,
       refineScenes,
-      refineRound
+      refineRound,
+      voiceId,
+      elevenLabsVoiceId,
+      subtitleSettings,
+      musicId,
+      musicTrackUrl,
+      musicVolume
     });
     console.log(`[approve-story] Built n8n target URL for action "${action}":`, targetResumeUrl);
 
