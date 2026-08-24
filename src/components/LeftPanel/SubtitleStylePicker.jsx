@@ -61,16 +61,38 @@ export default function SubtitleStylePicker({ subtitleSettings, onSubtitleChange
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subtitleSettings: settings,
-          text: 'This is how your subtitles will look in the final video. Pretty cool right?'
+          text: 'This is how your viral subtitles will look in the final video. High retention and high energy!'
         })
       });
 
       const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to render preview');
+      }
 
-      if (data.success && data.videoUrl) {
+      if (data.videoUrl) {
         setPreviewVideoUrl(data.videoUrl);
-      } else {
-        setPreviewError(data.error || 'Failed to render preview');
+        return;
+      }
+
+      if (data.project && data.apiKey) {
+        const projectId = data.project;
+        const apiKey = data.apiKey;
+        const start = Date.now();
+
+        while (Date.now() - start < 45000) {
+          await new Promise(r => setTimeout(r, 2000));
+          const pollRes = await fetch(`/.netlify/functions/preview-subtitle?project=${encodeURIComponent(projectId)}&apiKey=${encodeURIComponent(apiKey)}`);
+          const pollData = await pollRes.json();
+          if (pollData.success && pollData.videoUrl) {
+            setPreviewVideoUrl(pollData.videoUrl);
+            return;
+          }
+          if (pollData.status === 'error') {
+            throw new Error(pollData.error || 'Render failed');
+          }
+        }
+        throw new Error('Preview render timed out. Please retry.');
       }
     } catch (err) {
       setPreviewError(err.message || 'Network error');

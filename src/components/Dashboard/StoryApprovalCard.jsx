@@ -582,13 +582,37 @@ export default function StoryApprovalCard({
       });
 
       const data = await res.json();
-      if (data.success && data.videoUrl) {
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to initiate subtitle render');
+      }
+
+      if (data.videoUrl) {
         setSubtitlePreviewVideoUrl(data.videoUrl);
-      } else {
-        setSubtitlePreviewError(data.error || 'Failed to render subtitle video clip');
+        return;
+      }
+
+      // If async rendering in progress, poll with GET endpoint
+      if (data.project && data.apiKey) {
+        const projectId = data.project;
+        const apiKey = data.apiKey;
+        const start = Date.now();
+
+        while (Date.now() - start < 45000) {
+          await new Promise(r => setTimeout(r, 2000));
+          const pollRes = await fetch(`/.netlify/functions/preview-subtitle?project=${encodeURIComponent(projectId)}&apiKey=${encodeURIComponent(apiKey)}`);
+          const pollData = await pollRes.json();
+          if (pollData.success && pollData.videoUrl) {
+            setSubtitlePreviewVideoUrl(pollData.videoUrl);
+            return;
+          }
+          if (pollData.status === 'error') {
+            throw new Error(pollData.error || 'Render failed on cloud engine');
+          }
+        }
+        throw new Error('Subtitle render timed out. Please retry.');
       }
     } catch (err) {
-      setSubtitlePreviewError(err.message || 'Error communicating with json2video');
+      setSubtitlePreviewError(err.message || 'Error communicating with subtitle renderer');
     } finally {
       setIsSubtitleRendering(false);
     }

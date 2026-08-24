@@ -351,10 +351,33 @@ export default function StudioLab({
       });
 
       const data = await res.json();
-      if (data.success && data.videoUrl) {
+      if (!data.success) {
+        throw new Error(data.error || 'Render failed');
+      }
+
+      if (data.videoUrl) {
         setRenderedSubtitleVideoUrl(data.videoUrl);
-      } else {
-        setSubtitleRenderError(data.error || 'Render failed');
+        return;
+      }
+
+      if (data.project && data.apiKey) {
+        const projectId = data.project;
+        const apiKey = data.apiKey;
+        const start = Date.now();
+
+        while (Date.now() - start < 45000) {
+          await new Promise(r => setTimeout(r, 2000));
+          const pollRes = await fetch(`/.netlify/functions/preview-subtitle?project=${encodeURIComponent(projectId)}&apiKey=${encodeURIComponent(apiKey)}`);
+          const pollData = await pollRes.json();
+          if (pollData.success && pollData.videoUrl) {
+            setRenderedSubtitleVideoUrl(pollData.videoUrl);
+            return;
+          }
+          if (pollData.status === 'error') {
+            throw new Error(pollData.error || 'Render failed on cloud engine');
+          }
+        }
+        throw new Error('Subtitle render timed out. Please retry.');
       }
     } catch (err) {
       setSubtitleRenderError(err.message || 'Network error rendering subtitles');
