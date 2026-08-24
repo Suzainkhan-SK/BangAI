@@ -220,6 +220,7 @@ export default function StoryApprovalCard({
   };
 
   // ─── AUDIOVISUAL CUSTOMIZATION STATE (Stage 2) ───────────────────
+  const [liveVoices, setLiveVoices] = useState(VOICES);
   const [selectedVoiceId, setSelectedVoiceId] = useState(story?.voiceId || 'adam');
   const [selectedSubtitleSettings, setSelectedSubtitleSettings] = useState(() => {
     const base = SUBTITLE_STYLES[0];
@@ -248,6 +249,13 @@ export default function StoryApprovalCard({
   const [playingMusicId, setPlayingMusicId] = useState(null);
   const [musicVolume, setMusicVolume] = useState(0.2);
 
+  // 5-Scene Individual & Batch Voiceover Audition State
+  const [sceneAudioMap, setSceneAudioMap] = useState({}); // { [cacheKey]: base64Audio }
+  const [playingSceneIndex, setPlayingSceneIndex] = useState(null);
+  const [generatingSceneIndex, setGeneratingSceneIndex] = useState(null);
+  const [isPlayingAllScenes, setIsPlayingAllScenes] = useState(false);
+  const [allScenesProgress, setAllScenesProgress] = useState(0);
+
   // Subtitle real preview states
   const [isSubtitleRendering, setIsSubtitleRendering] = useState(false);
   const [subtitlePreviewVideoUrl, setSubtitlePreviewVideoUrl] = useState(null);
@@ -255,6 +263,35 @@ export default function StoryApprovalCard({
 
   const audioPlayerRef = React.useRef(null);
   const musicPlayerRef = React.useRef(null);
+
+  // Fetch live voices from ElevenLabs on mount
+  useEffect(() => {
+    fetch('/.netlify/functions/list-voices')
+      .then(res => res.json())
+      .then(data => {
+        if (data.voices && Array.isArray(data.voices) && data.voices.length > 0) {
+          const merged = data.voices.map(apiV => {
+            const matchedStatic = VOICES.find(sv => 
+              sv.elevenLabsId === apiV.voice_id || 
+              sv.name.toLowerCase() === apiV.name.toLowerCase()
+            );
+            return {
+              id: matchedStatic?.id || apiV.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+              name: apiV.name,
+              elevenLabsId: apiV.voice_id,
+              gender: apiV.gender || matchedStatic?.gender || 'Unknown',
+              flag: apiV.accent || matchedStatic?.flag || '🌍',
+              tag: matchedStatic?.tag || apiV.category || 'AI Voice',
+              previewUrl: apiV.preview_url || matchedStatic?.previewUrl || null,
+              sampleText: matchedStatic?.sampleText || 'Experience the future of viral AI content creation.',
+              color: matchedStatic?.color || '#6366f1'
+            };
+          });
+          setLiveVoices(merged);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -287,43 +324,114 @@ export default function StoryApprovalCard({
     }
   };
 
-  // Generate real ElevenLabs TTS audio for Scene 1 voiceover
-  const handleAuditionSceneVoice = async (e, voice) => {
-    e.stopPropagation();
-    if (isVoiceAuditioning) return;
+  // Generate real ElevenLabs TTS audio for any scene
+  const handleAuditionScene = async (sceneIndex, sceneText) => {
+    if (generatingSceneIndex !== null) return;
+    const chosenVoice = liveVoices.find(v => v.id === selectedVoiceId) || liveVoices[0];
+    const cacheKey = `${chosenVoice.elevenLabsId || chosenVoice.id}_${sceneIndex}_${sceneText}`;
 
-    const sceneText = displayScenes && displayScenes[0]?.voiceoverText
-      ? displayScenes[0].voiceoverText
-      : (story?.viralHook || voice.sampleText);
+    if (sceneAudioMap[cacheKey]) {
+      if (playingSceneIndex === sceneIndex) {
+        if (audioPlayerRef.current) audioPlayerRef.current.pause();
+        setPlayingSceneIndex(null);
+        return;
+      }
+      if (audioPlayerRef.current) audioPlayerRef.current.pause();
+      const audio = new Audio(`data:audio/mpeg;base64,${sceneAudioMap[cacheKey]}`);
+      audioPlayerRef.current = audio;
+      setPlayingSceneIndex(sceneIndex);
+      audio.play().catch(() => setPlayingSceneIndex(null));
+      audio.onended = () => setPlayingSceneIndex(null);
+      return;
+    }
 
-    setIsVoiceAuditioning(true);
-    setAuditioningVoiceId(voice.id);
+    setGeneratingSceneIndex(sceneIndex);
 
     try {
       const res = await fetch('/.netlify/functions/preview-voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          voiceId: voice.elevenLabsId || voice.id,
+          voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
           text: sceneText
         })
       });
 
       const data = await res.json();
       if (data.success && data.audio) {
+        setSceneAudioMap(prev => ({ ...prev, [cacheKey]: data.audio }));
         if (audioPlayerRef.current) audioPlayerRef.current.pause();
         const audio = new Audio(`data:audio/mpeg;base64,${data.audio}`);
         audioPlayerRef.current = audio;
-        setPlayingVoiceSampleId(voice.id);
-        audio.play().catch(() => setPlayingVoiceSampleId(null));
-        audio.onended = () => setPlayingVoiceSampleId(null);
+        setPlayingSceneIndex(sceneIndex);
+        audio.play().catch(() => setPlayingSceneIndex(null));
+        audio.onended = () => setPlayingSceneIndex(null);
       }
     } catch (err) {
-      console.warn('TTS preview audition error:', err.message);
+      console.warn('Scene TTS audition error:', err.message);
     } finally {
-      setIsVoiceAuditioning(false);
-      setAuditioningVoiceId(null);
+      setGeneratingSceneIndex(null);
     }
+  };
+
+  // Audition all 5 scenes sequentially
+  const handleAuditionAllScenes = async () => {
+    if (!displayScenes || displayScenes.length === 0) return;
+    if (isPlayingAllScenes) {
+      if (audioPlayerRef.current) audioPlayerRef.current.pause();
+      setIsPlayingAllScenes(false);
+      setPlayingSceneIndex(null);
+      return;
+    }
+
+    setIsPlayingAllScenes(true);
+    const chosenVoice = liveVoices.find(v => v.id === selectedVoiceId) || liveVoices[0];
+
+    for (let i = 0; i < displayScenes.length; i++) {
+      setAllScenesProgress(i + 1);
+      setPlayingSceneIndex(i);
+      const text = displayScenes[i].voiceoverText;
+      const cacheKey = `${chosenVoice.elevenLabsId || chosenVoice.id}_${i}_${text}`;
+
+      let base64 = sceneAudioMap[cacheKey];
+      if (!base64) {
+        setGeneratingSceneIndex(i);
+        try {
+          const res = await fetch('/.netlify/functions/preview-voice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
+              text: text
+            })
+          });
+          const data = await res.json();
+          if (data.success && data.audio) {
+            base64 = data.audio;
+            setSceneAudioMap(prev => ({ ...prev, [cacheKey]: data.audio }));
+          }
+        } catch (e) {
+          console.warn('Error synthesizing scene ' + (i + 1), e);
+        } finally {
+          setGeneratingSceneIndex(null);
+        }
+      }
+
+      if (base64) {
+        await new Promise((resolve) => {
+          if (audioPlayerRef.current) audioPlayerRef.current.pause();
+          const audio = new Audio(`data:audio/mpeg;base64,${base64}`);
+          audioPlayerRef.current = audio;
+          audio.play().catch(() => resolve());
+          audio.onended = () => resolve();
+          audio.onerror = () => resolve();
+        });
+      }
+    }
+
+    setIsPlayingAllScenes(false);
+    setPlayingSceneIndex(null);
+    setAllScenesProgress(0);
   };
 
   // Play background music track
@@ -786,7 +894,75 @@ export default function StoryApprovalCard({
           </div>
 
           {showAllScenes && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Master Full Screenplay Audition Bar */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px',
+                padding: '12px 16px',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(236, 72, 153, 0.15))',
+                borderRadius: '14px',
+                border: '1.5px solid rgba(99, 102, 241, 0.35)',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #6366f1, #ec4899)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff'
+                  }}>
+                    <Mic2 size={16} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff' }}>
+                      Master Screenplay Voiceover Audio (75s • 5 Scenes)
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      Audition all 5 scenes back-to-back with <strong>{liveVoices.find(v => v.id === selectedVoiceId)?.name || 'Adam'}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAuditionAllScenes}
+                  style={{
+                    background: isPlayingAllScenes ? 'rgba(239, 68, 68, 0.25)' : 'linear-gradient(135deg, #6366f1, #ec4899)',
+                    border: `1.5px solid ${isPlayingAllScenes ? '#ef4444' : 'rgba(99, 102, 241, 0.5)'}`,
+                    borderRadius: '10px',
+                    padding: '8px 18px',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 0 16px rgba(99, 102, 241, 0.4)'
+                  }}
+                >
+                  {isPlayingAllScenes ? (
+                    <>
+                      <Square size={13} fill="#fff" />
+                      <span>Stop Audition (Scene {allScenesProgress}/5)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play size={13} fill="#fff" />
+                      <span>Audition All 5 Scenes Voiceover</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
               {displayScenes.map((s, idx) => {
                 const sceneNum = idx + 1;
                 const charCount = s.voiceoverCharCount !== undefined ? s.voiceoverCharCount : (s.voiceoverText || '').length;
@@ -798,16 +974,16 @@ export default function StoryApprovalCard({
                     key={idx}
                     style={{
                       background: sceneChanged ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-input)',
-                      borderRadius: '12px',
-                      padding: '14px',
+                      borderRadius: '14px',
+                      padding: '16px',
                       border: sceneChanged ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
                       boxShadow: sceneChanged ? '0 0 14px rgba(16, 185, 129, 0.2)' : 'none',
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="badge badge-brand" style={{ fontSize: '11px' }}>
+                        <span className="badge badge-brand" style={{ fontSize: '11.5px', fontWeight: 800 }}>
                           Scene {sceneNum} of 5 • {s.duration || 15}s
                         </span>
                         {sceneChanged && (
@@ -840,6 +1016,72 @@ export default function StoryApprovalCard({
 
                     <div style={{ fontSize: '13.5px', color: 'var(--text-primary)', marginBottom: '10px', lineHeight: 1.5 }}>
                       <strong>🎙️ Voiceover:</strong> "{s.voiceoverText}"
+                    </div>
+
+                    {/* Scene Voiceover Audition Bar */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                      background: 'rgba(0, 0, 0, 0.3)',
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      marginBottom: '10px',
+                      border: '1px solid var(--border-subtle)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                          Voiceover Audio:
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#a5b4fc', fontWeight: 700 }}>
+                          {liveVoices.find(v => v.id === selectedVoiceId)?.name || 'Adam'}
+                        </span>
+                        {playingSceneIndex === idx && (
+                          <span style={{ fontSize: '10.5px', color: '#34d399', fontWeight: 700, marginLeft: '6px' }}>
+                            ▶ Playing audio...
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleAuditionScene(idx, s.voiceoverText)}
+                        disabled={generatingSceneIndex === idx}
+                        style={{
+                          background: playingSceneIndex === idx 
+                            ? 'rgba(239, 68, 68, 0.25)' 
+                            : (generatingSceneIndex === idx ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.15)'),
+                          border: `1px solid ${playingSceneIndex === idx ? '#ef4444' : '#34d39950'}`,
+                          borderRadius: '8px',
+                          padding: '5px 12px',
+                          color: playingSceneIndex === idx ? '#ef4444' : '#34d399',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: generatingSceneIndex === idx ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        {generatingSceneIndex === idx ? (
+                          <>
+                            <Loader2 size={12} className="animate-spin" />
+                            <span>Synthesizing ElevenLabs...</span>
+                          </>
+                        ) : playingSceneIndex === idx ? (
+                          <>
+                            <Square size={11} fill="#ef4444" />
+                            <span>Stop Audio</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play size={11} fill="#34d399" />
+                            <span>Audition Scene {sceneNum} Voice</span>
+                          </>
+                        )}
+                      </button>
                     </div>
 
                     <div style={{

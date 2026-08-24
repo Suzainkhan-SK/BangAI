@@ -10,6 +10,7 @@ import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS } from '../../data/musicTracks';
 import { SUBTITLE_STYLES } from '../../data/subtitleStyles';
+import StudioLab from '../Studio/StudioLab';
 import { audioEngine } from '../../audio/audioEngine';
 import { detectMode } from '../../utils/detectIntent';
 import { 
@@ -104,6 +105,7 @@ export default function DashboardApp({
   });
   const [musicVolume, setMusicVolume] = useState(0.2);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isChatResponding, setIsChatResponding] = useState(false);
@@ -634,6 +636,14 @@ export default function DashboardApp({
 
     const messageText = rawText.trim();
     const mode = overrideMode || detectMode(messageText);
+
+    // If user asked for /studio or clicked the Studio Lab pill, toggle Studio
+    if (mode === 'STUDIO' || messageText.startsWith('/studio')) {
+      audioEngine.playSfx('shimmer');
+      setIsStudioOpen(prev => !prev);
+      setPrompt('');
+      return;
+    }
 
     const startTime = Date.now();
     generationStartTimeRef.current = startTime;
@@ -1639,8 +1649,30 @@ export default function DashboardApp({
             </>
           )}
 
-          {/* 7. If Empty Canvas: Show Inspiration Templates */}
-          {!activeThread && !isGenerating && (
+          {/* 7. Standalone Audiovisual Studio Lab (/studio mode) */}
+          {isStudioOpen && (
+            <div style={{ marginBottom: '24px' }}>
+              <StudioLab
+                selectedVoiceId={voiceId}
+                onSelectVoice={(vId) => setVoiceId(vId)}
+                subtitleSettings={subtitleSettings}
+                onSubtitleChange={(subs) => setSubtitleSettings(subs)}
+                selectedMusicId={musicId}
+                onSelectMusic={(mId) => setMusicId(mId)}
+                onApplySettingsToVideo={(settings) => {
+                  if (settings.voiceId) setVoiceId(settings.voiceId);
+                  if (settings.subtitleSettings) setSubtitleSettings(settings.subtitleSettings);
+                  if (settings.musicId) setMusicId(settings.musicId);
+                  if (settings.musicVolume !== undefined) setMusicVolume(settings.musicVolume);
+                  setIsStudioOpen(false);
+                }}
+                onClose={() => setIsStudioOpen(false)}
+              />
+            </div>
+          )}
+
+          {/* 8. If Empty Canvas: Show Inspiration Templates */}
+          {!activeThread && !isGenerating && !isStudioOpen && (
             <TemplateCards
               onSelectTemplate={handleSelectTemplate}
               onSelectPreset={handleSelectShort}
@@ -1675,6 +1707,8 @@ export default function DashboardApp({
               onSubmit={(mode, customPrompt) => handleGenerate(mode, customPrompt)}
               onGenerate={(mode, customPrompt) => handleGenerate(mode, customPrompt)}
               isGenerating={isGenerating || isChatResponding}
+              isStudioOpen={isStudioOpen}
+              onToggleStudio={() => setIsStudioOpen(prev => !prev)}
               voiceId={voiceId}
               setVoiceId={setVoiceId}
               selectedVoice={voiceId}

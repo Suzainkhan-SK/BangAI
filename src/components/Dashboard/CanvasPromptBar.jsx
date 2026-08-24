@@ -42,6 +42,15 @@ const SLASH_COMMANDS = [
     placeholder: 'Ask anything about retention, hooks, algorithms, or strategy...'
   },
   {
+    cmd: '/studio',
+    mode: 'STUDIO',
+    label: 'Audiovisual Studio Lab',
+    desc: 'Test 21+ ElevenLabs voices, live subtitle rendering & BGM',
+    icon: Sparkles,
+    color: '#10b981',
+    placeholder: 'Open Audiovisual Studio Lab to test voices, subtitles & music...'
+  },
+  {
     cmd: '/hook',
     mode: 'CHAT',
     label: 'Generate Viral Hooks',
@@ -357,6 +366,36 @@ export default function CanvasPromptBar(props) {
             >
               <MessageSquare size={12} />
               <span>/chat</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                audioEngine.playSfx('click');
+                if (typeof props.onToggleStudio === 'function') {
+                  props.onToggleStudio();
+                } else {
+                  setExplicitMode(explicitMode === 'STUDIO' ? null : 'STUDIO');
+                }
+              }}
+              style={{
+                background: (effectiveMode === 'STUDIO' || props.isStudioOpen) ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--bg-input)',
+                color: (effectiveMode === 'STUDIO' || props.isStudioOpen) ? '#ffffff' : 'var(--text-secondary)',
+                border: `1px solid ${(effectiveMode === 'STUDIO' || props.isStudioOpen) ? '#10b981' : 'var(--border-subtle)'}`,
+                borderRadius: '99px',
+                padding: '4px 12px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.15s ease',
+                boxShadow: (effectiveMode === 'STUDIO' || props.isStudioOpen) ? '0 0 12px rgba(16, 185, 129, 0.4)' : 'none'
+              }}
+            >
+              <Sparkles size={12} />
+              <span>/studio (Voice & Subs)</span>
             </button>
           </div>
 

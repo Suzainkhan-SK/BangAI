@@ -42,8 +42,7 @@ export const handler = async (event) => {
       cache: true,
       scenes: [
         {
-          duration: 6,
-          background: '#0a0a1a',
+          duration: 4,
           elements: [
             {
               type: 'voice',
@@ -64,17 +63,17 @@ export const handler = async (event) => {
 
     console.log('[preview-subtitle] Creating json2video movie for subtitle preview...');
 
-    // Create movie
+    // Create movie with key rotation
     const createResult = await json2videoCreateMovie(moviePayload);
 
     if (!createResult.project) {
-      throw new Error('json2video did not return a project ID');
+      throw new Error('json2video did not return a project ID: ' + JSON.stringify(createResult));
     }
 
-    console.log(`[preview-subtitle] Project created: ${createResult.project}, polling...`);
+    console.log(`[preview-subtitle] Project created: ${createResult.project}, polling with key index...`);
 
-    // Poll until done (max 90 seconds for short preview)
-    const movie = await json2videoPollUntilDone(createResult.project, 3000, 90000);
+    // Poll until done with the SAME API key that created it (max 90 seconds)
+    const movie = await json2videoPollUntilDone(createResult.project, createResult.apiKey, 2500, 90000);
 
     return {
       statusCode: 200,

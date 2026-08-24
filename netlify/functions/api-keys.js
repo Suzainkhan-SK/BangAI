@@ -93,6 +93,7 @@ export function getJamendoClientId() {
 
 /**
  * Helper: Make a json2video POST /v2/movies request with key rotation.
+ * Returns { project, apiKey, ...result }
  */
 export async function json2videoCreateMovie(moviePayload) {
   return withJson2VideoRetry(async (apiKey) => {
@@ -108,28 +109,33 @@ export async function json2videoCreateMovie(moviePayload) {
       const errText = await res.text().catch(() => '');
       throw new Error(`json2video POST /v2/movies HTTP ${res.status}: ${errText}`);
     }
-    return res.json();
+    const data = await res.json();
+    return { ...data, apiKey };
   });
 }
 
 /**
- * Helper: Poll json2video GET /v2/movies?project={id} until done or error.
+ * Helper: Poll json2video GET /v2/movies?project={id} using the SAME key that created the project.
  */
-export async function json2videoPollUntilDone(projectId, pollIntervalMs = 3000, maxPollMs = 120000) {
+export async function json2videoPollUntilDone(projectId, apiKey, pollIntervalMs = 2500, maxPollMs = 120000) {
   const startTime = Date.now();
 
+  if (!apiKey) {
+    throw new Error('API key is required for polling json2video project');
+  }
+
   while (Date.now() - startTime < maxPollMs) {
-    const result = await withJson2VideoRetry(async (apiKey) => {
-      const res = await fetch(`https://api.json2video.com/v2/movies?project=${projectId}`, {
-        method: 'GET',
-        headers: { 'x-api-key': apiKey }
-      });
-      if (!res.ok) {
-        throw new Error(`json2video GET status HTTP ${res.status}`);
-      }
-      return res.json();
+    const res = await fetch(`https://api.json2video.com/v2/movies?project=${projectId}`, {
+      method: 'GET',
+      headers: { 'x-api-key': apiKey }
     });
 
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`json2video GET status HTTP ${res.status}: ${errText}`);
+    }
+
+    const result = await res.json();
     const movie = result.movie || result;
     const status = movie.status || result.status;
 
@@ -137,7 +143,7 @@ export async function json2videoPollUntilDone(projectId, pollIntervalMs = 3000, 
       return movie;
     }
     if (status === 'error') {
-      throw new Error(`json2video render failed: ${movie.error || JSON.stringify(movie)}`);
+      throw new Error(`json2video render failed: ${movie.message || movie.error || JSON.stringify(movie)}`);
     }
 
     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
