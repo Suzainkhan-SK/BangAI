@@ -1,16 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Music, Play, Square, Volume2, Sliders, Check, Search, Loader2 } from 'lucide-react';
+import { Music, Play, Square, Volume2, Sliders, Check, Search, ShieldCheck, VolumeX, Volume1 } from 'lucide-react';
 import { MUSIC_TRACKS } from '../../data/musicTracks';
 
-export default function MusicLibrary({ selectedMusicId, onSelectMusic }) {
+export default function MusicLibrary({ selectedMusicId, onSelectMusic, volume: propVolume, onVolumeChange }) {
   const [playingTrackId, setPlayingTrackId] = useState(null);
   const [ducking, setDucking] = useState(18);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [volume, setVolume] = useState(0.5);
+  const [localVolume, setLocalVolume] = useState(propVolume !== undefined ? propVolume : 0.15);
   const audioRef = useRef(null);
+
+  const currentVolume = propVolume !== undefined ? propVolume : localVolume;
+
+  const handleVolumeUpdate = (newVol) => {
+    const clamped = Math.max(0, Math.min(1, parseFloat(newVol) || 0));
+    setLocalVolume(clamped);
+    if (onVolumeChange) onVolumeChange(clamped);
+    if (audioRef.current) {
+      audioRef.current.volume = clamped;
+    }
+  };
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -22,13 +33,31 @@ export default function MusicLibrary({ selectedMusicId, onSelectMusic }) {
     };
   }, []);
 
-  // Combined track list: curated + search results
+  // Sync volume in real-time
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = currentVolume;
+    }
+  }, [currentVolume]);
+
+  // Combined track list
   const allTracks = showSearch && searchResults.length > 0
     ? [...MUSIC_TRACKS, ...searchResults.filter(sr => !MUSIC_TRACKS.some(t => t.id === sr.id))]
     : MUSIC_TRACKS;
 
   const handleTogglePlay = (e, track) => {
     e.stopPropagation();
+
+    // If "No Background Music", don't play audio
+    if (!track.audioUrl && !track.previewUrl) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setPlayingTrackId(null);
+      if (onSelectMusic) onSelectMusic(track.id);
+      return;
+    }
 
     // If already playing this track, stop
     if (playingTrackId === track.id) {
@@ -48,7 +77,7 @@ export default function MusicLibrary({ selectedMusicId, onSelectMusic }) {
     const audioUrl = track.previewUrl || track.audioUrl;
     if (audioUrl) {
       const audio = new Audio(audioUrl);
-      audio.volume = volume;
+      audio.volume = currentVolume;
       audioRef.current = audio;
       setPlayingTrackId(track.id);
 
@@ -69,31 +98,6 @@ export default function MusicLibrary({ selectedMusicId, onSelectMusic }) {
     }
   };
 
-  // Update volume in real-time
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
-    }
-  }, [volume]);
-
-  // Search Jamendo API for more tracks
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setIsSearching(true);
-
-    try {
-      const res = await fetch(`/.netlify/functions/search-music?q=${encodeURIComponent(searchQuery)}&source=all`);
-      const data = await res.json();
-      if (data.success && data.tracks) {
-        setSearchResults(data.tracks);
-      }
-    } catch (err) {
-      console.error('Music search error:', err);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   return (
     <div className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* Title */}
@@ -110,155 +114,106 @@ export default function MusicLibrary({ selectedMusicId, onSelectMusic }) {
           }}>
             <Music size={16} color="#67e8f9" />
           </div>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '14.5px' }}>
             Adaptive BGM Sound Score
           </span>
         </div>
-        <span className="badge-pill badge-cyan">
-          Dynamic Ducking
+        <span className="badge-pill badge-emerald" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+          <ShieldCheck size={11} /> 100% Content ID Free
         </span>
       </div>
 
-      {/* Search Toggle */}
-      <div style={{ display: 'flex', gap: '6px' }}>
-        <button
-          onClick={() => setShowSearch(!showSearch)}
-          style={{
-            background: showSearch ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-            border: `1px solid ${showSearch ? '#67e8f9' : 'var(--border-subtle)'}`,
-            borderRadius: '6px',
-            padding: '4px 8px',
-            fontSize: '10px',
-            fontWeight: 600,
-            color: showSearch ? '#67e8f9' : 'var(--text-muted)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}
-        >
-          <Search size={10} />
-          Browse More Music
-        </button>
-      </div>
-
-      {/* Search Input */}
-      {showSearch && (
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search by mood (epic, dark, happy...)"
-            style={{
-              flex: 1,
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              fontSize: '11px',
-              color: '#ffffff',
-              outline: 'none'
-            }}
-          />
-          <button
-            onClick={handleSearch}
-            disabled={isSearching}
-            style={{
-              background: 'rgba(6, 182, 212, 0.15)',
-              border: '1px solid rgba(6, 182, 212, 0.3)',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              fontSize: '11px',
-              fontWeight: 600,
-              color: '#67e8f9',
-              cursor: isSearching ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            {isSearching ? <Loader2 size={12} className="spin-animation" /> : <Search size={12} />}
-          </button>
-        </div>
-      )}
-
       {/* Track List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto', paddingRight: '4px' }}>
         {allTracks.map((track) => {
           const isSelected = selectedMusicId === track.id;
-          const isPlayingThis = playingTrackId === track.id;
+          const isPlaying = playingTrackId === track.id;
+          const isPureVoiceover = track.id === 'none';
 
           return (
             <div
               key={track.id}
-              onClick={() => onSelectMusic(track.id)}
+              onClick={() => onSelectMusic && onSelectMusic(track.id)}
               style={{
-                background: isSelected ? 'rgba(30, 41, 69, 0.9)' : 'rgba(255, 255, 255, 0.03)',
-                border: `1px solid ${isSelected ? track.color : 'var(--border-subtle)'}`,
-                borderRadius: '10px',
-                padding: '8px 10px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                padding: '8px 10px',
+                borderRadius: '10px',
+                background: isSelected ? 'rgba(6, 182, 212, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                border: `1.5px solid ${isSelected ? (track.color || 'var(--accent-cyan)') : 'var(--border-subtle)'}`,
                 cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                boxShadow: isSelected ? `0 0 12px ${track.color}35` : 'none'
+                transition: 'all 0.15s ease'
               }}
             >
-              {/* Track Info */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button
-                  onClick={(e) => handleTogglePlay(e, track)}
-                  style={{
-                    width: '30px',
-                    height: '30px',
-                    borderRadius: '8px',
-                    background: isPlayingThis ? track.color : 'rgba(255, 255, 255, 0.08)',
-                    color: isPlayingThis ? '#000000' : '#ffffff',
-                    border: 'none',
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                {!isPureVoiceover && (
+                  <button
+                    onClick={(e) => handleTogglePlay(e, track)}
+                    style={{
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '6px',
+                      background: isPlaying ? track.color : 'rgba(255, 255, 255, 0.08)',
+                      border: 'none',
+                      color: isPlaying ? '#000' : 'var(--text-primary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    {isPlaying ? <Square size={10} fill="#000" /> : <Play size={10} fill="currentColor" />}
+                  </button>
+                )}
+
+                {isPureVoiceover && (
+                  <div style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '6px',
+                    background: 'rgba(99, 102, 241, 0.18)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  {isPlayingThis ? <Square size={12} fill="#000000" /> : <Play size={12} fill="#ffffff" />}
-                </button>
+                    flexShrink: 0
+                  }}>
+                    <span style={{ fontSize: '12px' }}>🎙️</span>
+                  </div>
+                )}
 
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontWeight: 600, fontSize: '12px', color: '#ffffff' }}>
-                      {track.name}
-                    </span>
-                    {track.source === 'jamendo' && (
-                      <span style={{ fontSize: '8px', padding: '1px 4px', borderRadius: '3px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa' }}>
-                        Jamendo
-                      </span>
-                    )}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}>
+                    {track.name}
                   </div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                    {track.artist} • {track.tempo} • {track.mood}
+                    {track.artist} • {track.genre}
                   </div>
                 </div>
               </div>
 
-              {/* Selection checkmark */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {/* Selection Checkmark */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{track.duration}</span>
                 {isSelected && (
                   <div style={{
                     width: '18px',
                     height: '18px',
                     borderRadius: '50%',
-                    background: track.color,
+                    background: track.color || 'var(--accent-cyan)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}>
-                    <Check size={11} color="#000000" strokeWidth={3} />
+                    <Check size={11} color="#000" strokeWidth={3} />
                   </div>
                 )}
               </div>
@@ -268,37 +223,56 @@ export default function MusicLibrary({ selectedMusicId, onSelectMusic }) {
       </div>
 
       {/* Volume & Ducking Controls */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '4px', borderTop: '1px solid var(--border-subtle)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '3px' }}>
-            <span>Preview Volume</span>
-            <span style={{ color: '#ffffff', fontWeight: 600 }}>{Math.round(volume * 100)}%</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Volume2 size={12} color="var(--accent-cyan)" />
+              Sound Volume
+            </span>
+            <span style={{ color: '#fff', fontWeight: 800, background: 'rgba(6,182,212,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
+              {Math.round(currentVolume * 100)}%
+            </span>
           </div>
+          
           <input
             type="range"
             min="0"
             max="1"
-            step="0.05"
-            value={volume}
-            onChange={(e) => setVolume(parseFloat(e.target.value))}
-            style={{ width: '100%', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
+            step="0.01"
+            value={currentVolume}
+            onChange={(e) => handleVolumeUpdate(e.target.value)}
+            style={{ width: '100%', accentColor: 'var(--accent-cyan)', cursor: 'pointer', height: '5px' }}
           />
-        </div>
 
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '3px' }}>
-            <span>Voice Ducking</span>
-            <span style={{ color: '#ffffff', fontWeight: 600 }}>-{ducking}dB</span>
+          {/* Quick Volume Preset Pills */}
+          <div style={{ display: 'flex', gap: '4px', marginTop: '6px', justifyContent: 'space-between' }}>
+            {[
+              { label: 'Mute', val: 0 },
+              { label: '10%', val: 0.10 },
+              { label: '20%', val: 0.20 },
+              { label: '35%', val: 0.35 },
+              { label: '50%', val: 0.50 }
+            ].map(p => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => handleVolumeUpdate(p.val)}
+                style={{
+                  background: Math.abs(currentVolume - p.val) < 0.03 ? 'rgba(6,182,212,0.25)' : 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${Math.abs(currentVolume - p.val) < 0.03 ? 'var(--accent-cyan)' : 'var(--border-subtle)'}`,
+                  color: Math.abs(currentVolume - p.val) < 0.03 ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                  borderRadius: '5px',
+                  padding: '2px 6px',
+                  fontSize: '9.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
-          <input
-            type="range"
-            min="8"
-            max="28"
-            step="2"
-            value={ducking}
-            onChange={(e) => setDucking(parseInt(e.target.value))}
-            style={{ width: '100%', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
-          />
         </div>
       </div>
     </div>

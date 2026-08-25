@@ -328,10 +328,21 @@ export default function StudioLab({
 
     if (musicAudioRef.current) musicAudioRef.current.pause();
 
+    // Pure voiceover track (No BGM)
+    if (!track.audioUrl && !track.previewUrl) {
+      if (musicAudioRef.current) {
+        musicAudioRef.current.pause();
+        musicAudioRef.current = null;
+      }
+      setPlayingMusicId(null);
+      if (onSelectMusic) onSelectMusic(track.id);
+      return;
+    }
+
     const audioUrl = track.previewUrl || track.audioUrl;
     if (audioUrl) {
       const audio = new Audio(audioUrl);
-      audio.volume = musicVolume;
+      audio.volume = Math.max(0, Math.min(1, Number(musicVolume) || 0.15));
       audio.crossOrigin = 'anonymous';
       musicAudioRef.current = audio;
       setPlayingMusicId(track.id);
@@ -1380,13 +1391,40 @@ export default function StudioLab({
 
             {/* Volume + Ducking */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Volume2 size={14} color="#06b6d4" />
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '70px' }}>Volume: {Math.round(musicVolume * 100)}%</span>
-                <input type="range" min="0.05" max="0.5" step="0.05"
-                  value={musicVolume}
-                  onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
-                  style={{ width: '100px', accentColor: '#06b6d4', cursor: 'pointer' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Volume2 size={14} color="#06b6d4" />
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Volume:</span>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#06b6d4', background: 'rgba(6,182,212,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
+                    {Math.round(musicVolume * 100)}%
+                  </span>
+                  <input type="range" min="0" max="1" step="0.01"
+                    value={musicVolume}
+                    onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
+                    style={{ width: '90px', accentColor: '#06b6d4', cursor: 'pointer' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '3px' }}>
+                  {[
+                    { l: 'Mute', v: 0 },
+                    { l: '10%', v: 0.10 },
+                    { l: '20%', v: 0.20 },
+                    { l: '35%', v: 0.35 }
+                  ].map(p => (
+                    <button
+                      key={p.l}
+                      type="button"
+                      onClick={() => setMusicVolume(p.v)}
+                      style={{
+                        background: Math.abs(musicVolume - p.v) < 0.03 ? 'rgba(6,182,212,0.25)' : 'var(--bg-input)',
+                        border: `1px solid ${Math.abs(musicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--border-subtle)'}`,
+                        color: Math.abs(musicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--text-muted)',
+                        borderRadius: '4px', padding: '1px 5px', fontSize: '9.5px', fontWeight: 700, cursor: 'pointer'
+                      }}
+                    >
+                      {p.l}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Radio size={14} color="#06b6d4" />
@@ -1394,7 +1432,7 @@ export default function StudioLab({
                 <input type="range" min="8" max="28" step="2"
                   value={duckingLevel}
                   onChange={(e) => setDuckingLevel(parseInt(e.target.value))}
-                  style={{ width: '100px', accentColor: '#06b6d4', cursor: 'pointer' }} />
+                  style={{ width: '90px', accentColor: '#06b6d4', cursor: 'pointer' }} />
               </div>
             </div>
           </div>

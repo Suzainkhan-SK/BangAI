@@ -639,10 +639,21 @@ export default function StoryApprovalCard({
 
     if (musicPlayerRef.current) musicPlayerRef.current.pause();
 
+    // Pure voiceover track (No BGM)
+    if (!track.audioUrl && !track.previewUrl) {
+      if (musicPlayerRef.current) {
+        musicPlayerRef.current.pause();
+        musicPlayerRef.current = null;
+      }
+      setPlayingMusicId(null);
+      setSelectedMusicId(track.id);
+      return;
+    }
+
     const audioUrl = track.previewUrl || track.audioUrl;
     if (audioUrl) {
       const audio = new Audio(audioUrl);
-      audio.volume = musicVolume;
+      audio.volume = Math.max(0, Math.min(1, Number(musicVolume) || 0.15));
       audio.crossOrigin = 'anonymous';
       musicPlayerRef.current = audio;
       setPlayingMusicId(track.id);
@@ -651,6 +662,13 @@ export default function StoryApprovalCard({
       audio.onerror = () => setPlayingMusicId(null);
     }
   };
+
+  // Sync background music player volume in real-time when slider moves
+  useEffect(() => {
+    if (musicPlayerRef.current) {
+      musicPlayerRef.current.volume = Math.max(0, Math.min(1, Number(musicVolume) || 0));
+    }
+  }, [musicVolume]);
 
   // Render Real Subtitle Preview Video
   const handleRenderSubtitlePreview = async () => {
@@ -1654,15 +1672,42 @@ export default function StoryApprovalCard({
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Volume2 size={13} color="#06b6d4" />
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Volume: {Math.round(musicVolume * 100)}%</span>
-                  <input
-                    type="range" min="0.05" max="0.5" step="0.05"
-                    value={musicVolume}
-                    onChange={e => setMusicVolume(parseFloat(e.target.value))}
-                    style={{ width: '80px', accentColor: '#06b6d4', cursor: 'pointer' }}
-                  />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Volume2 size={13} color="#06b6d4" />
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Volume:</span>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#06b6d4', background: 'rgba(6,182,212,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
+                      {Math.round(musicVolume * 100)}%
+                    </span>
+                    <input
+                      type="range" min="0" max="1" step="0.01"
+                      value={musicVolume}
+                      onChange={e => setMusicVolume(parseFloat(e.target.value))}
+                      style={{ width: '90px', accentColor: '#06b6d4', cursor: 'pointer' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '3px' }}>
+                    {[
+                      { l: 'Mute', v: 0 },
+                      { l: '10%', v: 0.10 },
+                      { l: '20%', v: 0.20 },
+                      { l: '35%', v: 0.35 }
+                    ].map(p => (
+                      <button
+                        key={p.l}
+                        type="button"
+                        onClick={() => setMusicVolume(p.v)}
+                        style={{
+                          background: Math.abs(musicVolume - p.v) < 0.03 ? 'rgba(6,182,212,0.25)' : 'var(--bg-card)',
+                          border: `1px solid ${Math.abs(musicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--border-subtle)'}`,
+                          color: Math.abs(musicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--text-muted)',
+                          borderRadius: '4px', padding: '1px 5px', fontSize: '9px', fontWeight: 700, cursor: 'pointer'
+                        }}
+                      >
+                        {p.l}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
