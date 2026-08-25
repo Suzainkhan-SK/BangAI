@@ -1782,6 +1782,7 @@ export default function DashboardApp({
               onLanguageChange={setLanguage}
               autoUploadToYouTube={autoUploadToYouTube}
               setAutoUploadToYouTube={setAutoUploadToYouTube}
+              onOpenStudio={() => setIsStudioOpen(true)}
               onStop={handleTerminateExecution}
             />
           </div>

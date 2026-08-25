@@ -16,7 +16,7 @@ import {
   Mic,
   Square
 } from 'lucide-react';
-import { VOICES } from '../../data/voices';
+import { VOICES, VOICE_LANGUAGES, getVoiceById } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
@@ -87,6 +87,9 @@ export default function CanvasPromptBar(props) {
   };
 
   const currentVoiceId = props.voiceId || props.selectedVoice || 'adam';
+  const activeVoiceObj = getVoiceById(currentVoiceId) || VOICES.find(v => v.id === currentVoiceId || v.elevenLabsId === currentVoiceId) || VOICES[0];
+  const isCustomVoice = !VOICES.some(v => v.id === currentVoiceId || v.elevenLabsId === currentVoiceId);
+
   const setVoiceValue = (val) => {
     if (typeof props.setVoiceId === 'function') props.setVoiceId(val);
     if (typeof props.onVoiceChange === 'function') props.onVoiceChange(val);
@@ -477,10 +480,17 @@ export default function CanvasPromptBar(props) {
         }}>
           {/* Quick Config Dropdowns */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {/* 1. Voice Selector Pill */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <select
                 value={currentVoiceId}
-                onChange={(e) => setVoiceValue(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value === '__open_studio__') {
+                    if (typeof props.onOpenStudio === 'function') props.onOpenStudio('voices');
+                    return;
+                  }
+                  setVoiceValue(e.target.value);
+                }}
                 style={{
                   background: 'var(--bg-input)',
                   color: 'var(--text-secondary)',
@@ -495,19 +505,31 @@ export default function CanvasPromptBar(props) {
                   paddingRight: '14px'
                 }}
               >
-                {VOICES.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    🎙️ {v.name} ({v.gender})
+                {/* If selected voice is from 9,650 JSON2Video library, display it prominently */}
+                {isCustomVoice && activeVoiceObj && (
+                  <option value={activeVoiceObj.id}>
+                    💎 {activeVoiceObj.name} ({activeVoiceObj.flag || activeVoiceObj.language || 'Premium'})
                   </option>
-                ))}
+                )}
+                <optgroup label="⚡ Native ElevenLabs Voices">
+                  {VOICES.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      🎙️ {v.name} ({v.flag || v.gender || 'Universal'})
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="🌐 Full Voice Library">
+                  <option value="__open_studio__">🌐 Browse 9,650+ Voices in Studio...</option>
+                </optgroup>
               </select>
             </div>
 
+            {/* 2. Visual Style Preference Pill */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <select
                 value={currentStyleId}
                 onChange={(e) => setStyleValue(e.target.value)}
-                title="Style Preference: AI may override based on your prompt text"
+                title="Style Preference: AI will adapt cinematography based on your selected visual style"
                 style={{
                   background: 'var(--bg-input)',
                   color: 'var(--text-secondary)',
@@ -530,6 +552,7 @@ export default function CanvasPromptBar(props) {
               </select>
             </div>
 
+            {/* 3. Language Pill */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <select
                 value={currentLanguage}
@@ -548,9 +571,12 @@ export default function CanvasPromptBar(props) {
                   paddingRight: '14px'
                 }}
               >
-                <option value="Hinglish">🗣️ Hinglish</option>
-                <option value="Hindi">🗣️ Hindi</option>
-                <option value="English">🗣️ English</option>
+                <option value="Hinglish">🔮 Hinglish (Hindi + English)</option>
+                {VOICE_LANGUAGES.map((l) => (
+                  <option key={l.id} value={l.label}>
+                    {l.flag} {l.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
