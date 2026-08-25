@@ -259,10 +259,12 @@ export default function StudioLab({
     const textToSpeak = customTtsText.trim() || voice.sampleText;
 
     // Check cache
-    const cacheKey = `${voice.elevenLabsId}_${textToSpeak}`;
+    const cacheKey = `${voice.elevenLabsId || voice.id}_${textToSpeak}`;
     if (voiceAudioCache[cacheKey]) {
       if (voiceAudioRef.current) voiceAudioRef.current.pause();
-      const audio = new Audio(`data:audio/mpeg;base64,${voiceAudioCache[cacheKey]}`);
+      const cached = voiceAudioCache[cacheKey];
+      const audioSrc = typeof cached === 'string' && (cached.startsWith('http') || cached.startsWith('data:')) ? cached : `data:${cached.mimeType || 'audio/mpeg'};base64,${cached.audio || cached}`;
+      const audio = new Audio(audioSrc);
       voiceAudioRef.current = audio;
       setPlayingVoiceId(voice.id);
       audio.play().catch(() => setPlayingVoiceId(null));
@@ -270,6 +272,7 @@ export default function StudioLab({
         setLastAudioDuration({ voiceId: voice.id, duration: audio.duration });
       };
       audio.onended = () => setPlayingVoiceId(null);
+      audio.onerror = () => setPlayingVoiceId(null);
       return;
     }
 
@@ -281,15 +284,17 @@ export default function StudioLab({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           voiceId: voice.elevenLabsId || voice.id,
-          text: textToSpeak
+          text: textToSpeak,
+          speed: currentVoiceSpeed
         })
       });
 
       const data = await res.json();
-      if (data.success && data.audio) {
-        setVoiceAudioCache(prev => ({ ...prev, [cacheKey]: data.audio }));
+      if (data.success && (data.audio || data.audioUrl)) {
+        const audioSrc = data.audioUrl || `data:${data.mimeType || 'audio/mpeg'};base64,${data.audio}`;
+        setVoiceAudioCache(prev => ({ ...prev, [cacheKey]: audioSrc }));
         if (voiceAudioRef.current) voiceAudioRef.current.pause();
-        const audio = new Audio(`data:audio/mpeg;base64,${data.audio}`);
+        const audio = new Audio(audioSrc);
         voiceAudioRef.current = audio;
         setPlayingVoiceId(voice.id);
         audio.play().catch(() => setPlayingVoiceId(null));
@@ -297,6 +302,9 @@ export default function StudioLab({
           setLastAudioDuration({ voiceId: voice.id, duration: audio.duration });
         };
         audio.onended = () => setPlayingVoiceId(null);
+        audio.onerror = () => setPlayingVoiceId(null);
+      } else {
+        console.error('TTS generation failed:', data.error);
       }
     } catch (err) {
       console.error('TTS error:', err);

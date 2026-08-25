@@ -166,10 +166,11 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
 
       const data = await res.json();
 
-      if (data.success && data.audio) {
+      if (data.success && (data.audio || data.audioUrl)) {
         if (audioRef.current) audioRef.current.pause();
 
-        const audio = new Audio(`data:audio/mpeg;base64,${data.audio}`);
+        const audioSrc = data.audioUrl || `data:${data.mimeType || 'audio/mpeg'};base64,${data.audio}`;
+        const audio = new Audio(audioSrc);
         audioRef.current = audio;
         setPlayingVoiceId(voice.id);
 
@@ -179,6 +180,11 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
         });
 
         audio.onended = () => {
+          setPlayingVoiceId(null);
+          audioRef.current = null;
+        };
+
+        audio.onerror = () => {
           setPlayingVoiceId(null);
           audioRef.current = null;
         };
