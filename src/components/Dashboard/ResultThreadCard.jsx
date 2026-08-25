@@ -26,6 +26,16 @@ export default function ResultThreadCard({
   const [expandedScenes, setExpandedScenes] = useState({});
   const [videoExpanded, setVideoExpanded] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [videoVolume, setVideoVolume] = useState(1.0);
+  const videoRef = useRef(null);
+
+  const handleVideoVolumeChange = (newVol) => {
+    const v = Math.max(0, Math.min(1, parseFloat(newVol) || 0));
+    setVideoVolume(v);
+    if (videoRef.current) {
+      videoRef.current.volume = v;
+    }
+  };
 
   const scenes = shortData.scenes || [];
   const currentScene = scenes[activeSceneIdx] || scenes[0];
@@ -217,6 +227,7 @@ export default function ResultThreadCard({
                 </div>
 
                 <video
+                  ref={videoRef}
                   src={shortData.videoUrl}
                   controls
                   autoPlay
@@ -266,6 +277,51 @@ export default function ResultThreadCard({
                     <div className="spec-item">
                       <span className="spec-label">Quality Score</span>
                       <span className="spec-value" style={{ color: '#10b981' }}>Score: {shortData.criticScore || 99}/100</span>
+                    </div>
+                  </div>
+
+                  {/* Master Video Volume Control */}
+                  <div style={{
+                    marginTop: '12px',
+                    background: 'var(--bg-input)',
+                    borderRadius: '12px',
+                    padding: '10px 14px',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Volume2 size={14} color="var(--accent-primary)" />
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Video Volume:</span>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-primary)', background: 'rgba(99,102,241,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
+                        {Math.round(videoVolume * 100)}%
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={videoVolume}
+                        onChange={e => handleVideoVolumeChange(e.target.value)}
+                        style={{ width: '80px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleVideoVolumeChange(videoVolume > 0 ? 0 : 1.0)}
+                        style={{
+                          background: videoVolume === 0 ? 'rgba(239,68,68,0.2)' : 'var(--bg-card)',
+                          border: `1px solid ${videoVolume === 0 ? '#ef4444' : 'var(--border-subtle)'}`,
+                          color: videoVolume === 0 ? '#ef4444' : 'var(--text-muted)',
+                          borderRadius: '6px', padding: '2px 6px', fontSize: '10px', fontWeight: 700, cursor: 'pointer'
+                        }}
+                      >
+                        {videoVolume === 0 ? 'Unmute' : 'Mute'}
+                      </button>
                     </div>
                   </div>
 

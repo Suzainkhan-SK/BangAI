@@ -14,6 +14,9 @@ class StudioAudioEngine {
     this.currentVoiceId = null;
     this.bgmGainNode = null;
     this.voiceGainNode = null;
+    this.masterVolume = 1.0;
+    this.voiceVolume = 1.0;
+    this.bgmVolume = 0.2;
     this.listeners = new Set();
   }
 
@@ -27,6 +30,33 @@ class StudioAudioEngine {
     }
   }
 
+  setMasterVolume(vol) {
+    this.masterVolume = Math.max(0, Math.min(1, parseFloat(vol) || 0));
+    if (this.bgmGainNode && this.ctx) {
+      try {
+        const now = this.ctx.currentTime;
+        this.bgmGainNode.gain.setValueAtTime(this.bgmVolume * this.masterVolume, now);
+      } catch (e) {}
+    }
+    this.notify();
+  }
+
+  setVoiceVolume(vol) {
+    this.voiceVolume = Math.max(0, Math.min(1, parseFloat(vol) || 0));
+    this.notify();
+  }
+
+  setBgmVolume(vol) {
+    this.bgmVolume = Math.max(0, Math.min(1, parseFloat(vol) || 0));
+    if (this.bgmGainNode && this.ctx) {
+      try {
+        const now = this.ctx.currentTime;
+        this.bgmGainNode.gain.setValueAtTime(this.bgmVolume * this.masterVolume, now);
+      } catch (e) {}
+    }
+    this.notify();
+  }
+
   subscribe(callback) {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);
@@ -38,12 +68,16 @@ class StudioAudioEngine {
       currentBgmId: this.currentBgmId,
       isPlayingVoice: this.isPlayingVoice,
       currentVoiceId: this.currentVoiceId,
+      masterVolume: this.masterVolume,
+      voiceVolume: this.voiceVolume,
+      bgmVolume: this.bgmVolume
     };
     this.listeners.forEach((cb) => cb(state));
   }
 
   // Play Sound FX
   playSfx(type = 'click') {
+    if (this.masterVolume <= 0.01) return;
     this.init();
     const now = this.ctx.currentTime;
 
@@ -53,7 +87,7 @@ class StudioAudioEngine {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(800, now);
       osc.frequency.exponentialRampToValueAtTime(400, now + 0.05);
-      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.setValueAtTime(0.15 * this.masterVolume, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -66,7 +100,7 @@ class StudioAudioEngine {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(150, now);
       osc.frequency.exponentialRampToValueAtTime(30, now + 1.2);
-      gain.gain.setValueAtTime(0.6, now);
+      gain.gain.setValueAtTime(0.6 * this.masterVolume, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -79,7 +113,7 @@ class StudioAudioEngine {
         const gain = this.ctx.createGain();
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-        gain.gain.setValueAtTime(0.12, now + idx * 0.08);
+        gain.gain.setValueAtTime(0.12 * this.masterVolume, now + idx * 0.08);
         gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -100,7 +134,8 @@ class StudioAudioEngine {
 
     const now = this.ctx.currentTime;
     this.bgmGainNode = this.ctx.createGain();
-    this.bgmGainNode.gain.setValueAtTime(duckingLevel, now);
+    const effectiveVol = (duckingLevel !== undefined ? duckingLevel : this.bgmVolume) * this.masterVolume;
+    this.bgmGainNode.gain.setValueAtTime(effectiveVol, now);
 
     // Multi-oscillator harmonic chord based on genre
     const baseFreqs = {
@@ -162,7 +197,7 @@ class StudioAudioEngine {
     this.notify();
   }
 
-  // Play Voice Sample Preview (ElevenLabs Simulation)
+  // Play Voice Sample Preview
   playVoice(voiceId, text = 'Welcome to the future of automated YouTube Shorts production.') {
     this.init();
     if (this.isPlayingVoice && this.currentVoiceId === voiceId) {
@@ -174,27 +209,28 @@ class StudioAudioEngine {
     // Duck BGM if playing
     if (this.bgmGainNode) {
       const now = this.ctx.currentTime;
-      this.bgmGainNode.gain.linearRampToValueAtTime(0.06, now + 0.1);
+      this.bgmGainNode.gain.linearRampToValueAtTime(0.06 * this.masterVolume, now + 0.1);
     }
 
     const pitchMap = {
-      adam: 1.0, // Deep cinematic
-      marcus: 1.15, // Warm storyteller
-      aarav: 1.25, // Energetic Indian
-      priya: 1.45, // Female clear Indian
-      charlie: 1.6, // Cartoon / Playful
-      george: 0.95, // British classic documentary
-      rachel: 1.4, // American energetic
+      adam: 1.0,
+      marcus: 1.15,
+      aarav: 1.25,
+      priya: 1.45,
+      charlie: 1.6,
+      george: 0.95,
+      rachel: 1.4,
     };
 
     const pitch = pitchMap[voiceId] || 1.1;
 
-    // Use SpeechSynthesis API if available for real spoken English / Hindi words!
+    // Use SpeechSynthesis API if available for real spoken English / Hindi words
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.05;
       utterance.pitch = pitch;
+      utterance.volume = Math.max(0, Math.min(1, this.voiceVolume * this.masterVolume));
 
       utterance.onstart = () => {
         this.isPlayingVoice = true;
@@ -207,7 +243,7 @@ class StudioAudioEngine {
         this.currentVoiceId = null;
         if (this.bgmGainNode) {
           const now = this.ctx.currentTime;
-          this.bgmGainNode.gain.linearRampToValueAtTime(0.2, now + 0.2);
+          this.bgmGainNode.gain.linearRampToValueAtTime(this.bgmVolume * this.masterVolume, now + 0.2);
         }
         this.notify();
       };
@@ -226,7 +262,7 @@ class StudioAudioEngine {
       const gain = this.ctx.createGain();
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(140 * pitch, now);
-      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.setValueAtTime(0.3 * this.voiceVolume * this.masterVolume, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -254,7 +290,7 @@ class StudioAudioEngine {
     if (this.bgmGainNode) {
       try {
         const now = this.ctx.currentTime;
-        this.bgmGainNode.gain.linearRampToValueAtTime(0.2, now + 0.2);
+        this.bgmGainNode.gain.linearRampToValueAtTime(this.bgmVolume * this.masterVolume, now + 0.2);
       } catch (e) {}
     }
     this.notify();

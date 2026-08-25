@@ -214,8 +214,9 @@ export default function StoryApprovalCard({
       maxWordsPerLine: 3
     };
   });
-  const [selectedMusicId, setSelectedMusicId] = useState(() => story?.musicId || initialMusicId || 'mystery');
+  const [selectedMusicId, setSelectedMusicId] = useState(() => story?.musicId || initialMusicId || 'none');
   const [musicVolume, setMusicVolume] = useState(() => Number(initialMusicVolume) || 0.15);
+  const [voiceVolume, setVoiceVolume] = useState(1.0);
   const [duckingLevel, setDuckingLevel] = useState(18);
   const [musicMoodFilter, setMusicMoodFilter] = useState('all');
 
@@ -478,6 +479,8 @@ export default function StoryApprovalCard({
 
     const startAudioPlayback = (audioSrc) => {
       const audio = new Audio(audioSrc);
+      audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
+      audio.crossOrigin = 'anonymous';
       audioPlayerRef.current = audio;
       setActivePlayingIndex(sceneIndex);
       setIsAudioPaused(false);
@@ -608,6 +611,8 @@ export default function StoryApprovalCard({
         await new Promise((resolve) => {
           if (audioPlayerRef.current) audioPlayerRef.current.pause();
           const audio = new Audio(audioSrc);
+          audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
+          audio.crossOrigin = 'anonymous';
           audioPlayerRef.current = audio;
           
           audio.ontimeupdate = () => {
@@ -669,6 +674,13 @@ export default function StoryApprovalCard({
       musicPlayerRef.current.volume = Math.max(0, Math.min(1, Number(musicVolume) || 0));
     }
   }, [musicVolume]);
+
+  // Sync voiceover player volume in real-time when slider moves
+  useEffect(() => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 0));
+    }
+  }, [voiceVolume]);
 
   // Render Real Subtitle Preview Video
   const handleRenderSubtitlePreview = async () => {
@@ -1915,6 +1927,133 @@ export default function StoryApprovalCard({
                   </>
                 )}
               </button>
+            </div>
+          </div>
+
+          {/* ─── LIVE STUDIO AUDIO MIXER & VOLUME CONTROLLER ─── */}
+          <div style={{
+            background: 'var(--bg-input)',
+            border: '1.5px solid var(--border-medium)',
+            borderRadius: '16px',
+            padding: '12px 18px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '14px',
+            boxShadow: 'var(--shadow-card)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '30px', height: '30px', borderRadius: '8px',
+                background: 'rgba(99, 102, 241, 0.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)'
+              }}>
+                <SlidersHorizontal size={15} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12.5px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Live Studio Sound & Volume Controller
+                </div>
+                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                  Drag sliders to boost or reduce voiceover & soundtrack levels in real-time
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              {/* 1. Voiceover Volume Control */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', padding: '5px 10px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+                <Mic2 size={13} color="var(--accent-primary)" />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Voice:</span>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-primary)', background: 'rgba(99,102,241,0.15)', padding: '1px 5px', borderRadius: '4px' }}>
+                  {Math.round(voiceVolume * 100)}%
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={voiceVolume}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value);
+                    setVoiceVolume(val);
+                    audioEngine.setVoiceVolume(val);
+                  }}
+                  style={{ width: '80px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                />
+                <div style={{ display: 'flex', gap: '2px' }}>
+                  {[
+                    { l: 'Mute', v: 0 },
+                    { l: '50%', v: 0.5 },
+                    { l: '100%', v: 1.0 }
+                  ].map(p => (
+                    <button
+                      key={p.l}
+                      type="button"
+                      onClick={() => {
+                        setVoiceVolume(p.v);
+                        audioEngine.setVoiceVolume(p.v);
+                      }}
+                      style={{
+                        background: Math.abs(voiceVolume - p.v) < 0.03 ? 'rgba(99,102,241,0.25)' : 'var(--bg-input)',
+                        border: `1px solid ${Math.abs(voiceVolume - p.v) < 0.03 ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                        color: Math.abs(voiceVolume - p.v) < 0.03 ? 'var(--accent-primary)' : 'var(--text-muted)',
+                        borderRadius: '4px', padding: '1px 4px', fontSize: '9px', fontWeight: 700, cursor: 'pointer'
+                      }}
+                    >
+                      {p.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. BGM Music Volume Control */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', padding: '5px 10px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+                <Music size={13} color="#06b6d4" />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Music:</span>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#06b6d4', background: 'rgba(6,182,212,0.15)', padding: '1px 5px', borderRadius: '4px' }}>
+                  {Math.round(musicVolume * 100)}%
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={musicVolume}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value);
+                    setMusicVolume(val);
+                    audioEngine.setBgmVolume(val);
+                  }}
+                  style={{ width: '80px', accentColor: '#06b6d4', cursor: 'pointer' }}
+                />
+                <div style={{ display: 'flex', gap: '2px' }}>
+                  {[
+                    { l: 'Mute', v: 0 },
+                    { l: '12%', v: 0.12 },
+                    { l: '25%', v: 0.25 }
+                  ].map(p => (
+                    <button
+                      key={p.l}
+                      type="button"
+                      onClick={() => {
+                        setMusicVolume(p.v);
+                        audioEngine.setBgmVolume(p.v);
+                      }}
+                      style={{
+                        background: Math.abs(musicVolume - p.v) < 0.03 ? 'rgba(6,182,212,0.25)' : 'var(--bg-input)',
+                        border: `1px solid ${Math.abs(musicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--border-subtle)'}`,
+                        color: Math.abs(musicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--text-muted)',
+                        borderRadius: '4px', padding: '1px 4px', fontSize: '9px', fontWeight: 700, cursor: 'pointer'
+                      }}
+                    >
+                      {p.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
