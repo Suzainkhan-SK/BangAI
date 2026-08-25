@@ -346,6 +346,28 @@ export default function StoryApprovalCard({
     setVisibleVoiceCount(30);
   }, [voiceProviderFilter, voiceCategoryFilter, voiceLanguageFilter, voiceGenderFilter, voiceSearchQuery]);
 
+  // Selected Voice Object (dynamically resolves across Live, Native, and JSON2Video catalog)
+  const selectedVoiceObj = useMemo(() => {
+    return liveVoices.find(v => v.id === selectedVoiceId || v.elevenLabsId === selectedVoiceId) || 
+           getVoiceById(selectedVoiceId) || 
+           VOICES.find(v => v.id === selectedVoiceId || v.elevenLabsId === selectedVoiceId) || 
+           VOICES[0];
+  }, [selectedVoiceId, liveVoices]);
+
+  // Selected Music Track Object
+  const selectedMusicObj = useMemo(() => {
+    return MUSIC_TRACKS.find(m => m.id === selectedMusicId) || MUSIC_TRACKS[0];
+  }, [selectedMusicId]);
+
+  // Handle immediate voice change with audio reset
+  const handleSelectVoice = (voice) => {
+    if (audioPlayerRef.current) audioPlayerRef.current.pause();
+    setActivePlayingIndex(null);
+    setIsPlayingAllScenes(false);
+    const targetId = voice.elevenLabsId || voice.id;
+    setSelectedVoiceId(targetId);
+  };
+
   if (!story) return null;
 
   const displayScenes = (scenes && Array.isArray(scenes) && scenes.length > 0) 
@@ -436,8 +458,8 @@ export default function StoryApprovalCard({
 
   // Generate / Play Scene Audio with Scrubber Support
   const handleAuditionScene = async (sceneIndex, sceneText) => {
-    const chosenVoice = liveVoices.find(v => v.id === selectedVoiceId) || liveVoices[0];
-    const cacheKey = `${chosenVoice.elevenLabsId || chosenVoice.id}_${sceneIndex}_${sceneText}`;
+    const chosenVoice = selectedVoiceObj;
+    const cacheKey = `${chosenVoice.elevenLabsId || chosenVoice.id}_${voiceSpeed}_${sceneIndex}_${sceneText}`;
 
     // If this scene is already playing, toggle pause/play
     if (activePlayingIndex === sceneIndex && audioPlayerRef.current) {
@@ -474,6 +496,11 @@ export default function StoryApprovalCard({
         setSceneCurrentTime(prev => ({ ...prev, [sceneIndex]: 0 }));
       };
 
+      audio.onerror = () => {
+        setActivePlayingIndex(null);
+        setIsAudioPaused(false);
+      };
+
       audio.play().catch(() => {
         setActivePlayingIndex(null);
         setIsAudioPaused(false);
@@ -482,11 +509,13 @@ export default function StoryApprovalCard({
 
     // Check Cache
     if (sceneAudioMap[cacheKey]) {
-      startAudioPlayback(`data:audio/mpeg;base64,${sceneAudioMap[cacheKey]}`);
+      const cached = sceneAudioMap[cacheKey];
+      const audioSrc = typeof cached === 'string' && (cached.startsWith('http') || cached.startsWith('data:')) ? cached : `data:audio/mpeg;base64,${cached}`;
+      startAudioPlayback(audioSrc);
       return;
     }
 
-    // Synthesize via ElevenLabs
+    // Synthesize via Dedicated Provider (ElevenLabs Native or JSON2Video Premium)
     setGeneratingSceneIndex(sceneIndex);
     try {
       const res = await fetch('/.netlify/functions/preview-voice', {
@@ -494,14 +523,17 @@ export default function StoryApprovalCard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
-          text: sceneText
+          text: sceneText,
+          speed: Number(voiceSpeed) || 1.0,
+          provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
         })
       });
 
       const data = await res.json();
-      if (data.success && data.audio) {
-        setSceneAudioMap(prev => ({ ...prev, [cacheKey]: data.audio }));
-        startAudioPlayback(`data:audio/mpeg;base64,${data.audio}`);
+      if (data.success && (data.audio || data.audioUrl)) {
+        const audioSrc = data.audioUrl || `data:${data.mimeType || 'audio/mpeg'};base64,${data.audio}`;
+        setSceneAudioMap(prev => ({ ...prev, [cacheKey]: audioSrc }));
+        startAudioPlayback(audioSrc);
       }
     } catch (err) {
       console.warn('Scene TTS audition error:', err.message);
@@ -538,16 +570,16 @@ export default function StoryApprovalCard({
     }
 
     setIsPlayingAllScenes(true);
-    const chosenVoice = liveVoices.find(v => v.id === selectedVoiceId) || liveVoices[0];
+    const chosenVoice = selectedVoiceObj;
 
     for (let i = 0; i < displayScenes.length; i++) {
       setAllScenesProgress(i + 1);
       setActivePlayingIndex(i);
       const text = displayScenes[i].voiceoverText;
-      const cacheKey = `${chosenVoice.elevenLabsId || chosenVoice.id}_${i}_${text}`;
+      const cacheKey = `${chosenVoice.elevenLabsId || chosenVoice.id}_${voiceSpeed}_${i}_${text}`;
 
-      let base64 = sceneAudioMap[cacheKey];
-      if (!base64) {
+      let audioSrc = sceneAudioMap[cacheKey];
+      if (!audioSrc) {
         setGeneratingSceneIndex(i);
         try {
           const res = await fetch('/.netlify/functions/preview-voice', {
@@ -555,13 +587,15 @@ export default function StoryApprovalCard({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
-              text: text
+              text: text,
+              speed: Number(voiceSpeed) || 1.0,
+              provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
             })
           });
           const data = await res.json();
-          if (data.success && data.audio) {
-            base64 = data.audio;
-            setSceneAudioMap(prev => ({ ...prev, [cacheKey]: data.audio }));
+          if (data.success && (data.audio || data.audioUrl)) {
+            audioSrc = data.audioUrl || `data:${data.mimeType || 'audio/mpeg'};base64,${data.audio}`;
+            setSceneAudioMap(prev => ({ ...prev, [cacheKey]: audioSrc }));
           }
         } catch (e) {
           console.warn('Error synthesizing scene ' + (i + 1), e);
@@ -570,10 +604,10 @@ export default function StoryApprovalCard({
         }
       }
 
-      if (base64) {
+      if (audioSrc) {
         await new Promise((resolve) => {
           if (audioPlayerRef.current) audioPlayerRef.current.pause();
-          const audio = new Audio(`data:audio/mpeg;base64,${base64}`);
+          const audio = new Audio(audioSrc);
           audioPlayerRef.current = audio;
           
           audio.ontimeupdate = () => {
@@ -628,7 +662,7 @@ export default function StoryApprovalCard({
       ? displayScenes[0].voiceoverText.substring(0, 140)
       : (story.viralHook || 'Watch how these subtitles boost retention by 300%!');
 
-    const chosenVoice = liveVoices.find(v => v.id === selectedVoiceId) || liveVoices[0];
+    const chosenVoice = selectedVoiceObj;
 
     try {
       const res = await fetch('/.netlify/functions/preview-subtitle', {
@@ -683,8 +717,8 @@ export default function StoryApprovalCard({
     audioEngine.playSfx('success');
     setApprovedState('approved');
     if (typeof onApprove === 'function') {
-      const chosenVoice = liveVoices.find(v => v.id === selectedVoiceId || v.elevenLabsId === selectedVoiceId) || getVoiceById(selectedVoiceId) || VOICES[0];
-      const chosenMusic = MUSIC_TRACKS.find(m => m.id === selectedMusicId) || MUSIC_TRACKS[0];
+      const chosenVoice = selectedVoiceObj;
+      const chosenMusic = selectedMusicObj;
       const sampleText = displayScenes && displayScenes[0]?.voiceoverText ? displayScenes[0].voiceoverText : (story.viralHook || '');
       onApprove(story.approveUrl, {
         voiceId: selectedVoiceId,
@@ -751,9 +785,6 @@ export default function StoryApprovalCard({
       return { text: `${actual.toFixed(1)}s / ${target}s (+${diff.toFixed(1)}s Over Limit) ❌`, color: '#ef4444' };
     }
   };
-
-  const selectedVoiceObj = liveVoices.find(v => v.id === selectedVoiceId) || liveVoices[0];
-  const selectedMusicObj = MUSIC_TRACKS.find(m => m.id === selectedMusicId) || MUSIC_TRACKS[0];
 
   return (
     <div className="saas-card" style={{
@@ -857,24 +888,48 @@ export default function StoryApprovalCard({
             Applied Studio Settings:
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontSize: '12px' }}>
-            <span style={{
-              background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent-primary)',
-              padding: '2px 8px', borderRadius: '6px', fontWeight: 700, border: '1px solid rgba(99,102,241,0.25)'
-            }}>
-              🎙️ {selectedVoiceObj?.name} ({selectedVoiceObj?.flag || 'US'})
-            </span>
-            <span style={{
-              background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b',
-              padding: '2px 8px', borderRadius: '6px', fontWeight: 700, border: '1px solid rgba(245,158,11,0.25)'
-            }}>
-              ✨ {SUBTITLE_STYLES.find(s => s.id === selectedSubtitleSettings.presetId)?.name || 'Viral Subs'} ({selectedSubtitleSettings.fontFamily})
-            </span>
-            <span style={{
-              background: 'rgba(6, 182, 212, 0.12)', color: '#06b6d4',
-              padding: '2px 8px', borderRadius: '6px', fontWeight: 700, border: '1px solid rgba(6,182,212,0.25)'
-            }}>
-              🎵 {selectedMusicObj?.name} ({Math.round(musicVolume * 100)}% vol)
-            </span>
+            <button
+              type="button"
+              onClick={() => { setActiveMediaTab('voice'); setIsMediaStudioOpen(true); }}
+              title="Click to change Voice or Speed in Voice Matrix"
+              style={{
+                background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent-primary)',
+                padding: '4px 10px', borderRadius: '8px', fontWeight: 700, border: '1px solid rgba(99,102,241,0.3)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>🎙️ {selectedVoiceObj?.name} ({selectedVoiceObj?.flag || selectedVoiceObj?.language || 'Universal'})</span>
+              <span style={{ fontSize: '10px', background: 'rgba(99,102,241,0.2)', padding: '1px 5px', borderRadius: '4px' }}>{voiceSpeed}x</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveMediaTab('subtitles'); setIsMediaStudioOpen(true); }}
+              title="Click to customize Subtitle Styles & Fonts"
+              style={{
+                background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b',
+                padding: '4px 10px', borderRadius: '8px', fontWeight: 700, border: '1px solid rgba(245,158,11,0.3)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>✨ {SUBTITLE_STYLES.find(s => s.id === selectedSubtitleSettings.presetId)?.name || 'Viral Subs'} ({selectedSubtitleSettings.fontFamily})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveMediaTab('music'); setIsMediaStudioOpen(true); }}
+              title="Click to change Background Music & Volume"
+              style={{
+                background: 'rgba(6, 182, 212, 0.12)', color: '#06b6d4',
+                padding: '4px 10px', borderRadius: '8px', fontWeight: 700, border: '1px solid rgba(6,182,212,0.3)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>🎵 {selectedMusicObj?.name} ({Math.round(musicVolume * 100)}% vol)</span>
+            </button>
           </div>
         </div>
 
@@ -1830,8 +1885,8 @@ export default function StoryApprovalCard({
               const durationBadge = getSceneDurationBadge(idx);
               const currentSec = sceneCurrentTime[idx] || 0;
               const totalSec = sceneDuration[idx] || 15;
-              const chosenVoice = liveVoices.find(v => v.id === selectedVoiceId) || liveVoices[0];
-              const cacheKey = `${chosenVoice.elevenLabsId || chosenVoice.id}_${idx}_${scene.voiceoverText}`;
+              const chosenVoice = selectedVoiceObj;
+              const cacheKey = `${chosenVoice.elevenLabsId || chosenVoice.id}_${voiceSpeed}_${idx}_${scene.voiceoverText}`;
               const isCached = !!sceneAudioMap[cacheKey];
 
               return (
@@ -1965,11 +2020,16 @@ export default function StoryApprovalCard({
                           <FastForward size={13} />
                         </button>
 
-                        <div style={{ fontSize: '11.5px', color: 'var(--text-primary)', fontWeight: 700, marginLeft: '4px' }}>
-                          <span>{selectedVoiceObj?.name} Voiceover</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '4px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                            🎙️ {selectedVoiceObj?.name}
+                          </span>
+                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                            ({selectedVoiceObj?.flag || selectedVoiceObj?.language || 'Universal'}) • {voiceSpeed}x
+                          </span>
                           {isCached && (
-                            <span style={{ fontSize: '10px', color: '#10b981', marginLeft: '6px', fontWeight: 600 }}>
-                              ✓ Saved Audio
+                            <span style={{ fontSize: '10px', color: '#10b981', background: 'rgba(16,185,129,0.15)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                              ✓ Ready
                             </span>
                           )}
                         </div>
@@ -2254,7 +2314,7 @@ export default function StoryApprovalCard({
             )}
             <span>
               {isFinalScenesStage
-                ? '🚀 Approve & Render 4K Video (All 5 Scenes)'
+                ? `🚀 Approve & Render 75s Video (${selectedVoiceObj?.name || 'Chosen Voice'})`
                 : '🎬 Approve Story Brief & Generate 5 Scenes'}
             </span>
           </button>
