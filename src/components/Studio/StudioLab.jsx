@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Mic2, 
   Type, 
@@ -29,7 +29,16 @@ import {
   AlertTriangle,
   CheckCircle2
 } from 'lucide-react';
-import { VOICES as STATIC_VOICES, VOICE_CATEGORIES, VOICE_ACCENTS } from '../../data/voices';
+import { 
+  VOICES as STATIC_VOICES, 
+  JSON2VIDEO_VOICES, 
+  VOICE_PROVIDERS, 
+  VOICE_CATEGORIES, 
+  VOICE_LANGUAGES, 
+  VOICE_ACCENTS, 
+  getAllVoices, 
+  getVoiceById 
+} from '../../data/voices';
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS } from '../../data/subtitleStyles';
 import { MUSIC_TRACKS as STATIC_MUSIC, MUSIC_MOODS } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
@@ -64,13 +73,16 @@ export default function StudioLab({
   const [activeTab, setActiveTab] = useState(initialTab); // 'voices' | 'subtitles' | 'music'
 
   // ─── 1. VOICE STUDIO STATE ───────────────────────────────────────
-  const [voices, setVoices] = useState(STATIC_VOICES);
+  const [voices, setVoices] = useState(getAllVoices);
   const [currentVoiceSpeed, setCurrentVoiceSpeed] = useState(Number(voiceSpeed) || 1.0);
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
+  const [voiceProviderFilter, setVoiceProviderFilter] = useState('all');
+  const [voiceLanguageFilter, setVoiceLanguageFilter] = useState('all');
   const [voiceSearchQuery, setVoiceSearchQuery] = useState('');
   const [voiceGenderFilter, setVoiceGenderFilter] = useState('all'); // 'all', 'male', 'female'
   const [voiceAccentFilter, setVoiceAccentFilter] = useState('all');
   const [voiceCategoryFilter, setVoiceCategoryFilter] = useState('all');
+  const [visibleVoiceCount, setVisibleVoiceCount] = useState(40);
   const [customTtsText, setCustomTtsText] = useState('In the depths of space, a signal from an unknown civilization was just detected.');
   const [playingVoiceId, setPlayingVoiceId] = useState(null);
   const [generatingVoiceId, setGeneratingVoiceId] = useState(null);
@@ -172,26 +184,41 @@ export default function StudioLab({
     loadVoices();
   }, []);
 
-  // Filter voices
-  const filteredVoices = voices.filter(v => {
-    const matchesSearch = !voiceSearchQuery.trim() || 
-      v.name.toLowerCase().includes(voiceSearchQuery.toLowerCase()) ||
-      (v.flag || '').toLowerCase().includes(voiceSearchQuery.toLowerCase()) ||
-      (v.tag || '').toLowerCase().includes(voiceSearchQuery.toLowerCase()) ||
-      (v.tone || '').toLowerCase().includes(voiceSearchQuery.toLowerCase()) ||
-      (v.bestFor || []).some(bf => bf.toLowerCase().includes(voiceSearchQuery.toLowerCase()));
+  // Filter voices with fast memoization
+  const filteredVoices = useMemo(() => {
+    let sourceList = [];
+    if (voiceProviderFilter === 'elevenlabs') sourceList = STATIC_VOICES;
+    else if (voiceProviderFilter === 'json2video') sourceList = JSON2VIDEO_VOICES;
+    else sourceList = voices && voices.length > STATIC_VOICES.length ? voices : getAllVoices();
 
-    const matchesGender = voiceGenderFilter === 'all' || 
-      (v.gender || '').toLowerCase().includes(voiceGenderFilter.toLowerCase());
+    const q = voiceSearchQuery.trim().toLowerCase();
 
-    const matchesAccent = voiceAccentFilter === 'all' || 
-      (v.accent || '').toLowerCase() === voiceAccentFilter.toLowerCase();
+    return sourceList.filter(v => {
+      if (voiceCategoryFilter !== 'all' && v.category !== voiceCategoryFilter) return false;
+      if (voiceGenderFilter !== 'all' && v.gender && v.gender.toLowerCase() !== voiceGenderFilter.toLowerCase()) return false;
+      if (voiceLanguageFilter !== 'all') {
+        const vLang = v.language || 'English';
+        if (vLang.toLowerCase() !== voiceLanguageFilter.toLowerCase()) return false;
+      }
+      if (voiceAccentFilter !== 'all') {
+        const vAcc = v.accent || '';
+        if (!vAcc.toLowerCase().includes(voiceAccentFilter.toLowerCase())) return false;
+      }
+      if (q) {
+        const matchName = v.name && v.name.toLowerCase().includes(q);
+        const matchId = (v.id && v.id.toLowerCase().includes(q)) || (v.elevenLabsId && v.elevenLabsId.toLowerCase().includes(q));
+        const matchDesc = v.description && v.description.toLowerCase().includes(q);
+        const matchTag = v.tag && v.tag.toLowerCase().includes(q);
+        const matchLang = v.language && v.language.toLowerCase().includes(q);
+        if (!matchName && !matchId && !matchDesc && !matchTag && !matchLang) return false;
+      }
+      return true;
+    });
+  }, [voices, voiceProviderFilter, voiceCategoryFilter, voiceLanguageFilter, voiceAccentFilter, voiceGenderFilter, voiceSearchQuery]);
 
-    const matchesCategory = voiceCategoryFilter === 'all' ||
-      (v.category || '').toLowerCase() === voiceCategoryFilter.toLowerCase();
-
-    return matchesSearch && matchesGender && matchesAccent && matchesCategory;
-  });
+  useEffect(() => {
+    setVisibleVoiceCount(40);
+  }, [voiceProviderFilter, voiceCategoryFilter, voiceLanguageFilter, voiceAccentFilter, voiceGenderFilter, voiceSearchQuery]);
 
   // Filter music tracks by mood
   const filteredMusic = musicTracks.filter(t => {
@@ -422,7 +449,7 @@ export default function StudioLab({
   const handleApplyToVideo = () => {
     audioEngine.playSfx('success');
     if (typeof onApplySettingsToVideo === 'function') {
-      const chosenVoice = voices.find(v => v.id === selectedVoiceId) || voices[0];
+      const chosenVoice = voices.find(v => v.id === selectedVoiceId || v.elevenLabsId === selectedVoiceId) || getVoiceById(selectedVoiceId) || STATIC_VOICES[0];
       const chosenMusic = musicTracks.find(m => m.id === selectedMusicId) || musicTracks[0];
       onApplySettingsToVideo({
         voiceId: selectedVoiceId,
@@ -665,7 +692,44 @@ export default function StudioLab({
             </div>
           </div>
 
-          {/* Category Filter + Search + Gender/Accent Filters */}
+          {/* Provider Switcher Tabs */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '8px',
+            background: 'rgba(0, 0, 0, 0.3)',
+            padding: '4px',
+            borderRadius: '10px',
+            border: '1px solid var(--border-subtle)'
+          }}>
+            {VOICE_PROVIDERS.map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setVoiceProviderFilter(p.id)}
+                style={{
+                  background: voiceProviderFilter === p.id ? 'var(--accent-primary)' : 'transparent',
+                  color: voiceProviderFilter === p.id ? '#ffffff' : 'var(--text-muted)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '7px 12px',
+                  fontSize: '12px',
+                  fontWeight: voiceProviderFilter === p.id ? 800 : 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>{p.icon}</span>
+                <span>{p.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Category Filter + Search + Language/Gender Filters */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {/* Category Filter Row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -686,46 +750,66 @@ export default function StudioLab({
               ))}
             </div>
 
-            {/* Search + Gender + Accent Filters */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ position: 'relative', flex: 1, minWidth: '220px', display: 'flex', alignItems: 'center' }}>
+            {/* Search + Language + Gender + Accent Filters */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr auto', gap: '10px', alignItems: 'center' }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '12px' }} />
                 <input type="text" value={voiceSearchQuery}
                   onChange={(e) => setVoiceSearchQuery(e.target.value)}
-                  placeholder="Search by name, accent, tone, or use-case..."
+                  placeholder="Search 9,650+ voices by name, accent, tone, or ID..."
                   style={{
                     width: '100%', background: 'var(--bg-input)',
                     border: '1px solid var(--border-subtle)', borderRadius: '10px',
                     padding: '8px 12px 8px 34px', color: 'var(--text-primary)',
                     fontSize: '12px', outline: 'none'
                   }} />
+                {voiceSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setVoiceSearchQuery('')}
+                    style={{ position: 'absolute', right: '10px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+              {/* Language Selector */}
+              <select
+                value={voiceLanguageFilter}
+                onChange={e => setVoiceLanguageFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '10px',
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                {VOICE_LANGUAGES.map(l => (
+                  <option key={l.id} value={l.id} style={{ background: '#18181b', color: '#fff' }}>
+                    {l.flag} {l.label} ({l.count})
+                  </option>
+                ))}
+              </select>
+
+              {/* Gender Filter Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 {['all', 'male', 'female'].map(g => (
                   <button key={g} type="button" onClick={() => setVoiceGenderFilter(g)}
                     style={{
-                      padding: '4px 10px', borderRadius: '7px',
+                      padding: '6px 12px', borderRadius: '8px',
                       border: `1px solid ${voiceGenderFilter === g ? '#10b981' : 'var(--border-subtle)'}`,
                       background: voiceGenderFilter === g ? 'rgba(16,185,129,0.12)' : 'var(--bg-input)',
                       color: voiceGenderFilter === g ? '#34d399' : 'var(--text-muted)',
-                      fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+                      fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
                       textTransform: 'capitalize'
                     }}>
                     {g === 'all' ? 'All' : g}
-                  </button>
-                ))}
-                <div style={{ width: '1px', height: '18px', background: 'var(--border-subtle)', margin: '0 2px' }} />
-                {VOICE_ACCENTS.map(a => (
-                  <button key={a.id} type="button" onClick={() => setVoiceAccentFilter(a.id)}
-                    style={{
-                      padding: '4px 10px', borderRadius: '7px',
-                      border: `1px solid ${voiceAccentFilter === a.id ? '#6366f1' : 'var(--border-subtle)'}`,
-                      background: voiceAccentFilter === a.id ? 'rgba(99,102,241,0.12)' : 'var(--bg-input)',
-                      color: voiceAccentFilter === a.id ? '#a5b4fc' : 'var(--text-muted)',
-                      fontSize: '11px', fontWeight: 700, cursor: 'pointer'
-                    }}>
-                    {a.flag} {a.id === 'all' ? '' : a.label}
                   </button>
                 ))}
               </div>
@@ -742,7 +826,7 @@ export default function StudioLab({
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <Mic2 size={32} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
               <div style={{ fontSize: '14px', fontWeight: 600 }}>No voices match your filters</div>
-              <div style={{ fontSize: '12px', marginTop: '4px' }}>Try adjusting the category, accent, or gender filter</div>
+              <div style={{ fontSize: '12px', marginTop: '4px' }}>Try adjusting the category, language, or gender filter</div>
             </div>
           ) : (
             <div style={{
@@ -750,50 +834,59 @@ export default function StudioLab({
               gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
               gap: '12px'
             }}>
-              {filteredVoices.map((voice) => {
+              {filteredVoices.slice(0, visibleVoiceCount).map((voice) => {
                 const isSelected = selectedVoiceId === voice.id || selectedVoiceId === voice.elevenLabsId;
                 const isPlayingThis = playingVoiceId === voice.id;
                 const isGeneratingThis = generatingVoiceId === voice.id;
                 const durationBadge = getDurationBadge(voice.id);
+                const cardColor = voice.color || '#6366f1';
 
                 return (
                   <div key={voice.id}
-                    onClick={() => onSelectVoice(voice.id)}
+                    onClick={() => onSelectVoice(voice.elevenLabsId || voice.id)}
                     style={{
                       background: isSelected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-                      border: `1.5px solid ${isSelected ? voice.color : 'var(--border-subtle)'}`,
+                      border: `1.5px solid ${isSelected ? cardColor : 'var(--border-subtle)'}`,
                       borderRadius: '14px', padding: '14px', cursor: 'pointer',
                       display: 'flex', flexDirection: 'column', gap: '10px',
-                      boxShadow: isSelected ? `0 0 18px ${voice.color}30` : 'none',
+                      boxShadow: isSelected ? `0 0 18px ${cardColor}30` : 'none',
                       transition: 'all 0.2s ease', position: 'relative'
                     }}>
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                         <div style={{
                           width: '34px', height: '34px', borderRadius: '9px',
-                          background: `${voice.color}20`, border: `1.5px solid ${voice.color}50`,
+                          background: `${cardColor}20`, border: `1.5px solid ${cardColor}50`,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontWeight: 900, fontSize: '13px', color: voice.color
+                          fontWeight: 900, fontSize: '13px', color: cardColor,
+                          flexShrink: 0
                         }}>
-                          {voice.name[0]}
+                          {voice.name ? voice.name[0] : 'V'}
                         </div>
-                        <div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontWeight: 800, fontSize: '13.5px', color: 'var(--text-primary)' }}>
+                            <span style={{
+                              fontWeight: 800, fontSize: '13.5px', color: 'var(--text-primary)',
+                              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                            }}>
                               {voice.name}
                             </span>
-                            {voice.badge && (
-                              <span style={{ fontSize: '9.5px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', background: `${voice.color}18`, color: voice.color }}>
-                                {voice.badge}
+                            {voice.source === 'json2video' ? (
+                              <span style={{ fontSize: '8.5px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', flexShrink: 0 }}>
+                                💎 Premium
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '8.5px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: `${cardColor}18`, color: cardColor, flexShrink: 0 }}>
+                                ⚡ Native
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>{voice.flag}</span>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <span>{voice.flag || voice.language || 'English'}</span>
                             <span>•</span>
-                            <span>{voice.gender}</span>
-                            {voice.age && <><span>•</span><span>{voice.age}</span></>}
+                            <span>{voice.gender || 'Universal'}</span>
+                            {voice.accent && <><span>•</span><span>{voice.accent}</span></>}
                           </div>
                         </div>
                       </div>
@@ -801,17 +894,19 @@ export default function StudioLab({
                       {isSelected && (
                         <div style={{
                           width: '22px', height: '22px', borderRadius: '50%',
-                          background: voice.color, display: 'flex',
-                          alignItems: 'center', justifyContent: 'center'
+                          background: cardColor, display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', flexShrink: 0
                         }}>
-                          <Check size={13} color="#fff" strokeWidth={3} />
+                          <Check size={13} color="#000" strokeWidth={3} />
                         </div>
                       )}
                     </div>
 
-                    {/* Tag + Tone */}
-                    <div style={{ fontSize: '11px', color: voice.color, fontWeight: 600 }}>{voice.tag}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{voice.tone}</div>
+                    {/* Tag + Tone / Description */}
+                    {voice.tag && <div style={{ fontSize: '11px', color: cardColor, fontWeight: 600 }}>{voice.tag}</div>}
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4, maxHeight: '38px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {voice.description || voice.tone}
+                    </div>
 
                     {/* Best For Tags */}
                     {voice.bestFor && (
@@ -843,26 +938,28 @@ export default function StudioLab({
 
                     {/* Action Buttons */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: 'auto', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
-                      <button type="button" onClick={(e) => handlePlayVoiceSample(e, voice)}
-                        style={{
-                          flex: 1, background: isPlayingThis ? voice.color : 'var(--bg-input)',
-                          color: isPlayingThis ? '#fff' : 'var(--text-primary)',
-                          border: `1px solid ${isPlayingThis ? voice.color : 'var(--border-subtle)'}`,
-                          borderRadius: '8px', padding: '6px 8px', fontSize: '11px',
-                          fontWeight: 700, cursor: 'pointer', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', gap: '4px',
-                          transition: 'all 0.15s ease'
-                        }}>
-                        {isPlayingThis ? <Square size={10} /> : <Volume2 size={11} />}
-                        <span>{isPlayingThis ? 'Stop' : 'Sample'}</span>
-                      </button>
+                      {voice.previewUrl && (
+                        <button type="button" onClick={(e) => handlePlayVoiceSample(e, voice)}
+                          style={{
+                            flex: 1, background: isPlayingThis ? cardColor : 'var(--bg-input)',
+                            color: isPlayingThis ? '#000' : 'var(--text-primary)',
+                            border: `1px solid ${isPlayingThis ? cardColor : 'var(--border-subtle)'}`,
+                            borderRadius: '8px', padding: '6px 8px', fontSize: '11px',
+                            fontWeight: 700, cursor: 'pointer', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', gap: '4px',
+                            transition: 'all 0.15s ease'
+                          }}>
+                          {isPlayingThis ? <Square size={10} fill="#000" /> : <Volume2 size={11} />}
+                          <span>{isPlayingThis ? 'Stop' : 'Sample'}</span>
+                        </button>
+                      )}
 
                       <button type="button" onClick={(e) => handleGenerateTts(e, voice)}
                         disabled={!!generatingVoiceId}
                         style={{
-                          flex: 1.4, background: isGeneratingThis ? `${voice.color}15` : 'rgba(16,185,129,0.1)',
-                          color: isGeneratingThis ? voice.color : '#10b981',
-                          border: `1px solid ${isGeneratingThis ? voice.color : 'rgba(16,185,129,0.3)'}`,
+                          flex: 1.4, background: isGeneratingThis ? `${cardColor}15` : 'rgba(16,185,129,0.1)',
+                          color: isGeneratingThis ? cardColor : '#10b981',
+                          border: `1px solid ${isGeneratingThis ? cardColor : 'rgba(16,185,129,0.3)'}`,
                           borderRadius: '8px', padding: '6px 8px', fontSize: '11px',
                           fontWeight: 700, cursor: generatingVoiceId ? 'not-allowed' : 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
@@ -875,6 +972,28 @@ export default function StudioLab({
                   </div>
                 );
               })}
+
+              {/* Load More Button */}
+              {visibleVoiceCount < filteredVoices.length && (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', paddingTop: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setVisibleVoiceCount(prev => prev + 50)}
+                    style={{
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '8px',
+                      padding: '10px 20px',
+                      color: 'var(--accent-primary)',
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Load 50 More ({(filteredVoices.length - visibleVoiceCount).toLocaleString()} remaining)
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

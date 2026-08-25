@@ -1,5 +1,12 @@
-// Complete ElevenLabs Voice Catalog — 21 Premade Voices + 2 Custom Indian Voices
-// Category legend: 🔥 Viral Shorts | 📖 Storytelling | 💬 Conversational | 📚 Educational | 📺 Entertainment | 🎭 Characters
+import JSON2VIDEO_RAW_VOICES from './json2videoVoices.json';
+
+// Complete Voice Catalog — 23 ElevenLabs Native Voices + 9,650 JSON2Video Premium ElevenLabs Voices
+
+export const VOICE_PROVIDERS = [
+  { id: 'all',        label: 'All Providers',            icon: '🌐', count: 9673 },
+  { id: 'elevenlabs', label: '⚡ ElevenLabs Native',      icon: '⚡', count: 23 },
+  { id: 'json2video', label: '💎 JSON2Video Premium',     icon: '💎', count: 9650 },
+];
 
 export const VOICE_CATEGORIES = [
   { id: 'all',            label: 'All Voices',      icon: '🎙️' },
@@ -11,14 +18,59 @@ export const VOICE_CATEGORIES = [
   { id: 'characters',     label: 'Characters',      icon: '🎭' },
 ];
 
+export const VOICE_LANGUAGES = [
+  { id: 'all',        label: 'All Languages', flag: '🌍', count: 9673 },
+  { id: 'English',    label: 'English',       flag: '🇺🇸', count: 5070 },
+  { id: 'Hindi',      label: 'Hindi',         flag: '🇮🇳', count: 587 },
+  { id: 'Spanish',    label: 'Spanish',       flag: '🇪🇸', count: 828 },
+  { id: 'German',     label: 'German',        flag: '🇩🇪', count: 523 },
+  { id: 'Turkish',    label: 'Turkish',       flag: '🇹🇷', count: 529 },
+  { id: 'French',     label: 'French',        flag: '🇫🇷', count: 311 },
+  { id: 'Portuguese', label: 'Portuguese',    flag: '🇧🇷', count: 240 },
+  { id: 'Russian',    label: 'Russian',       flag: '🇷🇺', count: 158 },
+  { id: 'Polish',     label: 'Polish',        flag: '🇵🇱', count: 154 },
+  { id: 'Japanese',   label: 'Japanese',      flag: '🇯🇵', count: 136 },
+  { id: 'Italian',    label: 'Italian',       flag: '🇮🇹', count: 127 },
+  { id: 'Vietnamese', label: 'Vietnamese',    flag: '🇻🇳', count: 122 },
+  { id: 'Filipino',   label: 'Filipino',      flag: '🇵🇭', count: 119 },
+  { id: 'Indonesian', label: 'Indonesian',    flag: '🇮🇩', count: 116 },
+  { id: 'Korean',     label: 'Korean',        flag: '🇰🇷', count: 112 },
+  { id: 'Arabic',     label: 'Arabic',        flag: '🇸🇦', count: 89 },
+  { id: 'Dutch',      label: 'Dutch',         flag: '🇳🇱', count: 79 },
+  { id: 'Chinese',    label: 'Chinese',       flag: '🇨🇳', count: 61 },
+  { id: 'Tamil',      label: 'Tamil',         flag: '🇮🇳', count: 47 },
+  { id: 'Romanian',   label: 'Romanian',      flag: '🇷🇴', count: 44 },
+  { id: 'Ukrainian',  label: 'Ukrainian',     flag: '🇺🇦', count: 41 },
+  { id: 'Czech',      label: 'Czech',         flag: '🇨🇿', count: 38 },
+  { id: 'Swedish',    label: 'Swedish',       flag: '🇸🇪', count: 25 },
+  { id: 'Malay',      label: 'Malay',         flag: '🇲🇾', count: 20 },
+  { id: 'Croatian',   label: 'Croatian',      flag: '🇭🇷', count: 19 },
+  { id: 'Greek',      label: 'Greek',         flag: '🇬🇷', count: 16 },
+  { id: 'Finnish',    label: 'Finnish',       flag: '🇫🇮', count: 16 },
+  { id: 'Hungarian',  label: 'Hungarian',     flag: '🇭🇺', count: 15 },
+  { id: 'Slovak',     label: 'Slovak',        flag: '🇸🇰', count: 14 },
+  { id: 'Danish',     label: 'Danish',        flag: '🇩🇰', count: 13 },
+  { id: 'Bulgarian',  label: 'Bulgarian',     flag: '🇧🇬', count: 6 }
+];
+
 export const VOICE_ACCENTS = [
   { id: 'all',        label: 'All Accents',  flag: '🌍' },
   { id: 'american',   label: 'American',     flag: '🇺🇸' },
   { id: 'british',    label: 'British',      flag: '🇬🇧' },
+  { id: 'indian',     label: 'Indian / Hindi', flag: '🇮🇳' },
   { id: 'australian', label: 'Australian',   flag: '🇦🇺' },
-  { id: 'indian',     label: 'Indian',       flag: '🇮🇳' },
+  { id: 'german',     label: 'German',       flag: '🇩🇪' },
+  { id: 'spanish',    label: 'Spanish',      flag: '🇪🇸' },
+  { id: 'french',     label: 'French',       flag: '🇫🇷' },
+  { id: 'italian',    label: 'Italian',      flag: '🇮🇹' },
+  { id: 'japanese',   label: 'Japanese',     flag: '🇯🇵' },
+  { id: 'korean',     label: 'Korean',       flag: '🇰🇷' },
+  { id: 'arabic',     label: 'Arabic',       flag: '🇸🇦' },
+  { id: 'turkish',    label: 'Turkish',      flag: '🇹🇷' },
   { id: 'swedish',    label: 'Swedish',      flag: '🇸🇪' },
 ];
+
+export const JSON2VIDEO_VOICES = JSON2VIDEO_RAW_VOICES;
 
 export const VOICES = [
   // ─── 🔥 VIRAL SHORTS ─────────────────────────────────────────────
@@ -469,6 +521,86 @@ export const VOICES = [
     stability: 0.82,
     clarity: 0.95,
     bestFor: ['Emotional', 'Educational', 'Mythology', 'Culture'],
-    color: '#F472B6'
+    color: '#F472B6',
+    source: 'elevenlabs',
+    language: 'Hindi'
   }
 ];
+
+// Helper to get all voices across providers
+export function getAllVoices() {
+  const nativeWithMeta = VOICES.map(v => ({
+    ...v,
+    source: 'elevenlabs',
+    language: v.language || (v.accent === 'indian' ? 'Hindi' : 'English')
+  }));
+  return [...nativeWithMeta, ...JSON2VIDEO_VOICES];
+}
+
+// Fast Map for instant ID lookup
+const VOICE_LOOKUP_MAP = new Map();
+VOICES.forEach(v => {
+  VOICE_LOOKUP_MAP.set(v.id.toLowerCase(), v);
+  if (v.elevenLabsId) VOICE_LOOKUP_MAP.set(v.elevenLabsId.toLowerCase(), v);
+});
+JSON2VIDEO_VOICES.forEach(v => {
+  VOICE_LOOKUP_MAP.set(v.id.toLowerCase(), v);
+  if (v.elevenLabsId) VOICE_LOOKUP_MAP.set(v.elevenLabsId.toLowerCase(), v);
+});
+
+export function getVoiceById(id) {
+  if (!id) return VOICES[0];
+  const query = String(id).trim().toLowerCase();
+  return VOICE_LOOKUP_MAP.get(query) || VOICES[0];
+}
+
+export function filterVoices({
+  provider = 'all',
+  category = 'all',
+  language = 'all',
+  accent = 'all',
+  gender = 'all',
+  search = '',
+  limit = 50,
+  offset = 0
+} = {}) {
+  let list = [];
+  if (provider === 'elevenlabs') {
+    list = VOICES;
+  } else if (provider === 'json2video') {
+    list = JSON2VIDEO_VOICES;
+  } else {
+    list = getAllVoices();
+  }
+
+  const query = search.trim().toLowerCase();
+
+  const filtered = list.filter(v => {
+    if (category !== 'all' && v.category !== category) return false;
+    if (gender !== 'all' && v.gender && v.gender.toLowerCase() !== gender.toLowerCase()) return false;
+    if (language !== 'all') {
+      const vLang = v.language || 'English';
+      if (vLang.toLowerCase() !== language.toLowerCase()) return false;
+    }
+    if (accent !== 'all') {
+      const vAcc = v.accent || '';
+      if (!vAcc.toLowerCase().includes(accent.toLowerCase())) return false;
+    }
+    if (query) {
+      const matchName = v.name && v.name.toLowerCase().includes(query);
+      const matchId = v.id && v.id.toLowerCase().includes(query);
+      const matchDesc = v.description && v.description.toLowerCase().includes(query);
+      const matchTag = v.tag && v.tag.toLowerCase().includes(query);
+      const matchLang = v.language && v.language.toLowerCase().includes(query);
+      if (!matchName && !matchId && !matchDesc && !matchTag && !matchLang) return false;
+    }
+    return true;
+  });
+
+  return {
+    total: filtered.length,
+    voices: filtered.slice(offset, offset + limit),
+    hasMore: offset + limit < filtered.length
+  };
+}
+

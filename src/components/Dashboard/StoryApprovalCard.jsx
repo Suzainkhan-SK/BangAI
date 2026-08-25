@@ -38,7 +38,16 @@ import {
   Info
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
-import { VOICES, VOICE_CATEGORIES, VOICE_ACCENTS } from '../../data/voices';
+import { 
+  VOICES, 
+  JSON2VIDEO_VOICES, 
+  VOICE_PROVIDERS, 
+  VOICE_CATEGORIES, 
+  VOICE_LANGUAGES, 
+  VOICE_ACCENTS, 
+  getAllVoices, 
+  getVoiceById 
+} from '../../data/voices';
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS, resolveSubtitleConfig } from '../../data/subtitleStyles';
 import { MUSIC_TRACKS, MUSIC_MOODS } from '../../data/musicTracks';
 
@@ -179,10 +188,15 @@ export default function StoryApprovalCard({
   const [isRefining, setIsRefining] = useState(false);
 
   // ─── AUDIOVISUAL CUSTOMIZATION STATE ─────────────────────────────
-  const [liveVoices, setLiveVoices] = useState(VOICES);
+  const [liveVoices, setLiveVoices] = useState(getAllVoices);
   const [selectedVoiceId, setSelectedVoiceId] = useState(() => story?.voiceId || initialVoiceId || 'adam');
   const [voiceSpeed, setVoiceSpeed] = useState(() => Number(story?.voiceSpeed) || Number(initialVoiceSpeed) || 1.0);
+  const [voiceProviderFilter, setVoiceProviderFilter] = useState('all');
   const [voiceCategoryFilter, setVoiceCategoryFilter] = useState('all');
+  const [voiceLanguageFilter, setVoiceLanguageFilter] = useState('all');
+  const [voiceGenderFilter, setVoiceGenderFilter] = useState('all');
+  const [voiceSearchQuery, setVoiceSearchQuery] = useState('');
+  const [visibleVoiceCount, setVisibleVoiceCount] = useState(30);
   const [selectedSubtitleSettings, setSelectedSubtitleSettings] = useState(() => {
     return initialSubtitleSettings || {
       presetId: 'mrbeast-viral',
@@ -295,6 +309,42 @@ export default function StoryApprovalCard({
       })
       .catch(() => {});
   }, []);
+
+  // Filtered voice catalog for Story Approval Card
+  const filteredApprovalVoices = useMemo(() => {
+    let sourceList = [];
+    if (voiceProviderFilter === 'elevenlabs') {
+      sourceList = VOICES;
+    } else if (voiceProviderFilter === 'json2video') {
+      sourceList = JSON2VIDEO_VOICES;
+    } else {
+      sourceList = liveVoices && liveVoices.length > VOICES.length ? liveVoices : getAllVoices();
+    }
+
+    const q = voiceSearchQuery.trim().toLowerCase();
+
+    return sourceList.filter(v => {
+      if (voiceCategoryFilter !== 'all' && v.category !== voiceCategoryFilter) return false;
+      if (voiceGenderFilter !== 'all' && v.gender && v.gender.toLowerCase() !== voiceGenderFilter.toLowerCase()) return false;
+      if (voiceLanguageFilter !== 'all') {
+        const vLang = v.language || 'English';
+        if (vLang.toLowerCase() !== voiceLanguageFilter.toLowerCase()) return false;
+      }
+      if (q) {
+        const matchName = v.name && v.name.toLowerCase().includes(q);
+        const matchId = (v.id && v.id.toLowerCase().includes(q)) || (v.elevenLabsId && v.elevenLabsId.toLowerCase().includes(q));
+        const matchDesc = v.description && v.description.toLowerCase().includes(q);
+        const matchTag = v.tag && v.tag.toLowerCase().includes(q);
+        const matchLang = v.language && v.language.toLowerCase().includes(q);
+        if (!matchName && !matchId && !matchDesc && !matchTag && !matchLang) return false;
+      }
+      return true;
+    });
+  }, [liveVoices, voiceProviderFilter, voiceCategoryFilter, voiceLanguageFilter, voiceGenderFilter, voiceSearchQuery]);
+
+  useEffect(() => {
+    setVisibleVoiceCount(30);
+  }, [voiceProviderFilter, voiceCategoryFilter, voiceLanguageFilter, voiceGenderFilter, voiceSearchQuery]);
 
   if (!story) return null;
 
@@ -633,13 +683,13 @@ export default function StoryApprovalCard({
     audioEngine.playSfx('success');
     setApprovedState('approved');
     if (typeof onApprove === 'function') {
-      const chosenVoice = liveVoices.find(v => v.id === selectedVoiceId) || liveVoices[0];
+      const chosenVoice = liveVoices.find(v => v.id === selectedVoiceId || v.elevenLabsId === selectedVoiceId) || getVoiceById(selectedVoiceId) || VOICES[0];
       const chosenMusic = MUSIC_TRACKS.find(m => m.id === selectedMusicId) || MUSIC_TRACKS[0];
       const sampleText = displayScenes && displayScenes[0]?.voiceoverText ? displayScenes[0].voiceoverText : (story.viralHook || '');
       onApprove(story.approveUrl, {
         voiceId: selectedVoiceId,
         elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
-        voiceSpeed: Number(voiceSpeed) || 1.30,
+        voiceSpeed: Number(voiceSpeed) || 1.0,
         subtitleSettings: resolveSubtitleConfig(selectedSubtitleSettings, sampleText, threadLanguage),
         musicId: selectedMusicId,
         musicTrackUrl: chosenMusic?.audioUrl || '',
@@ -964,19 +1014,142 @@ export default function StoryApprovalCard({
                 </div>
               </div>
 
-              {/* Category Filter Chips */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
+              {/* Provider Switcher Tabs */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '6px',
+                background: 'rgba(0, 0, 0, 0.3)',
+                padding: '4px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-subtle)'
+              }}>
+                {VOICE_PROVIDERS.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setVoiceProviderFilter(p.id)}
+                    style={{
+                      background: voiceProviderFilter === p.id ? 'var(--accent-primary)' : 'transparent',
+                      color: voiceProviderFilter === p.id ? '#ffffff' : 'var(--text-muted)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '5px 8px',
+                      fontSize: '11px',
+                      fontWeight: voiceProviderFilter === p.id ? 800 : 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span>{p.icon}</span>
+                    <span>{p.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Search Bar & Language/Gender Filters */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '8px' }}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={voiceSearchQuery}
+                    onChange={e => setVoiceSearchQuery(e.target.value)}
+                    placeholder="Search 9,650+ voices by name, accent, vibe..."
+                    style={{
+                      width: '100%',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '8px',
+                      padding: '6px 10px',
+                      fontSize: '11px',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  />
+                  {voiceSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setVoiceSearchQuery('')}
+                      style={{
+                        position: 'absolute', right: '8px', background: 'transparent',
+                        border: 'none', color: 'var(--text-muted)', cursor: 'pointer'
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                <select
+                  value={voiceLanguageFilter}
+                  onChange={e => setVoiceLanguageFilter(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    padding: '6px 8px',
+                    fontSize: '11px',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {VOICE_LANGUAGES.map(l => (
+                    <option key={l.id} value={l.id} style={{ background: '#18181b', color: '#fff' }}>
+                      {l.flag} {l.label} ({l.count})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Gender & Category Filter Chips */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
+                {['all', 'Female', 'Male'].map(g => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setVoiceGenderFilter(g)}
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      border: `1px solid ${voiceGenderFilter === g ? '#6366f1' : 'var(--border-subtle)'}`,
+                      background: voiceGenderFilter === g ? 'rgba(99,102,241,0.2)' : 'var(--bg-card)',
+                      color: voiceGenderFilter === g ? '#ffffff' : 'var(--text-muted)',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {g === 'all' ? 'All Genders' : (g === 'Female' ? '👩 Female' : '👨 Male')}
+                  </button>
+                ))}
+
+                <div style={{ width: '1px', height: '14px', background: 'var(--border-subtle)', margin: '0 2px' }} />
+
                 {VOICE_CATEGORIES.map(cat => (
                   <button
                     key={cat.id}
                     type="button"
                     onClick={() => setVoiceCategoryFilter(cat.id)}
                     style={{
-                      padding: '4px 10px', borderRadius: '6px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
                       border: `1px solid ${voiceCategoryFilter === cat.id ? '#6366f1' : 'var(--border-subtle)'}`,
-                      background: voiceCategoryFilter === cat.id ? 'rgba(99,102,241,0.15)' : 'var(--bg-card)',
+                      background: voiceCategoryFilter === cat.id ? 'rgba(99,102,241,0.2)' : 'var(--bg-card)',
                       color: voiceCategoryFilter === cat.id ? '#a5b4fc' : 'var(--text-muted)',
-                      fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     <span>{cat.icon}</span> {cat.label}
@@ -986,77 +1159,152 @@ export default function StoryApprovalCard({
 
               {/* Voices Grid */}
               <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                gap: '8px', maxHeight: '260px', overflowY: 'auto', paddingRight: '4px'
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                gap: '8px',
+                maxHeight: '260px',
+                overflowY: 'auto',
+                paddingRight: '4px'
               }}>
-                {liveVoices
-                  .filter(v => voiceCategoryFilter === 'all' || v.category === voiceCategoryFilter)
-                  .map(voice => {
-                    const isSelected = selectedVoiceId === voice.id;
-                    const isPlaying = playingVoiceSampleId === voice.id;
-                    return (
-                      <div
-                        key={voice.id}
-                        onClick={() => setSelectedVoiceId(voice.id)}
-                        style={{
-                          background: isSelected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-                          border: `1.5px solid ${isSelected ? voice.color : 'var(--border-subtle)'}`,
-                          borderRadius: '10px', padding: '10px', cursor: 'pointer',
-                          display: 'flex', flexDirection: 'column', gap: '6px',
-                          boxShadow: isSelected ? `0 0 12px ${voice.color}30` : 'none',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{
-                              width: '28px', height: '28px', borderRadius: '8px',
-                              background: `${voice.color}20`, color: voice.color,
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontWeight: 900, fontSize: '12px'
-                            }}>
-                              {voice.name[0]}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-primary)' }}>
+                {filteredApprovalVoices.slice(0, visibleVoiceCount).map(voice => {
+                  const isSelected = selectedVoiceId === voice.id || selectedVoiceId === voice.elevenLabsId;
+                  const isPlaying = playingVoiceSampleId === voice.id;
+                  const cardColor = voice.color || '#6366f1';
+
+                  return (
+                    <div
+                      key={voice.id}
+                      onClick={() => setSelectedVoiceId(voice.elevenLabsId || voice.id)}
+                      style={{
+                        background: isSelected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+                        border: `1.5px solid ${isSelected ? cardColor : 'var(--border-subtle)'}`,
+                        borderRadius: '10px',
+                        padding: '10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        boxShadow: isSelected ? `0 0 12px ${cardColor}30` : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                          <div style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '8px',
+                            background: `${cardColor}20`,
+                            color: cardColor,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 900,
+                            fontSize: '12px',
+                            flexShrink: 0
+                          }}>
+                            {voice.name ? voice.name[0] : 'V'}
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <span style={{
+                                fontWeight: 800,
+                                fontSize: '13px',
+                                color: 'var(--text-primary)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}>
                                 {voice.name}
-                              </div>
-                              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                                {voice.flag} • {voice.gender}
-                              </div>
+                              </span>
+                              {voice.source === 'json2video' ? (
+                                <span style={{ fontSize: '8px', fontWeight: 800, color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '1px 4px', borderRadius: '4px', flexShrink: 0 }}>
+                                  💎 Premium
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '8px', fontWeight: 800, color: '#34d399', background: 'rgba(52,211,153,0.15)', padding: '1px 4px', borderRadius: '4px', flexShrink: 0 }}>
+                                  ⚡ Native
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {voice.flag || voice.language || 'English'} • {voice.gender || 'Universal'} {voice.accent ? `• ${voice.accent}` : ''}
                             </div>
                           </div>
+                        </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                          {voice.previewUrl && (
                             <button
                               type="button"
                               onClick={(e) => handlePlayVoiceSample(e, voice)}
                               style={{
-                                background: isPlaying ? voice.color : 'var(--bg-input)',
-                                color: isPlaying ? '#fff' : 'var(--text-primary)',
+                                background: isPlaying ? cardColor : 'var(--bg-input)',
+                                color: isPlaying ? '#000' : 'var(--text-primary)',
                                 border: '1px solid var(--border-subtle)',
-                                borderRadius: '6px', padding: '4px 8px',
-                                fontSize: '10px', fontWeight: 700, cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', gap: '3px'
+                                borderRadius: '6px',
+                                padding: '4px 8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px'
                               }}
                             >
-                              {isPlaying ? <Square size={9} /> : <Play size={9} />}
+                              {isPlaying ? <Square size={9} fill="#000" /> : <Play size={9} />}
                               <span>{isPlaying ? 'Stop' : 'Sample'}</span>
                             </button>
-                            {isSelected && (
-                              <div style={{
-                                width: '18px', height: '18px', borderRadius: '50%',
-                                background: voice.color, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                              }}>
-                                <Check size={11} color="#fff" strokeWidth={3} />
-                              </div>
-                            )}
-                          </div>
+                          )}
+                          {isSelected && (
+                            <div style={{
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '50%',
+                              background: cardColor,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <Check size={11} color="#000" strokeWidth={3} />
+                            </div>
+                          )}
                         </div>
-                        <div style={{ fontSize: '10.5px', color: voice.color, fontWeight: 600 }}>{voice.tag}</div>
                       </div>
-                    );
-                  })}
+                      {voice.tag && (
+                        <div style={{ fontSize: '10px', color: cardColor, fontWeight: 600 }}>{voice.tag}</div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Load More Button */}
+                {visibleVoiceCount < filteredApprovalVoices.length && (
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'center', paddingTop: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setVisibleVoiceCount(prev => prev + 50)}
+                      style={{
+                        background: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '8px',
+                        padding: '8px 16px',
+                        color: 'var(--accent-primary)',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Load 50 More ({(filteredApprovalVoices.length - visibleVoiceCount).toLocaleString()} remaining)
+                    </button>
+                  </div>
+                )}
+
+                {filteredApprovalVoices.length === 0 && (
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '24px 10px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                    No voices found matching current filters.
+                  </div>
+                )}
               </div>
             </div>
           )}
