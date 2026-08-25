@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Play, Pause, Volume2, Download, Copy, Check, Sparkles, ExternalLink,
   ChevronDown, ChevronUp, CheckCircle2, Film, Mic2, Share2, ShieldCheck,
