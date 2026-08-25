@@ -285,7 +285,8 @@ export default function StudioLab({
         body: JSON.stringify({
           voiceId: voice.elevenLabsId || voice.id,
           text: textToSpeak,
-          speed: currentVoiceSpeed
+          speed: currentVoiceSpeed,
+          provider: voice.source === 'json2video' ? 'json2video' : 'elevenlabs'
         })
       });
 

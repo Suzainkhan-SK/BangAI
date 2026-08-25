@@ -160,7 +160,9 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           voiceId: voice.elevenLabsId || voice.id,
-          text: textToSpeak
+          text: textToSpeak,
+          speed: speed,
+          provider: voice.source === 'json2video' ? 'json2video' : 'elevenlabs'
         })
       });
 
