@@ -58,7 +58,7 @@ export default function Sidebar({
         padding: '14px 0 14px 0',
         height: 'calc(100vh - 58px)',
         transition: 'all 0.25s cubic-bezier(0.16,1,0.3,1)',
-        flexShrink: 0, zIndex: 20, overflowY: 'auto'
+        flexShrink: 0, zIndex: 110, overflowY: 'auto'
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%', padding: '0 10px' }}>
           {/* New Short */}
@@ -154,7 +154,7 @@ export default function Sidebar({
       padding: '0',
       height: 'calc(100vh - 58px)',
       transition: 'all 0.25s cubic-bezier(0.16,1,0.3,1)',
-      flexShrink: 0, position: 'relative', zIndex: 20
+      flexShrink: 0, position: 'relative', zIndex: 110
     }}>
 
       {/* Top Controls */}
@@ -301,7 +301,7 @@ export default function Sidebar({
                   borderRadius: '10px',
                   background: isActive
                     ? 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))'
-                    : isHovered ? 'rgba(255,255,255,0.03)' : 'transparent',
+                    : isHovered ? 'var(--bg-card-hover)' : 'transparent',
                   border: `1px solid ${isActive ? 'rgba(99,102,241,0.35)' : 'transparent'}`,
                   cursor: 'pointer', display: 'flex', alignItems: 'center',
                   gap: '8px', transition: 'all 0.15s ease'

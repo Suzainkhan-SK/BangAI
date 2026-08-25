@@ -1742,20 +1742,10 @@ export default function DashboardApp({
           <div
             className="prompt-bar-wrapper"
             style={{
-              position: 'fixed',
-              bottom: 0,
-              left: sidebarCollapsed ? '52px' : '200px',
-              right: 0,
-              background: 'linear-gradient(to top, var(--bg-app) 80%, transparent 100%)',
-              padding: '12px 24px 16px',
-              display: 'flex',
-              justifyContent: 'center',
-              zIndex: 100,
-              pointerEvents: 'none',
-              transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+              left: sidebarCollapsed ? '60px' : '240px'
             }}
           >
-          <div className="prompt-bar-inner" style={{ width: '100%', maxWidth: '900px', pointerEvents: 'auto' }}>
+          <div className="prompt-bar-inner">
             <CanvasPromptBar
               prompt={prompt}
               setPrompt={setPrompt}
