@@ -358,7 +358,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
       rawUserInput: message.trim(),
       voiceId: settings.voiceId || 'adam',
       elevenLabsVoiceId: settings.elevenLabsVoiceId || '',
-      voiceSpeed: Number(settings.voiceSpeed) || 1.30,
+      voiceSpeed: Number(settings.voiceSpeed) || 1.0,
       visualStyle: settings.visualStyle || 'Cinematic Realistic',
       language: detectedLanguage,
       autoUploadToYouTube: !!settings.autoUploadToYouTube,

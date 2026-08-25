@@ -50,7 +50,7 @@ function buildResumeUrl(rawUrl, action, extraParams = {}) {
     return u.toString();
   } catch (err) {
     const sep = rawUrl.includes('?') ? '&' : '?';
-    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(extraParams.refinePrompt || '')}&voiceId=${encodeURIComponent(extraParams.voiceId || '')}&voiceSpeed=${encodeURIComponent(extraParams.voiceSpeed || '1.30')}`;
+    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(extraParams.refinePrompt || '')}&voiceId=${encodeURIComponent(extraParams.voiceId || '')}&voiceSpeed=${encodeURIComponent(extraParams.voiceSpeed || '1.0')}`;
   }
 }
 

@@ -161,7 +161,7 @@ export default function StoryApprovalCard({
   scenes, 
   threadLanguage = 'English', 
   initialVoiceId = 'adam',
-  initialVoiceSpeed = 1.30,
+  initialVoiceSpeed = 1.0,
   initialSubtitleSettings = null,
   initialMusicId = 'mystery',
   initialMusicVolume = 0.15,
@@ -181,7 +181,7 @@ export default function StoryApprovalCard({
   // ─── AUDIOVISUAL CUSTOMIZATION STATE ─────────────────────────────
   const [liveVoices, setLiveVoices] = useState(VOICES);
   const [selectedVoiceId, setSelectedVoiceId] = useState(() => story?.voiceId || initialVoiceId || 'adam');
-  const [voiceSpeed, setVoiceSpeed] = useState(() => Number(story?.voiceSpeed) || Number(initialVoiceSpeed) || 1.30);
+  const [voiceSpeed, setVoiceSpeed] = useState(() => Number(story?.voiceSpeed) || Number(initialVoiceSpeed) || 1.0);
   const [voiceCategoryFilter, setVoiceCategoryFilter] = useState('all');
   const [selectedSubtitleSettings, setSelectedSubtitleSettings] = useState(() => {
     return initialSubtitleSettings || {
@@ -932,12 +932,12 @@ export default function StoryApprovalCard({
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                   {[
-                    { val: 1.0, label: '1.0x Normal' },
+                    { val: 0.90, label: '0.90x Relaxed' },
+                    { val: 1.0, label: '1.0x Normal (Recommended)' },
+                    { val: 1.10, label: '1.10x Dynamic' },
                     { val: 1.15, label: '1.15x Engaging' },
-                    { val: 1.25, label: '1.25x Dynamic' },
-                    { val: 1.30, label: '1.30x 🔥 Fast Viral' },
-                    { val: 1.40, label: '1.40x High Dopamine' },
-                    { val: 1.50, label: '1.50x Ultra Speed' }
+                    { val: 1.20, label: '1.20x Viral Pacing' },
+                    { val: 1.25, label: '1.25x High Energy' }
                   ].map(s => {
                     const isSelected = Math.abs(voiceSpeed - s.val) < 0.01;
                     return (

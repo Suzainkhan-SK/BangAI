@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic2, Volume2, Square, Sliders, Check, Loader2, Sparkles, Play, RefreshCw } from 'lucide-react';
 import { VOICES } from '../../data/voices';
 
-export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed = 1.30, onVoiceSpeedChange }) {
+export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed = 1.0, onVoiceSpeedChange }) {
   const [playingVoiceId, setPlayingVoiceId] = useState(null);
   const [generatingVoiceId, setGeneratingVoiceId] = useState(null);
-  const [speed, setSpeed] = useState(Number(voiceSpeed) || 1.30);
+  const [speed, setSpeed] = useState(Number(voiceSpeed) || 1.0);
   const [stability, setStability] = useState(75);
   const [customText, setCustomText] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -340,8 +340,8 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
           </div>
           <input
             type="range"
-            min="1.0"
-            max="1.5"
+            min="0.7"
+            max="1.25"
             step="0.05"
             value={speed}
             onChange={(e) => {

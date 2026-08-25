@@ -87,7 +87,7 @@ export default function DashboardApp({
 
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [voiceId, setVoiceId] = useState('adam');
-  const [voiceSpeed, setVoiceSpeed] = useState(1.30);
+  const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [styleId, setStyleId] = useState('cinematic');
   const [musicId, setMusicId] = useState('mystery');
   const [language, setLanguage] = useState('Hinglish');

@@ -3,12 +3,12 @@
   "name": "Viral All-In-One AI [5 Direct Video Scenes - 75s] - Webhook Based",
   "active": true,
   "isArchived": false,
-  "versionId": "21b40488-9f8e-42e6-89b1-cd9792f24a9a",
+  "versionId": "3c5d32d3-0412-4c63-ad00-ac80c67aae85",
   "activeVersionId": "8b3004b0-c0dd-4546-b853-78d2f6e80c8e",
   "triggerCount": 2,
   "nodeCount": 263,
   "createdAt": "2026-08-22T10:58:59.514Z",
-  "updatedAt": "2026-08-25T05:10:10.585Z",
+  "updatedAt": "2026-08-25T05:40:08.423Z",
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
@@ -3289,11 +3289,6 @@
       "main": [
         [
           {
-            "node": "Send YouTube Success (Manual)",
-            "type": "main",
-            "index": 0
-          },
-          {
             "node": "Select Comment (Manual)",
             "type": "main",
             "index": 0
@@ -3666,7 +3661,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => {\n  let p = {};\n  try { p = $('Filter: My Chat Only').first().json || {}; } catch (e) { p = {}; }\n  let s = {};\n  try { s = $('Parse Strategy Output').first().json || {}; } catch (e) { s = {}; }\n  let t = {};\n  try { t = $('Parse Topic Analyzer Output').first().json || {}; } catch (e) { t = {}; }\n\n  let staticData = {};\n  try { staticData = $getWorkflowStaticData('global') || {}; } catch (e) { staticData = {}; }\n  const custom = staticData.userSelectedCustomSettings || {};\n\n  let waitItem = {};\n  try {\n    const rawWait = $('Wait for Scenes Approval').first().json || {};\n    waitItem = rawWait.body || rawWait.query || rawWait || {};\n  } catch (e) { waitItem = {}; }\n\n  let merged = [];\n  try { merged = $('Merge Hybrid Scenes').all() || []; } catch (e) { merged = []; }\n\n  const rows = [];\n  for (let i = 0; i < merged.length; i++) {\n    const d = (merged[i] && merged[i].json) ? merged[i].json : {};\n    const url = String(d.url || '');\n    if (url.indexOf('http') !== 0) continue;\n    rows.push({\n      n: Number(d.sceneNumber) || (i + 1),\n      url: url,\n      dur: Number(d.duration) || 15,\n      vo: String(d.voiceoverText || '')\n    });\n  }\n  rows.sort(function (a, b) { return a.n - b.n; });\n\n  const allVoiceover = rows.map(r => r.vo).join(' ');\n  const lang = String(s.language || t.language || p.language || 'English').toLowerCase();\n  \n  // Unicode Range ऀ-ॿ represents Devanagari (Hindi, Marathi, Nepali, Sanskrit)\n  const hasDevanagari = /[\\u0900-\\u097F]/.test(allVoiceover) || lang.indexOf('hindi') !== -1 || lang.indexOf('hinglish') !== -1;\n  const subLang = hasDevanagari ? 'hi' : 'en';\n\n  // 1. DYNAMIC VOICE RESOLUTION\n  const VOICE_MAP = {\n    'adam': 'pNInz6obpgDQGcFmaJgB',\n    'rachel': '21m00Tcm4TlvDq8ikWAM',\n    'marcus': 'onwK4e9ZLuTAKqWW03F9',\n    'aarav': 'ErXwobaYiN019PkySvjV',\n    'priya': 'EXAVITQu4vr4xnSDxMaL',\n    'charlie': 'IKne3meq5aSn9XLyUdCD',\n    'george': 'JBFqnCBsd6RMkjVDRZzb',\n    'callum': 'N2lVS1w4EtoT3dr4eOWO',\n    'sarah': 'EXAVITQu4vr4xnSDxMaL',\n    'charlotte': 'XB0fDUnXU5powFXDhCwa',\n    'josh': 'TxGEqnHWrfWFTfGW9XjX',\n    'arnold': 'VR6AewLTigWG4xSOukaG',\n    'domi': 'AZnzlk1XvdvUeBnXmlld',\n    'elli': 'MF3mGyEYCl7XYWbV9V6O',\n    'antoni': 'ErXwobaYiN019PkySvjV',\n    'bella': 'EXAVITQu4vr4xnSDxMaL',\n    'brian': 'nPczCjzI2devNBz1zQrb',\n    'daniel': 'onwK4e9ZLuTAKqWW03F9',\n    'emily': 'LcfcDJNigL5wcS5z9bmt',\n    'ethan': 'g5CIjZEefAph4nQFvHAz',\n    'freya': 'jsCqWAovK2LkecY7zXl4',\n    'giggle': 'MF3mGyEYCl7XYWbV9V6O',\n    'glinda': 'z9fAnlkpzviPz146aGWa',\n    'grace': 'oWAxZDx7w5VEj9dCyTzz',\n    'harry': 'SOYHLrjzK2X1ezoY6cvb',\n    'james': 'ZQe5CZNOzWyzPSCn5a3c',\n    'jeremy': 'bVMeCyTHy58xNoL34h3p',\n    'jessie': 't0jbNlEBZNuSJaPyNmEY',\n    'joseph': 'Zlb1dXrM653N07WRdFW3',\n    'liam': 'TX3LPaxmHKxFdv7VOQHJ',\n    'matilda': 'XrExE9yKIg1WjnnlVkGX',\n    'michael': 'flq6f7yk4E4fJM5XTYTV',\n    'nicole': 'piTKgcLEGmPE4e6mEKli',\n    'patrick': 'ODq5zmih8GrVes37Dizd',\n    'sam': 'yoZ06aMxZJJ28mfd3POQ',\n    'serena': 'pMsXgjiT309w3j25d482'\n  };\n\n  const rawVoice = String(custom.elevenLabsVoiceId || waitItem.elevenLabsVoiceId || custom.voiceId || waitItem.voiceId || p.elevenLabsVoiceId || p.voiceId || 'adam').trim();\n  const voice = /^[A-Za-z0-9_-]{18,}$/.test(rawVoice) ? rawVoice : (VOICE_MAP[rawVoice.toLowerCase()] || 'pNInz6obpgDQGcFmaJgB');\n\n  // Dynamic Voice Speed\n  const rawSpeed = custom.voiceSpeed || waitItem.voiceSpeed || p.voiceSpeed || 1.30;\n  const voiceSpeed = Number(rawSpeed) || 1.30;\n\n  // 2. DYNAMIC SUBTITLE STYLES RESOLUTION\n  let userSubs = custom.subtitleSettings || waitItem.subtitleSettings || p.subtitleSettings || {};\n  if (typeof userSubs === 'string') {\n    try { userSubs = JSON.parse(userSubs); } catch(e) { userSubs = {}; }\n  }\n\n  const subStyle = userSubs.style || 'highlight';\n\n  // Automatically enforce Devanagari font when Devanagari script is present to prevent tofu [][][][] boxes\n  let subFont = userSubs.fontFamily;\n  let allCaps = userSubs.allCaps !== undefined ? Boolean(userSubs.allCaps) : true;\n\n  if (hasDevanagari) {\n    if (!subFont || ['Montserrat', 'Inter', 'Bebas Neue', 'Luckiest Guy', 'Bangers', 'Oswald', 'Permanent Marker'].includes(subFont)) {\n      subFont = 'Noto Sans Devanagari';\n    }\n    allCaps = false; // Devanagari does not have uppercase; disabling prevents font glyph corruption\n  } else {\n    subFont = subFont || 'Montserrat';\n  }\n\n  let rawFontSize = Number(userSubs.fontSize) || 78;\n  if (rawFontSize > 120) rawFontSize = Math.round(rawFontSize / 3.5);\n  const subSize = Math.max(56, Math.min(100, rawFontSize));\n\n  const subWordColor = userSubs.wordColor || '#FFE600';\n  const subLineColor = userSubs.lineColor || '#FFFFFF';\n  const subOutlineColor = userSubs.outlineColor || '#000000';\n  const subOutlineWidth = Number(userSubs.outlineWidth !== undefined ? userSubs.outlineWidth : 8);\n  const subPos = userSubs.position || 'center-bottom';\n  const maxWords = Number(userSubs.maxWordsPerLine) || 3;\n\n  const subSettings = {\n    'font-family': subFont,\n    'font-size': subSize,\n    'font-weight': '900',\n    'position': subPos,\n    'line-color': subLineColor,\n    'word-color': subWordColor,\n    'outline-color': subOutlineColor,\n    'outline-width': subOutlineWidth,\n    'max-words-per-line': maxWords,\n    'all-caps': allCaps,\n    'style': subStyle === 'classic-progressive' ? 'highlight' : subStyle\n  };\n  if (userSubs.boxColor && userSubs.boxColor.trim()) subSettings['box-color'] = userSubs.boxColor.trim();\n\n  // 3. DYNAMIC BACKGROUND MUSIC RESOLUTION\n  const bgmUrl = custom.musicTrackUrl || waitItem.musicTrackUrl || p.musicTrackUrl || 'https://ia600105.us.archive.org/20/items/tension_time_soundridemusic/tension_time_soundridemusic.mp3';\n  const rawVol = custom.musicVolume !== undefined ? custom.musicVolume : (waitItem.musicVolume !== undefined ? waitItem.musicVolume : (p.musicVolume !== undefined ? p.musicVolume : 0.15));\n  const bgmVolume = Number(rawVol) || 0.15;\n\n  const scenes = rows.map(function (r) {\n    return {\n      duration: r.dur,\n      transition: { style: 'fade', duration: 0.3 },\n      elements: [\n        {\n          type: 'video',\n          src: r.url,\n          'keep-audio': false,\n          volume: 0,\n          'aspect-ratio': '9:16',\n          width: 1080,\n          height: 1920,\n          fit: 'cover',\n          duration: -1,\n          speed: 1.0\n        },\n        {\n          type: 'voice',\n          voice: voice,\n          text: r.vo,\n          model: 'elevenlabs',\n          speed: voiceSpeed\n        }\n      ]\n    };\n  });\n\n  return JSON.stringify({\n    resolution: 'instagram-story',\n    quality: 'high',\n    elements: [\n      {\n        type: 'subtitles',\n        model: 'whisper',\n        language: subLang,\n        settings: subSettings\n      },\n      {\n        type: 'audio',\n        src: bgmUrl,\n        volume: bgmVolume,\n        loop: -1,\n        duration: -2,\n        'fade-out': 2\n      }\n    ],\n    scenes: scenes\n  });\n})() }}",
+        "jsonBody": "={{ (() => {\n  let p = {};\n  try { p = $('Filter: My Chat Only').first().json || {}; } catch (e) { p = {}; }\n  let s = {};\n  try { s = $('Parse Strategy Output').first().json || {}; } catch (e) { s = {}; }\n  let t = {};\n  try { t = $('Parse Topic Analyzer Output').first().json || {}; } catch (e) { t = {}; }\n\n  let staticData = {};\n  try { staticData = $getWorkflowStaticData('global') || {}; } catch (e) { staticData = {}; }\n  const custom = staticData.userSelectedCustomSettings || {};\n\n  let waitItem = {};\n  try {\n    const rawWait = $('Wait for Scenes Approval').first().json || {};\n    waitItem = rawWait.body || rawWait.query || rawWait || {};\n  } catch (e) { waitItem = {}; }\n\n  let merged = [];\n  try { merged = $('Merge Hybrid Scenes').all() || []; } catch (e) { merged = []; }\n\n  const rows = [];\n  for (let i = 0; i < merged.length; i++) {\n    const d = (merged[i] && merged[i].json) ? merged[i].json : {};\n    const url = String(d.url || '');\n    if (url.indexOf('http') !== 0) continue;\n    rows.push({\n      n: Number(d.sceneNumber) || (i + 1),\n      url: url,\n      dur: Number(d.duration) || 15,\n      vo: String(d.voiceoverText || '')\n    });\n  }\n  rows.sort(function (a, b) { return a.n - b.n; });\n\n  const allVoiceover = rows.map(r => r.vo).join(' ');\n  const lang = String(s.language || t.language || p.language || 'English').toLowerCase();\n  \n  // Unicode Range \\u0900-\\u097F represents Devanagari (Hindi, Marathi, Nepali, Sanskrit)\n  const hasDevanagari = /[\\u0900-\\u097F]/.test(allVoiceover) || lang.indexOf('hindi') !== -1 || lang.indexOf('hinglish') !== -1;\n  const subLang = hasDevanagari ? 'hi' : 'en';\n\n  // 1. DYNAMIC VOICE RESOLUTION\n  const VOICE_MAP = {\n    'adam': 'pNInz6obpgDQGcFmaJgB',\n    'rachel': '21m00Tcm4TlvDq8ikWAM',\n    'marcus': 'onwK4e9ZLuTAKqWW03F9',\n    'aarav': 'ErXwobaYiN019PkySvjV',\n    'priya': 'EXAVITQu4vr4xnSDxMaL',\n    'charlie': 'IKne3meq5aSn9XLyUdCD',\n    'george': 'JBFqnCBsd6RMkjVDRZzb',\n    'callum': 'N2lVS1w4EtoT3dr4eOWO',\n    'sarah': 'EXAVITQu4vr4xnSDxMaL',\n    'charlotte': 'XB0fDUnXU5powFXDhCwa',\n    'josh': 'TxGEqnHWrfWFTfGW9XjX',\n    'arnold': 'VR6AewLTigWG4xSOukaG',\n    'domi': 'AZnzlk1XvdvUeBnXmlld',\n    'elli': 'MF3mGyEYCl7XYWbV9V6O',\n    'antoni': 'ErXwobaYiN019PkySvjV',\n    'bella': 'EXAVITQu4vr4xnSDxMaL',\n    'brian': 'nPczCjzI2devNBz1zQrb',\n    'daniel': 'onwK4e9ZLuTAKqWW03F9',\n    'emily': 'LcfcDJNigL5wcS5z9bmt',\n    'ethan': 'g5CIjZEefAph4nQFvHAz',\n    'freya': 'jsCqWAovK2LkecY7zXl4',\n    'giggle': 'MF3mGyEYCl7XYWbV9V6O',\n    'glinda': 'z9fAnlkpzviPz146aGWa',\n    'grace': 'oWAxZDx7w5VEj9dCyTzz',\n    'harry': 'SOYHLrjzK2X1ezoY6cvb',\n    'james': 'ZQe5CZNOzWyzPSCn5a3c',\n    'jeremy': 'bVMeCyTHy58xNoL34h3p',\n    'jessie': 't0jbNlEBZNuSJaPyNmEY',\n    'joseph': 'Zlb1dXrM653N07WRdFW3',\n    'liam': 'TX3LPaxmHKxFdv7VOQHJ',\n    'matilda': 'XrExE9yKIg1WjnnlVkGX',\n    'michael': 'flq6f7yk4E4fJM5XTYTV',\n    'nicole': 'piTKgcLEGmPE4e6mEKli',\n    'patrick': 'ODq5zmih8GrVes37Dizd',\n    'sam': 'yoZ06aMxZJJ28mfd3POQ',\n    'serena': 'pMsXgjiT309w3j25d482'\n  };\n\n  const rawVoice = String(custom.elevenLabsVoiceId || waitItem.elevenLabsVoiceId || custom.voiceId || waitItem.voiceId || p.elevenLabsVoiceId || p.voiceId || 'adam').trim();\n  const voice = /^[A-Za-z0-9_-]{18,}$/.test(rawVoice) ? rawVoice : (VOICE_MAP[rawVoice.toLowerCase()] || 'pNInz6obpgDQGcFmaJgB');\n\n  // Dynamic Voice Speed (Fallback 1.0, clamped to safe 0.7 - 1.25 range)\n  const rawSpeed = custom.voiceSpeed !== undefined ? custom.voiceSpeed : (waitItem.voiceSpeed !== undefined ? waitItem.voiceSpeed : (p.voiceSpeed !== undefined ? p.voiceSpeed : 1.0));\n  const parsedSpeed = Number(rawSpeed) || 1.0;\n  const voiceSpeed = Math.max(0.7, Math.min(1.25, Number(parsedSpeed.toFixed(2))));\n\n  // 2. DYNAMIC SUBTITLE STYLES RESOLUTION\n  let userSubs = custom.subtitleSettings || waitItem.subtitleSettings || p.subtitleSettings || {};\n  if (typeof userSubs === 'string') {\n    try { userSubs = JSON.parse(userSubs); } catch(e) { userSubs = {}; }\n  }\n\n  const subStyle = userSubs.style || 'highlight';\n\n  // Automatically enforce Devanagari font when Devanagari script is present to prevent tofu [][][][] boxes\n  let subFont = userSubs.fontFamily;\n  let allCaps = userSubs.allCaps !== undefined ? Boolean(userSubs.allCaps) : true;\n\n  if (hasDevanagari) {\n    if (!subFont || ['Montserrat', 'Inter', 'Bebas Neue', 'Luckiest Guy', 'Bangers', 'Oswald', 'Permanent Marker'].includes(subFont)) {\n      subFont = 'Noto Sans Devanagari';\n    }\n    allCaps = false; // Devanagari does not have uppercase; disabling prevents font glyph corruption\n  } else {\n    subFont = subFont || 'Montserrat';\n  }\n\n  let rawFontSize = Number(userSubs.fontSize) || 78;\n  if (rawFontSize > 120) rawFontSize = Math.round(rawFontSize / 3.5);\n  const subSize = Math.max(56, Math.min(100, rawFontSize));\n\n  const subWordColor = userSubs.wordColor || '#FFE600';\n  const subLineColor = userSubs.lineColor || '#FFFFFF';\n  const subOutlineColor = userSubs.outlineColor || '#000000';\n  const subOutlineWidth = Number(userSubs.outlineWidth !== undefined ? userSubs.outlineWidth : 8);\n  const subPos = userSubs.position || 'center-bottom';\n  const maxWords = Number(userSubs.maxWordsPerLine) || 3;\n\n  const subSettings = {\n    'font-family': subFont,\n    'font-size': subSize,\n    'font-weight': '900',\n    'position': subPos,\n    'line-color': subLineColor,\n    'word-color': subWordColor,\n    'outline-color': subOutlineColor,\n    'outline-width': subOutlineWidth,\n    'max-words-per-line': maxWords,\n    'all-caps': allCaps,\n    'style': subStyle === 'classic-progressive' ? 'highlight' : subStyle\n  };\n  if (userSubs.boxColor && userSubs.boxColor.trim()) subSettings['box-color'] = userSubs.boxColor.trim();\n\n  // 3. DYNAMIC BACKGROUND MUSIC RESOLUTION\n  const bgmUrl = custom.musicTrackUrl || waitItem.musicTrackUrl || p.musicTrackUrl || 'https://ia600105.us.archive.org/20/items/tension_time_soundridemusic/tension_time_soundridemusic.mp3';\n  const rawVol = custom.musicVolume !== undefined ? custom.musicVolume : (waitItem.musicVolume !== undefined ? waitItem.musicVolume : (p.musicVolume !== undefined ? p.musicVolume : 0.15));\n  const bgmVolume = Number(rawVol) || 0.15;\n\n  const scenes = rows.map(function (r) {\n    return {\n      duration: r.dur,\n      transition: { style: 'fade', duration: 0.3 },\n      elements: [\n        {\n          type: 'video',\n          src: r.url,\n          'keep-audio': false,\n          volume: 0,\n          'aspect-ratio': '9:16',\n          width: 1080,\n          height: 1920,\n          fit: 'cover',\n          duration: -1,\n          speed: 1.0\n        },\n        {\n          type: 'voice',\n          voice: voice,\n          text: r.vo,\n          model: 'elevenlabs',\n          speed: voiceSpeed\n        }\n      ]\n    };\n  });\n\n  return JSON.stringify({\n    resolution: 'instagram-story',\n    quality: 'high',\n    elements: [\n      {\n        type: 'subtitles',\n        model: 'whisper',\n        language: subLang,\n        settings: subSettings\n      },\n      {\n        type: 'audio',\n        src: bgmUrl,\n        volume: bgmVolume,\n        loop: -1,\n        duration: -2,\n        'fade-out': 2\n      }\n    ],\n    scenes: scenes\n  });\n})() }}",
         "options": {}
       },
       "id": "8b694e4b-49c8-455a-a212-67f242dfe333",
@@ -10121,7 +10116,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Authenticate and normalize incoming chat webhook with dynamic voice, speed, music, and subtitle settings\nconst raw = $input.first().json || {};\nconst headers = raw.headers || {};\nconst body = raw.body || raw;\nconst query = raw.query || {};\nconst settings = body.settings || {};\n\nconst VALID_SECRET = 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';\nconst providedSecret = headers['x-webhook-secret'] || headers['X-Webhook-Secret'] || body.webhookSecret || body.secretKey || query.secret || raw.webhookSecret;\n\nif (providedSecret && providedSecret !== VALID_SECRET) {\n  throw new Error('Unauthorized: Invalid webhook security secret');\n}\n\nconst prompt = body.prompt || body.message || body.rawUserInput || query.prompt || query.message || raw.prompt || '10 Mind-Blowing Facts About Space';\nconst threadId = body.threadId || query.threadId || raw.threadId || ('thread-' + Date.now());\nconst sessionId = body.sessionId || query.sessionId || raw.sessionId || 'session-default';\nconst callbackUrl = body.callbackUrl || query.callbackUrl || raw.callbackUrl || 'https://viral-shorts-ai-studio.netlify.app/.netlify/functions/story-approval';\n\nreturn [{\n  json: {\n    rawUserInput: prompt,\n    prompt: prompt,\n    threadId: threadId,\n    sessionId: sessionId,\n    callbackUrl: callbackUrl,\n    voiceId: body.voiceId || query.voiceId || settings.voiceId || 'adam',\n    elevenLabsVoiceId: body.elevenLabsVoiceId || query.elevenLabsVoiceId || settings.elevenLabsVoiceId || '',\n    voiceSpeed: Number(body.voiceSpeed || query.voiceSpeed || settings.voiceSpeed) || 1.30,\n    visualStyle: body.visualStyle || query.visualStyle || settings.visualStyle || 'Cinematic Realistic',\n    musicId: body.musicId || query.musicId || settings.musicId || 'mystery',\n    musicTrackUrl: body.musicTrackUrl || query.musicTrackUrl || settings.musicTrackUrl || '',\n    musicVolume: body.musicVolume !== undefined ? Number(body.musicVolume) : (query.musicVolume !== undefined ? Number(query.musicVolume) : (settings.musicVolume !== undefined ? Number(settings.musicVolume) : 0.15)),\n    subtitleSettings: body.subtitleSettings || query.subtitleSettings || settings.subtitleSettings || null,\n    language: body.language || query.language || settings.language || 'Hinglish',\n    autoUploadToYouTube: !!(body.autoUploadToYouTube || query.autoUploadToYouTube || settings.autoUploadToYouTube),\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Authenticate and normalize incoming chat webhook with dynamic voice, speed, music, and subtitle settings\nconst raw = $input.first().json || {};\nconst headers = raw.headers || {};\nconst body = raw.body || raw;\nconst query = raw.query || {};\nconst settings = body.settings || {};\n\nconst VALID_SECRET = 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';\nconst providedSecret = headers['x-webhook-secret'] || headers['X-Webhook-Secret'] || body.webhookSecret || body.secretKey || query.secret || raw.webhookSecret;\n\nif (providedSecret && providedSecret !== VALID_SECRET) {\n  throw new Error('Unauthorized: Invalid webhook security secret');\n}\n\nconst prompt = body.prompt || body.message || body.rawUserInput || query.prompt || query.message || raw.prompt || '10 Mind-Blowing Facts About Space';\nconst threadId = body.threadId || query.threadId || raw.threadId || ('thread-' + Date.now());\nconst sessionId = body.sessionId || query.sessionId || raw.sessionId || 'session-default';\nconst callbackUrl = body.callbackUrl || query.callbackUrl || raw.callbackUrl || 'https://viral-shorts-ai-studio.netlify.app/.netlify/functions/story-approval';\n\nreturn [{\n  json: {\n    rawUserInput: prompt,\n    prompt: prompt,\n    threadId: threadId,\n    sessionId: sessionId,\n    callbackUrl: callbackUrl,\n    voiceId: body.voiceId || query.voiceId || settings.voiceId || 'adam',\n    elevenLabsVoiceId: body.elevenLabsVoiceId || query.elevenLabsVoiceId || settings.elevenLabsVoiceId || '',\n    voiceSpeed: Number(body.voiceSpeed !== undefined ? body.voiceSpeed : (query.voiceSpeed !== undefined ? query.voiceSpeed : (settings.voiceSpeed !== undefined ? settings.voiceSpeed : 1.0))) || 1.0,\n    visualStyle: body.visualStyle || query.visualStyle || settings.visualStyle || 'Cinematic Realistic',\n    musicId: body.musicId || query.musicId || settings.musicId || 'mystery',\n    musicTrackUrl: body.musicTrackUrl || query.musicTrackUrl || settings.musicTrackUrl || '',\n    musicVolume: body.musicVolume !== undefined ? Number(body.musicVolume) : (query.musicVolume !== undefined ? Number(query.musicVolume) : (settings.musicVolume !== undefined ? Number(settings.musicVolume) : 0.15)),\n    subtitleSettings: body.subtitleSettings || query.subtitleSettings || settings.subtitleSettings || null,\n    language: body.language || query.language || settings.language || 'Hinglish',\n    autoUploadToYouTube: !!(body.autoUploadToYouTube || query.autoUploadToYouTube || settings.autoUploadToYouTube),\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "id": "56c71cfb-3c0e-492d-8186-27b49932df89",
       "name": "Filter: My Chat Only",
@@ -10970,7 +10965,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Restore all 5 validated scenes and store user custom settings in staticData\nconst staticData = $getWorkflowStaticData('global');\nconst p = $('Filter: My Chat Only').first().json;\n\nlet waitItem = {};\ntry {\n  const rawWait = $('Wait for Scenes Approval').first().json || {};\n  waitItem = rawWait.body || rawWait.query || rawWait || {};\n} catch(e) {\n  waitItem = {};\n}\n\n// Preserve user selected custom audiovisual settings across the workflow\nstaticData.userSelectedCustomSettings = {\n  voiceId: waitItem.voiceId || p.voiceId || 'adam',\n  elevenLabsVoiceId: waitItem.elevenLabsVoiceId || p.elevenLabsVoiceId || '',\n  voiceSpeed: Number(waitItem.voiceSpeed || p.voiceSpeed) || 1.30,\n  musicId: waitItem.musicId || p.musicId || 'mystery',\n  musicTrackUrl: waitItem.musicTrackUrl || p.musicTrackUrl || '',\n  musicVolume: waitItem.musicVolume !== undefined ? Number(waitItem.musicVolume) : (p.musicVolume !== undefined ? Number(p.musicVolume) : 0.15),\n  subtitleSettings: waitItem.subtitleSettings || p.subtitleSettings || null\n};\n\nif (staticData.savedScenesForProduction && Array.isArray(staticData.savedScenesForProduction) && staticData.savedScenesForProduction.length === 5) {\n  return staticData.savedScenesForProduction.map((scene, idx) => ({\n    json: {\n      ...scene,\n      sceneNumber: idx + 1,\n      sceneIndex: idx,\n      totalScenes: 5,\n      threadId: p.threadId,\n      sessionId: p.sessionId,\n      callbackUrl: p.callbackUrl\n    }\n  }));\n}\n\nconst scenes = $('Split Scenes').all().map((item, idx) => ({\n  json: {\n    ...item.json,\n    sceneNumber: idx + 1,\n    sceneIndex: idx,\n    totalScenes: 5,\n    threadId: p.threadId,\n    sessionId: p.sessionId,\n    callbackUrl: p.callbackUrl\n  }\n}));\n\nreturn scenes;"
+        "jsCode": "// Restore all 5 validated scenes and store user custom settings in staticData\nconst staticData = $getWorkflowStaticData('global');\nconst p = $('Filter: My Chat Only').first().json;\n\nlet waitItem = {};\ntry {\n  const rawWait = $('Wait for Scenes Approval').first().json || {};\n  waitItem = rawWait.body || rawWait.query || rawWait || {};\n} catch(e) {\n  waitItem = {};\n}\n\n// Preserve user selected custom audiovisual settings across the workflow (fallback voiceSpeed: 1.0)\nstaticData.userSelectedCustomSettings = {\n  voiceId: waitItem.voiceId || p.voiceId || 'adam',\n  elevenLabsVoiceId: waitItem.elevenLabsVoiceId || p.elevenLabsVoiceId || '',\n  voiceSpeed: Number(waitItem.voiceSpeed !== undefined ? waitItem.voiceSpeed : (p.voiceSpeed !== undefined ? p.voiceSpeed : 1.0)) || 1.0,\n  musicId: waitItem.musicId || p.musicId || 'mystery',\n  musicTrackUrl: waitItem.musicTrackUrl || p.musicTrackUrl || '',\n  musicVolume: waitItem.musicVolume !== undefined ? Number(waitItem.musicVolume) : (p.musicVolume !== undefined ? Number(p.musicVolume) : 0.15),\n  subtitleSettings: waitItem.subtitleSettings || p.subtitleSettings || null\n};\n\nif (staticData.savedScenesForProduction && Array.isArray(staticData.savedScenesForProduction) && staticData.savedScenesForProduction.length === 5) {\n  return staticData.savedScenesForProduction.map((scene, idx) => ({\n    json: {\n      ...scene,\n      sceneNumber: idx + 1,\n      sceneIndex: idx,\n      totalScenes: 5,\n      threadId: p.threadId,\n      sessionId: p.sessionId,\n      callbackUrl: p.callbackUrl\n    }\n  }));\n}\n\nconst scenes = $('Split Scenes').all().map((item, idx) => ({\n  json: {\n    ...item.json,\n    sceneNumber: idx + 1,\n    sceneIndex: idx,\n    totalScenes: 5,\n    threadId: p.threadId,\n    sessionId: p.sessionId,\n    callbackUrl: p.callbackUrl\n  }\n}));\n\nreturn scenes;"
       },
       "id": "0d6a7d7f-502c-43d1-9dce-0a6556c5ad63",
       "name": "Restore 5 Scenes",
@@ -11326,8 +11321,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        16800,
-        2304
+        17904,
+        2336
       ]
     },
     {
@@ -11355,8 +11350,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        16800,
-        2512
+        17088,
+        2784
       ]
     },
     {
@@ -11668,27 +11663,19 @@
       }
     },
     {
+      "parameters": {
+        "jsCode": "// Select a randomized engaging comment for manual YouTube upload\nconst ytData = $('Upload to YouTube (Manual)').first().json || {};\nconst videoId = ytData.uploadId || ytData.id;\nif (!videoId) {\n  return [{ json: { skipped: true, reason: 'no videoId' } }];\n}\n\nconst comments = [\n  \"😢 Yeh kahani dil ko chhu gayi! Comment karo agar aapko bhi emotional laga aur Subscribe karo 🔔\",\n  \"💔 Zindagi ke aakhri 24 ghante... kitne keemti hote hain! Comment mein apne thoughts share karo 👇\",\n  \"⏰ Agar aapke paas sirf 24 ghante ho toh kya karoge? Comment karein aur Subscribe karo 🔔\",\n  \"😭 Is video ne aankhon mein aansu la diye! Like karo agar aapko bhi laga aur Share karo ❤️\",\n  \"🕰️ Har pal keemti hai! Yeh kahani sunkar kya seekha? Comment mein likho 👇\",\n  \"💫 Zindagi mein kya zaroori hai? Is story se pata chalta hai! Subscribe karo 🔔\",\n  \"🌟 Aakhri 24 ghante kaise bitaye unhone? Comment karo apna reaction aur Bell bajao 🔔\",\n  \"😔 Kya aap bhi aise hi bitate apne aakhri pal? Comment mein batayen 👇\",\n  \"🙏 Zindagi ek tohfa hai! Is kahani ne yeh yaad dilaya! Like karo agar agree ho ❤️\",\n  \"⌛ Time kitna keemti hai yeh video dekhkar pata chalta hai! Subscribe karo 🔔\",\n  \"💭 Agar aapke paas bhi 24 ghante ho toh kya karoge? Comment karein 👇\",\n  \"😢 Yeh 75 seconds ne bahut kuch sikha diya! Share karo apne loved ones ke saath ❤️\",\n  \"🎯 Har kahani ek sabak hai! Aapko kya mila is story se? Comment karein 👇\",\n  \"💝 Apno ke saath time bitao! Yeh video yahi sikhati hai! Subscribe karo 🔔\",\n  \"😥 Emotional roller coaster! Kya aapko bhi feel hua? Comment YES ya NO 👇\",\n  \"🌹 Zindagi ke aakhri pal kaise jiyen? Is story mein jawaab hai! Subscribe karo 🔔\",\n  \"💬 Kya aapne kabhi socha hai apne aakhri din ke baare mein? Comment karein 👇\",\n  \"🔔 Aisi aur inspiring stories ke liye Subscribe karo aur Bell icon on karo!\",\n  \"😌 Life lessons in 75 seconds! Comment karo agar seekha kuch aur Like karo ❤️\",\n  \"🌈 Har kahani ek naya nazariya! Agli story miss mat karo, Subscribe karo 🔔\"\n];\n\nconst selected = comments[Math.floor(Math.random() * comments.length)];\nreturn [{ json: { videoId, comment: selected } }];"
+      },
       "id": "d9e8f7a6-b5c4-4d3e-2f1a-0b9c8d7e6f5a",
       "name": "Select Comment (Manual)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        16800,
-        2160
-      ],
-      "parameters": {
-        "jsCode": "// Select a randomized engaging comment for manual YouTube upload\nconst ytData = $('Upload to YouTube (Manual)').first().json || {};\nconst videoId = ytData.uploadId || ytData.id;\nif (!videoId) {\n  return [{ json: { skipped: true, reason: 'no videoId' } }];\n}\n\nconst comments = [\n  \"😢 Yeh kahani dil ko chhu gayi! Comment karo agar aapko bhi emotional laga aur Subscribe karo 🔔\",\n  \"💔 Zindagi ke aakhri 24 ghante... kitne keemti hote hain! Comment mein apne thoughts share karo 👇\",\n  \"⏰ Agar aapke paas sirf 24 ghante ho toh kya karoge? Comment karein aur Subscribe karo 🔔\",\n  \"😭 Is video ne aankhon mein aansu la diye! Like karo agar aapko bhi laga aur Share karo ❤️\",\n  \"🕰️ Har pal keemti hai! Yeh kahani sunkar kya seekha? Comment mein likho 👇\",\n  \"💫 Zindagi mein kya zaroori hai? Is story se pata chalta hai! Subscribe karo 🔔\",\n  \"🌟 Aakhri 24 ghante kaise bitaye unhone? Comment karo apna reaction aur Bell bajao 🔔\",\n  \"😔 Kya aap bhi aise hi bitate apne aakhri pal? Comment mein batayen 👇\",\n  \"🙏 Zindagi ek tohfa hai! Is kahani ne yeh yaad dilaya! Like karo agar agree ho ❤️\",\n  \"⌛ Time kitna keemti hai yeh video dekhkar pata chalta hai! Subscribe karo 🔔\",\n  \"💭 Agar aapke paas bhi 24 ghante ho toh kya karoge? Comment karein 👇\",\n  \"😢 Yeh 75 seconds ne bahut kuch sikha diya! Share karo apne loved ones ke saath ❤️\",\n  \"🎯 Har kahani ek sabak hai! Aapko kya mila is story se? Comment karein 👇\",\n  \"💝 Apno ke saath time bitao! Yeh video yahi sikhati hai! Subscribe karo 🔔\",\n  \"😥 Emotional roller coaster! Kya aapko bhi feel hua? Comment YES ya NO 👇\",\n  \"🌹 Zindagi ke aakhri pal kaise jiyen? Is story mein jawaab hai! Subscribe karo 🔔\",\n  \"💬 Kya aapne kabhi socha hai apne aakhri din ke baare mein? Comment karein 👇\",\n  \"🔔 Aisi aur inspiring stories ke liye Subscribe karo aur Bell icon on karo!\",\n  \"😌 Life lessons in 75 seconds! Comment karo agar seekha kuch aur Like karo ❤️\",\n  \"🌈 Har kahani ek naya nazariya! Agli story miss mat karo, Subscribe karo 🔔\"\n];\n\nconst selected = comments[Math.floor(Math.random() * comments.length)];\nreturn [{ json: { videoId, comment: selected } }];"
-      }
+        17072,
+        2144
+      ]
     },
     {
-      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "name": "Post Pinned Comment (Manual)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        17080,
-        2160
-      ],
       "parameters": {
         "method": "POST",
         "url": "https://www.googleapis.com/youtube/v3/commentThreads?part=snippet",
@@ -11714,6 +11701,14 @@
           }
         }
       },
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Post Pinned Comment (Manual)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        17360,
+        2144
+      ],
       "credentials": {
         "youTubeOAuth2Api": {
           "id": "8kWJVpvaMO1gIGav",
@@ -11722,14 +11717,6 @@
       }
     },
     {
-      "id": "c7d8e9f0-1a2b-3c4d-5e6f-7a8b9c0d1e2f",
-      "name": "Update DB (Safe) (Manual)",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        16800,
-        2380
-      ],
       "parameters": {
         "operation": "appendOrUpdate",
         "documentId": {
@@ -11761,6 +11748,14 @@
         },
         "options": {}
       },
+      "id": "c7d8e9f0-1a2b-3c4d-5e6f-7a8b9c0d1e2f",
+      "name": "Update DB (Safe) (Manual)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        17088,
+        2592
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "EHh3nxX5QNoAPO3j",
@@ -11769,14 +11764,6 @@
       }
     },
     {
-      "id": "e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
-      "name": "DB Success? (Manual)",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        17080,
-        2380
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -11797,18 +11784,19 @@
             }
           ],
           "combinator": "and"
-        }
-      }
-    },
-    {
-      "id": "f1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c",
-      "name": "Send DB Warning to Website (Manual)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+        },
+        "options": {}
+      },
+      "id": "e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
+      "name": "DB Success? (Manual)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
       "position": [
         17360,
-        2480
-      ],
+        2592
+      ]
+    },
+    {
       "parameters": {
         "method": "POST",
         "url": "={{ (() => {\n  let p = {};\n  try { p = $('Format Manual Upload Context').first().json || {}; } catch(e) {}\n  return p.callbackUrl || 'https://viral-shorts-ai-studio.netlify.app/.netlify/functions/story-approval';\n})() }}",
@@ -11827,7 +11815,15 @@
         "options": {
           "timeout": 15000
         }
-      }
+      },
+      "id": "f1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c",
+      "name": "Send DB Warning to Website (Manual)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        17904,
+        2576
+      ]
     }
   ],
   "nodeGroups": [],
