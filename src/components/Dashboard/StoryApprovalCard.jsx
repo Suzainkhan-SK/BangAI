@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
 import { VOICES, VOICE_CATEGORIES, VOICE_ACCENTS } from '../../data/voices';
-import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS } from '../../data/subtitleStyles';
+import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS, resolveSubtitleConfig } from '../../data/subtitleStyles';
 import { MUSIC_TRACKS, MUSIC_MOODS } from '../../data/musicTracks';
 
 // Canonical Preset Definitions for Story Brief (Stage 1)
@@ -161,9 +161,10 @@ export default function StoryApprovalCard({
   scenes, 
   threadLanguage = 'English', 
   initialVoiceId = 'adam',
+  initialVoiceSpeed = 1.30,
   initialSubtitleSettings = null,
   initialMusicId = 'mystery',
-  initialMusicVolume = 0.2,
+  initialMusicVolume = 0.15,
   onApprove, 
   onReject, 
   onRefine,
@@ -180,6 +181,7 @@ export default function StoryApprovalCard({
   // ─── AUDIOVISUAL CUSTOMIZATION STATE ─────────────────────────────
   const [liveVoices, setLiveVoices] = useState(VOICES);
   const [selectedVoiceId, setSelectedVoiceId] = useState(() => story?.voiceId || initialVoiceId || 'adam');
+  const [voiceSpeed, setVoiceSpeed] = useState(() => Number(story?.voiceSpeed) || Number(initialVoiceSpeed) || 1.30);
   const [voiceCategoryFilter, setVoiceCategoryFilter] = useState('all');
   const [selectedSubtitleSettings, setSelectedSubtitleSettings] = useState(() => {
     return initialSubtitleSettings || {
@@ -193,13 +195,13 @@ export default function StoryApprovalCard({
       outlineWidth: 10,
       shadowColor: '#000000',
       boxColor: '',
-      position: 'center-center',
+      position: 'center-bottom',
       allCaps: true,
       maxWordsPerLine: 3
     };
   });
   const [selectedMusicId, setSelectedMusicId] = useState(() => story?.musicId || initialMusicId || 'mystery');
-  const [musicVolume, setMusicVolume] = useState(() => initialMusicVolume ?? 0.2);
+  const [musicVolume, setMusicVolume] = useState(() => Number(initialMusicVolume) || 0.15);
   const [duckingLevel, setDuckingLevel] = useState(18);
   const [musicMoodFilter, setMusicMoodFilter] = useState('all');
 
@@ -633,13 +635,15 @@ export default function StoryApprovalCard({
     if (typeof onApprove === 'function') {
       const chosenVoice = liveVoices.find(v => v.id === selectedVoiceId) || liveVoices[0];
       const chosenMusic = MUSIC_TRACKS.find(m => m.id === selectedMusicId) || MUSIC_TRACKS[0];
+      const sampleText = displayScenes && displayScenes[0]?.voiceoverText ? displayScenes[0].voiceoverText : (story.viralHook || '');
       onApprove(story.approveUrl, {
         voiceId: selectedVoiceId,
         elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
-        subtitleSettings: selectedSubtitleSettings,
+        voiceSpeed: Number(voiceSpeed) || 1.30,
+        subtitleSettings: resolveSubtitleConfig(selectedSubtitleSettings, sampleText, threadLanguage),
         musicId: selectedMusicId,
         musicTrackUrl: chosenMusic?.audioUrl || '',
-        musicVolume: musicVolume
+        musicVolume: Number(musicVolume) || 0.15
       });
     }
   };
@@ -907,6 +911,59 @@ export default function StoryApprovalCard({
           {/* TAB 1: VOICES */}
           {activeMediaTab === 'voice' && (
             <div>
+              {/* Voiceover Speed Selector */}
+              <div style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: '10px',
+                padding: '10px 14px',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '13px' }}>⚡</span>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-primary)' }}>Voiceover Pacing / Speed:</span>
+                  <span style={{ fontSize: '11px', fontWeight: 900, color: '#6366f1' }}>{voiceSpeed}x</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                  {[
+                    { val: 1.0, label: '1.0x Normal' },
+                    { val: 1.15, label: '1.15x Engaging' },
+                    { val: 1.25, label: '1.25x Dynamic' },
+                    { val: 1.30, label: '1.30x 🔥 Fast Viral' },
+                    { val: 1.40, label: '1.40x High Dopamine' },
+                    { val: 1.50, label: '1.50x Ultra Speed' }
+                  ].map(s => {
+                    const isSelected = Math.abs(voiceSpeed - s.val) < 0.01;
+                    return (
+                      <button
+                        key={s.val}
+                        type="button"
+                        onClick={() => setVoiceSpeed(s.val)}
+                        style={{
+                          background: isSelected ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'var(--bg-input)',
+                          border: `1px solid ${isSelected ? '#6366f1' : 'var(--border-subtle)'}`,
+                          color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '10.5px',
+                          fontWeight: isSelected ? 800 : 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.12s ease'
+                        }}
+                      >
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Category Filter Chips */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
                 {VOICE_CATEGORIES.map(cat => (

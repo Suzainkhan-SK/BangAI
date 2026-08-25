@@ -139,20 +139,54 @@ export const SUBTITLE_STYLES = [
 
 // Available font families for subtitle customization (Google Fonts supported by json2video)
 export const SUBTITLE_FONTS = [
-  { id: 'montserrat', name: 'Montserrat (Viral Bold 900)', family: 'Montserrat' },
-  { id: 'inter', name: 'Inter (Clean Creator)', family: 'Inter' },
-  { id: 'bebas-neue', name: 'Bebas Neue (Condensed Punch)', family: 'Bebas Neue' },
-  { id: 'luckiest-guy', name: 'Luckiest Guy (Cartoon / Fun)', family: 'Luckiest Guy' },
-  { id: 'bangers', name: 'Bangers (Comic / Pop)', family: 'Bangers' },
-  { id: 'poppins', name: 'Poppins (Friendly Geometric)', family: 'Poppins' },
-  { id: 'oswald', name: 'Oswald (Strong Headline)', family: 'Oswald' },
-  { id: 'roboto', name: 'Roboto (Standard Sans)', family: 'Roboto' },
-  { id: 'permanent-marker', name: 'Permanent Marker (Handwritten)', family: 'Permanent Marker' }
+  { id: 'montserrat', name: 'Montserrat (Viral Bold 900)', family: 'Montserrat', script: 'latin' },
+  { id: 'noto-devanagari', name: 'Noto Sans Devanagari (Hindi / Indic #1)', family: 'Noto Sans Devanagari', script: 'devanagari' },
+  { id: 'poppins', name: 'Poppins (Universal Latin + Hindi)', family: 'Poppins', script: 'universal' },
+  { id: 'mukta', name: 'Mukta (Modern Hindi / Devanagari)', family: 'Mukta', script: 'devanagari' },
+  { id: 'inter', name: 'Inter (Clean Creator)', family: 'Inter', script: 'latin' },
+  { id: 'bebas-neue', name: 'Bebas Neue (Condensed Punch)', family: 'Bebas Neue', script: 'latin' },
+  { id: 'luckiest-guy', name: 'Luckiest Guy (Cartoon / Fun)', family: 'Luckiest Guy', script: 'latin' },
+  { id: 'bangers', name: 'Bangers (Comic / Pop)', family: 'Bangers', script: 'latin' },
+  { id: 'oswald', name: 'Oswald (Strong Headline)', family: 'Oswald', script: 'latin' },
+  { id: 'roboto', name: 'Roboto (Standard Sans)', family: 'Roboto', script: 'latin' },
+  { id: 'permanent-marker', name: 'Permanent Marker (Handwritten)', family: 'Permanent Marker', script: 'latin' }
 ];
 
 // Subtitle position options
 export const SUBTITLE_POSITIONS = [
+  { id: 'bottom', name: 'Lower Third (Center Bottom - Recommended)', value: 'center-bottom' },
   { id: 'center', name: 'Center Screen (Standard Shorts)', value: 'center-center' },
-  { id: 'bottom', name: 'Lower Third (Center Bottom)', value: 'center-bottom' },
   { id: 'top', name: 'Top Header (Center Top)', value: 'center-top' }
 ];
+
+/**
+ * Automatically resolve font and all-caps based on text script & language
+ * Prevents tofu □□□□ boxes on Hindi / Devanagari / non-Latin text
+ */
+export function resolveSubtitleConfig(settings, sampleText = '', language = '') {
+  const text = sampleText || '';
+  const lang = (language || '').toLowerCase();
+  const hasDevanagari = /[\u0900-\u097F]/.test(text) || lang.includes('hindi') || lang.includes('hinglish') || lang.includes('marathi') || lang.includes('nepali');
+  const hasArabic = /[\u0600-\u06FF]/.test(text) || lang.includes('arabic') || lang.includes('urdu');
+
+  let fontFamily = settings?.fontFamily || 'Montserrat';
+  let allCaps = settings?.allCaps !== undefined ? settings.allCaps : true;
+
+  if (hasDevanagari) {
+    // If Latin-only font was chosen, automatically fallback to Noto Sans Devanagari or Poppins
+    if (['Montserrat', 'Inter', 'Bebas Neue', 'Luckiest Guy', 'Bangers', 'Oswald', 'Permanent Marker'].includes(fontFamily)) {
+      fontFamily = 'Noto Sans Devanagari';
+    }
+    allCaps = false; // Devanagari has no uppercase; disabling avoids glyph corruption
+  } else if (hasArabic) {
+    fontFamily = 'Noto Sans Arabic';
+    allCaps = false;
+  }
+
+  return {
+    ...settings,
+    fontFamily,
+    allCaps,
+    position: settings?.position || 'center-bottom'
+  };
+}

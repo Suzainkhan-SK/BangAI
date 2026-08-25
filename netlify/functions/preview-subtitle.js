@@ -131,7 +131,7 @@ export const handler = async (event) => {
         elements: [
           {
             type: 'subtitles',
-            settings: buildSubtitleSettings(subtitleSettings)
+            settings: buildSubtitleSettings(subtitleSettings, previewText)
           }
         ]
       };
@@ -173,7 +173,7 @@ export const handler = async (event) => {
 /**
  * Convert frontend subtitle settings to strict json2video subtitle settings format.
  */
-function buildSubtitleSettings(settings) {
+function buildSubtitleSettings(settings, text = '') {
   const j2vSettings = {};
 
   // Style preset (docs support: 'classic', 'highlight', 'boxed-word', 'boxed-line', 'classic-one-word')
@@ -181,8 +181,19 @@ function buildSubtitleSettings(settings) {
   if (style === 'classic-progressive') style = 'highlight';
   j2vSettings.style = style;
 
-  // Font
-  j2vSettings['font-family'] = settings.fontFamily || 'Montserrat';
+  // Language / Script Detection (Devanagari Unicode \u0900-\u097F)
+  const hasDevanagari = /[\u0900-\u097F]/.test(text);
+  let font = settings.fontFamily || 'Montserrat';
+  let allCaps = settings.allCaps !== undefined ? Boolean(settings.allCaps) : true;
+
+  if (hasDevanagari) {
+    if (['Montserrat', 'Inter', 'Bebas Neue', 'Luckiest Guy', 'Bangers', 'Oswald', 'Permanent Marker'].includes(font)) {
+      font = 'Noto Sans Devanagari';
+    }
+    allCaps = false; // Prevent tofu rendering on Devanagari characters
+  }
+
+  j2vSettings['font-family'] = font;
   let size = Number(settings.fontSize) || 78;
   if (size > 120) size = Math.round(size / 3.5);
   j2vSettings['font-size'] = Math.max(56, Math.min(100, size));
@@ -198,8 +209,8 @@ function buildSubtitleSettings(settings) {
 
   // Sizing & Positioning
   j2vSettings['outline-width'] = Number(settings.outlineWidth !== undefined ? settings.outlineWidth : 8);
-  j2vSettings.position = settings.position || 'center-center';
-  j2vSettings['all-caps'] = settings.allCaps !== undefined ? Boolean(settings.allCaps) : true;
+  j2vSettings.position = settings.position || 'center-bottom';
+  j2vSettings['all-caps'] = allCaps;
   j2vSettings['max-words-per-line'] = Number(settings.maxWordsPerLine) || 3;
 
   return j2vSettings;

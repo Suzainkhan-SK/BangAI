@@ -39,6 +39,7 @@ function buildResumeUrl(rawUrl, action, extraParams = {}) {
 
     if (extraParams.voiceId) u.searchParams.set('voiceId', extraParams.voiceId);
     if (extraParams.elevenLabsVoiceId) u.searchParams.set('elevenLabsVoiceId', extraParams.elevenLabsVoiceId);
+    if (extraParams.voiceSpeed) u.searchParams.set('voiceSpeed', String(extraParams.voiceSpeed));
     if (extraParams.musicId) u.searchParams.set('musicId', extraParams.musicId);
     if (extraParams.musicTrackUrl) u.searchParams.set('musicTrackUrl', extraParams.musicTrackUrl);
     if (extraParams.musicVolume !== undefined) u.searchParams.set('musicVolume', String(extraParams.musicVolume));
@@ -49,7 +50,7 @@ function buildResumeUrl(rawUrl, action, extraParams = {}) {
     return u.toString();
   } catch (err) {
     const sep = rawUrl.includes('?') ? '&' : '?';
-    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(extraParams.refinePrompt || '')}&voiceId=${encodeURIComponent(extraParams.voiceId || '')}`;
+    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(extraParams.refinePrompt || '')}&voiceId=${encodeURIComponent(extraParams.voiceId || '')}&voiceSpeed=${encodeURIComponent(extraParams.voiceSpeed || '1.30')}`;
   }
 }
 

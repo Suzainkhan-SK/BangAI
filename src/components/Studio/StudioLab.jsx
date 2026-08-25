@@ -46,14 +46,18 @@ const DURATION_TARGETS = [
   { value: 60, label: '60s' },
 ];
 
-export default function StudioLab({ 
+export default function StudioLab({
   initialTab = 'voices',
   selectedVoiceId,
   onSelectVoice,
+  voiceSpeed = 1.30,
+  onVoiceSpeedChange,
   subtitleSettings,
   onSubtitleChange,
   selectedMusicId,
   onSelectMusic,
+  musicVolume = 0.15,
+  onMusicVolumeChange,
   onApplySettingsToVideo,
   onClose
 }) {
@@ -61,6 +65,7 @@ export default function StudioLab({
 
   // ─── 1. VOICE STUDIO STATE ───────────────────────────────────────
   const [voices, setVoices] = useState(STATIC_VOICES);
+  const [currentVoiceSpeed, setCurrentVoiceSpeed] = useState(Number(voiceSpeed) || 1.30);
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
   const [voiceSearchQuery, setVoiceSearchQuery] = useState('');
   const [voiceGenderFilter, setVoiceGenderFilter] = useState('all'); // 'all', 'male', 'female'
@@ -86,7 +91,7 @@ export default function StudioLab({
       outlineWidth: 10,
       shadowColor: '#000000',
       boxColor: '',
-      position: 'center-center',
+      position: 'center-bottom',
       allCaps: true,
       maxWordsPerLine: 3
     };
@@ -103,7 +108,7 @@ export default function StudioLab({
   const [musicMoodFilter, setMusicMoodFilter] = useState('all');
   const [isSearchingMusic, setIsSearchingMusic] = useState(false);
   const [playingMusicId, setPlayingMusicId] = useState(null);
-  const [musicVolume, setMusicVolume] = useState(0.25);
+  const [currentMusicVolume, setCurrentMusicVolume] = useState(Number(musicVolume) || 0.15);
   const [duckingLevel, setDuckingLevel] = useState(18);
 
   const voiceAudioRef = useRef(null);
@@ -422,10 +427,11 @@ export default function StudioLab({
       onApplySettingsToVideo({
         voiceId: selectedVoiceId,
         elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
+        voiceSpeed: currentVoiceSpeed,
         subtitleSettings: currentSubtitleSettings,
         musicId: selectedMusicId,
         musicTrackUrl: chosenMusic?.audioUrl || '',
-        musicVolume: musicVolume
+        musicVolume: currentMusicVolume
       });
     }
     if (typeof onClose === 'function') onClose();
@@ -602,6 +608,61 @@ export default function StudioLab({
                 fontFamily: 'inherit', resize: 'none'
               }}
             />
+          </div>
+
+          {/* Voiceover Speed Selector */}
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '14px' }}>⚡</span>
+              <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--text-primary)' }}>Voiceover Pacing / Speed:</span>
+              <span style={{ fontSize: '11.5px', fontWeight: 900, color: '#6366f1' }}>{currentVoiceSpeed}x</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+              {[
+                { val: 1.0, label: '1.0x Normal' },
+                { val: 1.15, label: '1.15x Engaging' },
+                { val: 1.25, label: '1.25x Dynamic' },
+                { val: 1.30, label: '1.30x 🔥 Fast Viral' },
+                { val: 1.40, label: '1.40x High Dopamine' },
+                { val: 1.50, label: '1.50x Ultra Speed' }
+              ].map(s => {
+                const isSelected = Math.abs(currentVoiceSpeed - s.val) < 0.01;
+                return (
+                  <button
+                    key={s.val}
+                    type="button"
+                    onClick={() => {
+                      setCurrentVoiceSpeed(s.val);
+                      if (typeof onVoiceSpeedChange === 'function') onVoiceSpeedChange(s.val);
+                    }}
+                    style={{
+                      background: isSelected ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'var(--bg-input)',
+                      border: `1px solid ${isSelected ? '#6366f1' : 'var(--border-subtle)'}`,
+                      color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                      padding: '4px 10px',
+                      borderRadius: '7px',
+                      fontSize: '11px',
+                      fontWeight: isSelected ? 800 : 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.12s ease'
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Category Filter + Search + Gender/Accent Filters */}

@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic2, Volume2, Square, Sliders, Check, Loader2, Sparkles, Play, RefreshCw } from 'lucide-react';
 import { VOICES } from '../../data/voices';
 
-export default function VoiceMatrix({ selectedVoiceId, onSelectVoice }) {
+export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed = 1.30, onVoiceSpeedChange }) {
   const [playingVoiceId, setPlayingVoiceId] = useState(null);
   const [generatingVoiceId, setGeneratingVoiceId] = useState(null);
-  const [voiceSpeed, setVoiceSpeed] = useState(1.0);
+  const [speed, setSpeed] = useState(Number(voiceSpeed) || 1.30);
   const [stability, setStability] = useState(75);
   const [customText, setCustomText] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -336,15 +336,19 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice }) {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '3px' }}>
             <span>Speech Speed</span>
-            <span style={{ color: '#ffffff', fontWeight: 600 }}>{voiceSpeed}x</span>
+            <span style={{ color: '#ffffff', fontWeight: 600 }}>{speed}x</span>
           </div>
           <input
             type="range"
-            min="0.8"
-            max="1.3"
+            min="1.0"
+            max="1.5"
             step="0.05"
-            value={voiceSpeed}
-            onChange={(e) => setVoiceSpeed(parseFloat(e.target.value))}
+            value={speed}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              setSpeed(val);
+              if (typeof onVoiceSpeedChange === 'function') onVoiceSpeedChange(val);
+            }}
             style={{ width: '100%', accentColor: 'var(--accent-emerald)', cursor: 'pointer' }}
           />
         </div>

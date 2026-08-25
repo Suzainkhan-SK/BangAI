@@ -87,6 +87,7 @@ export default function DashboardApp({
 
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [voiceId, setVoiceId] = useState('adam');
+  const [voiceSpeed, setVoiceSpeed] = useState(1.30);
   const [styleId, setStyleId] = useState('cinematic');
   const [musicId, setMusicId] = useState('mystery');
   const [language, setLanguage] = useState('Hinglish');
@@ -102,11 +103,11 @@ export default function DashboardApp({
     outlineWidth: 10,
     shadowColor: '#000000',
     boxColor: '',
-    position: 'center-center',
+    position: 'center-bottom',
     allCaps: true,
     maxWordsPerLine: 3
   });
-  const [musicVolume, setMusicVolume] = useState(0.2);
+  const [musicVolume, setMusicVolume] = useState(0.15);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
 
@@ -720,6 +721,7 @@ export default function DashboardApp({
           settings: {
             voiceId,
             elevenLabsVoiceId: (VOICES.find(v => v.id === voiceId) || {}).elevenLabsId || voiceId,
+            voiceSpeed,
             visualStyle: styleId,
             musicId,
             musicTrackUrl: (MUSIC_TRACKS.find(t => t.id === musicId) || {}).audioUrl || '',
@@ -1269,12 +1271,17 @@ export default function DashboardApp({
               <StudioLab
                 selectedVoiceId={voiceId}
                 onSelectVoice={(vId) => setVoiceId(vId)}
+                voiceSpeed={voiceSpeed}
+                onVoiceSpeedChange={(spd) => setVoiceSpeed(spd)}
                 subtitleSettings={subtitleSettings}
                 onSubtitleChange={(subs) => setSubtitleSettings(subs)}
                 selectedMusicId={musicId}
                 onSelectMusic={(mId) => setMusicId(mId)}
+                musicVolume={musicVolume}
+                onMusicVolumeChange={(vol) => setMusicVolume(vol)}
                 onApplySettingsToVideo={(settings) => {
                   if (settings.voiceId) setVoiceId(settings.voiceId);
+                  if (settings.voiceSpeed) setVoiceSpeed(settings.voiceSpeed);
                   if (settings.subtitleSettings) setSubtitleSettings(settings.subtitleSettings);
                   if (settings.musicId) setMusicId(settings.musicId);
                   if (settings.musicVolume !== undefined) setMusicVolume(settings.musicVolume);
@@ -1535,6 +1542,7 @@ export default function DashboardApp({
               scenes={activeThread.scenes}
               threadLanguage={activeThread.language || language}
               initialVoiceId={voiceId}
+              initialVoiceSpeed={voiceSpeed}
               initialSubtitleSettings={subtitleSettings}
               initialMusicId={musicId}
               initialMusicVolume={musicVolume}
