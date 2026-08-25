@@ -120,8 +120,27 @@ export default function StudioLab({
   const [musicMoodFilter, setMusicMoodFilter] = useState('all');
   const [isSearchingMusic, setIsSearchingMusic] = useState(false);
   const [playingMusicId, setPlayingMusicId] = useState(null);
-  const [currentMusicVolume, setCurrentMusicVolume] = useState(Number(musicVolume) || 0.15);
+  const [currentMusicVolume, setCurrentMusicVolume] = useState(() => Number(musicVolume) || 0.15);
   const [duckingLevel, setDuckingLevel] = useState(18);
+
+  // Sync volume if prop changes
+  useEffect(() => {
+    if (musicVolume !== undefined) {
+      setCurrentMusicVolume(Number(musicVolume) || 0.15);
+    }
+  }, [musicVolume]);
+
+  const handleMusicVolumeChange = (newVol) => {
+    const clamped = Math.max(0, Math.min(1, parseFloat(newVol) || 0));
+    setCurrentMusicVolume(clamped);
+    if (typeof onMusicVolumeChange === 'function') {
+      onMusicVolumeChange(clamped);
+    }
+    if (musicAudioRef.current) {
+      musicAudioRef.current.volume = clamped;
+    }
+    audioEngine.setBgmVolume(clamped);
+  };
 
   const voiceAudioRef = useRef(null);
   const musicAudioRef = useRef(null);
@@ -342,7 +361,7 @@ export default function StudioLab({
     const audioUrl = track.previewUrl || track.audioUrl;
     if (audioUrl) {
       const audio = new Audio(audioUrl);
-      audio.volume = Math.max(0, Math.min(1, Number(musicVolume) || 0.15));
+      audio.volume = Math.max(0, Math.min(1, Number(currentMusicVolume) || 0.15));
       audio.crossOrigin = 'anonymous';
       musicAudioRef.current = audio;
       setPlayingMusicId(track.id);
@@ -352,12 +371,12 @@ export default function StudioLab({
     }
   };
 
-  // Update volume on playing track
+  // Update volume on playing track in real time
   useEffect(() => {
     if (musicAudioRef.current) {
-      musicAudioRef.current.volume = musicVolume;
+      musicAudioRef.current.volume = Math.max(0, Math.min(1, Number(currentMusicVolume) || 0));
     }
-  }, [musicVolume]);
+  }, [currentMusicVolume]);
 
   // Search Jamendo API
   const handleSearchMusic = async () => {
@@ -1396,28 +1415,34 @@ export default function StudioLab({
                   <Volume2 size={14} color="#06b6d4" />
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Volume:</span>
                   <span style={{ fontSize: '11px', fontWeight: 800, color: '#06b6d4', background: 'rgba(6,182,212,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
-                    {Math.round(musicVolume * 100)}%
+                    {Math.round(currentMusicVolume * 100)}%
                   </span>
-                  <input type="range" min="0" max="1" step="0.01"
-                    value={musicVolume}
-                    onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
-                    style={{ width: '90px', accentColor: '#06b6d4', cursor: 'pointer' }} />
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={currentMusicVolume}
+                    onChange={(e) => handleMusicVolumeChange(e.target.value)}
+                    style={{ width: '90px', accentColor: '#06b6d4', cursor: 'pointer' }}
+                  />
                 </div>
                 <div style={{ display: 'flex', gap: '3px' }}>
                   {[
                     { l: 'Mute', v: 0 },
                     { l: '10%', v: 0.10 },
                     { l: '20%', v: 0.20 },
-                    { l: '35%', v: 0.35 }
+                    { l: '35%', v: 0.35 },
+                    { l: '50%', v: 0.50 }
                   ].map(p => (
                     <button
                       key={p.l}
                       type="button"
-                      onClick={() => setMusicVolume(p.v)}
+                      onClick={() => handleMusicVolumeChange(p.v)}
                       style={{
-                        background: Math.abs(musicVolume - p.v) < 0.03 ? 'rgba(6,182,212,0.25)' : 'var(--bg-input)',
-                        border: `1px solid ${Math.abs(musicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--border-subtle)'}`,
-                        color: Math.abs(musicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--text-muted)',
+                        background: Math.abs(currentMusicVolume - p.v) < 0.03 ? 'rgba(6,182,212,0.25)' : 'var(--bg-input)',
+                        border: `1px solid ${Math.abs(currentMusicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--border-subtle)'}`,
+                        color: Math.abs(currentMusicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--text-muted)',
                         borderRadius: '4px', padding: '1px 5px', fontSize: '9.5px', fontWeight: 700, cursor: 'pointer'
                       }}
                     >
