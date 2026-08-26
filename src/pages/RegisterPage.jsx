@@ -69,7 +69,7 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
           }}>
             <Sparkles size={24} color="#ffffff" />
           </div>
-          <h1 className="font-display" style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
+          <h1 className="font-display" style={{ fontSize: 'clamp(21px, 3.8vw, 26px)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
             Start Creating Viral Shorts
           </h1>
           <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
@@ -219,7 +219,7 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
                   <span>Creator Pro</span>
                   <span style={{ fontSize: '9px', background: 'var(--grad-primary)', color: '#fff', padding: '1px 4px', borderRadius: '4px' }}>POPULAR</span>
                 </div>
-                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>100 Shorts + 4K Export</div>
+                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>100 Shorts + HD Export</div>
               </div>
             </div>
           </div>

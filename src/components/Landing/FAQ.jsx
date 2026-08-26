@@ -34,7 +34,7 @@ export default function FAQ() {
   };
 
   return (
-    <section id="faq" style={{ padding: '80px 0', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+    <section id="faq" style={{ paddingTop: 'clamp(48px, 8vw, 80px)', paddingBottom: 'clamp(48px, 8vw, 80px)', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
       <div className="container" style={{ maxWidth: '800px' }}>
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <span className="badge badge-brand" style={{ marginBottom: '12px' }}>
@@ -42,7 +42,7 @@ export default function FAQ() {
             <span>Got Questions?</span>
           </span>
           <h2 className="font-display" style={{
-            fontSize: '36px',
+            fontSize: 'clamp(26px, 5vw, 36px)',
             fontWeight: 800,
             letterSpacing: '-0.02em',
             color: 'var(--text-primary)'

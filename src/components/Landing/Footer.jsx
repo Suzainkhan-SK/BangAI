@@ -6,13 +6,13 @@ export default function Footer({ onNavigate }) {
     <footer style={{
       borderTop: '1px solid var(--border-subtle)',
       background: 'var(--bg-app)',
-      padding: '60px 0 30px 0',
+      paddingTop: 'clamp(40px, 6vw, 60px)', paddingBottom: '30px',
       color: 'var(--text-muted)'
     }}>
       <div className="container">
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))',
           gap: '36px',
           marginBottom: '48px'
         }}>

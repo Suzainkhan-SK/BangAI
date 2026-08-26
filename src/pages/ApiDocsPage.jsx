@@ -98,7 +98,7 @@ export default function ApiDocsPage({ onNavigate }) {
           <Code2 size={13} />
           <span>Developer API v1.0 & Webhooks</span>
         </span>
-        <h1 className="font-display" style={{ fontSize: '34px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
+        <h1 className="font-display" style={{ fontSize: 'clamp(25px, 4.8vw, 34px)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
           ShortsAI REST API Hub
         </h1>
         <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>

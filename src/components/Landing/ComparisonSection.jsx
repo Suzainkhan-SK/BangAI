@@ -1,7 +1,11 @@
 import React from 'react';
 import { X, Check, Clock, DollarSign, Sparkles, Zap, Flame, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { useBreakpoint } from '../../hooks/useMediaQuery';
 
 export default function ComparisonSection() {
+  // A 3-column table cannot survive a phone, so below 1024px each row
+  // becomes a stacked card that carries its own column labels.
+  const { isMobile, isTablet } = useBreakpoint();
   const comparisons = [
     {
       feature: 'Story & Screenplay Writing',
@@ -18,7 +22,7 @@ export default function ComparisonSection() {
     {
       feature: 'Video & CGI Footage Creation',
       oldWay: 'Searching generic stock footage libraries or paying 3D VFX artists ($300+)',
-      shortsAi: 'Grok Imagine 1.5 generates 5 direct 4K 9:16 vertical video scenes in parallel',
+      shortsAi: 'Grok Imagine 1.5 generates 5 direct 9:16 vertical video scenes in parallel',
       highlight: true
     },
     {
@@ -42,16 +46,21 @@ export default function ComparisonSection() {
   ];
 
   return (
-    <section style={{ padding: '80px 0', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+    <section style={{
+      paddingTop: isMobile ? '56px' : '80px',
+      paddingBottom: isMobile ? '56px' : '80px',
+      borderTop: '1px solid var(--border-subtle)',
+      background: 'var(--bg-surface)'
+    }}>
       <div className="container">
         {/* Header */}
-        <div style={{ textAlign: 'center', maxWidth: '680px', margin: '0 auto 48px auto' }}>
+        <div style={{ textAlign: 'center', maxWidth: '680px', margin: isMobile ? '0 auto 32px auto' : '0 auto 48px auto' }}>
           <span className="badge badge-amber" style={{ marginBottom: '12px' }}>
             <Flame size={13} />
             <span>The Creator Revolution</span>
           </span>
           <h2 className="font-display" style={{
-            fontSize: '36px',
+            fontSize: 'clamp(26px, 5vw, 36px)',
             fontWeight: 800,
             letterSpacing: '-0.02em',
             marginBottom: '14px',
@@ -59,7 +68,7 @@ export default function ComparisonSection() {
           }}>
             Old Manual Editing vs. ShortsAI Studio
           </h2>
-          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <p style={{ fontSize: isMobile ? '14px' : '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             See why over 100,000+ creators and media agencies switched from complex video editors to our 1-click pipeline.
           </p>
         </div>
@@ -67,28 +76,30 @@ export default function ComparisonSection() {
         {/* Comparison Table Card */}
         <div className="saas-card" style={{
           overflow: 'hidden',
-          borderRadius: '24px',
+          borderRadius: isMobile ? '18px' : '24px',
           border: '1.5px solid var(--border-glow)',
           boxShadow: 'var(--shadow-glow)'
         }}>
-          {/* Table Header */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1.2fr 1fr 1.2fr',
-            background: 'var(--bg-elevated)',
-            borderBottom: '1px solid var(--border-medium)',
-            padding: '18px 24px',
-            fontWeight: 800,
-            fontSize: '14px'
-          }}>
-            <div style={{ color: 'var(--text-muted)' }}>PRODUCTION STEP</div>
-            <div style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <X size={16} /> TRADITIONAL MANUAL EDITING
+          {/* Table Header — only meaningful when the three columns exist */}
+          {!isTablet && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1.2fr 1fr 1.2fr',
+              background: 'var(--bg-elevated)',
+              borderBottom: '1px solid var(--border-medium)',
+              padding: '18px 24px',
+              fontWeight: 800,
+              fontSize: '14px'
+            }}>
+              <div style={{ color: 'var(--text-muted)' }}>PRODUCTION STEP</div>
+              <div style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <X size={16} /> TRADITIONAL MANUAL EDITING
+              </div>
+              <div style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles size={16} /> SHORTSAI 75S AUTONOMOUS
+              </div>
             </div>
-            <div style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={16} /> SHORTSAI 75S AUTONOMOUS
-            </div>
-          </div>
+          )}
 
           {/* Table Rows */}
           {comparisons.map((row, idx) => (
@@ -96,16 +107,24 @@ export default function ComparisonSection() {
               key={idx}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1.2fr 1fr 1.2fr',
-                padding: '20px 24px',
+                gridTemplateColumns: isTablet ? '1fr' : '1.2fr 1fr 1.2fr',
+                paddingTop: isMobile ? '16px' : '20px',
+                paddingBottom: isMobile ? '16px' : '20px',
+                paddingLeft: isMobile ? '16px' : '24px',
+                paddingRight: isMobile ? '16px' : '24px',
                 borderBottom: idx < comparisons.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                 background: row.isGrandSummary ? 'rgba(99, 102, 241, 0.12)' : idx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.015)',
-                alignItems: 'center',
-                gap: '16px'
+                alignItems: isTablet ? 'stretch' : 'center',
+                gap: isTablet ? '10px' : '16px'
               }}
             >
               {/* Feature */}
-              <div style={{ fontWeight: 700, fontSize: row.isGrandSummary ? '16px' : '13.5px', color: 'var(--text-primary)' }}>
+              <div style={{
+                fontWeight: 700,
+                fontSize: row.isGrandSummary ? '16px' : '13.5px',
+                color: 'var(--text-primary)',
+                letterSpacing: isTablet ? '0.01em' : undefined
+              }}>
                 {row.feature}
               </div>
 
@@ -120,7 +139,14 @@ export default function ComparisonSection() {
                 gap: '8px'
               }}>
                 <span style={{ color: '#ef4444', marginTop: '2px' }}>✕</span>
-                <span>{row.oldWay}</span>
+                <span>
+                  {isTablet && (
+                    <strong style={{ color: '#f87171', display: 'block', fontSize: '10.5px', letterSpacing: '0.06em', marginBottom: '2px' }}>
+                      TRADITIONAL MANUAL EDITING
+                    </strong>
+                  )}
+                  {row.oldWay}
+                </span>
               </div>
 
               {/* ShortsAI */}
@@ -134,7 +160,14 @@ export default function ComparisonSection() {
                 gap: '8px'
               }}>
                 <span style={{ color: '#10b981', marginTop: '2px' }}>✓</span>
-                <span>{row.shortsAi}</span>
+                <span>
+                  {isTablet && (
+                    <strong style={{ color: '#34d399', display: 'block', fontSize: '10.5px', letterSpacing: '0.06em', marginBottom: '2px' }}>
+                      SHORTSAI 75S AUTONOMOUS
+                    </strong>
+                  )}
+                  {row.shortsAi}
+                </span>
               </div>
             </div>
           ))}

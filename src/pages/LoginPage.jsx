@@ -91,7 +91,7 @@ export default function LoginPage({ onLoginSuccess, onNavigateToRegister, onNavi
           }}>
             <Sparkles size={24} color="#ffffff" />
           </div>
-          <h1 className="font-display" style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
+          <h1 className="font-display" style={{ fontSize: 'clamp(21px, 3.8vw, 26px)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
             Sign In to ShortsAI
           </h1>
           <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>

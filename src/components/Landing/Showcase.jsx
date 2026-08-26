@@ -76,7 +76,7 @@ export default function Showcase({ onSelectPreset }) {
   };
 
   return (
-    <section id="showcase" style={{ padding: '80px 0', borderTop: '1px solid var(--border-subtle)' }}>
+    <section id="showcase" style={{ paddingTop: 'clamp(48px, 8vw, 80px)', paddingBottom: 'clamp(48px, 8vw, 80px)', borderTop: '1px solid var(--border-subtle)' }}>
       <div className="container">
         {/* Section Header */}
         <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 36px auto' }}>
@@ -85,7 +85,7 @@ export default function Showcase({ onSelectPreset }) {
             <span>Proven High-Retention Formats</span>
           </span>
           <h2 className="font-display" style={{
-            fontSize: '36px',
+            fontSize: 'clamp(26px, 5vw, 36px)',
             fontWeight: 800,
             letterSpacing: '-0.02em',
             marginBottom: '14px',
@@ -134,7 +134,7 @@ export default function Showcase({ onSelectPreset }) {
         {/* 4 Cards Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))',
           gap: '24px'
         }}>
           {filteredCards.map((card) => (

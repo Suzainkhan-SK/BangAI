@@ -38,7 +38,7 @@ export default function SettingsPage({ onNavigateToDashboard }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h1 className="font-display" style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>
+          <h1 className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>
             Studio Settings & Preferences
           </h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
@@ -64,7 +64,7 @@ export default function SettingsPage({ onNavigateToDashboard }) {
             <span>Default AI Engine Preferences</span>
           </h3>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '16px' }}>
             <div>
               <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
                 Default Narrator Voice
@@ -158,7 +158,7 @@ export default function SettingsPage({ onNavigateToDashboard }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border-subtle)' }}>
               <div>
                 <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13.5px' }}>
-                  Enable 4K 60FPS Master Export
+                  Enable Full HD 1080×1920 master export
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   Renders at 2160x3840 ultra-sharp 9:16 vertical resolution

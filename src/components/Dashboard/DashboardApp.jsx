@@ -8,7 +8,7 @@ import GenerationThinkingAnimation from './GenerationThinkingAnimation';
 import { PRESETS } from '../../data/presets';
 import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
-import { MUSIC_TRACKS } from '../../data/musicTracks';
+import { MUSIC_TRACKS, DEFAULT_MUSIC_ID, resolveMusicId, getMusicTrackById } from '../../data/musicTracks';
 import { SUBTITLE_STYLES } from '../../data/subtitleStyles';
 import StudioLab from '../Studio/StudioLab';
 import { audioEngine } from '../../audio/audioEngine';
@@ -28,8 +28,10 @@ import {
   Bot,
   User,
   Send,
-  ExternalLink
+  ExternalLink,
+  Menu
 } from 'lucide-react';
+import { useBreakpoint, useBodyScrollLock } from '../../hooks/useMediaQuery';
 
 const SESSION_ID_KEY = 'shortsai_session_id';
 
@@ -89,7 +91,7 @@ export default function DashboardApp({
   const [voiceId, setVoiceId] = useState('adam');
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [styleId, setStyleId] = useState('cinematic');
-  const [musicId, setMusicId] = useState('mystery');
+  const [musicId, setMusicId] = useState(DEFAULT_MUSIC_ID);
   const [language, setLanguage] = useState('Hinglish');
   const [autoUploadToYouTube, setAutoUploadToYouTube] = useState(false);
   const [subtitleSettings, setSubtitleSettings] = useState({
@@ -111,6 +113,24 @@ export default function DashboardApp({
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
 
+  // Single source of truth for layout decisions (inline styles beat CSS classes,
+  // so structural responsiveness has to be driven from JS here).
+  const { isMobile } = useBreakpoint();
+  useBodyScrollLock(isMobile && isMobileSidebarOpen);
+
+  // Never leave the drawer stuck "open" when resizing back up to desktop.
+  useEffect(() => {
+    if (!isMobile && isMobileSidebarOpen) setIsMobileSidebarOpen(false);
+  }, [isMobile, isMobileSidebarOpen]);
+
+  // Escape closes the mobile drawer.
+  useEffect(() => {
+    if (!isMobileSidebarOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setIsMobileSidebarOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMobileSidebarOpen]);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [isChatResponding, setIsChatResponding] = useState(false);
   const [generationStage, setGenerationStage] = useState('');
@@ -121,7 +141,6 @@ export default function DashboardApp({
   // Ref to track active request timestamp
   const generationStartTimeRef = useRef(0);
   const messagesEndRef = useRef(null);
-  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
 
   // ── TRUTH-BASED: Derive isGenerating + stage from persisted thread status ──
   // This survives page reloads, component remounts, and navigations.
@@ -135,7 +154,7 @@ export default function DashboardApp({
     if (ACTIVE_STATUSES.includes(s)) {
       setIsGenerating(true);
       if (s === 'RENDERING_VIDEO') {
-        setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
+        setGenerationStage('Autonomous 1080p video rendering dispatched on n8n Cloud...');
       } else if (s === 'GENERATING_SCENES') {
         setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
       } else if (refiningStartTimeRef.current > 0) {
@@ -273,7 +292,7 @@ export default function DashboardApp({
         if (status === 'GENERATING_SCENES' || status === 'RENDERING_VIDEO' || status === 'GENERATING') {
           setIsGenerating(true);
           const stageMsg = status === 'RENDERING_VIDEO'
-            ? 'Autonomous 4K video rendering dispatched on n8n Cloud...'
+            ? 'Autonomous 1080p video rendering dispatched on n8n Cloud...'
             : (status === 'GENERATING_SCENES' ? 'Generating 5-scene master screenplay in n8n Cloud...' : 'Connecting to n8n Cloud Pipeline...');
           setGenerationStage(stageMsg);
           setPastShorts(prev => prev.map(t => {
@@ -370,10 +389,16 @@ export default function DashboardApp({
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
             const existing = t.messages || [];
             const msgText = data.youtubeUrl
-              ? `🎉 **4K Video Uploaded to YouTube!**\n📺 ${data.youtubeUrl}`
-              : `🎉 **4K Video Render Complete!**`;
+              ? `🎉 **Video Uploaded to YouTube!**\n📺 ${data.youtubeUrl}`
+              : `🎉 **Video Render Complete!**`;
+            // Never invent a score here — surface whatever the workflow
+            // actually reported, and keep the previous value otherwise.
+            const reportedScore = Number(
+              data.criticScore ?? data.story?.criticScore ?? data.viralityScore ?? data.story?.viralityScore
+            );
             return {
-              ...t, status: 'COMPLETED', criticScore: 99,
+              ...t, status: 'COMPLETED',
+              criticScore: Number.isFinite(reportedScore) && reportedScore > 0 ? reportedScore : t.criticScore,
               title: data.title || data.story?.title || t.title,
               videoUrl: data.videoUrl || data.story?.videoUrl || t.videoUrl,
               youtubeUrl: data.youtubeUrl || data.story?.youtubeUrl || t.youtubeUrl,
@@ -393,7 +418,7 @@ export default function DashboardApp({
         if (lastScenesApprovalTimeRef.current > 0 && timeSinceScenesApproval < 3600000) {
           console.log('[Website] Skipping stale SCENES_READY_FOR_APPROVAL — video rendering in progress');
           setIsGenerating(true);
-          setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
+          setGenerationStage('Autonomous 1080p video rendering dispatched on n8n Cloud...');
           return;
         }
 
@@ -566,13 +591,13 @@ export default function DashboardApp({
     setPrompt('');
     if (t.voiceId) setVoiceId(t.voiceId);
     if (t.visualStyleId) setStyleId(t.visualStyleId);
-    if (t.musicId) setMusicId(t.musicId);
+    if (t.musicId) setMusicId(resolveMusicId(t.musicId));
     if (t.language) setLanguage(t.language);
     const active = ACTIVE_STATUSES.includes(t.status);
     setIsGenerating(active);
     if (active) {
       if (t.status === 'RENDERING_VIDEO') {
-        setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
+        setGenerationStage('Autonomous 1080p video rendering dispatched on n8n Cloud...');
       } else if (t.status === 'GENERATING_SCENES') {
         setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
       } else {
@@ -674,7 +699,9 @@ export default function DashboardApp({
       visualStyleId: styleId,
       musicId: musicId,
       language: language,
-      criticScore: 98,
+      // Carried over from the thread being continued; a fresh thread has no
+      // score until the workflow's critic actually returns one.
+      criticScore: activeThread?.criticScore,
       status: mode === 'VIDEO_GENERATION' ? 'GENERATING' : (activeThread?.status || 'CHAT'),
       story: activeThread?.story || null,
       scenes: activeThread?.scenes || null,
@@ -724,7 +751,7 @@ export default function DashboardApp({
             voiceSpeed,
             visualStyle: styleId,
             musicId,
-            musicTrackUrl: (MUSIC_TRACKS.find(t => t.id === musicId) || {}).audioUrl || '',
+            musicTrackUrl: getMusicTrackById(musicId).audioUrl || '',
             musicVolume,
             subtitleSettings,
             language,
@@ -1067,8 +1094,8 @@ export default function DashboardApp({
     const chosenVoiceId = customSettings.voiceId || activeThread?.voiceId || voiceId || 'adam';
     const chosenElevenLabsVoiceId = customSettings.elevenLabsVoiceId || (VOICES.find(v => v.id === chosenVoiceId) || {}).elevenLabsId || chosenVoiceId;
     const chosenSubtitleSettings = customSettings.subtitleSettings || subtitleSettings;
-    const chosenMusicId = customSettings.musicId || activeThread?.musicId || musicId || 'mystery';
-    const chosenMusicTrackUrl = customSettings.musicTrackUrl || (MUSIC_TRACKS.find(t => t.id === chosenMusicId) || {}).audioUrl || '';
+    const chosenMusicId = resolveMusicId(customSettings.musicId || activeThread?.musicId || musicId);
+    const chosenMusicTrackUrl = customSettings.musicTrackUrl || getMusicTrackById(chosenMusicId).audioUrl || '';
     const chosenMusicVolume = customSettings.musicVolume ?? musicVolume ?? 0.2;
 
     try {
@@ -1131,7 +1158,7 @@ export default function DashboardApp({
         lastStoryApprovalTimeRef.current = 0;
         generationStartTimeRef.current = Date.now();
         setIsGenerating(true);
-        setGenerationStage('Autonomous 4K video rendering dispatched on n8n Cloud...');
+        setGenerationStage('Autonomous 1080p video rendering dispatched on n8n Cloud...');
         setPastShorts(prev => prev.map(t => 
           (t.threadId === currentThreadId || t.id === currentThreadId)
             ? { 
@@ -1139,7 +1166,7 @@ export default function DashboardApp({
                 status: 'RENDERING_VIDEO',
                 messages: [
                   ...(t.messages || []),
-                  { role: 'assistant', content: '🎬 5 scenes approved! Autonomous 4K video rendering pipeline dispatched on n8n Cloud...' }
+                  { role: 'assistant', content: '🎬 5 scenes approved! Autonomous 1080p video rendering pipeline dispatched on n8n Cloud...' }
                 ]
               }
             : t
@@ -1200,8 +1227,9 @@ export default function DashboardApp({
   return (
     <div style={{
       display: 'flex',
-      height: 'calc(100vh - 58px)',
-      width: '100vw',
+      height: 'calc(100dvh - var(--nav-h, 58px))',
+      minHeight: 'calc(100vh - 58px)',
+      width: '100%',
       background: 'var(--bg-app)',
       overflow: 'hidden'
     }}>
@@ -1209,6 +1237,7 @@ export default function DashboardApp({
       <div
         className={`sidebar-mobile-overlay ${isMobileSidebarOpen ? 'visible' : ''}`}
         onClick={() => setIsMobileSidebarOpen(false)}
+        aria-hidden="true"
       />
 
       {/* Real Persistent History Sidebar */}
@@ -1219,13 +1248,15 @@ export default function DashboardApp({
           onSelectShort={(id) => { handleSelectShort(id); setIsMobileSidebarOpen(false); }}
           onNewShort={() => { handleNewShort(); setIsMobileSidebarOpen(false); }}
           onDeleteShort={handleDeleteShort}
-          collapsed={sidebarCollapsed}
+          collapsed={isMobile ? false : sidebarCollapsed}
           onToggleCollapse={onToggleSidebar}
           user={user}
           onOpenSettings={onNavigateToSettings}
           onLogout={onLogout}
           isStudioOpen={isStudioOpen}
-          onToggleStudio={() => setIsStudioOpen(prev => !prev)}
+          onToggleStudio={() => { setIsStudioOpen(prev => !prev); setIsMobileSidebarOpen(false); }}
+          isMobileDrawer={isMobile}
+          onCloseDrawer={() => setIsMobileSidebarOpen(false)}
         />
       </div>
 
@@ -1239,6 +1270,73 @@ export default function DashboardApp({
         flexDirection: 'column',
         minWidth: 0
       }}>
+        {/* Mobile top bar — the only way to reach history/studio on a phone.
+            Visibility is owned by CSS (.mobile-topbar is display:none ≥768px). */}
+        <div className="mobile-topbar">
+          <button
+            onClick={() => { audioEngine.playSfx('click'); setIsMobileSidebarOpen(true); }}
+            className="icon-btn"
+            aria-label="Open history menu"
+            aria-expanded={isMobileSidebarOpen}
+            style={{
+              width: '38px', height: '38px', borderRadius: '11px',
+              background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+              color: 'var(--text-primary)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0
+            }}
+          >
+            <Menu size={18} />
+          </button>
+
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="truncate" style={{
+              fontSize: '13px', fontWeight: 800, color: 'var(--text-primary)',
+              fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '-0.01em'
+            }}>
+              {activeThread
+                ? (activeThread.name || activeThread.title || activeThread.rawUserInput || 'Untitled Video')
+                : 'ShortsAI Studio'}
+            </div>
+            <div className="truncate" style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>
+              {isStudioOpen
+                ? 'Design Studio'
+                : activeThread
+                  ? String(activeThread.status || 'ACTIVE').replace(/_/g, ' ').toLowerCase()
+                  : `${pastShorts.length} video${pastShorts.length === 1 ? '' : 's'} in history`}
+            </div>
+          </div>
+
+          <button
+            onClick={() => { audioEngine.playSfx('click'); setIsStudioOpen(prev => !prev); }}
+            className="icon-btn"
+            aria-label={isStudioOpen ? 'Close Design Studio' : 'Open Design Studio'}
+            style={{
+              width: '38px', height: '38px', borderRadius: '11px',
+              background: isStudioOpen ? 'rgba(16,185,129,0.16)' : 'var(--bg-card)',
+              border: `1px solid ${isStudioOpen ? 'rgba(16,185,129,0.55)' : 'var(--border-subtle)'}`,
+              color: isStudioOpen ? '#10b981' : 'var(--text-muted)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0
+            }}
+          >
+            <Sparkles size={16} />
+          </button>
+
+          <button
+            onClick={() => { audioEngine.playSfx('click'); handleNewShort(); }}
+            aria-label="New video"
+            style={{
+              width: '38px', height: '38px', borderRadius: '11px',
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              border: 'none', color: '#fff', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              flexShrink: 0, boxShadow: '0 4px 12px rgba(99,102,241,0.35)'
+            }}
+          >
+            <Plus size={18} strokeWidth={2.5} />
+          </button>
+        </div>
+
         <div className="studio-main-content">
           {/* ── DEDICATED DESIGN STUDIO SCREEN ── */}
           {isStudioOpen ? (
@@ -1283,7 +1381,7 @@ export default function DashboardApp({
                   if (settings.voiceId) setVoiceId(settings.voiceId);
                   if (settings.voiceSpeed) setVoiceSpeed(settings.voiceSpeed);
                   if (settings.subtitleSettings) setSubtitleSettings(settings.subtitleSettings);
-                  if (settings.musicId) setMusicId(settings.musicId);
+                  if (settings.musicId) setMusicId(resolveMusicId(settings.musicId));
                   if (settings.musicVolume !== undefined) setMusicVolume(settings.musicVolume);
                   setIsStudioOpen(false);
                 }}
@@ -1296,15 +1394,6 @@ export default function DashboardApp({
           {activeThread && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {/* Mobile hamburger */}
-                <button
-                  onClick={() => setIsMobileSidebarOpen(true)}
-                  className="btn-outline"
-                  style={{ fontSize: '12px', padding: '5px 10px', display: 'none' }}
-                  id="mobile-menu-btn"
-                >
-                  ☰
-                </button>
                 <button
                   onClick={handleNewShort}
                   className="btn-outline"
@@ -1742,7 +1831,11 @@ export default function DashboardApp({
           <div
             className="prompt-bar-wrapper"
             style={{
-              left: sidebarCollapsed ? '60px' : '240px'
+              left: isMobile
+                ? 0
+                : sidebarCollapsed
+                  ? 'var(--sidebar-w-collapsed, 60px)'
+                  : 'var(--sidebar-w, 240px)'
             }}
           >
           <div className="prompt-bar-inner">

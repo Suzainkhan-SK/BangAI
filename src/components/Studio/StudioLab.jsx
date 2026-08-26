@@ -40,8 +40,9 @@ import {
   getVoiceById 
 } from '../../data/voices';
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS } from '../../data/subtitleStyles';
-import { MUSIC_TRACKS as STATIC_MUSIC, MUSIC_MOODS } from '../../data/musicTracks';
+import { MUSIC_TRACKS as STATIC_MUSIC, MUSIC_MOODS, getMusicTrackById, resolveMusicId, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
+import { useBreakpoint } from '../../hooks/useMediaQuery';
 
 // ─── DURATION TARGETS ─────────────────────────────────────────────────
 const DURATION_TARGETS = [
@@ -71,6 +72,9 @@ export default function StudioLab({
   onClose
 }) {
   const [activeTab, setActiveTab] = useState(initialTab); // 'voices' | 'subtitles' | 'music'
+
+  // Inline styles beat CSS classes, so structural responsiveness is driven here.
+  const { isMobile, isTablet } = useBreakpoint();
 
   // ─── 1. VOICE STUDIO STATE ───────────────────────────────────────
   const [voices, setVoices] = useState(getAllVoices);
@@ -371,12 +375,22 @@ export default function StudioLab({
     }
   };
 
-  // Update volume on playing track in real time
+  // Update volume on playing track in real time, and duck under voiceovers.
+  // duckGain converts the -dB slider into the linear multiplier the browser
+  // audio element actually understands, so the control is not decorative.
+  const duckGain = Math.pow(10, -Math.abs(Number(duckingLevel) || 0) / 20);
+
   useEffect(() => {
-    if (musicAudioRef.current) {
-      musicAudioRef.current.volume = Math.max(0, Math.min(1, Number(currentMusicVolume) || 0));
-    }
-  }, [currentMusicVolume]);
+    if (!musicAudioRef.current) return;
+    const base = Math.max(0, Math.min(1, Number(currentMusicVolume) || 0));
+    musicAudioRef.current.volume = playingVoiceId ? base * duckGain : base;
+  }, [currentMusicVolume, duckGain, playingVoiceId]);
+
+  const handleDuckingChange = (db) => {
+    const next = Math.max(0, Math.min(40, parseInt(db, 10) || 0));
+    setDuckingLevel(next);
+    audioEngine.setDuckingDb(next);
+  };
 
   // Search Jamendo API
   const handleSearchMusic = async () => {
@@ -489,14 +503,14 @@ export default function StudioLab({
     audioEngine.playSfx('success');
     if (typeof onApplySettingsToVideo === 'function') {
       const chosenVoice = voices.find(v => v.id === selectedVoiceId || v.elevenLabsId === selectedVoiceId) || getVoiceById(selectedVoiceId) || STATIC_VOICES[0];
-      const chosenMusic = musicTracks.find(m => m.id === selectedMusicId) || musicTracks[0];
+      const chosenMusic = musicTracks.find(m => m.id === selectedMusicId) || getMusicTrackById(selectedMusicId);
       onApplySettingsToVideo({
         voiceId: selectedVoiceId,
         elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
         voiceSpeed: currentVoiceSpeed,
         subtitleSettings: currentSubtitleSettings,
-        musicId: selectedMusicId,
-        musicTrackUrl: chosenMusic?.audioUrl || '',
+        musicId: chosenMusic?.id || resolveMusicId(selectedMusicId),
+        musicTrackUrl: chosenMusic?.audioUrl || chosenMusic?.previewUrl || '',
         musicVolume: currentMusicVolume
       });
     }
@@ -518,29 +532,38 @@ export default function StudioLab({
   const tabs = [
     { id: 'voices',    label: `Voice Matrix (${voices.length})`, icon: Mic2,  color: '#10b981' },
     { id: 'subtitles', label: 'Subtitle Studio',                 icon: Type,  color: '#f59e0b' },
-    { id: 'music',     label: 'Music Library',                   icon: Music, color: '#06b6d4' },
+    { id: 'music',     label: `Music Library (${musicTracks.length})`, icon: Music, color: '#06b6d4' },
   ];
 
   return (
     <div style={{
       maxWidth: '1200px',
+      width: '100%',
+      minWidth: 0,
       margin: '0 auto',
-      padding: '24px 20px 80px',
+      paddingTop: isMobile ? '16px' : '24px',
+      paddingLeft: isMobile ? '14px' : '20px',
+      paddingRight: isMobile ? '14px' : '20px',
+      paddingBottom: isMobile ? 'calc(64px + var(--safe-b, 0px))' : '80px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '20px'
+      gap: isMobile ? '14px' : '20px'
     }}>
       {/* ─── TOP HERO BANNER ────────────────────────────────────────── */}
       <div style={{
         background: 'var(--bg-card)',
         borderRadius: '20px',
         border: '1.5px solid var(--border-medium)',
-        padding: '20px 24px',
+        paddingTop: isMobile ? '16px' : '20px',
+        paddingBottom: isMobile ? '16px' : '20px',
+        paddingLeft: isMobile ? '16px' : '24px',
+        paddingRight: isMobile ? '16px' : '24px',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: isMobile ? 'flex-start' : 'center',
         justifyContent: 'space-between',
+        flexDirection: isMobile ? 'column' : 'row',
         flexWrap: 'wrap',
-        gap: '16px'
+        gap: isMobile ? '12px' : '16px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{
@@ -570,14 +593,16 @@ export default function StudioLab({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: isMobile ? '100%' : 'auto' }}>
           <button type="button" onClick={handleApplyToVideo}
             style={{
               background: 'linear-gradient(135deg, #10b981, #059669)',
-              padding: '9px 18px', borderRadius: '10px',
+              paddingTop: '9px', paddingBottom: '9px', paddingLeft: '18px', paddingRight: '18px',
+              borderRadius: '10px',
               fontSize: '12.5px', fontWeight: 800, gap: '6px',
               border: 'none', color: '#fff', cursor: 'pointer',
-              display: 'flex', alignItems: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flex: isMobile ? '1 1 auto' : '0 0 auto',
               boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
               transition: 'all 0.2s ease'
             }}>
@@ -587,9 +612,12 @@ export default function StudioLab({
             <button type="button" onClick={onClose}
               style={{
                 background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-                borderRadius: '10px', padding: '9px 14px', cursor: 'pointer',
+                borderRadius: '10px',
+                paddingTop: '9px', paddingBottom: '9px', paddingLeft: '14px', paddingRight: '14px',
+                cursor: 'pointer',
                 color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600,
-                display: 'flex', alignItems: 'center', gap: '5px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                flexShrink: 0,
                 transition: 'all 0.15s ease'
               }}>
               <X size={14} /> Close
@@ -599,22 +627,29 @@ export default function StudioLab({
       </div>
 
       {/* ─── NAVIGATION TABS ─────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '8px',
-        borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px'
-      }}>
+      <div
+        className={isMobile ? 'rail' : undefined}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px'
+        }}
+      >
         {tabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
               style={{
-                padding: '9px 18px', borderRadius: '10px',
+                paddingTop: '9px', paddingBottom: '9px',
+                paddingLeft: isMobile ? '13px' : '18px',
+                paddingRight: isMobile ? '13px' : '18px',
+                borderRadius: '10px',
                 border: `1.5px solid ${isActive ? tab.color : 'var(--border-subtle)'}`,
                 background: isActive ? `${tab.color}18` : 'var(--bg-input)',
                 color: isActive ? tab.color : 'var(--text-muted)',
-                fontSize: '13px', fontWeight: 800, cursor: 'pointer',
+                fontSize: isMobile ? '12px' : '13px', fontWeight: 800, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: '7px',
+                whiteSpace: 'nowrap',
                 transition: 'all 0.2s ease',
                 boxShadow: isActive ? `0 0 14px ${tab.color}25` : 'none'
               }}>
@@ -731,16 +766,19 @@ export default function StudioLab({
             </div>
           </div>
 
-          {/* Provider Switcher Tabs */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '8px',
-            background: 'rgba(0, 0, 0, 0.3)',
-            padding: '4px',
-            borderRadius: '10px',
-            border: '1px solid var(--border-subtle)'
-          }}>
+          {/* Provider Switcher Tabs — grid on desktop, swipeable rail on phones */}
+          <div
+            className={isMobile ? 'rail' : undefined}
+            style={{
+              display: isMobile ? 'flex' : 'grid',
+              gridTemplateColumns: isMobile ? undefined : 'repeat(3, 1fr)',
+              gap: '8px',
+              background: 'rgba(0, 0, 0, 0.3)',
+              padding: '4px',
+              borderRadius: '10px',
+              border: '1px solid var(--border-subtle)'
+            }}
+          >
             {VOICE_PROVIDERS.map(p => (
               <button
                 key={p.id}
@@ -751,14 +789,18 @@ export default function StudioLab({
                   color: voiceProviderFilter === p.id ? '#ffffff' : 'var(--text-muted)',
                   border: 'none',
                   borderRadius: '8px',
-                  padding: '7px 12px',
-                  fontSize: '12px',
+                  paddingTop: '7px',
+                  paddingBottom: '7px',
+                  paddingLeft: '12px',
+                  paddingRight: '12px',
+                  fontSize: isMobile ? '11.5px' : '12px',
                   fontWeight: voiceProviderFilter === p.id ? 800 : 600,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
+                  whiteSpace: 'nowrap',
                   transition: 'all 0.15s ease'
                 }}
               >
@@ -771,17 +813,22 @@ export default function StudioLab({
           {/* Category Filter + Search + Language/Gender Filters */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {/* Category Filter Row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <div
+              className={isMobile ? 'rail' : undefined}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: isMobile ? 'nowrap' : 'wrap' }}
+            >
               {VOICE_CATEGORIES.map(cat => (
                 <button key={cat.id} type="button"
                   onClick={() => setVoiceCategoryFilter(cat.id)}
                   style={{
-                    padding: '5px 12px', borderRadius: '8px',
+                    paddingTop: '5px', paddingBottom: '5px', paddingLeft: '12px', paddingRight: '12px',
+                    borderRadius: '8px',
                     border: `1px solid ${voiceCategoryFilter === cat.id ? '#6366f1' : 'var(--border-subtle)'}`,
                     background: voiceCategoryFilter === cat.id ? 'rgba(99,102,241,0.12)' : 'var(--bg-input)',
                     color: voiceCategoryFilter === cat.id ? '#a5b4fc' : 'var(--text-muted)',
                     fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: '4px',
+                    whiteSpace: 'nowrap',
                     transition: 'all 0.15s ease'
                   }}>
                   <span>{cat.icon}</span> {cat.label}
@@ -790,7 +837,12 @@ export default function StudioLab({
             </div>
 
             {/* Search + Language + Gender + Accent Filters */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr auto', gap: '10px', alignItems: 'center' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : (isTablet ? '1fr 1fr' : '1.4fr 1fr auto'),
+              gap: '10px',
+              alignItems: 'center'
+            }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '12px' }} />
                 <input type="text" value={voiceSearchQuery}
@@ -841,7 +893,9 @@ export default function StudioLab({
                 {['all', 'male', 'female'].map(g => (
                   <button key={g} type="button" onClick={() => setVoiceGenderFilter(g)}
                     style={{
-                      padding: '6px 12px', borderRadius: '8px',
+                      flex: isMobile ? '1 1 0' : '0 0 auto',
+                      paddingTop: '6px', paddingBottom: '6px', paddingLeft: '12px', paddingRight: '12px',
+                      borderRadius: '8px',
                       border: `1px solid ${voiceGenderFilter === g ? '#10b981' : 'var(--border-subtle)'}`,
                       background: voiceGenderFilter === g ? 'rgba(16,185,129,0.12)' : 'var(--bg-input)',
                       color: voiceGenderFilter === g ? '#34d399' : 'var(--text-muted)',
@@ -870,7 +924,7 @@ export default function StudioLab({
           ) : (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 220 : 280}px, 100%), 1fr))`,
               gap: '12px'
             }}>
               {filteredVoices.slice(0, visibleVoiceCount).map((voice) => {
@@ -1040,7 +1094,11 @@ export default function StudioLab({
 
       {/* ═══ TAB 2: SUBTITLE STUDIO ═══════════════════════════════════ */}
       {activeTab === 'subtitles' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1.2fr) minmax(300px, 0.8fr)', gap: '20px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isTablet ? '1fr' : 'minmax(300px, 1.2fr) minmax(300px, 0.8fr)',
+          gap: '20px'
+        }}>
           {/* Controls Column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {/* Custom Text + Voice Selector */}
@@ -1084,7 +1142,7 @@ export default function StudioLab({
               <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
                 1. Select YouTuber Subtitle Preset:
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 150 : 200}px, 100%), 1fr))`, gap: '8px' }}>
                 {SUBTITLE_STYLES.map((preset) => {
                   const isActive = currentSubtitleSettings.presetId === preset.id;
                   return (
@@ -1153,7 +1211,7 @@ export default function StudioLab({
               </div>
 
               {/* Font Family, Size, Max Words */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Font Family</label>
                   <select value={currentSubtitleSettings.fontFamily}
@@ -1187,7 +1245,7 @@ export default function StudioLab({
               </div>
 
               {/* Color Pickers — 5 colors */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: '8px' }}>
                 <ColorPicker label="Word Highlight" value={currentSubtitleSettings.wordColor} onChange={(v) => handleUpdateSubtitleSetting('wordColor', v)} />
                 <ColorPicker label="Line Text" value={currentSubtitleSettings.lineColor} onChange={(v) => handleUpdateSubtitleSetting('lineColor', v)} />
                 <ColorPicker label="Outline" value={currentSubtitleSettings.outlineColor} onChange={(v) => handleUpdateSubtitleSetting('outlineColor', v)} />
@@ -1208,8 +1266,8 @@ export default function StudioLab({
               </div>
 
               {/* Position + All-Caps Toggle */}
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-                <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                   <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Screen Position</label>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     {SUBTITLE_POSITIONS.map(pos => (
@@ -1355,8 +1413,8 @@ export default function StudioLab({
             display: 'flex', flexDirection: 'column', gap: '12px'
           }}>
             {/* Search Row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: '1 1 180px', minWidth: 0, display: 'flex', alignItems: 'center' }}>
                 <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '12px' }} />
                 <input type="text" value={musicSearchQuery}
                   onChange={(e) => setMusicSearchQuery(e.target.value)}
@@ -1391,17 +1449,22 @@ export default function StudioLab({
             </div>
 
             {/* Mood Filter Chips */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+            <div
+              className={isMobile ? 'rail' : undefined}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: isMobile ? 'nowrap' : 'wrap' }}
+            >
               {(MUSIC_MOODS || []).map(mood => (
                 <button key={mood.id} type="button"
                   onClick={() => setMusicMoodFilter(mood.id)}
                   style={{
-                    padding: '4px 10px', borderRadius: '7px',
+                    paddingTop: '4px', paddingBottom: '4px', paddingLeft: '10px', paddingRight: '10px',
+                    borderRadius: '7px',
                     border: `1px solid ${musicMoodFilter === mood.id ? '#06b6d4' : 'var(--border-subtle)'}`,
                     background: musicMoodFilter === mood.id ? 'rgba(6,182,212,0.12)' : 'var(--bg-input)',
                     color: musicMoodFilter === mood.id ? '#22d3ee' : 'var(--text-muted)',
                     fontSize: '11px', fontWeight: 700, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '4px'
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    whiteSpace: 'nowrap'
                   }}>
                   <span>{mood.icon}</span> {mood.label}
                 </button>
@@ -1454,10 +1517,17 @@ export default function StudioLab({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Radio size={14} color="#06b6d4" />
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '80px' }}>Ducking: -{duckingLevel}dB</span>
-                <input type="range" min="8" max="28" step="2"
+                <input type="range" min="0" max="30" step="2"
                   value={duckingLevel}
-                  onChange={(e) => setDuckingLevel(parseInt(e.target.value))}
+                  onChange={(e) => handleDuckingChange(e.target.value)}
+                  title={`While a voiceover plays, music drops to ${Math.round(duckGain * 100)}% of its level`}
                   style={{ width: '90px', accentColor: '#06b6d4', cursor: 'pointer' }} />
+                <span style={{
+                  fontSize: '10px', fontWeight: 800, color: '#06b6d4',
+                  background: 'rgba(6,182,212,0.15)', padding: '1px 6px', borderRadius: '4px'
+                }}>
+                  → {Math.round(currentMusicVolume * duckGain * 100)}% under voice
+                </span>
               </div>
             </div>
           </div>
@@ -1465,7 +1535,7 @@ export default function StudioLab({
           {/* Music Track Cards */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 220 : 280}px, 100%), 1fr))`,
             gap: '10px'
           }}>
             {filteredMusic.map((track) => {

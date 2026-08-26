@@ -21,6 +21,7 @@ import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
 import { detectMode } from '../../utils/detectIntent';
+import { useBreakpoint } from '../../hooks/useMediaQuery';
 
 const SLASH_COMMANDS = [
   {
@@ -112,6 +113,7 @@ export default function CanvasPromptBar(props) {
 
   const isGenerating = !!props.isGenerating;
   const textareaRef = useRef(null);
+  const { isMobile, isXSmall, isTouch } = useBreakpoint();
 
   // Manual Mode Lock (null = auto-detect)
   const [explicitMode, setExplicitMode] = useState(null);
@@ -307,20 +309,32 @@ export default function CanvasPromptBar(props) {
         style={{
           background: 'var(--bg-gemini-input)',
           border: '1.5px solid var(--border-glow)',
-          borderRadius: '24px',
-          padding: '12px 18px',
+          borderRadius: isMobile ? '20px' : '24px',
+          padding: isMobile ? '10px 12px' : '12px 18px',
           boxShadow: 'var(--shadow-prompt)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '10px',
+          gap: isMobile ? '8px' : '10px',
           backdropFilter: 'blur(28px)',
           WebkitBackdropFilter: 'blur(28px)',
           transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
         }}
       >
-        {/* Top Direct Mode Switcher Pills + Auto-Upload Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        {/* Top Direct Mode Switcher Pills + Auto-Upload Toggle
+            On phones this collapses to a single horizontally swipeable rail so the
+            prompt box stays short enough to leave the conversation visible. */}
+        <div
+          className={isMobile ? 'rail' : undefined}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: isMobile ? 'flex-start' : 'space-between',
+            flexWrap: isMobile ? 'nowrap' : 'wrap',
+            overflowX: isMobile ? 'auto' : 'visible',
+            gap: '8px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: isMobile ? 'nowrap' : 'wrap', flexShrink: 0 }}>
             <button
               type="button"
               onClick={() => {
@@ -374,7 +388,7 @@ export default function CanvasPromptBar(props) {
           </div>
 
           {/* Auto-Upload to YouTube Toggle Switch */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             <button
               type="button"
               onClick={() => {
@@ -395,7 +409,7 @@ export default function CanvasPromptBar(props) {
                 cursor: 'pointer',
                 transition: 'all 0.2s ease'
               }}
-              title="When enabled, n8n will automatically upload the finished 4K video to YouTube Shorts upon completion"
+              title="When enabled, n8n will automatically upload the finished video to YouTube Shorts upon completion"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill={autoUploadToYouTube ? '#ef4444' : 'currentColor'}>
                 <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
@@ -403,9 +417,11 @@ export default function CanvasPromptBar(props) {
               <span>Auto-Upload: {autoUploadToYouTube ? 'ON' : 'OFF'}</span>
             </button>
 
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <Command size={10} /> <code>/</code>
-            </span>
+            {!isMobile && (
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <Command size={10} /> <code>/</code>
+              </span>
+            )}
           </div>
         </div>
 
@@ -417,11 +433,17 @@ export default function CanvasPromptBar(props) {
             value={promptValue}
             onChange={(e) => setPromptValue(e.target.value)}
             placeholder={
-              effectiveMode === 'CHAT' ? "Ask ShortsAI anything... (e.g. 'What makes a 3-second hook viral in Hindi?')" :
-              effectiveMode === 'REFINE_STORY' ? "Tell ShortsAI how to refine the story... (e.g. 'Make hook more dramatic and focus on the ending')" :
-              "Ask ShortsAI to generate any video... (Type '/' for commands or enter topic)"
+              isMobile
+                ? (effectiveMode === 'CHAT'
+                    ? 'Ask ShortsAI anything…'
+                    : effectiveMode === 'REFINE_STORY'
+                      ? 'How should I refine the story?'
+                      : "Describe your video idea… ('/' for commands)")
+                : effectiveMode === 'CHAT' ? "Ask ShortsAI anything... (e.g. 'What makes a 3-second hook viral in Hindi?')" :
+                  effectiveMode === 'REFINE_STORY' ? "Tell ShortsAI how to refine the story... (e.g. 'Make hook more dramatic and focus on the ending')" :
+                  "Ask ShortsAI to generate any video... (Type '/' for commands or enter topic)"
             }
-            rows={2}
+            rows={isMobile ? 1 : 2}
             style={{
               width: '100%',
               background: 'transparent',
@@ -473,17 +495,29 @@ export default function CanvasPromptBar(props) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
           gap: '8px',
           paddingTop: '6px',
           borderTop: '1px solid var(--border-subtle)'
         }}>
-          {/* Quick Config Dropdowns */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {/* Quick Config Dropdowns — one swipeable line on phones */}
+          <div
+            className={isMobile ? 'rail' : undefined}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              flexWrap: isMobile ? 'nowrap' : 'wrap',
+              overflowX: isMobile ? 'auto' : 'visible',
+              minWidth: 0,
+              flex: 1
+            }}
+          >
             {/* 1. Voice Selector Pill */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <select
                 value={currentVoiceId}
+                aria-label="Narration voice"
                 onChange={(e) => {
                   if (e.target.value === '__open_studio__') {
                     if (typeof props.onOpenStudio === 'function') props.onOpenStudio('voices');
@@ -496,13 +530,17 @@ export default function CanvasPromptBar(props) {
                   color: 'var(--text-secondary)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: '99px',
-                  padding: '5px 12px',
+                  paddingTop: isTouch ? '7px' : '5px',
+                  paddingBottom: isTouch ? '7px' : '5px',
+                  paddingLeft: isTouch ? '14px' : '12px',
+                  paddingRight: '14px',
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   outline: 'none',
                   appearance: 'none',
-                  paddingRight: '14px'
+                  maxWidth: isMobile ? '54vw' : 'none',
+                  textOverflow: 'ellipsis'
                 }}
               >
                 {/* If selected voice is from 9,650 JSON2Video library, display it prominently */}
@@ -525,23 +563,28 @@ export default function CanvasPromptBar(props) {
             </div>
 
             {/* 2. Visual Style Preference Pill */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <select
                 value={currentStyleId}
                 onChange={(e) => setStyleValue(e.target.value)}
+                aria-label="Visual style preference"
                 title="Style Preference: AI will adapt cinematography based on your selected visual style"
                 style={{
                   background: 'var(--bg-input)',
                   color: 'var(--text-secondary)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: '99px',
-                  padding: '5px 12px',
+                  paddingTop: isTouch ? '7px' : '5px',
+                  paddingBottom: isTouch ? '7px' : '5px',
+                  paddingLeft: isTouch ? '14px' : '12px',
+                  paddingRight: '14px',
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   outline: 'none',
                   appearance: 'none',
-                  paddingRight: '14px'
+                  maxWidth: isMobile ? '54vw' : 'none',
+                  textOverflow: 'ellipsis'
                 }}
               >
                 {VISUAL_STYLES.map((s) => (
@@ -553,22 +596,27 @@ export default function CanvasPromptBar(props) {
             </div>
 
             {/* 3. Language Pill */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <select
                 value={currentLanguage}
                 onChange={(e) => setLanguageValue(e.target.value)}
+                aria-label="Narration language"
                 style={{
                   background: 'var(--bg-input)',
                   color: 'var(--text-secondary)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: '99px',
-                  padding: '5px 12px',
+                  paddingTop: isTouch ? '7px' : '5px',
+                  paddingBottom: isTouch ? '7px' : '5px',
+                  paddingLeft: isTouch ? '14px' : '12px',
+                  paddingRight: '14px',
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   outline: 'none',
                   appearance: 'none',
-                  paddingRight: '14px'
+                  maxWidth: isMobile ? '54vw' : 'none',
+                  textOverflow: 'ellipsis'
                 }}
               >
                 <option value="Hinglish">🔮 Hinglish (Hindi + English)</option>
@@ -591,8 +639,8 @@ export default function CanvasPromptBar(props) {
                 if (typeof props.onStop === 'function') props.onStop();
               }}
               style={{
-                width: '36px',
-                height: '36px',
+                width: isTouch ? '42px' : '36px',
+                height: isTouch ? '42px' : '36px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #ef4444, #dc2626)',
                 border: 'none',
@@ -614,8 +662,8 @@ export default function CanvasPromptBar(props) {
               type="submit"
               disabled={!promptValue.trim()}
               style={{
-                width: '36px',
-                height: '36px',
+                width: isTouch ? '42px' : '36px',
+                height: isTouch ? '42px' : '36px',
                 borderRadius: '50%',
                 background: promptValue.trim() ? 'var(--grad-gemini)' : 'var(--bg-input)',
                 border: 'none',
@@ -636,7 +684,9 @@ export default function CanvasPromptBar(props) {
         </div>
       </form>
 
-      {/* Style & Prompt Priority Helper Note */}
+      {/* Style & Prompt Priority Helper Note — desktop only; on phones the
+          vertical space is better spent on the conversation above the bar. */}
+      {!isMobile && (
       <div style={{
         marginTop: '6px',
         textAlign: 'center',
@@ -652,6 +702,7 @@ export default function CanvasPromptBar(props) {
           <strong>Tip:</strong> You can also name a style directly in your prompt, e.g. <em>"anime style"</em>, <em>"documentary look"</em> — words in your prompt take priority.
         </span>
       </div>
+      )}
     </div>
   );
 }

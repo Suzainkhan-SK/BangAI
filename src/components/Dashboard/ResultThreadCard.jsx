@@ -1,14 +1,30 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   Play, Pause, Volume2, Download, Copy, Check, Sparkles, ExternalLink,
   ChevronDown, ChevronUp, CheckCircle2, Film, Mic2, Share2, ShieldCheck,
   RotateCcw, Award, Eye, EyeOff, Maximize2, Sliders, Music, Type, Clapperboard,
-  Loader2, Radio
+  Loader2, Radio, AlertTriangle, HelpCircle
 } from 'lucide-react';
 import { VOICES, getVoiceById } from '../../data/voices';
 import { MUSIC_TRACKS, getMusicTrackById } from '../../data/musicTracks';
 import { SUBTITLE_STYLES } from '../../data/subtitleStyles';
 import { audioEngine } from '../../audio/audioEngine';
+import { useBreakpoint } from '../../hooks/useMediaQuery';
+
+// Greatest common divisor — used to print a real aspect ratio from measured pixels.
+function gcd(a, b) {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
+// Human quality tier from the measured short edge of the frame.
+function qualityTier(w, h) {
+  const shortEdge = Math.min(w, h);
+  if (shortEdge >= 2160) return '4K';
+  if (shortEdge >= 1440) return '1440p';
+  if (shortEdge >= 1080) return '1080p';
+  if (shortEdge >= 720) return '720p';
+  return `${shortEdge}p`;
+}
 
 export default function ResultThreadCard({
   shortData,
@@ -27,7 +43,10 @@ export default function ResultThreadCard({
   const [videoExpanded, setVideoExpanded] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [videoVolume, setVideoVolume] = useState(1.0);
+  // Measured straight off the decoded file — never hardcoded.
+  const [videoMeta, setVideoMeta] = useState(null);
   const videoRef = useRef(null);
+  const { isMobile } = useBreakpoint();
 
   const handleVideoVolumeChange = (newVol) => {
     const v = Math.max(0, Math.min(1, parseFloat(newVol) || 0));
@@ -35,6 +54,17 @@ export default function ResultThreadCard({
     if (videoRef.current) {
       videoRef.current.volume = v;
     }
+  };
+
+  // Read real width/height/duration once the browser has the file header.
+  const handleLoadedMetadata = (e) => {
+    const el = e.currentTarget;
+    if (!el) return;
+    setVideoMeta({
+      width: el.videoWidth || 0,
+      height: el.videoHeight || 0,
+      duration: Number.isFinite(el.duration) ? el.duration : 0
+    });
   };
 
   const scenes = shortData.scenes || [];
@@ -47,6 +77,141 @@ export default function ResultThreadCard({
     ? shortData.subtitleSettings
     : {};
   const chosenSubtitlePreset = SUBTITLE_STYLES.find(s => s.id === chosenSubtitle.presetId || s.id === chosenSubtitle.style) || SUBTITLE_STYLES[0];
+
+  // ── Real, derived production numbers ────────────────────────────────────
+  // Everything below is either measured from the decoded video or computed
+  // from the actual script/settings on this thread. Nothing is hardcoded.
+  const stats = useMemo(() => {
+    const charCounts = scenes.map(s => (s.voiceoverText || '').length);
+    const scriptedDuration = scenes.reduce((sum, s) => sum + (Number(s.duration) || 0), 0);
+    // Some containers (notably MediaRecorder webm) report a bogus sub-second
+    // duration in their header — only trust a measurement that is plausible.
+    const measuredDuration = videoMeta && videoMeta.duration >= 1 ? videoMeta.duration : 0;
+    const duration = measuredDuration || scriptedDuration;
+    const w = videoMeta?.width || 0;
+    const h = videoMeta?.height || 0;
+    const divisor = w && h ? gcd(w, h) : 0;
+
+    const rawScore = Number(shortData.criticScore);
+    const hasScore = Number.isFinite(rawScore) && rawScore > 0;
+
+    const musicOn = !!(chosenMusic && chosenMusic.id !== 'none' && (shortData.musicTrackUrl || chosenMusic.audioUrl));
+    const duckRaw = Number(shortData.duckingLevel);
+    const duckDb = Number.isFinite(duckRaw) ? Math.abs(duckRaw) : (Number.isFinite(Number(chosenMusic?.duckingDefault)) ? Math.abs(Number(chosenMusic.duckingDefault)) : 18);
+
+    const container = (() => {
+      const url = String(shortData.videoUrl || '');
+      const m = url.split('?')[0].match(/\.([a-z0-9]{2,5})$/i);
+      return m ? m[1].toUpperCase() : null;
+    })();
+
+    return {
+      sceneCount: scenes.length,
+      charCounts,
+      totalChars: charCounts.reduce((a, b) => a + b, 0),
+      inRange: charCounts.filter(c => c >= 170 && c <= 220).length,
+      scriptedDuration,
+      measuredDuration,
+      duration,
+      durationLabel: duration > 0 ? `${duration.toFixed(1)}s` : null,
+      avgSceneDuration: scenes.length ? duration / scenes.length : 0,
+      width: w,
+      height: h,
+      resolutionLabel: w && h ? `${w}×${h}` : null,
+      aspectLabel: divisor ? `${w / divisor}:${h / divisor}` : null,
+      tier: w && h ? qualityTier(w, h) : null,
+      container,
+      rawScore,
+      hasScore,
+      musicOn,
+      duckDb,
+      elevenId: shortData.elevenLabsVoiceId || chosenVoice?.elevenLabsId || null
+    };
+  }, [scenes, videoMeta, shortData, chosenMusic, chosenVoice]);
+
+  // Pending → the render has not been measured yet; keep the copy honest.
+  const PENDING = shortData.videoUrl ? 'Reading file…' : 'Pending render';
+  const voiceEngineLabel = stats.elevenId ? 'ElevenLabs (via JSON2Video)' : 'JSON2Video TTS';  const downloadTier = stats.tier ? `${stats.tier} MP4` : 'Master MP4';
+
+  // ── Quality audit: every row is evaluated against this thread's real data.
+  // 'unknown' is used where the browser genuinely cannot verify the claim.
+  const auditChecks = useMemo(() => {
+    const rows = [];
+    const { charCounts, sceneCount, inRange } = stats;
+
+    rows.push({
+      label: 'Speech timing per scene (170–220 chars ≈ 15s)',
+      detail: sceneCount
+        ? `${inRange}/${sceneCount} scenes in range · ${charCounts.length ? `${Math.min(...charCounts)}–${Math.max(...charCounts)}` : '0'} chars`
+        : 'No scenes in this thread',
+      state: sceneCount === 0 ? 'unknown' : inRange === sceneCount ? 'pass' : 'warn'
+    });
+
+    const acts = scenes.map(s => (s.act || '').trim()).filter(Boolean);
+    const uniqueActs = new Set(acts.map(a => a.toLowerCase()));
+    rows.push({
+      label: 'Multi-act narrative progression',
+      detail: acts.length ? `${uniqueActs.size} distinct acts: ${acts.join(' → ')}` : 'Scenes carry no act labels',
+      state: acts.length === 0 ? 'unknown' : uniqueActs.size >= Math.min(3, sceneCount) ? 'pass' : 'warn'
+    });
+
+    const hookChars = charCounts[0] || 0;
+    rows.push({
+      label: 'Opening hook present in scene 1',
+      detail: hookChars ? `${hookChars} chars of narration in the first scene` : 'Scene 1 has no narration text',
+      state: hookChars >= 40 ? 'pass' : hookChars > 0 ? 'warn' : 'unknown'
+    });
+
+    rows.push({
+      label: 'Vertical 9:16 frame for Shorts',
+      detail: stats.resolutionLabel
+        ? `Measured ${stats.resolutionLabel} (${stats.aspectLabel}) · ${stats.tier}`
+        : PENDING,
+      state: !stats.width ? 'unknown' : stats.height > stats.width ? 'pass' : 'warn'
+    });
+
+    const shortsLimit = 180; // YouTube Shorts hard cap, in seconds
+    rows.push({
+      label: `Runtime within the ${shortsLimit}s Shorts limit`,
+      detail: stats.measuredDuration
+        ? `Measured ${stats.measuredDuration.toFixed(1)}s from the rendered file`
+        : stats.scriptedDuration
+          ? `Scripted ${stats.scriptedDuration.toFixed(1)}s — file not measured yet`
+          : PENDING,
+      state: !stats.duration ? 'unknown' : stats.duration > 0 && stats.duration <= shortsLimit ? 'pass' : 'warn'
+    });
+
+    rows.push({
+      label: 'Royalty-free / Content ID safe soundtrack',
+      detail: stats.musicOn
+        ? `${chosenMusic.name} — ${chosenMusic.artist || 'unknown source'}${chosenMusic.isCopyrightFree ? ' (marked CC0 / Content ID safe)' : ''}`
+        : 'Voiceover only — no third-party music in the mix',
+      state: !stats.musicOn ? 'pass' : chosenMusic.isCopyrightFree ? 'pass' : 'warn'
+    });
+
+    rows.push({
+      label: 'Virality score ≥ 85/100',
+      detail: stats.hasScore ? `Critic returned ${stats.rawScore}/100` : 'The workflow returned no critic score for this thread',
+      state: !stats.hasScore ? 'unknown' : stats.rawScore >= 85 ? 'pass' : 'warn'
+    });
+
+    rows.push({
+      label: 'Content safety & YouTube policy review',
+      detail: 'Verified by the generation workflow, not by this browser',
+      state: 'unknown'
+    });
+
+    return rows;
+  }, [stats, scenes, chosenMusic, PENDING]);
+
+  const auditSummary = useMemo(() => {
+    const checkable = auditChecks.filter(c => c.state !== 'unknown').length;
+    return {
+      passed: auditChecks.filter(c => c.state === 'pass').length,
+      checkable,
+      unknown: auditChecks.length - checkable
+    };
+  }, [auditChecks]);
 
   const toggleSceneExpand = (idx) => {
     setExpandedScenes(prev => ({ ...prev, [idx]: !prev[idx] }));
@@ -81,7 +246,7 @@ export default function ResultThreadCard({
     setTimeout(() => setCopiedScript(false), 2000);
   };
 
-  // Real working 4K MP4 Download function
+  // Real working master MP4 download — streams the rendered file to disk
   const handleDownloadVideo = async () => {
     if (!shortData.videoUrl) return;
     audioEngine.playSfx('click');
@@ -95,7 +260,7 @@ export default function ResultThreadCard({
       const a = document.createElement('a');
       a.href = blobUrl;
       const safeTitle = (shortData.title || 'viral_short').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50);
-      a.download = `${safeTitle}_4K_master.mp4`;
+      a.download = `${safeTitle}_${stats.tier || 'master'}.mp4`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -105,7 +270,7 @@ export default function ResultThreadCard({
       const a = document.createElement('a');
       a.href = shortData.videoUrl;
       a.target = '_blank';
-      a.download = 'viral_short_4k_master.mp4';
+      a.download = `viral_short_${stats.tier || 'master'}.mp4`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -130,13 +295,21 @@ export default function ResultThreadCard({
       <div className="result-header">
         <div className="result-header-left">
           <div className="result-badges">
-            <span className="badge badge-brand">✨ 75s Production Master</span>
-            <span className="badge badge-emerald">
-              <CheckCircle2 size={11} />
-              Score: {shortData.criticScore || 99}/100 Approved
+            <span className="badge badge-brand">
+              ✨ {stats.durationLabel ? `${stats.durationLabel} Master` : 'Production Master'}
             </span>
+            {stats.hasScore ? (
+              <span className={`badge ${stats.rawScore >= 85 ? 'badge-emerald' : 'badge-amber'}`}>
+                <CheckCircle2 size={11} />
+                Score: {stats.rawScore}/100 {stats.rawScore >= 85 ? 'Approved' : 'Review'}
+              </span>
+            ) : (
+              <span className="badge" style={{ background: 'var(--bg-input)', color: 'var(--text-muted)' }}>
+                <HelpCircle size={11} /> Not scored
+              </span>
+            )}
             <span className="badge-pill badge-cyan">
-              📱 9:16 Shorts
+              📱 {stats.aspectLabel ? `${stats.aspectLabel} · ${stats.tier}` : '9:16 Shorts'}
             </span>
             {shortData.genre && (
               <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{shortData.genre}</span>
@@ -145,8 +318,14 @@ export default function ResultThreadCard({
           <h2 className="result-title">{shortData.title}</h2>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Working 4K Download Button */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          width: isMobile ? '100%' : 'auto'
+        }}>
+          {/* Working master MP4 download — label reflects the measured frame size */}
           {shortData.videoUrl && (
             <button
               onClick={handleDownloadVideo}
@@ -162,11 +341,13 @@ export default function ResultThreadCard({
                 cursor: isDownloading ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                justifyContent: 'center',
+                gap: '6px',
+                flex: isMobile ? '1 1 100%' : '0 0 auto'
               }}
             >
               {isDownloading ? <Loader2 size={15} className="animate-spin" color="#6366f1" /> : <Download size={15} color="#6366f1" />}
-              <span>{isDownloading ? 'Downloading 4K...' : 'Download 4K MP4'}</span>
+              <span>{isDownloading ? 'Downloading…' : `Download ${downloadTier}`}</span>
             </button>
           )}
 
@@ -182,7 +363,9 @@ export default function ResultThreadCard({
               boxShadow: '0 4px 20px rgba(239, 68, 68, 0.4)',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              justifyContent: 'center',
+              gap: '8px',
+              flex: isMobile ? '1 1 100%' : '0 0 auto'
             }}
           >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
@@ -193,11 +376,13 @@ export default function ResultThreadCard({
         </div>
       </div>
 
-      {/* ── Navigation Tabs ── */}
-      <div className="result-tabs">
+      {/* ── Navigation Tabs (swipeable rail on phones) ── */}
+      <div className={`result-tabs${isMobile ? ' rail' : ''}`} role="tablist">
         {tabs.map(tab => (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
             onClick={() => { audioEngine.playSfx('click'); setActiveTab(tab.id); }}
             className={`result-tab ${activeTab === tab.id ? 'active' : ''}`}
           >
@@ -221,9 +406,10 @@ export default function ResultThreadCard({
                   <div className="shorts-speaker"></div>
                 </div>
 
-                {/* 4K Shorts Badge */}
+                {/* Live resolution tag — read from the decoded file, not assumed */}
                 <div className="shorts-resolution-tag">
-                  <span>4K 60FPS</span> • <span>9:16 Shorts</span>
+                  <span>{stats.tier || '…'}</span> • <span>{stats.aspectLabel || '9:16'}</span>
+                  {stats.durationLabel && <> • <span>{stats.durationLabel}</span></>}
                 </div>
 
                 <video
@@ -233,6 +419,8 @@ export default function ResultThreadCard({
                   autoPlay
                   loop
                   playsInline
+                  preload="metadata"
+                  onLoadedMetadata={handleLoadedMetadata}
                   className="shorts-video-element"
                 />
 
@@ -256,11 +444,18 @@ export default function ResultThreadCard({
                   <div className="specs-grid">
                     <div className="spec-item">
                       <span className="spec-label">Format & Ratio</span>
-                      <span className="spec-value">1080×1920 (9:16)</span>
+                      <span className="spec-value">
+                        {stats.resolutionLabel ? `${stats.resolutionLabel} (${stats.aspectLabel})` : PENDING}
+                      </span>
                     </div>
                     <div className="spec-item">
                       <span className="spec-label">Duration</span>
-                      <span className="spec-value">75.0s (5 Scenes)</span>
+                      <span className="spec-value">
+                        {stats.durationLabel
+                          ? `${stats.durationLabel} (${stats.sceneCount} scene${stats.sceneCount === 1 ? '' : 's'})`
+                          : PENDING}
+                        {stats.measuredDuration ? '' : stats.scriptedDuration ? ' · scripted' : ''}
+                      </span>
                     </div>
                     <div className="spec-item">
                       <span className="spec-label">Voiceover</span>
@@ -268,7 +463,7 @@ export default function ResultThreadCard({
                     </div>
                     <div className="spec-item">
                       <span className="spec-label">Soundtrack</span>
-                      <span className="spec-value">🎵 {chosenMusic?.name || 'Voiceover Only'}</span>
+                      <span className="spec-value">🎵 {stats.musicOn ? chosenMusic.name : 'Voiceover Only'}</span>
                     </div>
                     <div className="spec-item">
                       <span className="spec-label">Subtitles</span>
@@ -276,7 +471,9 @@ export default function ResultThreadCard({
                     </div>
                     <div className="spec-item">
                       <span className="spec-label">Quality Score</span>
-                      <span className="spec-value" style={{ color: '#10b981' }}>Score: {shortData.criticScore || 99}/100</span>
+                      <span className="spec-value" style={{ color: stats.hasScore ? (stats.rawScore >= 85 ? '#10b981' : '#f59e0b') : 'var(--text-muted)' }}>
+                        {stats.hasScore ? `${stats.rawScore}/100` : 'Not scored'}
+                      </span>
                     </div>
                   </div>
 
@@ -333,7 +530,7 @@ export default function ResultThreadCard({
                       style={{ padding: '10px', fontSize: '12.5px', justifyContent: 'center' }}
                     >
                       {isDownloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                      <span>{isDownloading ? 'Downloading 4K...' : 'Download Master MP4'}</span>
+                      <span>{isDownloading ? 'Downloading…' : `Download ${downloadTier}`}</span>
                     </button>
 
                     <button
@@ -342,7 +539,7 @@ export default function ResultThreadCard({
                       style={{ padding: '8px', fontSize: '12px', justifyContent: 'center' }}
                     >
                       {copiedScript ? <Check size={13} color="#10b981" /> : <Film size={13} />}
-                      <span>{copiedScript ? 'Script Copied!' : 'Copy 5-Scene Script'}</span>
+                      <span>{copiedScript ? 'Script Copied!' : `Copy ${stats.sceneCount}-Scene Script`}</span>
                     </button>
                   </div>
                 </div>
@@ -357,7 +554,7 @@ export default function ResultThreadCard({
                     key={idx}
                     onClick={() => { audioEngine.playSfx('click'); setActiveSceneIdx(idx); }}
                     className={`scene-nav-pill ${activeSceneIdx === idx ? 'active' : ''}`}
-                    style={{ '--pill-color': ACT_COLORS[idx] }}
+                    style={{ '--pill-color': ACT_COLORS[idx % ACT_COLORS.length] }}
                   >
                     S{idx + 1}
                   </button>
@@ -398,8 +595,12 @@ export default function ResultThreadCard({
           {/* ── 5-Scene Screenplay Cards ── */}
           <div className="scenes-section">
             <div className="scenes-header">
-              <span className="scenes-label">5-Scene Screenplay Narrative</span>
-              <span className="scenes-meta">75 Seconds Total · 15s Per Scene</span>
+              <span className="scenes-label">{stats.sceneCount}-Scene Screenplay Narrative</span>
+              <span className="scenes-meta">
+                {stats.durationLabel ? `${stats.durationLabel} total` : 'Duration pending'}
+                {stats.sceneCount > 0 && ` · ~${stats.avgSceneDuration.toFixed(1)}s per scene`}
+                {` · ${stats.totalChars.toLocaleString()} chars`}
+              </span>
             </div>
 
             <div className="scenes-list">
@@ -408,7 +609,7 @@ export default function ResultThreadCard({
                 const isExpanded = expandedScenes[idx];
                 const charCount = scene.voiceoverText?.length || 0;
                 const isPerfect = charCount >= 170 && charCount <= 220;
-                const color = ACT_COLORS[idx];
+                const color = ACT_COLORS[idx % ACT_COLORS.length];
 
                 return (
                   <div
@@ -426,7 +627,7 @@ export default function ResultThreadCard({
                           {idx + 1}
                         </div>
                         <div>
-                          <div className="scene-act-name">{scene.act || ACT_LABELS[idx]}</div>
+                          <div className="scene-act-name">{scene.act || ACT_LABELS[idx % ACT_LABELS.length]}</div>
                           <div className="scene-char-count" style={{ color: isPerfect ? '#10b981' : '#f59e0b' }}>
                             {charCount} chars · {scene.duration || 15}s
                           </div>
@@ -488,11 +689,11 @@ export default function ResultThreadCard({
               </p>
             </div>
             <span className="badge-pill badge-emerald" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <ShieldCheck size={12} /> Verified 4K Master
+              <ShieldCheck size={12} /> {stats.tier ? `${stats.tier} master verified` : 'Awaiting render'}
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '14px' }}>
             {/* 1. Voiceover Spec */}
             <div style={{
               background: 'var(--bg-card)',
@@ -527,8 +728,8 @@ export default function ResultThreadCard({
                 display: 'flex',
                 justifyContent: 'space-between'
               }}>
-                <span>Engine: <strong>ElevenLabs Turbo v2.5</strong></span>
-                <span>Language: <strong>{shortData.language || 'Hinglish / Multi'}</strong></span>
+                <span>Engine: <strong>{voiceEngineLabel}</strong></span>
+                <span>Language: <strong>{shortData.language || chosenVoice?.flag || 'Not specified'}</strong></span>
               </div>
             </div>
 
@@ -547,16 +748,24 @@ export default function ResultThreadCard({
                   <Music size={16} />
                   <span>Background Soundtrack</span>
                 </div>
-                <span className="badge-pill badge-emerald" style={{ fontSize: '10px' }}>
-                  <ShieldCheck size={10} /> Content ID Safe
-                </span>
+                {chosenMusic?.isCopyrightFree ? (
+                  <span className="badge-pill badge-emerald" style={{ fontSize: '10px' }}>
+                    <ShieldCheck size={10} /> Content ID Safe
+                  </span>
+                ) : (
+                  <span className="badge-pill badge-amber" style={{ fontSize: '10px' }}>
+                    <AlertTriangle size={10} /> License unverified
+                  </span>
+                )}
               </div>
 
               <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {chosenMusic?.name || 'No Background Music (Voiceover Only)'}
+                {stats.musicOn ? chosenMusic.name : 'No Background Music (Voiceover Only)'}
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                {chosenMusic?.genre} • {chosenMusic?.tempo}
+                {stats.musicOn
+                  ? `${chosenMusic.genre} • ${chosenMusic.tempo}${chosenMusic.artist ? ` • ${chosenMusic.artist}` : ''}`
+                  : 'Clean narration — add a trending track in the YouTube Shorts editor'}
               </div>
 
               <div style={{
@@ -566,10 +775,12 @@ export default function ResultThreadCard({
                 fontSize: '11px',
                 color: 'var(--text-secondary)',
                 display: 'flex',
-                justifyContent: 'space-between'
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '6px'
               }}>
-                <span>Volume Level: <strong>{Math.round((shortData.musicVolume ?? 0.15) * 100)}%</strong></span>
-                <span>Ducking: <strong>-18dB Dynamic</strong></span>
+                <span>Volume Level: <strong>{stats.musicOn ? `${Math.round((shortData.musicVolume ?? 0.15) * 100)}%` : '—'}</strong></span>
+                <span>Ducking: <strong>{stats.musicOn ? `-${stats.duckDb}dB under voice` : 'n/a'}</strong></span>
               </div>
             </div>
 
@@ -588,7 +799,7 @@ export default function ResultThreadCard({
                   <Type size={16} />
                   <span>Subtitles & Typography</span>
                 </div>
-                <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>Whisper Sync</span>
+                <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }} title="The render pipeline transcribes the voiceover with Whisper to time each word">Whisper Sync</span>
               </div>
 
               <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
@@ -627,14 +838,18 @@ export default function ResultThreadCard({
                   <Clapperboard size={16} />
                   <span>Visual Aesthetics & Engine</span>
                 </div>
-                <span className="badge" style={{ background: 'rgba(236,72,153,0.15)', color: '#ec4899' }}>9:16 Shorts</span>
+                <span className="badge" style={{ background: 'rgba(236,72,153,0.15)', color: '#ec4899' }}>
+                  {stats.aspectLabel || '9:16'}
+                </span>
               </div>
 
               <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
                 {shortData.visualStyle || visualStyleName || 'Cinematic Realistic'}
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                5 Parallel Scenes · 15s Per Act · 75s Total Sequence
+                {stats.sceneCount} scene{stats.sceneCount === 1 ? '' : 's'}
+                {stats.sceneCount > 0 && ` · ~${stats.avgSceneDuration.toFixed(1)}s per scene`}
+                {stats.durationLabel && ` · ${stats.durationLabel} sequence`}
               </div>
 
               <div style={{
@@ -644,10 +859,12 @@ export default function ResultThreadCard({
                 fontSize: '11px',
                 color: 'var(--text-secondary)',
                 display: 'flex',
-                justifyContent: 'space-between'
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '6px'
               }}>
-                <span>Resolution: <strong>1080×1920</strong></span>
-                <span>Encoding: <strong>H.264 / AAC</strong></span>
+                <span>Resolution: <strong>{stats.resolutionLabel || PENDING}</strong></span>
+                <span>Container: <strong>{stats.container || '—'}</strong></span>
               </div>
             </div>
           </div>
@@ -688,33 +905,55 @@ export default function ResultThreadCard({
         </div>
       )}
 
-      {/* ═══════════════ TAB 4: CRITIC AUDIT ═══════════════ */}
+      {/* ═══════════════ TAB 4: CRITIC AUDIT (computed, not asserted) ═══════════════ */}
       {activeTab === 'critic' && (
         <div className="critic-panel">
           <div className="critic-score-banner">
             <div>
               <div className="critic-score-label">Virality & Production Scorecard</div>
               <div className="critic-score-value">
-                {shortData.criticScore || 99} / 100
-                <span className="critic-approved">APPROVED</span>
+                {stats.hasScore ? `${stats.rawScore} / 100` : 'Not scored'}
+                {stats.hasScore && (
+                  <span
+                    className="critic-approved"
+                    style={stats.rawScore >= 85 ? undefined : { background: 'rgba(245,158,11,0.18)', color: '#f59e0b' }}
+                  >
+                    {stats.rawScore >= 85 ? 'APPROVED' : 'NEEDS REVIEW'}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                {auditSummary.passed}/{auditSummary.checkable} automated checks passed
+                {auditSummary.unknown > 0 && ` · ${auditSummary.unknown} not verifiable in the browser`}
               </div>
             </div>
-            <Award size={40} color="#34d399" />
+            <Award size={40} color={stats.hasScore && stats.rawScore < 85 ? '#f59e0b' : '#34d399'} />
           </div>
 
           <div className="critic-checks">
-            {[
-              '✓ 190–200 Character Speech Timing per scene (Exact 15s/scene)',
-              '✓ 5-Act Narrative Progression (Hook → Setup → Build → Climax → Resolution)',
-              '✓ Content Safety & YouTube Policy Compliance',
-              '✓ Technical 4K 9:16 Video Duration (75.0s Exact Master)',
-              '✓ Emotional Hook in First 3 Seconds',
-              '✓ 100% Royalty-Free & Content ID Safe Soundtrack',
-              '✓ Platform Virality Score ≥ 85/100',
-            ].map((item, i) => (
+            {auditChecks.map((check, i) => (
               <div key={i} className="critic-check-row">
-                <span>{item}</span>
-                <span className="critic-passed">Passed</span>
+                <span style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', minWidth: 0 }}>
+                  {check.state === 'pass' && <CheckCircle2 size={14} color="#10b981" style={{ flexShrink: 0, marginTop: '2px' }} />}
+                  {check.state === 'warn' && <AlertTriangle size={14} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />}
+                  {check.state === 'unknown' && <HelpCircle size={14} color="var(--text-muted)" style={{ flexShrink: 0, marginTop: '2px' }} />}
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block' }}>{check.label}</span>
+                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)' }}>{check.detail}</span>
+                  </span>
+                </span>
+                <span
+                  className="critic-passed"
+                  style={
+                    check.state === 'pass'
+                      ? undefined
+                      : check.state === 'warn'
+                        ? { background: 'rgba(245,158,11,0.18)', color: '#f59e0b' }
+                        : { background: 'var(--bg-input)', color: 'var(--text-muted)' }
+                  }
+                >
+                  {check.state === 'pass' ? 'Passed' : check.state === 'warn' ? 'Check' : 'Unknown'}
+                </span>
               </div>
             ))}
           </div>
@@ -739,7 +978,7 @@ export default function ResultThreadCard({
             style={{ padding: '7px 14px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
           >
             {isDownloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-            <span>{isDownloading ? 'Downloading...' : 'Download 4K'}</span>
+            <span>{isDownloading ? 'Downloading…' : `Download ${downloadTier}`}</span>
           </button>
         )}
         {shortData.youtubeUrl && (

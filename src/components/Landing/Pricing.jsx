@@ -65,7 +65,7 @@ export default function Pricing({ onSelectPlan }) {
   ];
 
   return (
-    <section id="pricing" style={{ padding: '80px 0', borderTop: '1px solid var(--border-subtle)' }}>
+    <section id="pricing" style={{ paddingTop: 'clamp(48px, 8vw, 80px)', paddingBottom: 'clamp(48px, 8vw, 80px)', borderTop: '1px solid var(--border-subtle)' }}>
       <div className="container">
         {/* Header */}
         <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto 40px auto' }}>
@@ -74,7 +74,7 @@ export default function Pricing({ onSelectPlan }) {
             <span>Transparent Pricing</span>
           </span>
           <h2 className="font-display" style={{
-            fontSize: '36px',
+            fontSize: 'clamp(26px, 5vw, 36px)',
             fontWeight: 800,
             letterSpacing: '-0.02em',
             marginBottom: '14px',
@@ -147,7 +147,7 @@ export default function Pricing({ onSelectPlan }) {
         {/* 3 Pricing Cards */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))',
           gap: '24px',
           alignItems: 'stretch'
         }}>
@@ -198,7 +198,7 @@ export default function Pricing({ onSelectPlan }) {
                 </p>
 
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '24px' }}>
-                  <span className="font-display" style={{ fontSize: '40px', fontWeight: 900, color: 'var(--text-primary)' }}>
+                  <span className="font-display" style={{ fontSize: 'clamp(32px, 5.4vw, 40px)', fontWeight: 900, color: 'var(--text-primary)' }}>
                     {p.price}
                   </span>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>

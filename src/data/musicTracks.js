@@ -168,6 +168,53 @@ export const MUSIC_TRACKS = [
   }
 ];
 
+/**
+ * Legacy / mood-shorthand ids that were shipped as defaults before the catalog
+ * was renamed. Without this map `getMusicTrackById('mystery')` fell through to
+ * MUSIC_TRACKS[0] ("No Background Music"), so the default silently rendered
+ * with no soundtrack and no card appeared selected in the Music Library.
+ */
+export const MUSIC_ID_ALIASES = {
+  mystery: 'mystery2',
+  dark: 'mystery2',
+  suspense: 'mystery2',
+  epic: 'synth',
+  cinematic: 'synth',
+  action2: 'action',
+  tension: 'action',
+  emotional: 'piano',
+  sad: 'piano',
+  upbeat: 'playful',
+  fun: 'playful',
+  comedy: 'playful',
+  chill: 'ambient',
+  lofi: 'ambient',
+  professional: 'corporate',
+  business: 'corporate',
+  cultural: 'indian',
+  silent: 'none',
+  voiceover: 'none',
+};
+
+/** Canonical default soundtrack for new videos. */
+export const DEFAULT_MUSIC_ID = 'mystery2';
+
+/** Number of real, playable soundtracks (excludes the "voiceover only" option). */
+export const PLAYABLE_TRACK_COUNT = MUSIC_TRACKS.filter(t => t.audioUrl).length;
+export const MUSIC_TRACK_COUNT = MUSIC_TRACKS.length;
+
+/** Map any legacy/shorthand id onto an id that exists in MUSIC_TRACKS. */
+export function resolveMusicId(trackId) {
+  if (!trackId) return DEFAULT_MUSIC_ID;
+  const raw = String(trackId).trim();
+  if (MUSIC_TRACKS.some(t => t.id === raw)) return raw;
+  const lower = raw.toLowerCase();
+  if (MUSIC_ID_ALIASES[lower]) return MUSIC_ID_ALIASES[lower];
+  const byName = MUSIC_TRACKS.find(t => t.name.toLowerCase().includes(lower));
+  return byName ? byName.id : DEFAULT_MUSIC_ID;
+}
+
 export function getMusicTrackById(trackId) {
-  return MUSIC_TRACKS.find(t => t.id === trackId) || MUSIC_TRACKS[0];
+  const resolved = resolveMusicId(trackId);
+  return MUSIC_TRACKS.find(t => t.id === resolved) || MUSIC_TRACKS[0];
 }

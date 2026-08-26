@@ -52,7 +52,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '28px',
+            fontSize: 'clamp(22px, 4vw, 28px)',
             fontWeight: 800,
             color: '#ffffff',
             boxShadow: '0 0 24px rgba(99, 102, 241, 0.5)'
@@ -62,7 +62,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <h1 className="font-display" style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)' }}>
+              <h1 className="font-display" style={{ fontSize: 'clamp(20px, 3.6vw, 24px)', fontWeight: 800, color: 'var(--text-primary)' }}>
                 {user?.name || 'Alex Rivera'}
               </h1>
               <span className="badge badge-brand" style={{ fontSize: '11px' }}>
@@ -104,7 +104,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
       {/* Grid: 4 Metric Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))',
         gap: '18px',
         marginBottom: '32px'
       }}>
@@ -113,7 +113,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Total Shorts Created</span>
             <Film size={18} color="var(--accent-primary)" />
           </div>
-          <div className="font-display" style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)' }}>
             24 Videos
           </div>
           <div style={{ fontSize: '11px', color: '#10b981', marginTop: '4px' }}>
@@ -126,7 +126,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Total Channel Views</span>
             <Eye size={18} color="#06b6d4" />
           </div>
-          <div className="font-display" style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)' }}>
             1,480,200
           </div>
           <div style={{ fontSize: '11px', color: '#06b6d4', marginTop: '4px' }}>
@@ -139,7 +139,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Audience Retention</span>
             <Flame size={18} color="#ef4444" />
           </div>
-          <div className="font-display" style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)' }}>
             94.8%
           </div>
           <div style={{ fontSize: '11px', color: '#10b981', marginTop: '4px' }}>
@@ -152,7 +152,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Active Credits</span>
             <Zap size={18} color="#f59e0b" />
           </div>
-          <div className="font-display" style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)' }}>
             100 / 100
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -162,7 +162,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
       </div>
 
       {/* Two Column Layout: Connected YouTube Channel + API Key */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '24px' }}>
         {/* Connected YouTube Channel Card */}
         <div className="saas-card" style={{ padding: '24px', borderRadius: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>

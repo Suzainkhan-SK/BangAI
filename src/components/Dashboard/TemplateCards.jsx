@@ -96,7 +96,7 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset }) {
       {/* Exactly 3 Clean, Responsive Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))',
         gap: '14px',
         width: '100%',
         textAlign: 'left'

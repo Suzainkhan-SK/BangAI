@@ -3,7 +3,7 @@ import {
   Plus, Sparkles, MessageSquare, ChevronLeft, ChevronRight,
   Settings, LogOut, Search, Trash2, Video, Film, Clock,
   CheckCircle2, AlertCircle, XCircle, Loader2, Zap,
-  Mic2, Music, Type
+  Mic2, Music, Type, X
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
 
@@ -34,11 +34,19 @@ export default function Sidebar({
   pastShorts = [], activeShortId, onSelectShort, onNewShort,
   onDeleteShort, collapsed = false, onToggleCollapse,
   user, onOpenSettings, onLogout,
-  isStudioOpen = false, onToggleStudio
+  isStudioOpen = false, onToggleStudio,
+  isMobileDrawer = false, onCloseDrawer
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredId, setHoveredId] = useState(null);
   const [studioHovered, setStudioHovered] = useState(false);
+
+  // Real plan label instead of a hardcoded "Pro Plan" string.
+  const planLabel = (() => {
+    const raw = String(user?.plan || user?.tier || user?.subscription || '').trim();
+    if (!raw) return user ? 'Free Plan' : 'Not signed in';
+    return /plan/i.test(raw) ? raw : `${raw.charAt(0).toUpperCase()}${raw.slice(1)} Plan`;
+  })();
 
   const filtered = (Array.isArray(pastShorts) ? pastShorts : []).filter(s =>
     s && typeof s === 'object' &&
@@ -50,14 +58,14 @@ export default function Sidebar({
   if (collapsed) {
     return (
       <aside style={{
-        width: '60px',
+        width: 'var(--sidebar-w-collapsed, 60px)',
         background: 'var(--bg-sidebar)',
         borderRight: '1px solid var(--border-subtle)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 0 14px 0',
-        height: 'calc(100vh - 58px)',
-        transition: 'all 0.25s cubic-bezier(0.16,1,0.3,1)',
+        height: 'calc(100dvh - var(--nav-h, 58px))',
+        transition: 'width var(--dur-slow, 0.25s) var(--ease, cubic-bezier(0.16,1,0.3,1))',
         flexShrink: 0, zIndex: 110, overflowY: 'auto'
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%', padding: '0 10px' }}>
@@ -146,14 +154,14 @@ export default function Sidebar({
   // ── EXPANDED MODE ─────────────────────────────────────────────────
   return (
     <aside style={{
-      width: '240px',
+      width: 'var(--sidebar-w, 240px)',
       background: 'var(--bg-sidebar)',
       borderRight: '1px solid var(--border-subtle)',
       display: 'flex', flexDirection: 'column',
       justifyContent: 'space-between',
       padding: '0',
-      height: 'calc(100vh - 58px)',
-      transition: 'all 0.25s cubic-bezier(0.16,1,0.3,1)',
+      height: 'calc(100dvh - var(--nav-h, 58px))',
+      transition: 'width var(--dur-slow, 0.25s) var(--ease, cubic-bezier(0.16,1,0.3,1))',
       flexShrink: 0, position: 'relative', zIndex: 110
     }}>
 
@@ -361,21 +369,34 @@ export default function Sidebar({
             <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {user?.name || user?.email?.split('@')[0] || 'Creator'}
             </div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Pro Plan</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{planLabel}</div>
           </div>
         </div>
 
-        <button onClick={onToggleCollapse} title="Collapse sidebar"
-          style={{
-            width: '30px', height: '30px', borderRadius: '8px',
-            background: 'transparent', border: '1px solid var(--border-subtle)',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--text-muted)', flexShrink: 0, transition: 'all 0.15s ease'
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-input)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
-          <ChevronLeft size={15} />
-        </button>
+        {isMobileDrawer && typeof onCloseDrawer === 'function' ? (
+          <button onClick={onCloseDrawer} title="Close menu" aria-label="Close menu"
+            className="icon-btn"
+            style={{
+              width: '34px', height: '34px', borderRadius: '10px',
+              background: 'transparent', border: '1px solid var(--border-subtle)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-muted)', flexShrink: 0
+            }}>
+            <X size={16} />
+          </button>
+        ) : (
+          <button onClick={onToggleCollapse} title="Collapse sidebar" aria-label="Collapse sidebar"
+            style={{
+              width: '30px', height: '30px', borderRadius: '8px',
+              background: 'transparent', border: '1px solid var(--border-subtle)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-muted)', flexShrink: 0, transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-input)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+            <ChevronLeft size={15} />
+          </button>
+        )}
       </div>
     </aside>
   );

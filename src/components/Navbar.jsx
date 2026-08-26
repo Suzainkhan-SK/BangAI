@@ -2,16 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles, Sun, Moon, Zap, User, ArrowRight,
   ChevronDown, Menu, LogOut, Settings as SettingsIcon,
-  Video, LayoutDashboard
+  Video, LayoutDashboard, X, PanelLeft
 } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
+import { useBreakpoint, useBodyScrollLock } from '../hooks/useMediaQuery';
 
 export default function Navbar({
   theme, onToggleTheme, currentView, onNavigate,
   user, onLogout, sidebarCollapsed, onToggleSidebar
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const { isMobile, isTablet } = useBreakpoint();
+  useBodyScrollLock(mobileNavOpen);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -24,8 +28,22 @@ export default function Navbar({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Never leave the mobile sheet open after growing to desktop
+  useEffect(() => {
+    if (!isMobile && mobileNavOpen) setMobileNavOpen(false);
+  }, [isMobile, mobileNavOpen]);
+
+  // Escape closes the mobile sheet
+  useEffect(() => {
+    if (!mobileNavOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setMobileNavOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileNavOpen]);
+
   const go = (view, anchor = null) => {
     setProfileOpen(false);
+    setMobileNavOpen(false);
     audioEngine.playSfx('click');
     if (anchor) {
       if (currentView !== 'landing') {
@@ -40,6 +58,22 @@ export default function Navbar({
       onNavigate(view);
     }
   };
+
+  const NAV_LINKS = user
+    ? [
+        { label: 'Studio', view: 'dashboard' },
+        { label: 'Profile', view: 'profile' },
+        { label: 'Settings', view: 'settings' },
+        { label: 'API', view: 'api' },
+        { label: 'Plans', view: 'pricing' },
+      ]
+    : [
+        { label: 'Home', view: 'landing' },
+        { label: 'Features', view: 'landing', anchor: '#features' },
+        { label: 'Showcase', view: 'landing', anchor: '#showcase' },
+        { label: 'Pricing', view: 'pricing' },
+        { label: 'API', view: 'api' },
+      ];
 
   const NavPill = ({ label, view, anchor }) => {
     const active = !anchor && currentView === view;
@@ -60,6 +94,24 @@ export default function Navbar({
   };
 
   return (
+    <>
+    {/* Scrim lives OUTSIDE <nav>: the navbar's backdrop-filter makes it a
+        containing block, which would clamp a position:fixed child to 58px. */}
+    {isMobile && mobileNavOpen && (
+      <div
+        onClick={() => setMobileNavOpen(false)}
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          top: 'var(--nav-h, 58px)',
+          left: 0, right: 0, bottom: 0,
+          background: 'var(--scrim, rgba(0,0,0,0.6))',
+          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+          zIndex: 190,
+          animation: 'ds-overlay-in 0.18s ease'
+        }}
+      />
+    )}
     <nav style={{
       width: '100%', position: 'sticky', top: 0, zIndex: 200,
       background: 'var(--bg-nav)',
@@ -68,13 +120,14 @@ export default function Navbar({
       transition: 'all 0.25s ease'
     }}>
       <div style={{
-        width: '100%', height: '58px', padding: '0 20px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px'
+        width: '100%', height: 'var(--nav-h, 58px)',
+        padding: isMobile ? '0 12px' : '0 20px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: isMobile ? '8px' : '12px'
       }}>
 
         {/* ── LEFT: Hamburger + Brand ─────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-          {user && currentView === 'dashboard' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, minWidth: 0 }}>
+          {user && currentView === 'dashboard' && !isMobile && (
             <button onClick={() => { audioEngine.playSfx('click'); onToggleSidebar(); }}
               style={{
                 width: '34px', height: '34px', borderRadius: '10px', padding: 0,
@@ -84,8 +137,9 @@ export default function Navbar({
               }}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-              title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}>
-              <Menu size={17} />
+              title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+              <PanelLeft size={17} />
             </button>
           )}
 
@@ -116,8 +170,8 @@ export default function Navbar({
             </div>
           </div>
 
-          {/* Live model pill — dashboard only */}
-          {user && currentView === 'dashboard' && (
+          {/* Live model pill — dashboard only, desktop only */}
+          {user && currentView === 'dashboard' && !isTablet && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: '5px',
               background: 'rgba(16,185,129,0.08)',
@@ -132,29 +186,24 @@ export default function Navbar({
           )}
         </div>
 
-        {/* ── CENTER: Navigation ────────────────────────────────────── */}
-        {!user ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'var(--bg-card)', padding: '4px', borderRadius: '99px', border: '1px solid var(--border-subtle)' }}>
-            <NavPill label="Home" view="landing" />
-            <NavPill label="Features" view="landing" anchor="#features" />
-            <NavPill label="Showcase" view="landing" anchor="#showcase" />
-            <NavPill label="Pricing" view="pricing" />
-            <NavPill label="API" view="api" />
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'var(--bg-card)', padding: '4px', borderRadius: '99px', border: '1px solid var(--border-subtle)' }}>
-            <NavPill label="Studio" view="dashboard" />
-            <NavPill label="Profile" view="profile" />
-            <NavPill label="Settings" view="settings" />
-            <NavPill label="API" view="api" />
-            <NavPill label="Plans" view="pricing" />
+        {/* ── CENTER: Navigation (collapses into the mobile sheet) ──── */}
+        {!isMobile && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '2px',
+            background: 'var(--bg-card)', padding: '4px', borderRadius: '99px',
+            border: '1px solid var(--border-subtle)',
+            maxWidth: '100%', overflowX: 'auto', scrollbarWidth: 'none'
+          }}>
+            {NAV_LINKS.map(link => (
+              <NavPill key={`${link.view}-${link.label}`} label={link.label} view={link.view} anchor={link.anchor} />
+            ))}
           </div>
         )}
 
         {/* ── RIGHT: Controls ───────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           {/* Credits */}
-          {user && (
+          {user && !isTablet && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: '5px',
               background: 'rgba(99,102,241,0.1)',
@@ -187,53 +236,66 @@ export default function Navbar({
           {/* Auth Buttons or Profile */}
           {!user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => go('login')} style={{
-                padding: '7px 14px', borderRadius: '99px', border: '1px solid var(--border-medium)',
-                background: 'transparent', color: 'var(--text-secondary)',
-                fontSize: '13px', fontWeight: 500, cursor: 'pointer',
-                transition: 'all 0.15s ease', fontFamily: 'Space Grotesk, sans-serif'
-              }}
-                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-medium)'; }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; }}>
-                Sign In
-              </button>
+              {!isMobile && (
+                <button onClick={() => go('login')} style={{
+                  padding: '7px 14px', borderRadius: '99px', border: '1px solid var(--border-medium)',
+                  background: 'transparent', color: 'var(--text-secondary)',
+                  fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+                  transition: 'all 0.15s ease', fontFamily: 'Space Grotesk, sans-serif'
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-medium)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; }}>
+                  Sign In
+                </button>
+              )}
               <button onClick={() => go('register')} style={{
-                padding: '7px 16px', borderRadius: '99px', border: 'none',
+                padding: isMobile ? '7px 13px' : '7px 16px', borderRadius: '99px', border: 'none',
                 background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
                 color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '6px',
+                display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap',
                 boxShadow: '0 4px 14px rgba(99,102,241,0.4)',
                 transition: 'all 0.2s ease', fontFamily: 'Space Grotesk, sans-serif'
               }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(99,102,241,0.55)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(99,102,241,0.4)'; }}>
-                <span>Get Started</span>
+                <span>{isMobile ? 'Start' : 'Get Started'}</span>
                 <ArrowRight size={14} />
               </button>
             </div>
           ) : (
             <div ref={dropdownRef} style={{ position: 'relative' }}>
-              <div onClick={() => setProfileOpen(p => !p)} style={{
-                display: 'flex', alignItems: 'center', gap: '7px',
-                padding: '4px 10px 4px 4px', borderRadius: '99px',
-                background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-                cursor: 'pointer', transition: 'all 0.15s ease'
-              }}
+              <div onClick={() => setProfileOpen(p => !p)}
+                role="button"
+                tabIndex={0}
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                aria-label="Account menu"
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProfileOpen(p => !p); } }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '7px',
+                  padding: isMobile ? '4px' : '4px 10px 4px 4px', borderRadius: '99px',
+                  background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                  cursor: 'pointer', transition: 'all 0.15s ease'
+                }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}>
                 <div style={{
                   width: '28px', height: '28px', borderRadius: '50%',
                   background: 'linear-gradient(135deg,#6366f1,#ec4899)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 800, fontSize: '11px', color: '#fff'
+                  fontWeight: 800, fontSize: '11px', color: '#fff', flexShrink: 0
                 }}>
                   {(user.name || user.email || 'U')[0].toUpperCase()}
                 </div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  {(user.name || user.email?.split('@')[0] || 'Creator').split(' ')[0]}
-                </span>
-                <ChevronDown size={13} color="var(--text-muted)"
-                  style={{ transform: profileOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s ease' }} />
+                {!isMobile && (
+                  <>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {(user.name || user.email?.split('@')[0] || 'Creator').split(' ')[0]}
+                    </span>
+                    <ChevronDown size={13} color="var(--text-muted)"
+                      style={{ transform: profileOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s ease' }} />
+                  </>
+                )}
               </div>
 
               {profileOpen && (
@@ -289,8 +351,125 @@ export default function Navbar({
               )}
             </div>
           )}
+
+          {/* Mobile menu trigger — replaces the center pill rail on phones */}
+          {isMobile && (
+            <button
+              onClick={() => { audioEngine.playSfx('click'); setMobileNavOpen(o => !o); }}
+              aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileNavOpen}
+              style={{
+                width: '36px', height: '36px', borderRadius: '11px', padding: 0,
+                background: mobileNavOpen ? 'var(--bg-card)' : 'transparent',
+                border: '1px solid var(--border-subtle)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--text-primary)', flexShrink: 0
+              }}
+            >
+              {mobileNavOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* ── MOBILE NAV SHEET ─────────────────────────────────────────── */}
+      {isMobile && mobileNavOpen && (
+        <div
+          role="menu"
+          aria-label="Site navigation"
+          style={{
+              position: 'absolute', top: 'var(--nav-h, 58px)', left: 0, right: 0,
+              background: 'var(--bg-elevated)',
+              borderBottom: '1px solid var(--border-medium)',
+              boxShadow: 'var(--shadow-xl, 0 24px 60px rgba(0,0,0,0.45))',
+              padding: '10px 12px calc(14px + var(--safe-b, 0px))',
+              display: 'flex', flexDirection: 'column', gap: '4px',
+              maxHeight: 'calc(100dvh - var(--nav-h, 58px))', overflowY: 'auto',
+              zIndex: 210, animation: 'fadeSlideUp 0.18s ease'
+            }}
+          >
+            {user && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: '10px', padding: '10px 12px', marginBottom: '4px',
+                background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                borderRadius: '14px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  <div style={{
+                    width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
+                    background: 'linear-gradient(135deg,#6366f1,#ec4899)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 800, fontSize: '13px', color: '#fff'
+                  }}>
+                    {(user.name || user.email || 'U')[0].toUpperCase()}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="truncate" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {user.name || user.email?.split('@')[0] || 'Creator'}
+                    </div>
+                    <div className="truncate" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{user.email}</div>
+                  </div>
+                </div>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0,
+                  background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.28)',
+                  padding: '4px 9px', borderRadius: '99px', fontSize: '11px', fontWeight: 700, color: '#818cf8'
+                }}>
+                  <Zap size={11} fill="#6366f1" color="#6366f1" />
+                  {user.credits ?? 100}
+                </span>
+              </div>
+            )}
+
+            {NAV_LINKS.map(link => {
+              const active = !link.anchor && currentView === link.view;
+              return (
+                <button
+                  key={`m-${link.view}-${link.label}`}
+                  role="menuitem"
+                  onClick={() => go(link.view, link.anchor)}
+                  style={{
+                    width: '100%', textAlign: 'left', padding: '12px 14px',
+                    borderRadius: '12px', cursor: 'pointer',
+                    background: active ? 'linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.12))' : 'transparent',
+                    border: `1px solid ${active ? 'rgba(99,102,241,0.35)' : 'transparent'}`,
+                    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontSize: '14.5px', fontWeight: active ? 700 : 500,
+                    fontFamily: 'Space Grotesk, sans-serif'
+                  }}
+                >
+                  {link.label}
+                </button>
+              );
+            })}
+
+            <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '6px 2px' }} />
+
+            {!user ? (
+              <button onClick={() => go('login')} style={{
+                width: '100%', padding: '12px 14px', borderRadius: '12px', cursor: 'pointer',
+                background: 'var(--bg-card)', border: '1px solid var(--border-medium)',
+                color: 'var(--text-primary)', fontSize: '14px', fontWeight: 700,
+                fontFamily: 'Space Grotesk, sans-serif'
+              }}>
+                Sign In
+              </button>
+            ) : (
+              <button onClick={() => { setMobileNavOpen(false); onLogout(); }} style={{
+                width: '100%', padding: '12px 14px', borderRadius: '12px', cursor: 'pointer',
+                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                color: '#f87171', fontSize: '14px', fontWeight: 700,
+                display: 'flex', alignItems: 'center', gap: '8px',
+                fontFamily: 'Space Grotesk, sans-serif'
+              }}>
+                <LogOut size={15} />
+                <span>Sign Out</span>
+              </button>
+            )}
+          </div>
+      )}
     </nav>
+    </>
   );
 }

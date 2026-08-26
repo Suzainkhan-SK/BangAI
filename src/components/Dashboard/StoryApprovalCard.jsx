@@ -49,7 +49,8 @@ import {
   getVoiceById 
 } from '../../data/voices';
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS, resolveSubtitleConfig } from '../../data/subtitleStyles';
-import { MUSIC_TRACKS, MUSIC_MOODS } from '../../data/musicTracks';
+import { MUSIC_TRACKS, MUSIC_MOODS, DEFAULT_MUSIC_ID, resolveMusicId, getMusicTrackById, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
+import { useBreakpoint } from '../../hooks/useMediaQuery';
 
 // Canonical Preset Definitions for Story Brief (Stage 1)
 const STORY_PRESETS = [
@@ -172,13 +173,15 @@ export default function StoryApprovalCard({
   initialVoiceId = 'adam',
   initialVoiceSpeed = 1.0,
   initialSubtitleSettings = null,
-  initialMusicId = 'mystery',
+  initialMusicId = DEFAULT_MUSIC_ID,
   initialMusicVolume = 0.15,
   onApprove, 
   onReject, 
   onRefine,
   isSubmitting = false 
 }) {
+  // Inline styles beat CSS classes here, so layout switching happens in JS.
+  const { isMobile, isTablet } = useBreakpoint();
   const [approvedState, setApprovedState] = useState(null);
   const [showAllScenes, setShowAllScenes] = useState(true);
   const [isRefineOpen, setIsRefineOpen] = useState(false);
@@ -214,7 +217,7 @@ export default function StoryApprovalCard({
       maxWordsPerLine: 3
     };
   });
-  const [selectedMusicId, setSelectedMusicId] = useState(() => story?.musicId || initialMusicId || 'none');
+  const [selectedMusicId, setSelectedMusicId] = useState(() => resolveMusicId(story?.musicId || initialMusicId));
   const [musicVolume, setMusicVolume] = useState(() => Number(initialMusicVolume) || 0.15);
   const [voiceVolume, setVoiceVolume] = useState(1.0);
   const [duckingLevel, setDuckingLevel] = useState(18);
@@ -357,7 +360,7 @@ export default function StoryApprovalCard({
 
   // Selected Music Track Object
   const selectedMusicObj = useMemo(() => {
-    return MUSIC_TRACKS.find(m => m.id === selectedMusicId) || MUSIC_TRACKS[0];
+    return getMusicTrackById(selectedMusicId);
   }, [selectedMusicId]);
 
   // Handle immediate voice change with audio reset
@@ -425,9 +428,38 @@ export default function StoryApprovalCard({
     }
   };
 
+  // ── REAL SCRIPT QA — measured from the actual script, not hardcoded ──
+  // Every number shown in the header badge is derived from the scenes below.
+  const qaScenes = Array.isArray(displayScenes) ? displayScenes : [];
+  const qaCharCounts = qaScenes.map(s => String(s?.voiceoverText || '').length);
+  const qaOnLength = qaCharCounts.filter(c => c >= 180 && c <= 210).length;
+  const qaTotalChars = qaCharCounts.reduce((a, b) => a + b, 0);
+  const qaRuntime = qaScenes.reduce((sum, s) => sum + (Number(s?.duration) || 15), 0);
+  // ~14.5 chars/second of narration at 1.0x, adjusted by the selected pacing.
+  const qaSpokenEstimate = qaTotalChars
+    ? Math.round((qaTotalChars / 14.5) / (Number(voiceSpeed) || 1))
+    : 0;
+  const qaScore = Number(story?.criticScore) || null;
+  const qaLabel = qaScore
+    ? `AI Critic Score ${qaScore}/100`
+    : qaScenes.length
+      ? `${qaOnLength}/${qaScenes.length} scenes on-length • ~${qaSpokenEstimate}s narration`
+      : 'Story brief ready for review';
+  const qaTone = qaScore
+    ? (qaScore >= 90 ? 'good' : qaScore >= 75 ? 'warn' : 'bad')
+    : qaScenes.length
+      ? (qaOnLength === qaScenes.length ? 'good' : qaOnLength >= qaScenes.length - 1 ? 'warn' : 'bad')
+      : 'neutral';
+  const QA_TONES = {
+    good:    { color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.32)' },
+    warn:    { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.32)' },
+    bad:     { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)',  border: 'rgba(239, 68, 68, 0.32)' },
+    neutral: { color: 'var(--text-secondary)', bg: 'var(--bg-input)', border: 'var(--border-subtle)' },
+  };
+  const qaStyle = QA_TONES[qaTone];
+
   // Format seconds to M:SS
-  const formatTime = (seconds) => {
-    if (isNaN(seconds) || seconds < 0) return '0:00';
+  const formatTime = (seconds) => {    if (isNaN(seconds) || seconds < 0) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
@@ -668,12 +700,19 @@ export default function StoryApprovalCard({
     }
   };
 
-  // Sync background music player volume in real-time when slider moves
+  // Linear gain for the current ducking amount: gain = 10^(-dB/20).
+  // -18 dB ≈ 12.6% of the un-ducked music amplitude.
+  const duckGain = Math.pow(10, -Math.abs(Number(duckingLevel) || 0) / 20);
+  const isVoiceAudible = isPlayingAllScenes || activePlayingIndex !== null;
+
+  // Sync background music volume in real-time — and duck it under narration,
+  // exactly like the render pipeline does, so the preview matches the export.
   useEffect(() => {
     if (musicPlayerRef.current) {
-      musicPlayerRef.current.volume = Math.max(0, Math.min(1, Number(musicVolume) || 0));
+      const base = Math.max(0, Math.min(1, Number(musicVolume) || 0));
+      musicPlayerRef.current.volume = isVoiceAudible ? base * duckGain : base;
     }
-  }, [musicVolume]);
+  }, [musicVolume, duckGain, isVoiceAudible]);
 
   // Sync voiceover player volume in real-time when slider moves
   useEffect(() => {
@@ -820,10 +859,13 @@ export default function StoryApprovalCard({
     <div className="saas-card" style={{
       background: 'var(--bg-card)',
       border: '1.5px solid var(--border-medium)',
-      borderRadius: '24px',
-      padding: '24px',
+      borderRadius: isMobile ? '18px' : '24px',
+      paddingTop: isMobile ? '16px' : '24px',
+      paddingBottom: isMobile ? '16px' : '24px',
+      paddingLeft: isMobile ? '14px' : '24px',
+      paddingRight: isMobile ? '14px' : '24px',
       boxShadow: 'var(--shadow-card)',
-      marginBottom: '28px',
+      marginBottom: isMobile ? '18px' : '28px',
       position: 'relative',
       overflow: 'hidden'
     }}>
@@ -882,11 +924,15 @@ export default function StoryApprovalCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '5px',
-            background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: '99px', padding: '4px 10px', fontSize: '11.5px', fontWeight: 800, color: '#10b981'
-          }}>
+            background: qaStyle.bg, border: `1px solid ${qaStyle.border}`,
+            borderRadius: '99px', padding: '4px 10px', fontSize: '11.5px', fontWeight: 800, color: qaStyle.color
+          }}
+            title={qaScenes.length
+              ? `Measured from this script: ${qaTotalChars} characters across ${qaScenes.length} scenes. Target is 180–210 characters per scene.`
+              : 'Review the hook and brief, then generate the screenplay.'}
+          >
             <Flame size={13} />
-            <span>98% Viral Retention Score</span>
+            <span>{qaLabel}</span>
           </div>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '5px',
@@ -894,7 +940,7 @@ export default function StoryApprovalCard({
             borderRadius: '99px', padding: '4px 10px', fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)'
           }}>
             <Clock size={13} />
-            <span>{isFinalScenesStage ? '75s • 5 Scenes' : '5-Act Story Brief'}</span>
+            <span>{isFinalScenesStage ? `${qaRuntime}s • ${qaScenes.length} Scene${qaScenes.length === 1 ? '' : 's'}` : '5-Act Story Brief'}</span>
           </div>
         </div>
       </div>
@@ -998,16 +1044,21 @@ export default function StoryApprovalCard({
           boxShadow: 'var(--shadow-glow)'
         }}>
           {/* Hub Tabs */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px', marginBottom: '14px' }}>
+          <div
+            className={isMobile ? 'rail' : undefined}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px', marginBottom: '14px' }}
+          >
             <button
               type="button"
               onClick={() => setActiveMediaTab('voice')}
               style={{
-                padding: '6px 14px', borderRadius: '8px',
+                paddingTop: '6px', paddingBottom: '6px', paddingLeft: '14px', paddingRight: '14px',
+                borderRadius: '8px',
                 border: `1.5px solid ${activeMediaTab === 'voice' ? '#10b981' : 'var(--border-subtle)'}`,
                 background: activeMediaTab === 'voice' ? 'rgba(16,185,129,0.15)' : 'var(--bg-card)',
                 color: activeMediaTab === 'voice' ? '#10b981' : 'var(--text-muted)',
-                fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                whiteSpace: 'nowrap'
               }}
             >
               <Mic2 size={13} />
@@ -1017,11 +1068,13 @@ export default function StoryApprovalCard({
               type="button"
               onClick={() => setActiveMediaTab('subtitles')}
               style={{
-                padding: '6px 14px', borderRadius: '8px',
+                paddingTop: '6px', paddingBottom: '6px', paddingLeft: '14px', paddingRight: '14px',
+                borderRadius: '8px',
                 border: `1.5px solid ${activeMediaTab === 'subtitles' ? '#f59e0b' : 'var(--border-subtle)'}`,
                 background: activeMediaTab === 'subtitles' ? 'rgba(245,158,11,0.15)' : 'var(--bg-card)',
                 color: activeMediaTab === 'subtitles' ? '#f59e0b' : 'var(--text-muted)',
-                fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                whiteSpace: 'nowrap'
               }}
             >
               <Type size={13} />
@@ -1031,15 +1084,17 @@ export default function StoryApprovalCard({
               type="button"
               onClick={() => setActiveMediaTab('music')}
               style={{
-                padding: '6px 14px', borderRadius: '8px',
+                paddingTop: '6px', paddingBottom: '6px', paddingLeft: '14px', paddingRight: '14px',
+                borderRadius: '8px',
                 border: `1px solid ${activeMediaTab === 'music' ? '#06b6d4' : 'var(--border-subtle)'}`,
                 background: activeMediaTab === 'music' ? 'rgba(6,182,212,0.15)' : 'var(--bg-card)',
                 color: activeMediaTab === 'music' ? '#06b6d4' : 'var(--text-muted)',
-                fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                fontSize: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                whiteSpace: 'nowrap'
               }}
             >
               <Music size={13} />
-              <span>3. Background Music (12 Tracks)</span>
+              <span>3. Background Music ({PLAYABLE_TRACK_COUNT} Tracks)</span>
             </button>
           </div>
 
@@ -1100,15 +1155,18 @@ export default function StoryApprovalCard({
               </div>
 
               {/* Provider Switcher Tabs */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '6px',
-                background: 'rgba(0, 0, 0, 0.3)',
-                padding: '4px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-subtle)'
-              }}>
+              <div
+                className={isMobile ? 'rail' : undefined}
+                style={{
+                  display: isMobile ? 'flex' : 'grid',
+                  gridTemplateColumns: isMobile ? undefined : 'repeat(3, 1fr)',
+                  gap: '6px',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  padding: '4px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-subtle)'
+                }}
+              >
                 {VOICE_PROVIDERS.map(p => (
                   <button
                     key={p.id}
@@ -1119,7 +1177,10 @@ export default function StoryApprovalCard({
                       color: voiceProviderFilter === p.id ? '#ffffff' : 'var(--text-muted)',
                       border: 'none',
                       borderRadius: '6px',
-                      padding: '5px 8px',
+                      paddingTop: '5px',
+                      paddingBottom: '5px',
+                      paddingLeft: '8px',
+                      paddingRight: '8px',
                       fontSize: '11px',
                       fontWeight: voiceProviderFilter === p.id ? 800 : 600,
                       cursor: 'pointer',
@@ -1127,6 +1188,7 @@ export default function StoryApprovalCard({
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '4px',
+                      whiteSpace: 'nowrap',
                       transition: 'all 0.15s ease'
                     }}
                   >
@@ -1137,13 +1199,13 @@ export default function StoryApprovalCard({
               </div>
 
               {/* Search Bar & Language/Gender Filters */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: '8px' }}>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <input
                     type="text"
                     value={voiceSearchQuery}
                     onChange={e => setVoiceSearchQuery(e.target.value)}
-                    placeholder="Search 9,650+ voices by name, accent, vibe..."
+                    placeholder={`Search ${filteredApprovalVoices.length.toLocaleString()} voices by name, accent, vibe...`}
                     style={{
                       width: '100%',
                       background: 'var(--bg-input)',
@@ -1245,7 +1307,7 @@ export default function StoryApprovalCard({
               {/* Voices Grid */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 210 : 260}px, 100%), 1fr))`,
                 gap: '8px',
                 maxHeight: '260px',
                 overflowY: 'auto',
@@ -1466,7 +1528,7 @@ export default function StoryApprovalCard({
               </div>
 
               {/* Top YouTuber Preset Cards Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 145 : 210}px, 100%), 1fr))`, gap: '10px' }}>
                 {SUBTITLE_STYLES.map(preset => {
                   const isActive = selectedSubtitleSettings.presetId === preset.id;
                   return (
@@ -1549,7 +1611,7 @@ export default function StoryApprovalCard({
               <div style={{
                 background: 'var(--bg-card)', borderRadius: '12px', padding: '14px',
                 border: '1px solid var(--border-subtle)', display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px'
+                gridTemplateColumns: `repeat(auto-fit, minmax(min(${isMobile ? 130 : 150}px, 100%), 1fr))`, gap: '12px'
               }}>
                 <div>
                   <label style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Font Family</label>
@@ -1725,7 +1787,7 @@ export default function StoryApprovalCard({
 
               {/* Music Tracks Grid */}
               <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 200 : 240}px, 100%), 1fr))`,
                 gap: '8px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px'
               }}>
                 {MUSIC_TRACKS
@@ -2054,6 +2116,37 @@ export default function StoryApprovalCard({
                   ))}
                 </div>
               </div>
+
+              {/* 3. Voice-Over-Music Ducking (real: attenuates BGM while narration plays) */}
+              <div
+                title="Monitor how far the soundtrack drops under narration. Applies live to the preview players (gain = 10^(-dB/20)); the render mixes at -18 dB."
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', padding: '5px 10px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}
+              >
+                <SlidersHorizontal size={13} color="#a78bfa" />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Duck:</span>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', padding: '1px 5px', borderRadius: '4px' }}>
+                  -{duckingLevel}dB
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  step="2"
+                  value={duckingLevel}
+                  onChange={e => {
+                    const val = Math.max(0, Math.min(30, parseInt(e.target.value, 10) || 0));
+                    setDuckingLevel(val);
+                    audioEngine.setDuckingDb(val);
+                  }}
+                  style={{ width: '70px', accentColor: '#a78bfa', cursor: 'pointer' }}
+                />
+                <span
+                  className="tnum"
+                  style={{ fontSize: '9.5px', fontWeight: 700, color: isVoiceAudible ? '#a78bfa' : 'var(--text-muted)' }}
+                >
+                  → {Math.round(musicVolume * duckGain * 100)}% under voice
+                </span>
+              </div>
             </div>
           </div>
 
@@ -2343,7 +2436,7 @@ export default function StoryApprovalCard({
             {/* Presets Grid */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gridTemplateColumns: `repeat(auto-fit, minmax(min(${isMobile ? 140 : 180}px, 100%), 1fr))`,
               gap: '8px',
               marginBottom: '12px'
             }}>
@@ -2436,6 +2529,7 @@ export default function StoryApprovalCard({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flexDirection: isMobile ? 'column-reverse' : 'row',
         flexWrap: 'wrap',
         gap: '12px',
         borderTop: '1px solid var(--border-subtle)',
@@ -2449,13 +2543,15 @@ export default function StoryApprovalCard({
             background: 'transparent',
             border: '1px solid var(--border-subtle)',
             borderRadius: '12px',
-            padding: '10px 18px',
+            paddingTop: '10px', paddingBottom: '10px', paddingLeft: '18px', paddingRight: '18px',
             color: 'var(--text-muted)',
             fontSize: '12.5px',
             fontWeight: 700,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'center',
+            width: isMobile ? '100%' : 'auto',
             gap: '6px',
             transition: 'all 0.15s ease'
           }}
@@ -2464,7 +2560,7 @@ export default function StoryApprovalCard({
           <span>Cancel & Start Over</span>
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: isMobile ? '100%' : 'auto' }}>
           <button
             type="button"
             onClick={handleApprove}
@@ -2475,13 +2571,18 @@ export default function StoryApprovalCard({
                 : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
               border: 'none',
               borderRadius: '12px',
-              padding: '12px 24px',
+              paddingTop: '12px', paddingBottom: '12px',
+              paddingLeft: isMobile ? '16px' : '24px',
+              paddingRight: isMobile ? '16px' : '24px',
               color: '#fff',
-              fontSize: '13.5px',
+              fontSize: isMobile ? '12.5px' : '13.5px',
               fontWeight: 900,
               cursor: isSubmitting ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              width: isMobile ? '100%' : 'auto',
               gap: '8px',
               boxShadow: isFinalScenesStage
                 ? '0 4px 20px rgba(16, 185, 129, 0.4)'

@@ -114,16 +114,16 @@ const STAGE3 = [
   {
     icon: Video,
     color: '#6366f1', glow: 'rgba(99,102,241,0.4)',
-    label: '4A: Visual Prompt Dispatch — 4K Engine',
+    label: '4A: Visual Prompt Dispatch — Video Engine',
     sub: 'Decomposing 5 cinematic prompts with motion parameters',
-    logLines: ['Engine: Wan 2.1 Video Core', 'Resolution: 4K 9:16 vertical', 'Scenes: 5 × 15s dispatched']
+    logLines: ['Engine: Wan 2.1 Video Core', 'Frame: 1080×1920 (9:16)', 'Scenes: 5 × 15s dispatched']
   },
   {
     icon: Film,
     color: '#38bdf8', glow: 'rgba(56,189,248,0.4)',
-    label: '4B: Parallel 4K Scene Rendering',
+    label: '4B: Parallel Scene Rendering',
     sub: 'Rendering 5 cinematic clips with studio-grade lighting',
-    logLines: ['Scene 1 → Rendering (4K, 15s)', 'Scene 2 → Rendering (4K, 15s)', 'Progress: 40%...']
+    logLines: ['Scene 1 → Rendering (15s)', 'Scene 2 → Rendering (15s)', 'Progress: 40%...']
   },
   {
     icon: Mic2,
@@ -135,9 +135,9 @@ const STAGE3 = [
   {
     icon: Layers,
     color: '#f59e0b', glow: 'rgba(245,158,11,0.4)',
-    label: '5A: Final 4K MP4 Assembly',
+    label: '5A: Final MP4 Assembly',
     sub: 'Concatenating 5 scenes, animated captions & master export',
-    logLines: ['FFmpeg: concat 5 clips', 'Motion typography: ✓', 'Master export: 1080p → 4K upscale']
+    logLines: ['FFmpeg: concat 5 clips', 'Motion typography: ✓', 'Master export: 1080×1920 MP4']
   },
   {
     icon: Package,
@@ -219,13 +219,13 @@ export default function GenerationThinkingAnimation({
   const stepDuration = isRenderingVideo ? 22000 : 4000;
 
   const title = isRenderingVideo
-    ? '4K Video Rendering Pipeline'
+    ? 'Video Rendering Pipeline'
     : isSceneStage
     ? 'Screenplay Engine — 5 Scene Generation'
     : 'Autonomous AI Video Pipeline';
 
   const subtitle = isRenderingVideo
-    ? '5 parallel 4K renders + ElevenLabs voice + final MP4 assembly'
+    ? '5 parallel scene renders + ElevenLabs voice + final MP4 assembly'
     : isSceneStage
     ? 'Writing production-grade scene prompts, VO & quality audit'
     : 'Claude 4.6 + n8n Cloud generating your viral short';
@@ -313,7 +313,7 @@ export default function GenerationThinkingAnimation({
                     textTransform: 'uppercase', flexShrink: 0
                   }}>
                     <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: accentColor, boxShadow: `0 0 6px ${accentColor}`, animation: 'pulseRing 1.2s ease-out infinite' }} />
-                    {isRenderingVideo ? 'Rendering 4K' : 'Live n8n'}
+                    {isRenderingVideo ? 'Rendering' : 'Live n8n'}
                   </span>
                 </div>
                 <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
@@ -357,7 +357,7 @@ export default function GenerationThinkingAnimation({
             }}>
               <Zap size={10} color={accentColor} />
               <span style={{ fontSize: '10.5px', fontWeight: 700, color: accentColor }}>
-                {isRenderingVideo ? '75s • 4K Render' : '75s • 5 Acts'}
+                {isRenderingVideo ? '75s • 1080p Render' : '75s • 5 Acts'}
               </span>
             </div>
           </div>

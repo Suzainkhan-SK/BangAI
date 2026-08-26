@@ -17,7 +17,35 @@ class StudioAudioEngine {
     this.masterVolume = 1.0;
     this.voiceVolume = 1.0;
     this.bgmVolume = 0.2;
+    // Music ducking applied while a voiceover is playing, in dB below the
+    // music's own level. 18 dB ≈ 12.6% of the un-ducked amplitude.
+    this.duckingDb = 18;
     this.listeners = new Set();
+  }
+
+  /** Linear gain multiplier for the current ducking amount. */
+  get duckingGain() {
+    return Math.pow(10, -Math.abs(Number(this.duckingDb) || 0) / 20);
+  }
+
+  /** Music level (0–1) to use while a voiceover is playing. */
+  duckedMusicLevel(baseVolume = this.bgmVolume) {
+    const base = Math.max(0, Math.min(1, Number(baseVolume) || 0));
+    return Math.max(0, Math.min(1, base * this.duckingGain));
+  }
+
+  setDuckingDb(db) {
+    this.duckingDb = Math.max(0, Math.min(60, parseFloat(db) || 0));
+    if (this.isPlayingVoice && this.bgmGainNode && this.ctx) {
+      try {
+        const now = this.ctx.currentTime;
+        this.bgmGainNode.gain.linearRampToValueAtTime(
+          this.duckedMusicLevel() * this.masterVolume,
+          now + 0.08
+        );
+      } catch (e) {}
+    }
+    this.notify();
   }
 
   init() {
@@ -70,7 +98,8 @@ class StudioAudioEngine {
       currentVoiceId: this.currentVoiceId,
       masterVolume: this.masterVolume,
       voiceVolume: this.voiceVolume,
-      bgmVolume: this.bgmVolume
+      bgmVolume: this.bgmVolume,
+      duckingDb: this.duckingDb
     };
     this.listeners.forEach((cb) => cb(state));
   }
@@ -209,7 +238,7 @@ class StudioAudioEngine {
     // Duck BGM if playing
     if (this.bgmGainNode) {
       const now = this.ctx.currentTime;
-      this.bgmGainNode.gain.linearRampToValueAtTime(0.06 * this.masterVolume, now + 0.1);
+      this.bgmGainNode.gain.linearRampToValueAtTime(this.duckedMusicLevel() * this.masterVolume, now + 0.1);
     }
 
     const pitchMap = {

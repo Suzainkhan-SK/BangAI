@@ -17,8 +17,10 @@ import {
 } from 'lucide-react';
 import { PRESETS } from '../../data/presets';
 import { audioEngine } from '../../audio/audioEngine';
+import { useBreakpoint } from '../../hooks/useMediaQuery';
 
 export default function Hero({ onStartCreation, onOpenDemoPreset }) {
+  const { isMobile, isTablet } = useBreakpoint();
   const [activeTab, setActiveTab] = useState('bermuda');
   const [heroPrompt, setHeroPrompt] = useState(PRESETS.bermuda.rawUserInput);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -53,7 +55,8 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
   return (
     <section style={{
       position: 'relative',
-      padding: '60px 0 70px 0',
+      paddingTop: isMobile ? '32px' : '60px',
+      paddingBottom: isMobile ? '44px' : '70px',
       overflow: 'hidden'
     }}>
       {/* Ambient Neural Glow Mesh */}
@@ -82,23 +85,23 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
               boxShadow: '0 0 10px #38bdf8',
               display: 'inline-block'
             }} />
-            <span className="font-grok" style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            <span className="font-grok" style={{ fontSize: isMobile ? '11px' : '12.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
               ShortsAI 2.0 Engine • Grok 1.5 Video + ElevenLabs Turbo v2.5
             </span>
           </div>
         </div>
 
         {/* Headline */}
-        <div style={{ textAlign: 'center', maxWidth: '880px', margin: '0 auto 36px auto' }}>
+        <div style={{ textAlign: 'center', maxWidth: '880px', margin: isMobile ? '0 auto 26px auto' : '0 auto 36px auto' }}>
           <h1 className="font-display" style={{
-            fontSize: '54px',
+            fontSize: 'clamp(30px, 7.2vw, 54px)',
             fontWeight: 900,
             lineHeight: 1.1,
             letterSpacing: '-0.035em',
             marginBottom: '16px',
             color: 'var(--text-primary)'
           }}>
-            Turn Any Story Idea into a Viral <br />
+            Turn Any Story Idea into a Viral {isMobile ? ' ' : <br />}
             <span style={{
               background: 'var(--grad-primary)',
               WebkitBackgroundClip: 'text',
@@ -107,13 +110,13 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
           </h1>
 
           <p style={{
-            fontSize: '17px',
+            fontSize: isMobile ? '14.5px' : '17px',
             color: 'var(--text-secondary)',
             lineHeight: 1.6,
             maxWidth: '680px',
             margin: '0 auto'
           }}>
-            Autonomous 5-act cinematic screenwriting, ElevenLabs voice narration, 
+            Autonomous 5-act cinematic screenwriting, ElevenLabs voice narration,
             adaptive background score, and 1-click YouTube publishing in under 75 seconds.
           </p>
         </div>
@@ -121,16 +124,22 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
         {/* Interactive Dual-Panel Hero Canvas */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '32px',
+          gridTemplateColumns: `repeat(auto-fit, minmax(min(${isMobile ? 260 : 320}px, 100%), 1fr))`,
+          gap: isMobile ? '20px' : '32px',
           alignItems: 'center',
           maxWidth: '1100px',
-          margin: '0 auto 48px auto'
+          margin: isMobile ? '0 auto 32px auto' : '0 auto 48px auto'
         }}>
           {/* Left Side: Interactive Prompt Studio Sandbox */}
-          <div className="saas-card" style={{ padding: '28px', border: '1.5px solid var(--border-glow)' }}>
+          <div className="saas-card" style={{
+            paddingTop: isMobile ? '18px' : '28px',
+            paddingBottom: isMobile ? '18px' : '28px',
+            paddingLeft: isMobile ? '16px' : '28px',
+            paddingRight: isMobile ? '16px' : '28px',
+            border: '1.5px solid var(--border-glow)'
+          }}>
             {/* Genre Category Pills */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
+            <div className="rail" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
                 Preset:
               </span>
@@ -195,7 +204,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
               {/* Engine Specs Badges */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
+                gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
                 gap: '8px',
                 marginBottom: '20px',
                 fontSize: '11px',
@@ -231,7 +240,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
             <div className="saas-card" style={{
               position: 'absolute',
               top: '16px',
-              left: '-16px',
+              left: isMobile ? '0px' : '-16px',
               zIndex: 30,
               padding: '8px 12px',
               borderRadius: '12px',
@@ -254,7 +263,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
             <div className="saas-card" style={{
               position: 'absolute',
               bottom: '36px',
-              right: '-16px',
+              right: isMobile ? '0px' : '-16px',
               zIndex: 30,
               padding: '8px 12px',
               borderRadius: '12px',
@@ -275,8 +284,8 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
 
             {/* 9:16 Vertical Video Frame */}
             <div className="saas-card" style={{
-              width: '290px',
-              height: '460px',
+              width: isMobile ? 'min(290px, 82vw)' : '290px',
+              height: isMobile ? 'min(460px, 130vw)' : '460px',
               borderRadius: '32px',
               padding: '14px',
               background: '#040711',
@@ -294,7 +303,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
                   ● 75s (5 Scenes)
                 </span>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
-                  Grok 1.5 4K
+                  Grok Imagine 1.5
                 </span>
               </div>
 
@@ -379,25 +388,25 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
         {/* Live Metrics Ticker Bar */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: `repeat(auto-fit, minmax(min(${isMobile ? 140 : 200}px, 100%), 1fr))`,
           gap: '16px',
           borderTop: '1px solid var(--border-subtle)',
-          paddingTop: '28px'
+          paddingTop: isMobile ? '22px' : '28px'
         }}>
           <div style={{ textAlign: 'center' }}>
-            <div className="font-display" style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-primary)' }}>100,000+</div>
+            <div className="font-display" style={{ fontSize: 'clamp(20px, 3.6vw, 24px)', fontWeight: 900, color: 'var(--text-primary)' }}>100,000+</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Shorts Autonomously Rendered</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div className="font-display" style={{ fontSize: '24px', fontWeight: 900, color: '#10b981' }}>94.8%</div>
+            <div className="font-display" style={{ fontSize: 'clamp(20px, 3.6vw, 24px)', fontWeight: 900, color: '#10b981' }}>94.8%</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Average Audience Retention</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div className="font-display" style={{ fontSize: '24px', fontWeight: 900, color: 'var(--accent-cyan)' }}>75.0s Strict</div>
+            <div className="font-display" style={{ fontSize: 'clamp(20px, 3.6vw, 24px)', fontWeight: 900, color: 'var(--accent-cyan)' }}>75.0s Strict</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>5-Scene Pacing Engine</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div className="font-display" style={{ fontSize: '24px', fontWeight: 900, color: '#f59e0b' }}>1-Click Publish</div>
+            <div className="font-display" style={{ fontSize: 'clamp(20px, 3.6vw, 24px)', fontWeight: 900, color: '#f59e0b' }}>1-Click Publish</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>YouTube Data API v3 Verified</div>
           </div>
         </div>

@@ -31,8 +31,8 @@ export default function PricingPage({ onSelectPlan }) {
       period: 'per month',
       description: 'Everything serious faceless channel creators need to dominate.',
       features: [
-        '100 75-second 4K Shorts per month',
-        '4K 60FPS Master Ultra-HD Export',
+        '100 75-second Shorts per month',
+        '1080×1920 Full HD master export',
         'All 6 ElevenLabs Turbo v2.5 Voices',
         'All 6 Visual Art Styles + Pixar 3D',
         'Automatic Word-by-Word Subtitle Burn',
@@ -50,8 +50,8 @@ export default function PricingPage({ onSelectPlan }) {
       period: 'per month',
       description: 'For media companies running 5+ monetized YouTube channels.',
       features: [
-        '500 75-second 4K Shorts per month',
-        'Unlimited 4K 60FPS Video Exports',
+        '500 75-second Shorts per month',
+        'Unlimited 1080×1920 master exports',
         'Custom ElevenLabs Voice Cloning',
         'Custom Art Style LoRA Training',
         'n8n & REST API Webhook Access',
@@ -71,7 +71,7 @@ export default function PricingPage({ onSelectPlan }) {
           <Sparkles size={13} />
           <span>Simple, Transparent Pricing</span>
         </span>
-        <h1 className="font-display" style={{ fontSize: '38px', fontWeight: 900, letterSpacing: '-0.02em', marginBottom: '14px', color: 'var(--text-primary)' }}>
+        <h1 className="font-display" style={{ fontSize: 'clamp(27px, 5.2vw, 38px)', fontWeight: 900, letterSpacing: '-0.02em', marginBottom: '14px', color: 'var(--text-primary)' }}>
           Scale Your YouTube Shorts Empire
         </h1>
         <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
@@ -137,7 +137,7 @@ export default function PricingPage({ onSelectPlan }) {
       {/* Pricing Cards Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(290px, 100%), 1fr))',
         gap: '24px'
       }}>
         {plans.map((plan) => (
@@ -172,7 +172,7 @@ export default function PricingPage({ onSelectPlan }) {
               </p>
 
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '24px' }}>
-                <span className="font-display" style={{ fontSize: '42px', fontWeight: 900, color: 'var(--text-primary)' }}>
+                <span className="font-display" style={{ fontSize: 'clamp(33px, 5.6vw, 42px)', fontWeight: 900, color: 'var(--text-primary)' }}>
                   {plan.price}
                 </span>
                 <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>

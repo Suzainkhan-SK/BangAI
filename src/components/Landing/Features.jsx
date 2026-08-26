@@ -26,7 +26,7 @@ export default function Features() {
     },
     {
       step: '03',
-      title: '1-Click 4K Render & Publish',
+      title: '1-Click Render & Publish',
       desc: 'Renders 5 parallel Grok Imagine 1.5 scenes, burns animated subtitles, and uploads directly to YouTube.',
       icon: <Zap size={20} color="#06b6d4" />
     }
@@ -35,7 +35,7 @@ export default function Features() {
   const gridFeatures = [
     {
       title: 'Grok Imagine 1.5 Video Engine',
-      desc: 'Generates 5 direct 15-second cinematic video scenes in parallel with photorealistic 4K 9:16 vertical resolution.',
+      desc: 'Generates 5 direct 15-second cinematic video scenes in parallel, composited into a 1080×1920 vertical master.',
       icon: <Video size={22} color="#06b6d4" />
     },
     {
@@ -66,7 +66,7 @@ export default function Features() {
   ];
 
   return (
-    <section id="features" style={{ padding: '80px 0', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+    <section id="features" style={{ paddingTop: 'clamp(48px, 8vw, 80px)', paddingBottom: 'clamp(48px, 8vw, 80px)', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
       <div className="container">
         {/* 3-Step Workflow */}
         <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 48px auto' }}>
@@ -75,7 +75,7 @@ export default function Features() {
             <span>Autonomous Production Pipeline</span>
           </span>
           <h2 className="font-display" style={{
-            fontSize: '36px',
+            fontSize: 'clamp(26px, 5vw, 36px)',
             fontWeight: 800,
             letterSpacing: '-0.02em',
             marginBottom: '14px',
@@ -88,12 +88,12 @@ export default function Features() {
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '80px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '24px', marginBottom: '80px' }}>
           {steps.map((s, idx) => (
             <div key={idx} className="saas-card" style={{ padding: '28px', position: 'relative' }}>
               <div style={{
                 fontFamily: 'Outfit, sans-serif',
-                fontSize: '44px',
+                fontSize: 'clamp(30px, 6vw, 44px)',
                 fontWeight: 900,
                 color: 'var(--border-medium)',
                 lineHeight: 1,
@@ -127,7 +127,7 @@ export default function Features() {
         {/* 6 Capabilities Grid */}
         <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 48px auto' }}>
           <h2 className="font-display" style={{
-            fontSize: '32px',
+            fontSize: 'clamp(24px, 4.6vw, 32px)',
             fontWeight: 800,
             letterSpacing: '-0.02em',
             marginBottom: '14px',
@@ -137,7 +137,7 @@ export default function Features() {
           </h2>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '20px' }}>
           {gridFeatures.map((f, i) => (
             <div key={i} className="saas-card" style={{ padding: '24px', display: 'flex', gap: '16px' }}>
               <div style={{
