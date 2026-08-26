@@ -1,121 +1,145 @@
-// db.js — Production-Grade In-Memory + n8n Execution Fallback Store
-// 
-// Strategy:
-// 1. PRIMARY: globalThis module-level Map (persists for the lifetime of a warm Lambda container ~20 min)
-//    - Works when POST and GET hit same container (most common case)
-// 2. FALLBACK: n8n Cloud API execution status polling via NETLIFY env vars
-//    - When container is cold or rotated, browser polls n8n API directly via this proxy
-// 
-// This is the correct Netlify serverless architecture — no external dependencies needed.
+// db.js — Production-Grade MongoDB Atlas Connection with Pool Caching & In-Memory Fallback
+import { MongoClient } from 'mongodb';
 
-// Module-level global store — persists across requests within same warm container
-if (!globalThis.__shortsThreadStore) {
-  globalThis.__shortsThreadStore = new Map();
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://suzainkhan8360_db_user:3bvuvLwwzo7kd4OH@viral-shorts-ai-studio.shfhvsw.mongodb.net/viral-shorts-ai-studio?retryWrites=true&w=majority';
+const DB_NAME = 'viral-shorts-ai-studio';
+
+let cachedClient = null;
+let cachedDb = null;
+
+// In-memory fallback map for resilience in offline/disconnected environments
+if (!globalThis.__shortsFallbackStore) {
+  globalThis.__shortsFallbackStore = {
+    threads: new Map(),
+    messages: new Map(),
+    users: new Map()
+  };
 }
 
-const store = globalThis.__shortsThreadStore;
-
-const db = {
-  collection: (name) => {
-    if (name === 'threads') {
-      return {
-        findOne: async ({ threadId }) => {
-          return store.get(threadId) || null;
-        },
-        find: (q = {}) => ({
-          sort: () => ({
-            limit: (n) => ({
-              toArray: async () => {
-                if (q.threadId) {
-                  const doc = store.get(q.threadId);
-                  return doc ? [doc] : [];
-                }
-                const all = [...store.values()];
-                if (q.status?.$in) {
-                  return all.filter(t => q.status.$in.includes(t.status)).slice(0, n);
-                }
-                return all.slice(0, n);
-              }
-            }),
-            toArray: async () => {
-              if (q.threadId) {
-                const doc = store.get(q.threadId);
-                return doc ? [doc] : [];
-              }
-              return [...store.values()];
-            }
-          })
-        }),
-        updateOne: async (filter, update, options) => {
-          const { threadId } = filter;
-          const existing = store.get(threadId) || {};
-          
-          const setDoc = update.$set || {};
-          const pushDoc = update.$push || {};
-          const setOnInsertDoc = (options?.upsert && !existing.createdAt)
-            ? (update.$setOnInsert || {})
-            : {};
-
-          let messages = existing.messages || [];
-          if (pushDoc.messages) {
-            messages = [...messages, pushDoc.messages];
-          }
-
-          const newDoc = {
-            ...existing,
-            ...setOnInsertDoc,
-            ...setDoc,
-            messages,
-            threadId,
-            id: threadId,
-            updatedAt: setDoc.updatedAt || new Date().toISOString()
-          };
-
-          store.set(threadId, newDoc);
-          return { acknowledged: true, upsertedId: threadId };
-        },
-        deleteOne: async ({ threadId }) => {
-          store.delete(threadId);
-          return { acknowledged: true };
-        }
-      };
-    }
-
-    if (name === 'messages') {
-      return {
-        find: (q) => ({
-          sort: () => ({
-            limit: (n) => ({
-              toArray: async () => {
-                const doc = q.threadId ? store.get(q.threadId) : null;
-                return (doc?.messages || []).slice(0, n);
-              }
-            }),
-            toArray: async () => {
-              const doc = q.threadId ? store.get(q.threadId) : null;
-              return doc?.messages || [];
-            }
-          })
-        }),
-        insertOne: async () => ({ acknowledged: true }),
-        deleteMany: async () => ({ acknowledged: true })
-      };
-    }
-
-    return {
-      find: () => ({ sort: () => ({ limit: () => ({ toArray: async () => [] }), toArray: async () => [] }) }),
-      findOne: async () => null,
-      insertOne: async () => ({ acknowledged: true }),
-      updateOne: async () => ({ acknowledged: true }),
-      deleteOne: async () => ({ acknowledged: true }),
-      deleteMany: async () => ({ acknowledged: true })
-    };
-  }
-};
+const fallbackStore = globalThis.__shortsFallbackStore;
 
 export async function getDb() {
-  return db;
-}
+  if (cachedDb) {
+    return cachedDb;
+  }
 
-// Export raw store access for the story-approval polling endpoint
-export { store as threadStore };
+  try {
+    if (!cachedClient) {
+      cachedClient = new MongoClient(MONGODB_URI, {
+        connectTimeoutMS: 8000,
+        serverSelectionTimeoutMS: 8000,
+        maxPoolSize: 10
+      });
+      await cachedClient.connect();
+    }
+    cachedDb = cachedClient.db(DB_NAME);
+    return cachedDb;
+  } catch (err) {
+    console.warn('[db.js] MongoDB Atlas connection failed, using fallback in-memory store:', err.message);
+    
+    // Return an in-memory collection shim that mirrors MongoDB API
+    return {
+      collection: (name) => {
+        const store = fallbackStore[name] || new Map();
+        fallbackStore[name] = store;
+
+        return {
+          findOne: async (query = {}) => {
+            for (const doc of store.values()) {
+              let match = true;
+              for (const [k, v] of Object.entries(query)) {
+                if (doc[k] !== v) { match = false; break; }
+              }
+              if (match) return doc;
+            }
+            return null;
+          },
+          find: (query = {}) => ({
+            sort: () => ({
+              limit: (n) => ({
+                toArray: async () => {
+                  const results = [];
+                  for (const doc of store.values()) {
+                    let match = true;
+                    for (const [k, v] of Object.entries(query)) {
+                      if (doc[k] !== v) { match = false; break; }
+                    }
+                    if (match) results.push(doc);
+                  }
+                  return results.slice(0, n);
+                }
+              }),
+              toArray: async () => {
+                const results = [];
+                for (const doc of store.values()) {
+                  let match = true;
+                  for (const [k, v] of Object.entries(query)) {
+                    if (doc[k] !== v) { match = false; break; }
+                  }
+                  if (match) results.push(doc);
+                }
+                return results;
+              }
+            })
+          }),
+          insertOne: async (doc) => {
+            const id = doc.id || doc._id || doc.threadId || doc.email || String(Date.now());
+            const fullDoc = { ...doc, _id: id, id };
+            store.set(id, fullDoc);
+            return { acknowledged: true, insertedId: id };
+          },
+          updateOne: async (filter, update, options = {}) => {
+            let targetDoc = null;
+            let targetKey = null;
+
+            for (const [key, doc] of store.entries()) {
+              let match = true;
+              for (const [k, v] of Object.entries(filter)) {
+                if (doc[k] !== v) { match = false; break; }
+              }
+              if (match) { targetDoc = doc; targetKey = key; break; }
+            }
+
+            if (!targetDoc && options.upsert) {
+              const newId = filter.id || filter.threadId || filter.email || String(Date.now());
+              const newDoc = {
+                _id: newId,
+                ...filter,
+                ...(update.$setOnInsert || {}),
+                ...(update.$set || {})
+              };
+              store.set(newId, newDoc);
+              return { acknowledged: true, upsertedId: newId };
+            }
+
+            if (targetDoc) {
+              const updatedDoc = {
+                ...targetDoc,
+                ...(update.$set || {})
+              };
+              store.set(targetKey, updatedDoc);
+              return { acknowledged: true, modifiedCount: 1 };
+            }
+
+            return { acknowledged: true, modifiedCount: 0 };
+          },
+          deleteOne: async (filter) => {
+            for (const [key, doc] of store.entries()) {
+              let match = true;
+              for (const [k, v] of Object.entries(filter)) {
+                if (doc[k] !== v) { match = false; break; }
+              }
+              if (match) { store.delete(key); return { acknowledged: true, deletedCount: 1 }; }
+            }
+            return { acknowledged: true, deletedCount: 0 };
+          },
+          deleteMany: async () => {
+            store.clear();
+            return { acknowledged: true };
+          },
+          countDocuments: async () => store.size
+        };
+      }
+    };
+  }
+}

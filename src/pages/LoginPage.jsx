@@ -1,47 +1,41 @@
 import React, { useState } from 'react';
-import { Sparkles, Mail, Lock, ArrowRight, Eye, EyeOff, Zap, ShieldCheck } from 'lucide-react';
+import { Sparkles, Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
+import { loginUser } from '../utils/authClient';
 
 export default function LoginPage({ onLoginSuccess, onNavigateToRegister, onNavigateToLanding }) {
-  const [email, setEmail] = useState('alex.creator@shortsai.studio');
-  const [password, setPassword] = useState('supersecretpassword123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage('');
+
+    if (!email.trim() || !password) {
+      setErrorMessage('Please enter both email and password.');
+      return;
+    }
+
     audioEngine.playSfx('click');
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const data = await loginUser(email.trim().toLowerCase(), password);
       audioEngine.playSfx('boom');
-      onLoginSuccess({
-        name: 'Alex Rivera',
-        email: email,
-        channel: 'Viral Facts & Mysteries HQ',
-        plan: 'Creator Pro Plan',
-        credits: 100
-      });
-    }, 600);
-  };
-
-  const handleDemoLogin = () => {
-    audioEngine.playSfx('click');
-    setIsLoading(true);
-
-    setTimeout(() => {
+      if (typeof onLoginSuccess === 'function') {
+        onLoginSuccess(data.user);
+      }
+    } catch (err) {
+      console.error('[LoginPage] Login error:', err);
+      audioEngine.playSfx('click');
+      setErrorMessage(err.message || 'Invalid email or password.');
+    } finally {
       setIsLoading(false);
-      audioEngine.playSfx('boom');
-      onLoginSuccess({
-        name: 'Alex Rivera (Demo Creator)',
-        email: 'demo.creator@shortsai.studio',
-        channel: 'Viral Facts & Mysteries HQ',
-        plan: 'Creator Pro Plan',
-        credits: 100
-      });
-    }, 400);
+    }
   };
 
   return (
@@ -99,57 +93,48 @@ export default function LoginPage({ onLoginSuccess, onNavigateToRegister, onNavi
           </p>
         </div>
 
-        {/* 1-Click Instant Demo Login CTA */}
-        <button
-          onClick={handleDemoLogin}
-          type="button"
-          disabled={isLoading}
-          className="btn-glow"
-          style={{
-            width: '100%',
-            justifyContent: 'center',
-            padding: '12px',
-            fontSize: '14px',
-            marginBottom: '18px'
-          }}
-        >
-          <Zap size={16} fill="#ffffff" />
-          <span>⚡ Instant 1-Click Demo Access</span>
-        </button>
-
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          margin: '18px 0',
-          color: 'var(--text-muted)',
-          fontSize: '12px'
-        }}>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
-          <span>or enter account details</span>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
-        </div>
+        {/* Error Alert */}
+        {errorMessage && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            borderRadius: '12px',
+            padding: '12px 14px',
+            marginBottom: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            color: '#ef4444',
+            fontSize: '13px',
+            lineHeight: 1.4
+          }}>
+            <AlertCircle size={18} style={{ flexShrink: 0 }} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Email */}
           <div>
-            <label style={{ fontSize: '12.5px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
               Email Address
             </label>
             <div style={{ position: 'relative' }}>
-              <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '13px' }} />
+              <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
               <input
                 type="email"
+                placeholder="name@domain.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="you@creator.com"
+                disabled={isLoading}
                 style={{
                   width: '100%',
                   background: 'var(--bg-input)',
                   border: '1px solid var(--border-medium)',
                   borderRadius: '12px',
-                  padding: '11px 14px 11px 40px',
+                  padding: '10px 12px 10px 38px',
                   fontSize: '13.5px',
                   color: 'var(--text-primary)',
                   outline: 'none'
@@ -158,28 +143,28 @@ export default function LoginPage({ onLoginSuccess, onNavigateToRegister, onNavi
             </div>
           </div>
 
+          {/* Password */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
                 Password
               </label>
-              <span style={{ fontSize: '12px', color: 'var(--accent-primary)', cursor: 'pointer', fontWeight: 600 }}>
-                Forgot password?
-              </span>
             </div>
             <div style={{ position: 'relative' }}>
-              <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '13px' }} />
+              <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
               <input
                 type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isLoading}
                 style={{
                   width: '100%',
                   background: 'var(--bg-input)',
                   border: '1px solid var(--border-medium)',
                   borderRadius: '12px',
-                  padding: '11px 40px 11px 40px',
+                  padding: '10px 38px 10px 38px',
                   fontSize: '13.5px',
                   color: 'var(--text-primary)',
                   outline: 'none'
@@ -191,12 +176,11 @@ export default function LoginPage({ onLoginSuccess, onNavigateToRegister, onNavi
                 style={{
                   position: 'absolute',
                   right: '12px',
-                  top: '11px',
-                  background: 'none',
+                  top: '12px',
+                  background: 'transparent',
                   border: 'none',
                   color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  padding: '2px'
+                  cursor: 'pointer'
                 }}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -204,42 +188,30 @@ export default function LoginPage({ onLoginSuccess, onNavigateToRegister, onNavi
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="checkbox"
-              id="remember"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
-            />
-            <label htmlFor="remember" style={{ fontSize: '12.5px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              Remember me on this device
-            </label>
-          </div>
-
+          {/* Submit */}
           <button
             type="submit"
             disabled={isLoading}
-            className="btn-outline"
-            style={{
-              width: '100%',
-              justifyContent: 'center',
-              padding: '12px',
-              fontSize: '14px',
-              background: 'var(--bg-card-hover)',
-              borderColor: 'var(--accent-primary)',
-              color: 'var(--text-primary)',
-              marginTop: '4px'
-            }}
+            className="btn-glow"
+            style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px', marginTop: '4px', cursor: isLoading ? 'not-allowed' : 'pointer' }}
           >
-            <span>{isLoading ? 'Authenticating...' : 'Sign In to Account'}</span>
-            <ArrowRight size={15} />
+            {isLoading ? (
+              <>
+                <Loader2 size={16} className="spin-animation" />
+                <span>Authenticating with Atlas...</span>
+              </>
+            ) : (
+              <>
+                <span>Sign In to Studio</span>
+                <ArrowRight size={16} />
+              </>
+            )}
           </button>
         </form>
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', marginTop: '22px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          New to ShortsAI?{' '}
+        <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          Don't have an account?{' '}
           <button
             onClick={() => {
               audioEngine.playSfx('click');
@@ -247,7 +219,7 @@ export default function LoginPage({ onLoginSuccess, onNavigateToRegister, onNavi
             }}
             style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontWeight: 700, cursor: 'pointer', padding: 0 }}
           >
-            Create free account
+            Sign up
           </button>
         </div>
       </div>

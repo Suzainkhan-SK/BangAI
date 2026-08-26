@@ -1,32 +1,65 @@
 import React, { useState } from 'react';
-import { X, Sparkles, User, Lock, Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { X, Sparkles, User, Lock, Mail, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
+import { loginUser, registerUser } from '../../utils/authClient';
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'signin', onLoginSuccess }) {
   const [tab, setTab] = useState(initialTab);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    audioEngine.playSfx('success');
-    onLoginSuccess({
-      name: name || (email ? email.split('@')[0] : 'Viral Creator'),
-      email: email || 'creator@shortsai.studio'
-    });
-    onClose();
-  };
+    setErrorMessage('');
 
-  const handleQuickDemoLogin = () => {
-    audioEngine.playSfx('boom');
-    onLoginSuccess({
-      name: 'Alex Rivera (Pro Creator)',
-      email: 'alex.creator@shortsai.studio'
-    });
-    onClose();
+    if (!email.trim() || !password) {
+      setErrorMessage('Please enter both email and password.');
+      return;
+    }
+
+    if (tab === 'signup' && !name.trim()) {
+      setErrorMessage('Please enter your full name.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters long.');
+      return;
+    }
+
+    audioEngine.playSfx('click');
+    setIsLoading(true);
+
+    try {
+      let data;
+      if (tab === 'signin') {
+        data = await loginUser(email.trim().toLowerCase(), password);
+      } else {
+        data = await registerUser({
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+          plan: 'pro'
+        });
+      }
+
+      audioEngine.playSfx('boom');
+      if (typeof onLoginSuccess === 'function') {
+        onLoginSuccess(data.user);
+      }
+      onClose();
+    } catch (err) {
+      console.error('[AuthModal] Auth error:', err);
+      audioEngine.playSfx('click');
+      setErrorMessage(err.message || 'Authentication failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -42,7 +75,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'signin', onLo
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 100,
+      zIndex: 250,
       padding: '20px'
     }}>
       <div className="saas-card" style={{
@@ -100,166 +133,179 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'signin', onLo
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gap: '4px',
           background: 'var(--bg-input)',
           padding: '4px',
           borderRadius: '12px',
-          marginBottom: '20px'
+          marginBottom: '20px',
+          border: '1px solid var(--border-subtle)'
         }}>
           <button
+            type="button"
             onClick={() => {
               audioEngine.playSfx('click');
               setTab('signin');
+              setErrorMessage('');
             }}
             style={{
               padding: '8px',
               borderRadius: '8px',
               border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
               background: tab === 'signin' ? 'var(--bg-card)' : 'transparent',
               color: tab === 'signin' ? 'var(--text-primary)' : 'var(--text-muted)',
-              boxShadow: tab === 'signin' ? 'var(--shadow-card)' : 'none',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+              boxShadow: tab === 'signin' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.15s ease'
             }}
           >
             Sign In
           </button>
           <button
+            type="button"
             onClick={() => {
               audioEngine.playSfx('click');
               setTab('signup');
+              setErrorMessage('');
             }}
             style={{
               padding: '8px',
               borderRadius: '8px',
               border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
               background: tab === 'signup' ? 'var(--bg-card)' : 'transparent',
               color: tab === 'signup' ? 'var(--text-primary)' : 'var(--text-muted)',
-              boxShadow: tab === 'signup' ? 'var(--shadow-card)' : 'none',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+              boxShadow: tab === 'signup' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.15s ease'
             }}
           >
-            Create Account
+            Register
           </button>
         </div>
 
-        {/* 1-Click Instant Demo Login CTA */}
-        <button
-          onClick={handleQuickDemoLogin}
-          className="btn-glow"
-          style={{
-            width: '100%',
-            justifyContent: 'center',
-            padding: '12px',
+        {/* Error Alert */}
+        {errorMessage && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            borderRadius: '12px',
+            padding: '10px 12px',
             marginBottom: '16px',
-            fontSize: '13.5px'
-          }}
-        >
-          <Sparkles size={16} />
-          <span>Instant 1-Click Creator Access</span>
-        </button>
-
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          margin: '16px 0',
-          color: 'var(--text-muted)',
-          fontSize: '11.5px'
-        }}>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
-          <span>or continue with email</span>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
-        </div>
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: '#ef4444',
+            fontSize: '12.5px'
+          }}>
+            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {tab === 'signup' && (
             <div>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Full Name</label>
+              <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                Full Name
+              </label>
               <div style={{ position: 'relative' }}>
+                <User size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
                 <input
                   type="text"
+                  placeholder="e.g. Alex Rivera"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Alex Rivera"
-                  required
+                  required={tab === 'signup'}
+                  disabled={isLoading}
                   style={{
                     width: '100%',
-                    padding: '10px 12px 10px 36px',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border-medium)',
                     background: 'var(--bg-input)',
-                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: '10px',
+                    padding: '10px 12px 10px 36px',
                     fontSize: '13px',
+                    color: 'var(--text-primary)',
                     outline: 'none'
                   }}
                 />
-                <User size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               </div>
             </div>
           )}
 
           <div>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Email Address</label>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+              Email Address
+            </label>
             <div style={{ position: 'relative' }}>
+              <Mail size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
               <input
                 type="email"
+                placeholder="name@domain.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="creator@youtube.com"
                 required
+                disabled={isLoading}
                 style={{
                   width: '100%',
-                  padding: '10px 12px 10px 36px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border-medium)',
                   background: 'var(--bg-input)',
-                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-medium)',
+                  borderRadius: '10px',
+                  padding: '10px 12px 10px 36px',
                   fontSize: '13px',
+                  color: 'var(--text-primary)',
                   outline: 'none'
                 }}
               />
-              <Mail size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
             </div>
           </div>
 
           <div>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Password</label>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+              Password
+            </label>
             <div style={{ position: 'relative' }}>
+              <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
               <input
                 type="password"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
                 required
+                disabled={isLoading}
                 style={{
                   width: '100%',
-                  padding: '10px 12px 10px 36px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border-medium)',
                   background: 'var(--bg-input)',
-                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-medium)',
+                  borderRadius: '10px',
+                  padding: '10px 12px 10px 36px',
                   fontSize: '13px',
+                  color: 'var(--text-primary)',
                   outline: 'none'
                 }}
               />
-              <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
             </div>
           </div>
 
           <button
             type="submit"
-            className="btn-outline"
-            style={{ width: '100%', justifyContent: 'center', padding: '10px', marginTop: '6px' }}
+            disabled={isLoading}
+            className="btn-glow"
+            style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px', marginTop: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' }}
           >
-            <span>{tab === 'signin' ? 'Sign In with Email' : 'Create Account'}</span>
-            <ArrowRight size={14} />
+            {isLoading ? (
+              <>
+                <Loader2 size={16} className="spin-animation" />
+                <span>{tab === 'signin' ? 'Signing In...' : 'Creating Account...'}</span>
+              </>
+            ) : (
+              <>
+                <span>{tab === 'signin' ? 'Sign In' : 'Create Account'}</span>
+                <ArrowRight size={16} />
+              </>
+            )}
           </button>
         </form>
       </div>

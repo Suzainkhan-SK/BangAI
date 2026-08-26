@@ -9,6 +9,7 @@ import SettingsPage from './pages/SettingsPage';
 import ApiDocsPage from './pages/ApiDocsPage';
 import PricingPage from './pages/PricingPage';
 import { audioEngine } from './audio/audioEngine';
+import { getStoredUser, verifySession, logoutUser } from './utils/authClient';
 
 // Helper to get initial view from URL hash or localStorage
 function getInitialView() {
@@ -26,17 +27,6 @@ function getInitialView() {
   return 'landing';
 }
 
-// Helper to get initial user from localStorage
-function getInitialUser() {
-  if (typeof window !== 'undefined') {
-    try {
-      const savedUser = localStorage.getItem('shortsai_user');
-      if (savedUser) return JSON.parse(savedUser);
-    } catch (e) {}
-  }
-  return null;
-}
-
 // Helper to get initial theme from localStorage
 function getInitialTheme() {
   if (typeof window !== 'undefined') {
@@ -50,11 +40,23 @@ function getInitialTheme() {
 
 export default function App() {
   const [theme, setTheme] = useState(getInitialTheme);
-  const [user, setUser] = useState(getInitialUser);
+  const [user, setUser] = useState(getStoredUser);
   const [currentView, setCurrentView] = useState(getInitialView);
   const [pendingPrompt, setPendingPrompt] = useState('');
   const [selectedPresetForDashboard, setSelectedPresetForDashboard] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Verify real session with Atlas backend on app startup
+  useEffect(() => {
+    verifySession().then((verifiedUser) => {
+      if (verifiedUser) {
+        setUser(verifiedUser);
+      } else {
+        // If token was invalid or missing, clear user state
+        setUser(null);
+      }
+    });
+  }, []);
 
   // Apply & Persist Theme
   useEffect(() => {
@@ -98,23 +100,15 @@ export default function App() {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Navigation handler
+  // Protected Navigation handler
   const handleNavigate = (view) => {
     audioEngine.playSfx('click');
     const privateRoutes = ['dashboard', 'profile', 'settings'];
     if (privateRoutes.includes(view) && !user) {
-      // Auto-create a demo session if navigating directly or redirect to login
-      const defaultUser = {
-        name: 'Alex Rivera',
-        email: 'alex.creator@shortsai.studio',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-        plan: 'Pro Creator',
-        credits: 850
-      };
-      setUser(defaultUser);
-      try {
-        localStorage.setItem('shortsai_user', JSON.stringify(defaultUser));
-      } catch (e) {}
+      // Prompt user to sign in to access protected studio canvas
+      setCurrentView('login');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
     }
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -122,18 +116,13 @@ export default function App() {
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
-    try {
-      localStorage.setItem('shortsai_user', JSON.stringify(userData));
-    } catch (e) {}
     setCurrentView('dashboard');
   };
 
   const handleLogout = () => {
     audioEngine.playSfx('click');
+    logoutUser();
     setUser(null);
-    try {
-      localStorage.removeItem('shortsai_user');
-    } catch (e) {}
     setCurrentView('landing');
   };
 
@@ -141,17 +130,9 @@ export default function App() {
     setPendingPrompt(prompt);
     setSelectedPresetForDashboard(null);
     if (!user) {
-      const defaultUser = {
-        name: 'Alex Rivera',
-        email: 'alex.creator@shortsai.studio',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-        plan: 'Pro Creator',
-        credits: 850
-      };
-      setUser(defaultUser);
-      try {
-        localStorage.setItem('shortsai_user', JSON.stringify(defaultUser));
-      } catch (e) {}
+      // Direct unauthenticated creator to create a free account
+      setCurrentView('register');
+      return;
     }
     setCurrentView('dashboard');
   };
@@ -159,17 +140,9 @@ export default function App() {
   const handleSelectPresetFromShowcase = (presetId) => {
     setSelectedPresetForDashboard(presetId);
     if (!user) {
-      const defaultUser = {
-        name: 'Alex Rivera',
-        email: 'alex.creator@shortsai.studio',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-        plan: 'Pro Creator',
-        credits: 850
-      };
-      setUser(defaultUser);
-      try {
-        localStorage.setItem('shortsai_user', JSON.stringify(defaultUser));
-      } catch (e) {}
+      // Direct unauthenticated creator to create a free account
+      setCurrentView('register');
+      return;
     }
     setCurrentView('dashboard');
   };
@@ -185,76 +158,85 @@ export default function App() {
         user={user}
         onLogout={handleLogout}
         sidebarCollapsed={sidebarCollapsed}
-        onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
+        onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
-      {/* Main Page Router */}
-      {currentView === 'landing' && (
-        <LandingPage
-          onStartCreation={handleStartCreationFromHero}
-          onSelectPreset={handleSelectPresetFromShowcase}
-          onOpenAuth={(tab) => handleNavigate(tab === 'signup' ? 'register' : 'login')}
-          onNavigate={handleNavigate}
-        />
-      )}
+      {/* Main View Router */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
+        {currentView === 'landing' && (
+          <LandingPage
+            onNavigateToDashboard={() => handleNavigate('dashboard')}
+            onNavigateToLogin={() => handleNavigate('login')}
+            onNavigateToRegister={() => handleNavigate('register')}
+            onNavigateToPricing={() => handleNavigate('pricing')}
+            onStartCreation={handleStartCreationFromHero}
+            onSelectPreset={handleSelectPresetFromShowcase}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        )}
 
-      {currentView === 'login' && (
-        <LoginPage
-          onLoginSuccess={handleLoginSuccess}
-          onNavigateToRegister={() => handleNavigate('register')}
-          onNavigateToLanding={() => handleNavigate('landing')}
-        />
-      )}
+        {currentView === 'login' && (
+          <LoginPage
+            onLoginSuccess={handleLoginSuccess}
+            onNavigateToRegister={() => handleNavigate('register')}
+            onNavigateToLanding={() => handleNavigate('landing')}
+          />
+        )}
 
-      {currentView === 'register' && (
-        <RegisterPage
-          onRegisterSuccess={handleLoginSuccess}
-          onNavigateToLogin={() => handleNavigate('login')}
-          onNavigateToLanding={() => handleNavigate('landing')}
-        />
-      )}
+        {currentView === 'register' && (
+          <RegisterPage
+            onRegisterSuccess={handleLoginSuccess}
+            onNavigateToLogin={() => handleNavigate('login')}
+            onNavigateToLanding={() => handleNavigate('landing')}
+          />
+        )}
 
-      {currentView === 'dashboard' && (
-        <DashboardApp
-          initialPresetId={selectedPresetForDashboard}
-          initialPrompt={pendingPrompt}
-          sidebarCollapsed={sidebarCollapsed}
-          onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
-          user={user}
-          onNavigateToSettings={() => handleNavigate('settings')}
-          onLogout={handleLogout}
-        />
-      )}
+        {currentView === 'dashboard' && (
+          <DashboardApp
+            user={user}
+            initialPrompt={pendingPrompt}
+            initialPresetId={selectedPresetForDashboard}
+            onClearPendingPrompt={() => {
+              setPendingPrompt('');
+              setSelectedPresetForDashboard(null);
+            }}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onNavigateToSettings={() => handleNavigate('settings')}
+            onNavigateToProfile={() => handleNavigate('profile')}
+            onLogout={handleLogout}
+          />
+        )}
 
-      {currentView === 'profile' && (
-        <ProfilePage
-          user={user}
-          onNavigateToDashboard={() => handleNavigate('dashboard')}
-          onNavigateToSettings={() => handleNavigate('settings')}
-        />
-      )}
+        {currentView === 'profile' && (
+          <ProfilePage
+            user={user}
+            onNavigateToDashboard={() => handleNavigate('dashboard')}
+            onNavigateToSettings={() => handleNavigate('settings')}
+          />
+        )}
 
-      {currentView === 'settings' && (
-        <SettingsPage
-          onNavigateToDashboard={() => handleNavigate('dashboard')}
-        />
-      )}
+        {currentView === 'settings' && (
+          <SettingsPage
+            user={user}
+            onNavigateToDashboard={() => handleNavigate('dashboard')}
+          />
+        )}
 
-      {currentView === 'api' && (
-        <ApiDocsPage onNavigate={handleNavigate} />
-      )}
+        {currentView === 'api' && (
+          <ApiDocsPage
+            onNavigateToDashboard={() => handleNavigate('dashboard')}
+          />
+        )}
 
-      {currentView === 'pricing' && (
-        <PricingPage
-          onSelectPlan={(planId) => {
-            if (!user) {
-              handleNavigate('register');
-            } else {
-              handleNavigate('dashboard');
-            }
-          }}
-        />
-      )}
+        {currentView === 'pricing' && (
+          <PricingPage
+            user={user}
+            onNavigateToRegister={() => handleNavigate('register')}
+            onNavigateToDashboard={() => handleNavigate('dashboard')}
+          />
+        )}
+      </main>
     </div>
   );
 }
