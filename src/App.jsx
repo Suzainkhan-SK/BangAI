@@ -11,16 +11,26 @@ import PricingPage from './pages/PricingPage';
 import { audioEngine } from './audio/audioEngine';
 import { getStoredUser, verifySession, logoutUser } from './utils/authClient';
 
-// Helper to get initial view from URL hash or localStorage
+const PRIVATE_ROUTES = ['dashboard', 'profile', 'settings'];
+
+// Helper to get initial view from URL hash or localStorage with strict auth check
 function getInitialView() {
   if (typeof window !== 'undefined') {
     const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
     const validViews = ['landing', 'login', 'register', 'dashboard', 'profile', 'settings', 'api', 'pricing'];
+    const hasToken = !!localStorage.getItem('shortsai_token');
+
     if (hash && validViews.includes(hash)) {
+      if (PRIVATE_ROUTES.includes(hash) && !hasToken) {
+        return 'login';
+      }
       return hash;
     }
     const savedView = localStorage.getItem('shortsai_view');
     if (savedView && validViews.includes(savedView)) {
+      if (PRIVATE_ROUTES.includes(savedView) && !hasToken) {
+        return 'login';
+      }
       return savedView;
     }
   }
@@ -46,17 +56,38 @@ export default function App() {
   const [selectedPresetForDashboard, setSelectedPresetForDashboard] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Verify real session with Atlas backend on app startup
+  // Strict session verification with Atlas backend on startup
   useEffect(() => {
+    const hasToken = !!localStorage.getItem('shortsai_token');
+    if (!hasToken) {
+      setUser(null);
+      if (PRIVATE_ROUTES.includes(currentView)) {
+        setCurrentView('login');
+      }
+      return;
+    }
+
     verifySession().then((verifiedUser) => {
       if (verifiedUser) {
         setUser(verifiedUser);
       } else {
-        // If token was invalid or missing, clear user state
         setUser(null);
+        if (PRIVATE_ROUTES.includes(currentView)) {
+          setCurrentView('login');
+        }
       }
     });
   }, []);
+
+  // Strict Route Guard: Kick unauthenticated users out of private routes
+  useEffect(() => {
+    if (PRIVATE_ROUTES.includes(currentView) && !user) {
+      setCurrentView('login');
+      if (window.location.hash !== '#/login') {
+        window.location.hash = '#/login';
+      }
+    }
+  }, [currentView, user]);
 
   // Apply & Persist Theme
   useEffect(() => {
@@ -85,7 +116,14 @@ export default function App() {
     const handleHashChange = () => {
       const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
       const validViews = ['landing', 'login', 'register', 'dashboard', 'profile', 'settings', 'api', 'pricing'];
+      const hasToken = !!localStorage.getItem('shortsai_token');
+
       if (hash && validViews.includes(hash)) {
+        if (PRIVATE_ROUTES.includes(hash) && (!user || !hasToken)) {
+          setCurrentView('login');
+          window.location.hash = '#/login';
+          return;
+        }
         setCurrentView(hash);
       } else if (!hash) {
         setCurrentView('landing');
@@ -94,7 +132,7 @@ export default function App() {
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [user]);
 
   const handleToggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -103,13 +141,16 @@ export default function App() {
   // Protected Navigation handler
   const handleNavigate = (view) => {
     audioEngine.playSfx('click');
-    const privateRoutes = ['dashboard', 'profile', 'settings'];
-    if (privateRoutes.includes(view) && !user) {
-      // Prompt user to sign in to access protected studio canvas
+    const hasToken = !!localStorage.getItem('shortsai_token');
+
+    if (PRIVATE_ROUTES.includes(view) && (!user || !hasToken)) {
+      // Direct unauthenticated users to login
       setCurrentView('login');
+      window.location.hash = '#/login';
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -129,8 +170,9 @@ export default function App() {
   const handleStartCreationFromHero = (prompt) => {
     setPendingPrompt(prompt);
     setSelectedPresetForDashboard(null);
-    if (!user) {
-      // Direct unauthenticated creator to create a free account
+    const hasToken = !!localStorage.getItem('shortsai_token');
+
+    if (!user || !hasToken) {
       setCurrentView('register');
       return;
     }
@@ -139,8 +181,9 @@ export default function App() {
 
   const handleSelectPresetFromShowcase = (presetId) => {
     setSelectedPresetForDashboard(presetId);
-    if (!user) {
-      // Direct unauthenticated creator to create a free account
+    const hasToken = !!localStorage.getItem('shortsai_token');
+
+    if (!user || !hasToken) {
       setCurrentView('register');
       return;
     }
@@ -161,7 +204,7 @@ export default function App() {
         onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
-      {/* Main View Router */}
+      {/* Main View Router with Strict Auth Enforcement */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
         {currentView === 'landing' && (
           <LandingPage
@@ -192,35 +235,59 @@ export default function App() {
         )}
 
         {currentView === 'dashboard' && (
-          <DashboardApp
-            user={user}
-            initialPrompt={pendingPrompt}
-            initialPresetId={selectedPresetForDashboard}
-            onClearPendingPrompt={() => {
-              setPendingPrompt('');
-              setSelectedPresetForDashboard(null);
-            }}
-            sidebarCollapsed={sidebarCollapsed}
-            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-            onNavigateToSettings={() => handleNavigate('settings')}
-            onNavigateToProfile={() => handleNavigate('profile')}
-            onLogout={handleLogout}
-          />
+          user ? (
+            <DashboardApp
+              user={user}
+              initialPrompt={pendingPrompt}
+              initialPresetId={selectedPresetForDashboard}
+              onClearPendingPrompt={() => {
+                setPendingPrompt('');
+                setSelectedPresetForDashboard(null);
+              }}
+              sidebarCollapsed={sidebarCollapsed}
+              onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+              onNavigateToSettings={() => handleNavigate('settings')}
+              onNavigateToProfile={() => handleNavigate('profile')}
+              onLogout={handleLogout}
+            />
+          ) : (
+            <LoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onNavigateToRegister={() => handleNavigate('register')}
+              onNavigateToLanding={() => handleNavigate('landing')}
+            />
+          )
         )}
 
         {currentView === 'profile' && (
-          <ProfilePage
-            user={user}
-            onNavigateToDashboard={() => handleNavigate('dashboard')}
-            onNavigateToSettings={() => handleNavigate('settings')}
-          />
+          user ? (
+            <ProfilePage
+              user={user}
+              onNavigateToDashboard={() => handleNavigate('dashboard')}
+              onNavigateToSettings={() => handleNavigate('settings')}
+            />
+          ) : (
+            <LoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onNavigateToRegister={() => handleNavigate('register')}
+              onNavigateToLanding={() => handleNavigate('landing')}
+            />
+          )
         )}
 
         {currentView === 'settings' && (
-          <SettingsPage
-            user={user}
-            onNavigateToDashboard={() => handleNavigate('dashboard')}
-          />
+          user ? (
+            <SettingsPage
+              user={user}
+              onNavigateToDashboard={() => handleNavigate('dashboard')}
+            />
+          ) : (
+            <LoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onNavigateToRegister={() => handleNavigate('register')}
+              onNavigateToLanding={() => handleNavigate('landing')}
+            />
+          )
         )}
 
         {currentView === 'api' && (

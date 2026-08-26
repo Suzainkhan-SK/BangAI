@@ -61,7 +61,11 @@ export async function loginUser(email, password) {
 
 export async function verifySession() {
   const token = localStorage.getItem('shortsai_token');
-  if (!token) return null;
+  if (!token) {
+    // Purge any stale demo user from previous sessions
+    localStorage.removeItem('shortsai_user');
+    return null;
+  }
 
   try {
     const response = await fetch(`${AUTH_ENDPOINT}?action=me`, {
@@ -72,7 +76,7 @@ export async function verifySession() {
     });
 
     if (!response.ok) {
-      // Token expired or invalid
+      // Token expired or invalid — force clean logout
       localStorage.removeItem('shortsai_token');
       localStorage.removeItem('shortsai_user');
       return null;
@@ -84,11 +88,7 @@ export async function verifySession() {
       return data.user;
     }
   } catch (err) {
-    console.warn('Session verification offline fallback:', err.message);
-    const savedUser = localStorage.getItem('shortsai_user');
-    if (savedUser) {
-      try { return JSON.parse(savedUser); } catch (e) {}
-    }
+    console.warn('[authClient] Session verification error:', err.message);
   }
 
   return null;
@@ -100,6 +100,15 @@ export function logoutUser() {
 }
 
 export function getStoredUser() {
+  // STRICT: User is only valid if a real JWT token exists in storage
+  const token = typeof window !== 'undefined' ? localStorage.getItem('shortsai_token') : null;
+  if (!token) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('shortsai_user');
+    }
+    return null;
+  }
+
   try {
     const saved = localStorage.getItem('shortsai_user');
     return saved ? JSON.parse(saved) : null;
