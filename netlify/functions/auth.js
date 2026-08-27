@@ -117,7 +117,7 @@ export const handler = async (event, context) => {
     // 0. GOOGLE OAUTH 1-CLICK AUTH (Sign-In & Sign-Up)
     // ────────────────────────────────────────────────────────────────
     if (action === 'google') {
-      const redirectUri = `${protocol}://${host}/.netlify/functions/auth?action=google-callback`;
+      const redirectUri = `${protocol}://${host}/.netlify/functions/google-auth-callback`;
       const returnUrl = event.queryStringParameters?.returnUrl || `${protocol}://${host}/#/dashboard`;
       const statePayload = Buffer.from(JSON.stringify({ returnUrl })).toString('base64url');
 
@@ -127,7 +127,7 @@ export const handler = async (event, context) => {
         `&response_type=code` +
         `&scope=${encodeURIComponent('openid email profile')}` +
         `&access_type=offline` +
-        `&prompt=select_account` +
+        `&prompt=${encodeURIComponent('select_account consent')}` +
         `&state=${encodeURIComponent(statePayload)}`;
 
       return {

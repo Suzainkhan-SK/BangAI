@@ -138,7 +138,7 @@ export const handler = async (event, context) => {
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', OAUTH_SCOPES);
     authUrl.searchParams.set('access_type', 'offline');
-    authUrl.searchParams.set('prompt', 'consent'); // Ensures permanent refresh_token is returned
+    authUrl.searchParams.set('prompt', 'select_account consent'); // Ensures account picker + permanent refresh_token is returned
     authUrl.searchParams.set('include_granted_scopes', 'true');
     authUrl.searchParams.set('state', state);
 
