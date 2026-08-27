@@ -7,7 +7,18 @@
 [functions]
   node_bundler = "esbuild"
 
-# Handle SPA Routing (Redirect all routes to index.html)
+# Ensure Netlify Functions are ALWAYS executed directly
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Handle SPA Routing for all frontend client-side routes
 [[redirects]]
   from = "/*"
   to = "/index.html"

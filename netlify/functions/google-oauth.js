@@ -170,7 +170,6 @@ export const handler = async (event, context) => {
 
     try {
       if (query.state) {
-        // Support both base64url and standard base64 decoding
         const decodedStr = Buffer.from(query.state, 'base64url').toString('utf8');
         stateObj = JSON.parse(decodedStr);
       }
@@ -185,13 +184,32 @@ export const handler = async (event, context) => {
 
     if (error || !code) {
       console.error('[Google OAuth] Authorization error:', error);
+      const errHtml = `<!DOCTYPE html>
+      <html>
+      <body style="background:#090d16;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+        <div style="text-align:center;padding:24px;">
+          <h2 style="color:#ef4444;">⚠️ Authorization Cancelled</h2>
+          <p style="color:#94a3b8;">${error || 'Access was denied'}</p>
+        </div>
+        <script>
+          try {
+            if (window.opener && !window.opener.closed) {
+              window.opener.postMessage({ type: 'BANG_OAUTH_ERROR', error: ${JSON.stringify(error || 'Cancelled')} }, '*');
+              setTimeout(function(){ window.close(); }, 800);
+            } else {
+              window.location.href = ${JSON.stringify(returnUrl + '?error=' + encodeURIComponent(error || 'Cancelled'))};
+            }
+          } catch(e) {
+            window.location.href = ${JSON.stringify(returnUrl + '?error=' + encodeURIComponent(error || 'Cancelled'))};
+          }
+        </script>
+      </body>
+      </html>`;
+
       return {
-        statusCode: 302,
-        headers: {
-          ...corsHeaders,
-          Location: `${returnUrl}?error=${encodeURIComponent(error || 'Access denied by user')}`
-        },
-        body: ''
+        statusCode: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8' },
+        body: errHtml
       };
     }
 
@@ -249,7 +267,7 @@ export const handler = async (event, context) => {
         console.error('[Google OAuth] Error fetching YouTube profile:', err.message);
       }
 
-      // C. Fetch Google User Profile (fallback if user hasn't created a YouTube handle yet)
+      // C. Fetch Google User Profile (fallback if user hasn't created a custom handle yet)
       let googleUser = {};
       try {
         const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -317,7 +335,7 @@ export const handler = async (event, context) => {
           });
         }
 
-        // If STILL not found, attach to the most recently updated active account
+        // If STILL not found, attach to the most recently active account
         if (!userDoc) {
           userDoc = await db.collection('users').findOne({}, { sort: { lastLoginAt: -1, updatedAt: -1 } });
         }
@@ -358,16 +376,44 @@ export const handler = async (event, context) => {
         }
       }
 
-      // E. Redirect back to Studio with success state
+      // E. Return smart HTML with postMessage (for popup) + redirect fallback
       const redirectTarget = `${baseUrl}/#/profile?oauth=success&channel=${encodeURIComponent(channelInfo.channelTitle)}&channelId=${encodeURIComponent(channelInfo.channelId)}`;
 
+      const successHtml = `<!DOCTYPE html>
+      <html>
+      <head><title>YouTube Connected</title></head>
+      <body style="background:#090d16;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+        <div style="text-align:center;padding:24px;">
+          <h2 style="color:#10b981;margin-bottom:8px;">🎉 YouTube Channel Connected!</h2>
+          <p style="color:#94a3b8;font-size:14px;"><strong>${channelInfo.channelTitle}</strong> is now connected.</p>
+          <p style="color:#64748b;font-size:12px;">Returning to Bang AI Studio...</p>
+        </div>
+        <script>
+          try {
+            if (window.opener && !window.opener.closed) {
+              window.opener.postMessage({
+                type: 'BANG_OAUTH_SUCCESS',
+                channel: ${JSON.stringify(channelInfo.channelTitle)},
+                channelId: ${JSON.stringify(channelInfo.channelId)}
+              }, '*');
+              setTimeout(function() { window.close(); }, 600);
+            } else {
+              window.location.href = ${JSON.stringify(redirectTarget)};
+            }
+          } catch(e) {
+            window.location.href = ${JSON.stringify(redirectTarget)};
+          }
+        </script>
+      </body>
+      </html>`;
+
       return {
-        statusCode: 302,
+        statusCode: 200,
         headers: {
           ...corsHeaders,
-          Location: redirectTarget
+          'Content-Type': 'text/html; charset=utf-8'
         },
-        body: ''
+        body: successHtml
       };
     } catch (err) {
       console.error('[Google OAuth] Callback exception:', err);

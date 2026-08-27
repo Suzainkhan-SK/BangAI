@@ -52,8 +52,23 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
     }
   };
 
-  // Check URL params for OAuth callback return
+  // Check URL params for OAuth callback return & Listen for Popup postMessage
   useEffect(() => {
+    const handleOAuthMessage = (event) => {
+      if (event.data?.type === 'BANG_OAUTH_SUCCESS') {
+        const chName = event.data.channel || 'YouTube Channel';
+        setOauthNotice({ type: 'success', message: `🎉 Successfully connected: ${chName}!` });
+        audioEngine.playSfx('boom');
+        fetchChannels();
+        setTimeout(fetchChannels, 700);
+      } else if (event.data?.type === 'BANG_OAUTH_ERROR') {
+        setOauthNotice({ type: 'error', message: `⚠️ Google authorization failed: ${event.data.error || 'Access denied'}` });
+      }
+    };
+
+    window.addEventListener('message', handleOAuthMessage);
+    window.addEventListener('focus', fetchChannels);
+
     const hash = window.location.hash || '';
     const search = window.location.search || (hash.includes('?') ? hash.substring(hash.indexOf('?')) : '');
     const params = new URLSearchParams(search);
@@ -69,6 +84,11 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
     } else if (params.get('error')) {
       setOauthNotice({ type: 'error', message: `⚠️ Google authorization failed: ${params.get('error')}` });
     }
+
+    return () => {
+      window.removeEventListener('message', handleOAuthMessage);
+      window.removeEventListener('focus', fetchChannels);
+    };
   }, []);
 
   useEffect(() => {
@@ -88,7 +108,26 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
     const returnUrl = encodeURIComponent(window.location.origin + '/#/profile');
     const uid = user?.id || user?._id || '';
     const email = encodeURIComponent(user?.email || '');
-    window.location.href = `/.netlify/functions/google-oauth?action=connect&token=${token}&userId=${uid}&email=${email}&returnUrl=${returnUrl}`;
+    const connectUrl = `/.netlify/functions/google-oauth?action=connect&token=${token}&userId=${uid}&email=${email}&returnUrl=${returnUrl}`;
+
+    // Try popup window first for seamless desktop experience
+    const popupWidth = 560;
+    const popupHeight = 680;
+    const left = window.screenX + (window.outerWidth - popupWidth) / 2;
+    const top = window.screenY + (window.outerHeight - popupHeight) / 2;
+    
+    try {
+      const popup = window.open(
+        connectUrl,
+        'BangGoogleOAuth',
+        `width=${popupWidth},height=${popupHeight},left=${left},top=${top},status=no,toolbar=no,menubar=no`
+      );
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        window.location.href = connectUrl;
+      }
+    } catch (e) {
+      window.location.href = connectUrl;
+    }
   };
 
   const handleDisconnectChannel = async (channelId, title) => {
