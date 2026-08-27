@@ -16,9 +16,16 @@ const PRIVATE_ROUTES = ['dashboard', 'profile', 'settings'];
 // Helper to get initial view from URL hash or localStorage with strict auth check
 function getInitialView() {
   if (typeof window !== 'undefined') {
-    const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+    // Check if returning from Google OAuth
+    const search = window.location.search || (window.location.hash.includes('?') ? window.location.hash.substring(window.location.hash.indexOf('?')) : '');
+    const params = new URLSearchParams(search);
+    if (params.get('auth') === 'google_success' && params.get('token')) {
+      return 'dashboard';
+    }
+
+    const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0].toLowerCase();
     const validViews = ['landing', 'login', 'register', 'dashboard', 'profile', 'settings', 'api', 'pricing'];
-    const hasToken = !!localStorage.getItem('shortsai_token');
+    const hasToken = !!(localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token'));
 
     if (hash && validViews.includes(hash)) {
       if (PRIVATE_ROUTES.includes(hash) && !hasToken) {
@@ -26,7 +33,7 @@ function getInitialView() {
       }
       return hash;
     }
-    const savedView = localStorage.getItem('shortsai_view');
+    const savedView = localStorage.getItem('bangai_view') || localStorage.getItem('shortsai_view');
     if (savedView && validViews.includes(savedView)) {
       if (PRIVATE_ROUTES.includes(savedView) && !hasToken) {
         return 'login';
@@ -40,7 +47,7 @@ function getInitialView() {
 // Helper to get initial theme from localStorage
 function getInitialTheme() {
   if (typeof window !== 'undefined') {
-    const savedTheme = localStorage.getItem('shortsai_theme');
+    const savedTheme = localStorage.getItem('bangai_theme') || localStorage.getItem('shortsai_theme');
     if (savedTheme === 'light' || savedTheme === 'dark') {
       return savedTheme;
     }
@@ -56,9 +63,39 @@ export default function App() {
   const [selectedPresetForDashboard, setSelectedPresetForDashboard] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // 1. Capture Google OAuth callback tokens from URL if present
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const search = window.location.search || (window.location.hash.includes('?') ? window.location.hash.substring(window.location.hash.indexOf('?')) : '');
+    const params = new URLSearchParams(search);
+
+    if (params.get('auth') === 'google_success' && params.get('token')) {
+      const token = params.get('token');
+      const rawUser = params.get('user');
+      localStorage.setItem('bangai_token', token);
+      localStorage.setItem('shortsai_token', token);
+
+      if (rawUser) {
+        try {
+          const userObj = JSON.parse(decodeURIComponent(rawUser));
+          localStorage.setItem('bangai_user', JSON.stringify(userObj));
+          localStorage.setItem('shortsai_user', JSON.stringify(userObj));
+          setUser(userObj);
+        } catch (e) {
+          console.error('[App] Failed to parse Google user payload:', e);
+        }
+      }
+
+      audioEngine.playSfx('boom');
+      setCurrentView('dashboard');
+      // Clean URL hash without params
+      window.history.replaceState({}, document.title, window.location.pathname + '#/dashboard');
+    }
+  }, []);
+
   // Strict session verification with Atlas backend on startup
   useEffect(() => {
-    const hasToken = !!localStorage.getItem('shortsai_token');
+    const hasToken = !!(localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token'));
     if (!hasToken) {
       setUser(null);
       if (PRIVATE_ROUTES.includes(currentView)) {

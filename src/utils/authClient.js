@@ -99,23 +99,30 @@ export function logoutUser() {
   localStorage.removeItem('shortsai_user');
 }
 
+export function initiateGoogleAuth(returnView = 'dashboard') {
+  if (typeof window !== 'undefined') {
+    const returnUrl = encodeURIComponent(`${window.location.origin}/#/${returnView}`);
+    window.location.href = `${AUTH_ENDPOINT}?action=google&returnUrl=${returnUrl}`;
+  }
+}
+
 export function getAuthToken() {
-  return typeof window !== 'undefined' ? (localStorage.getItem('shortsai_token') || localStorage.getItem('bangai_token') || '') : '';
+  return typeof window !== 'undefined' ? (localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || '') : '';
 }
 
 export function getStoredUser() {
   // STRICT: User is only valid if a real JWT token exists in storage
-  const token = typeof window !== 'undefined' ? (localStorage.getItem('shortsai_token') || localStorage.getItem('bangai_token')) : null;
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token')) : null;
   if (!token) {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('shortsai_user');
       localStorage.removeItem('bangai_user');
+      localStorage.removeItem('shortsai_user');
     }
     return null;
   }
 
   try {
-    const saved = localStorage.getItem('shortsai_user') || localStorage.getItem('bangai_user');
+    const saved = localStorage.getItem('bangai_user') || localStorage.getItem('shortsai_user');
     return saved ? JSON.parse(saved) : null;
   } catch (e) {
     return null;
