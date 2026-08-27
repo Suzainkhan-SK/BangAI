@@ -1,4 +1,4 @@
-# Netlify Configuration for ShortsAI Studio
+# Netlify Configuration for Bang AI Studio
 [build]
   publish = "dist"
   command = "npm run build"

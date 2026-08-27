@@ -151,7 +151,7 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
 
     if (generatingVoiceId) return;
 
-    const textToSpeak = customText.trim() || voice.sampleText || voice.description || 'Welcome to Viral Shorts AI Studio with ElevenLabs synthesis.';
+    const textToSpeak = customText.trim() || voice.sampleText || voice.description || 'Welcome to Bang AI Studio with ElevenLabs synthesis.';
     setGeneratingVoiceId(voice.id);
 
     try {

@@ -22,7 +22,7 @@ export default function ComparisonSection() {
     {
       feature: 'Video & CGI Footage Creation',
       oldWay: 'Searching generic stock footage libraries or paying 3D VFX artists ($300+)',
-      shortsAi: 'Grok Imagine 1.5 generates 5 direct 9:16 vertical video scenes in parallel',
+      shortsAi: 'Wan 2.1 generates 5 direct 9:16 vertical video scenes in parallel',
       highlight: true
     },
     {
@@ -66,7 +66,7 @@ export default function ComparisonSection() {
             marginBottom: '14px',
             color: 'var(--text-primary)'
           }}>
-            Old Manual Editing vs. ShortsAI Studio
+            Old Manual Editing vs. Bang AI Studio
           </h2>
           <p style={{ fontSize: isMobile ? '14px' : '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             See why over 100,000+ creators and media agencies switched from complex video editors to our 1-click pipeline.
@@ -96,7 +96,7 @@ export default function ComparisonSection() {
                 <X size={16} /> TRADITIONAL MANUAL EDITING
               </div>
               <div style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Sparkles size={16} /> SHORTSAI 75S AUTONOMOUS
+                <Sparkles size={16} /> BANG AI 75S AUTONOMOUS
               </div>
             </div>
           )}
@@ -149,7 +149,7 @@ export default function ComparisonSection() {
                 </span>
               </div>
 
-              {/* ShortsAI */}
+              {/* Bang AI */}
               <div style={{
                 fontSize: '13px',
                 color: row.isGrandSummary ? '#34d399' : 'var(--text-primary)',
@@ -163,7 +163,7 @@ export default function ComparisonSection() {
                 <span>
                   {isTablet && (
                     <strong style={{ color: '#34d399', display: 'block', fontSize: '10.5px', letterSpacing: '0.06em', marginBottom: '2px' }}>
-                      SHORTSAI 75S AUTONOMOUS
+                      BANG AI 75S AUTONOMOUS
                     </strong>
                   )}
                   {row.shortsAi}

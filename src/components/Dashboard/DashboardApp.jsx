@@ -1295,7 +1295,7 @@ export default function DashboardApp({
             }}>
               {activeThread
                 ? (activeThread.name || activeThread.title || activeThread.rawUserInput || 'Untitled Video')
-                : 'ShortsAI Studio'}
+                : 'Bang AI Studio'}
             </div>
             <div className="truncate" style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>
               {isStudioOpen

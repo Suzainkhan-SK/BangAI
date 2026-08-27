@@ -7,12 +7,12 @@ export default function FAQ() {
 
   const faqs = [
     {
-      q: 'How does ShortsAI generate 75-second multi-scene videos?',
-      a: 'ShortsAI uses a 5-stage production pipeline: Stage 0 classifies your topic; Stage 1 plans the 5-beat emotional story arc; Stage 2 writes 5 distinct 15-second scenes with strict 190–200 character speech limits; Stage 3 quality audits the screenplay; and Stage 4 renders 5 parallel Grok Imagine 1.5 video scenes and synthesizes ElevenLabs narration.'
+      q: 'How does Bang AI generate 75-second multi-scene videos?',
+      a: 'Bang AI uses a 5-stage production pipeline: Stage 0 classifies your topic; Stage 1 plans the 5-beat emotional story arc; Stage 2 writes 5 distinct 15-second scenes with strict 190–200 character speech limits; Stage 3 quality audits the screenplay; and Stage 4 renders 5 parallel Wan 2.1 video scenes and synthesizes ElevenLabs narration.'
     },
     {
       q: 'Can I generate videos in Hindi, Hinglish, or other languages?',
-      a: 'Yes! ShortsAI natively supports Hinglish (70% Hindi / 30% English), Pure Hindi, Global English, and Spanish with accurate phonetic pronunciation and animated Devanagari/Latin captions.'
+      a: 'Yes! Bang AI natively supports Hinglish (70% Hindi / 30% English), Pure Hindi, Global English, and Spanish with accurate phonetic pronunciation and animated Devanagari/Latin captions.'
     },
     {
       q: 'Does it automatically post to my YouTube channel?',

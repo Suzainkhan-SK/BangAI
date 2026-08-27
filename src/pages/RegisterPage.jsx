@@ -114,7 +114,7 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
             <Sparkles size={24} color="#ffffff" />
           </div>
           <h1 className="font-display" style={{ fontSize: 'clamp(21px, 3.8vw, 26px)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
-            Start Creating Viral Shorts
+            Create Your Bang AI Account
           </h1>
           <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
             Join top creators scaling faceless YouTube channels with AI.

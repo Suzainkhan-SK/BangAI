@@ -81,7 +81,7 @@ export default function Features() {
             marginBottom: '14px',
             color: 'var(--text-primary)'
           }}>
-            How ShortsAI Works in 3 Simple Steps
+            How Bang AI Works in 3 Simple Steps
           </h2>
           <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>
             From raw idea to published 75-second vertical video in under 2 minutes.

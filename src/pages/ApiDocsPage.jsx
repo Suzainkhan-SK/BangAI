@@ -20,7 +20,7 @@ export default function ApiDocsPage({ onNavigate }) {
   const [isTesting, setIsTesting] = useState(false);
   const [testOutput, setTestOutput] = useState(null);
 
-  const curlExample = `curl -X POST https://api.shortsai.studio/v1/shorts/generate \\
+  const curlExample = `curl -X POST https://api.bangai.studio/v1/shorts/generate \\
   -H "Authorization: Bearer sk_live_98a7bc62e0f4192b" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -43,15 +43,15 @@ export default function ApiDocsPage({ onNavigate }) {
       "sceneNumber": 1,
       "act": "HOOK (0-15s)",
       "characterCount": 194,
-      "voiceoverUrl": "https://cdn.shortsai.studio/audio/s1.mp3",
-      "videoUrl": "https://cdn.shortsai.studio/video/s1.mp4"
+      "voiceoverUrl": "https://cdn.bangai.studio/audio/s1.mp3",
+      "videoUrl": "https://cdn.bangai.studio/video/s1.mp4"
     },
     {
       "sceneNumber": 2,
       "act": "SETUP (15-30s)",
       "characterCount": 198,
-      "voiceoverUrl": "https://cdn.shortsai.studio/audio/s2.mp3",
-      "videoUrl": "https://cdn.shortsai.studio/video/s2.mp4"
+      "voiceoverUrl": "https://cdn.bangai.studio/audio/s2.mp3",
+      "videoUrl": "https://cdn.bangai.studio/video/s2.mp4"
     }
   ],
   "youtube": {
@@ -99,7 +99,7 @@ export default function ApiDocsPage({ onNavigate }) {
           <span>Developer API v1.0 & Webhooks</span>
         </span>
         <h1 className="font-display" style={{ fontSize: 'clamp(25px, 4.8vw, 34px)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
-          ShortsAI REST API Hub
+          Bang AI REST API Hub
         </h1>
         <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
           Automate full 75-second 5-scene video screenplays, ElevenLabs voiceovers, and YouTube uploads programmatically from n8n, Make, or Python.
@@ -132,7 +132,7 @@ export default function ApiDocsPage({ onNavigate }) {
           </div>
           <div>
             <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>Your Secret Production API Key</div>
-            <div style={{ fontSize: '12px', fontFamily: 'JetBrains Mono', color: 'var(--text-muted)' }}>sk_live_98a7bc62e0f4192b_shortsai_prod</div>
+            <div style={{ fontSize: '12px', fontFamily: 'JetBrains Mono', color: 'var(--text-muted)' }}>sk_live_98a7bc62e0f4192b_bang_ai_prod</div>
           </div>
         </div>
 
@@ -196,7 +196,7 @@ export default function ApiDocsPage({ onNavigate }) {
             POST
           </span>
           <span style={{ fontFamily: 'JetBrains Mono', fontSize: '14.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            https://api.shortsai.studio/v1/shorts/generate
+            https://api.bangai.studio/v1/shorts/generate
           </span>
         </div>
 

@@ -16,7 +16,7 @@ export const MUSIC_TRACKS = [
   {
     id: 'none',
     name: 'No Background Music (Voiceover Only)',
-    artist: 'ShortsAI Clean Audio',
+    artist: 'Bang AI Clean Audio',
     genre: 'Pure Voiceover',
     tempo: 'Voice-Only',
     mood: 'none',

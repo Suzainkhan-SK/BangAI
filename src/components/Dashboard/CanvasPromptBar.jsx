@@ -435,13 +435,13 @@ export default function CanvasPromptBar(props) {
             placeholder={
               isMobile
                 ? (effectiveMode === 'CHAT'
-                    ? 'Ask ShortsAI anything…'
+                    ? 'Ask Bang AI anything…'
                     : effectiveMode === 'REFINE_STORY'
                       ? 'How should I refine the story?'
                       : "Describe your video idea… ('/' for commands)")
-                : effectiveMode === 'CHAT' ? "Ask ShortsAI anything... (e.g. 'What makes a 3-second hook viral in Hindi?')" :
-                  effectiveMode === 'REFINE_STORY' ? "Tell ShortsAI how to refine the story... (e.g. 'Make hook more dramatic and focus on the ending')" :
-                  "Ask ShortsAI to generate any video... (Type '/' for commands or enter topic)"
+                : effectiveMode === 'CHAT' ? "Ask Bang AI anything... (e.g. 'What makes a 3-second hook viral in Hindi?')" :
+                  effectiveMode === 'REFINE_STORY' ? "Tell Bang AI how to refine the story... (e.g. 'Make hook more dramatic and focus on the ending')" :
+                  "Ask Bang AI to generate any video... (Type '/' for commands or enter topic)"
             }
             rows={isMobile ? 1 : 2}
             style={{

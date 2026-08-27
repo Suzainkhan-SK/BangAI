@@ -164,7 +164,7 @@ export const handler = async (event, context) => {
         _id: userId,
         name,
         email,
-        channel: channel || `${name}'s Viral Shorts Studio`,
+        channel: channel || `${name}'s Bang AI Studio`,
         niche,
         salt,
         hash,
