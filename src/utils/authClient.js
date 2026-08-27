@@ -60,9 +60,10 @@ export async function loginUser(email, password) {
 }
 
 export async function verifySession() {
-  const token = localStorage.getItem('shortsai_token');
+  const token = localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token');
   if (!token) {
     // Purge any stale demo user from previous sessions
+    localStorage.removeItem('bangai_user');
     localStorage.removeItem('shortsai_user');
     return null;
   }
@@ -77,6 +78,8 @@ export async function verifySession() {
 
     if (!response.ok) {
       // Token expired or invalid — force clean logout
+      localStorage.removeItem('bangai_token');
+      localStorage.removeItem('bangai_user');
       localStorage.removeItem('shortsai_token');
       localStorage.removeItem('shortsai_user');
       return null;
@@ -84,6 +87,7 @@ export async function verifySession() {
 
     const data = await response.json();
     if (data.user) {
+      localStorage.setItem('bangai_user', JSON.stringify(data.user));
       localStorage.setItem('shortsai_user', JSON.stringify(data.user));
       return data.user;
     }
@@ -95,6 +99,8 @@ export async function verifySession() {
 }
 
 export function logoutUser() {
+  localStorage.removeItem('bangai_token');
+  localStorage.removeItem('bangai_user');
   localStorage.removeItem('shortsai_token');
   localStorage.removeItem('shortsai_user');
 }

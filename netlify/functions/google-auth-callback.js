@@ -169,7 +169,7 @@ export const handler = async (event, context) => {
     const jwtToken = createToken({ userId: userDoc.id || userDoc._id, email: userDoc.email });
 
     // Redirect to dashboard with session token and sanitized user
-    const redirectTarget = `${protocol}://${host}/#/dashboard?auth=google_success&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify(sanitized))}`;
+    const redirectTarget = `${protocol}://${host}/?auth=google_success&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify(sanitized))}#/dashboard`;
 
     return {
       statusCode: 302,
