@@ -141,6 +141,95 @@ export const handler = async (event, context) => {
     }
 
     // ────────────────────────────────────────────────────────────────
+    // 0C. GOOGLE CREDENTIAL VERIFICATION (Google Popup & One-Tap)
+    // ────────────────────────────────────────────────────────────────
+    if (action === 'google-verify' && event.httpMethod === 'POST') {
+      const body = event.body ? JSON.parse(event.body) : {};
+      const { credential } = body;
+      if (!credential) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Missing Google ID token credential.' })
+        };
+      }
+
+      // Verify Google ID token using Google TokenInfo endpoint
+      const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+      const payload = await verifyRes.json();
+
+      if (!verifyRes.ok || !payload || !payload.email) {
+        return {
+          statusCode: 401,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: payload?.error_description || 'Invalid Google credential.' })
+        };
+      }
+
+      const email = payload.email.toLowerCase();
+      const now = new Date().toISOString();
+
+      let userDoc = await usersCol.findOne({ email });
+
+      if (userDoc) {
+        // Link Google ID & update avatar
+        await usersCol.updateOne(
+          { _id: userDoc._id },
+          {
+            $set: {
+              googleId: payload.sub,
+              avatar: payload.picture || userDoc.avatar,
+              authProvider: userDoc.authProvider || 'google',
+              lastLoginAt: now,
+              updatedAt: now
+            }
+          }
+        );
+        userDoc = await usersCol.findOne({ _id: userDoc._id });
+        console.log(`[auth.js] GSI login success for user: ${email}`);
+      } else {
+        // Auto-register new Google user
+        const userId = 'usr_' + crypto.randomBytes(8).toString('hex');
+        const newUserDoc = {
+          id: userId,
+          _id: userId,
+          name: payload.name || 'Bang Creator',
+          email,
+          avatar: payload.picture || null,
+          googleId: payload.sub,
+          authProvider: 'google',
+          channel: `${payload.name || 'Creator'}'s Bang AI Studio`,
+          niche: 'General',
+          plan: 'Creator Pro Plan',
+          credits: 100,
+          youtubeChannels: [],
+          googleSheets: { connected: false },
+          createdAt: now,
+          updatedAt: now,
+          lastLoginAt: now
+        };
+
+        await usersCol.insertOne(newUserDoc);
+        userDoc = newUserDoc;
+        console.log(`[auth.js] GSI registered new user: ${email} (${userId})`);
+      }
+
+      const sanitized = sanitizeUser(userDoc);
+      const token = createToken({ userId: userDoc.id || userDoc._id, email: userDoc.email });
+
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          success: true,
+          message: 'Google Sign-In successful!',
+          user: sanitized,
+          token
+        })
+      };
+    }
+
+    // ────────────────────────────────────────────────────────────────
     // 0B. GOOGLE OAUTH CALLBACK
     // ────────────────────────────────────────────────────────────────
     if (action === 'google-callback') {

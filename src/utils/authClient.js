@@ -105,10 +105,56 @@ export function logoutUser() {
   localStorage.removeItem('shortsai_user');
 }
 
+export const GOOGLE_CLIENT_ID = '332704127629-qeh7u7cvkjdpieluefmpcef85q64khin.apps.googleusercontent.com';
+
+// Verify Google ID Token from Google Identity Services (GSI)
+export async function verifyGoogleCredential(credential) {
+  const response = await fetch(`${AUTH_ENDPOINT}?action=google-verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Google login verification failed');
+  }
+
+  if (data.token) {
+    localStorage.setItem('bangai_token', data.token);
+    localStorage.setItem('shortsai_token', data.token);
+  }
+  if (data.user) {
+    localStorage.setItem('bangai_user', JSON.stringify(data.user));
+    localStorage.setItem('shortsai_user', JSON.stringify(data.user));
+  }
+
+  return data;
+}
+
+// Generate Direct Google OAuth 2.0 URL
+export function getGoogleOAuthUrl(returnView = 'dashboard') {
+  if (typeof window === 'undefined') return '#';
+  const origin = window.location.origin;
+  const redirectUri = `${origin}/.netlify/functions/google-auth-callback`;
+  const returnUrl = `${origin}/#/${returnView}`;
+  const state = btoa(JSON.stringify({ returnUrl }));
+
+  return `https://accounts.google.com/o/oauth2/v2/auth?` +
+    `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&response_type=code` +
+    `&scope=${encodeURIComponent('openid email profile')}` +
+    `&access_type=offline` +
+    `&prompt=${encodeURIComponent('select_account consent')}` +
+    `&state=${encodeURIComponent(state)}`;
+}
+
+// Smart 1-Click Google Authentication (Direct OAuth Navigation)
 export function initiateGoogleAuth(returnView = 'dashboard') {
   if (typeof window !== 'undefined') {
-    const returnUrl = encodeURIComponent(`${window.location.origin}/#/${returnView}`);
-    window.location.href = `${AUTH_ENDPOINT}?action=google&returnUrl=${returnUrl}`;
+    const targetUrl = getGoogleOAuthUrl(returnView);
+    window.location.href = targetUrl;
   }
 }
 
