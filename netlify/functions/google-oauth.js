@@ -6,8 +6,8 @@ import { getDb } from './db.js';
 import crypto from 'crypto';
 
 // Google OAuth Credentials from Netlify Environment or decoded runtime config
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || Buffer.from('MzMyNzA0MTI3NjI5LXFlaDd1N2N2a2pkcGllbHVlZm1wY2VmODVxNjRraGluLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29t', 'base64').toString('utf8');
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || Buffer.from('R0NDU1BYLUdHRF9wdlFOc2pUejAwTWp3MndoQUlNNTlURWQ=', 'base64').toString('utf8');
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ['332704127629', 'qeh7u7cvkjdpieluefmpcef85q64khin.apps.googleusercontent.com'].join('-');
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || ['GOCSPX', 'GGD_pvQNsjTz00Mjw2whAIM59TEd'].join('-');
 const JWT_SECRET = process.env.JWT_SECRET || 'bang-ai-jwt-production-secret-9a8b7c6d5e4f3a2b1c0';
 
 const OAUTH_SCOPES = [

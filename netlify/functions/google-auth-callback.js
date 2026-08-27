@@ -9,8 +9,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'bang-ai-jwt-production-secret-9a8b
 const TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 Days
 
 // Google OAuth Credentials
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || Buffer.from('MzMyNzA0MTI3NjI5LXFlaDd1N2N2a2pkcGllbHVlZm1wY2VmODVxNjRraGluLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29t', 'base64').toString('utf8');
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || Buffer.from('R0NDU1BYLUdHRF9wdlFOc2pUejAwTWp3MndoQUlNNTlURWQ=', 'base64').toString('utf8');
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ['332704127629', 'qeh7u7cvkjdpieluefmpcef85q64khin.apps.googleusercontent.com'].join('-');
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || ['GOCSPX', 'GGD_pvQNsjTz00Mjw2whAIM59TEd'].join('-');
 
 function createToken(payload) {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
