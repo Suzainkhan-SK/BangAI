@@ -211,7 +211,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
         </div>
       </div>
 
-      {/* Grid: 4 Metric Cards */}
+      {/* Grid: 4 Metric Cards (Real User Data) */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))',
@@ -220,53 +220,53 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
       }}>
         <div className="saas-card" style={{ padding: '20px', borderRadius: '18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Total Shorts Created</span>
-            <Film size={18} color="var(--accent-primary)" />
-          </div>
-          <div className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)' }}>
-            24 Videos
-          </div>
-          <div style={{ fontSize: '11px', color: '#10b981', marginTop: '4px' }}>
-            +6 this week (100% 75s compliant)
-          </div>
-        </div>
-
-        <div className="saas-card" style={{ padding: '20px', borderRadius: '18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Total Audience Reach</span>
-            <Eye size={18} color="#06b6d4" />
-          </div>
-          <div className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)' }}>
-            1,480,200
-          </div>
-          <div style={{ fontSize: '11px', color: '#06b6d4', marginTop: '4px' }}>
-            Multi-channel viral distribution
-          </div>
-        </div>
-
-        <div className="saas-card" style={{ padding: '20px', borderRadius: '18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Audience Retention</span>
-            <Flame size={18} color="#ef4444" />
-          </div>
-          <div className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)' }}>
-            94.8%
-          </div>
-          <div style={{ fontSize: '11px', color: '#10b981', marginTop: '4px' }}>
-            Strict 190–200 char pacing score
-          </div>
-        </div>
-
-        <div className="saas-card" style={{ padding: '20px', borderRadius: '18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Active Credits</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Active Studio Credits</span>
             <Zap size={18} color="#f59e0b" />
           </div>
           <div className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)' }}>
-            100 / 100
+            {typeof user?.credits === 'number' ? user.credits : 100}
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Renews on Sept 16, 2026
+          <div style={{ fontSize: '11px', color: '#10b981', marginTop: '4px' }}>
+            Available for 5-Scene Render
+          </div>
+        </div>
+
+        <div className="saas-card" style={{ padding: '20px', borderRadius: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Connected YouTube Channels</span>
+            <Film size={18} color="#ef4444" />
+          </div>
+          <div className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)' }}>
+            {channels.length} {channels.length === 1 ? 'Channel' : 'Channels'}
+          </div>
+          <div style={{ fontSize: '11px', color: channels.length > 0 ? '#10b981' : 'var(--text-muted)', marginTop: '4px' }}>
+            {channels.length > 0 ? 'Ready for 1-Click Publishing' : 'Click below to connect'}
+          </div>
+        </div>
+
+        <div className="saas-card" style={{ padding: '20px', borderRadius: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Total Channel Subscribers</span>
+            <Eye size={18} color="#06b6d4" />
+          </div>
+          <div className="font-display" style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--text-primary)' }}>
+            {channels.reduce((sum, c) => sum + Number(c.subscriberCount || 0), 0).toLocaleString()}
+          </div>
+          <div style={{ fontSize: '11px', color: '#06b6d4', marginTop: '4px' }}>
+            Live count across connected channels
+          </div>
+        </div>
+
+        <div className="saas-card" style={{ padding: '20px', borderRadius: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Studio Membership</span>
+            <Crown size={18} color="var(--accent-primary)" />
+          </div>
+          <div className="font-display" style={{ fontSize: 'clamp(20px, 3.6vw, 24px)', fontWeight: 800, color: 'var(--text-primary)' }}>
+            {user?.plan || 'Creator Pro'}
+          </div>
+          <div style={{ fontSize: '11px', color: '#10b981', marginTop: '4px' }}>
+            Wan 2.1 + ElevenLabs Pro
           </div>
         </div>
       </div>
