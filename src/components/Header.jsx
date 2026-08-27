@@ -64,7 +64,7 @@ export default function Header({
               alignItems: 'center',
               gap: '6px'
             }}>
-              VIRAL GENESIS <span style={{ 
+              BANG AI <span style={{ 
                 fontSize: '11px', 
                 background: 'rgba(99, 102, 241, 0.25)', 
                 color: '#818cf8', 

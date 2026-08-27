@@ -86,7 +86,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
               display: 'inline-block'
             }} />
             <span className="font-grok" style={{ fontSize: isMobile ? '11px' : '12.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              ShortsAI 2.0 Engine • Grok 1.5 Video + ElevenLabs Turbo v2.5
+              Bang AI Engine • Wan 2.1 Video + ElevenLabs Turbo v2.5
             </span>
           </div>
         </div>

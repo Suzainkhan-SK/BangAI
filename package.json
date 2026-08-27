@@ -1,5 +1,6 @@
 {
-  "name": "viral-shorts-ai-studio",
+  "name": "bang-ai",
+  "description": "Bang AI — Autonomous Viral Shorts Video Engine",
   "private": true,
   "version": "1.0.0",
   "type": "module",

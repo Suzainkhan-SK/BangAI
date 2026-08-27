@@ -30,8 +30,8 @@ export default function Footer({ onNavigate }) {
               }}>
                 <Sparkles size={16} color="#ffffff" />
               </div>
-              <span className="font-display" style={{ fontWeight: 800, fontSize: '18px', color: 'var(--text-primary)' }}>
-                ShortsAI
+              <span className="font-display" style={{ fontWeight: 900, fontSize: '20px', color: 'var(--text-primary)' }}>
+                Bang <span style={{ color: '#6366f1' }}>AI</span>
               </span>
             </div>
             <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
@@ -90,7 +90,7 @@ export default function Footer({ onNavigate }) {
           fontSize: '12px'
         }}>
           <div>
-            © {new Date().getFullYear()} ShortsAI Studio. All rights reserved.
+            © {new Date().getFullYear()} Bang AI. All rights reserved.
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             Built for viral YouTube Shorts creation with <Heart size={13} color="#f43f5e" fill="#f43f5e" />

@@ -36,7 +36,7 @@ const SLASH_COMMANDS = [
   {
     cmd: '/chat',
     mode: 'CHAT',
-    label: 'Ask ShortsAI Claude Coach',
+    label: 'Ask Bang AI Coach',
     desc: 'Ask anything about viral hooks, pacing, YouTube algorithms',
     icon: MessageSquare,
     color: '#0ea5e9',

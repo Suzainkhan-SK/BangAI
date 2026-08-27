@@ -350,7 +350,8 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
     // ─── MODE C: VIDEO GENERATION (PURE N8N AUTONOMOUS WORKFLOW) ───────
     // User requested: Let n8n RapidAPI key rotation generate EVERYTHING!
     // No Claude pre-generation. Directly dispatch to n8n Cloud webhook!
-    const callbackUrl = 'https://viral-shorts-ai-studio.netlify.app/.netlify/functions/story-approval';
+    const host = event.headers?.host || 'bangai.netlify.app';
+    const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
 
     const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
     const n8nPayload = {

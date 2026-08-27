@@ -156,17 +156,17 @@ export default function Navbar({
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
               <span style={{
-                fontFamily: 'Space Grotesk, sans-serif', fontWeight: 800,
-                fontSize: '18px', letterSpacing: '-0.03em', color: 'var(--text-primary)'
+                fontFamily: 'Space Grotesk, sans-serif', fontWeight: 900,
+                fontSize: '20px', letterSpacing: '-0.03em', color: 'var(--text-primary)'
               }}>
-                Shorts<span style={{ color: '#6366f1' }}>AI</span>
+                Bang
               </span>
               <span style={{
-                fontSize: '9px', fontWeight: 800, letterSpacing: '0.05em',
+                fontSize: '10px', fontWeight: 800, letterSpacing: '0.06em',
                 background: 'linear-gradient(135deg,#6366f1,#38bdf8)',
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 textTransform: 'uppercase'
-              }}>Studio</span>
+              }}>AI</span>
             </div>
           </div>
 
