@@ -63,6 +63,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
       setOauthNotice({ type: 'success', message: `🎉 Successfully connected: ${chName}!` });
       audioEngine.playSfx('boom');
       fetchChannels();
+      setTimeout(fetchChannels, 700);
       // Clean up URL without reload
       window.history.replaceState({}, document.title, window.location.pathname + '#/profile');
     } else if (params.get('error')) {
@@ -85,7 +86,9 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
     audioEngine.playSfx('click');
     const token = getAuthToken();
     const returnUrl = encodeURIComponent(window.location.origin + '/#/profile');
-    window.location.href = `/.netlify/functions/google-oauth?action=connect&token=${token}&returnUrl=${returnUrl}`;
+    const uid = user?.id || user?._id || '';
+    const email = encodeURIComponent(user?.email || '');
+    window.location.href = `/.netlify/functions/google-oauth?action=connect&token=${token}&userId=${uid}&email=${email}&returnUrl=${returnUrl}`;
   };
 
   const handleDisconnectChannel = async (channelId, title) => {

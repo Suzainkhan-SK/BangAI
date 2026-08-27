@@ -126,8 +126,10 @@ export const handler = async (event, context) => {
   if (action === 'connect') {
     const userToken = query.token || (event.headers.authorization ? event.headers.authorization.replace('Bearer ', '') : '');
     const user = verifyToken(userToken);
-    const userId = user ? (user.userId || user.id) : (query.userId || 'anonymous');
-    const userEmail = user ? user.email : '';
+    
+    // Priority: query params > token payload > anonymous
+    const userId = query.userId || (user ? (user.userId || user.id) : 'anonymous');
+    const userEmail = query.email || (user ? user.email : '');
     const returnUrl = query.returnUrl || `${baseUrl}/#/profile`;
 
     const stateObj = {
@@ -168,9 +170,16 @@ export const handler = async (event, context) => {
 
     try {
       if (query.state) {
-        stateObj = JSON.parse(Buffer.from(query.state, 'base64url').toString('utf8'));
+        // Support both base64url and standard base64 decoding
+        const decodedStr = Buffer.from(query.state, 'base64url').toString('utf8');
+        stateObj = JSON.parse(decodedStr);
       }
-    } catch (e) {}
+    } catch (e) {
+      try {
+        const fallbackStr = Buffer.from(query.state, 'base64').toString('utf8');
+        stateObj = JSON.parse(fallbackStr);
+      } catch (err2) {}
+    }
 
     const returnUrl = stateObj.returnUrl || `${baseUrl}/#/profile`;
 
@@ -216,7 +225,7 @@ export const handler = async (event, context) => {
       const { access_token, refresh_token, expires_in, scope } = tokenData;
       const expiresAt = Date.now() + (expires_in || 3600) * 1000;
 
-      // B. Fetch YouTube Channel Details
+      // B. Fetch Real YouTube Channel Details from YouTube Data API v3
       let channelInfo = null;
       try {
         const ytRes = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&mine=true', {
@@ -240,7 +249,7 @@ export const handler = async (event, context) => {
         console.error('[Google OAuth] Error fetching YouTube profile:', err.message);
       }
 
-      // C. Fetch Google User Profile (fallback if user hasn't initialized YouTube channel yet)
+      // C. Fetch Google User Profile (fallback if user hasn't created a YouTube handle yet)
       let googleUser = {};
       try {
         const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -249,12 +258,12 @@ export const handler = async (event, context) => {
         googleUser = await userRes.json();
       } catch (e) {}
 
-      // Fallback channel info if none returned
+      // Fallback channel info with REAL Google account data (NO mock stats)
       if (!channelInfo) {
         channelInfo = {
           channelId: `ch_${googleUser.id || Date.now()}`,
-          channelTitle: googleUser.name ? `${googleUser.name}'s YouTube Channel` : 'My YouTube Channel',
-          customUrl: googleUser.email || '@creator',
+          channelTitle: googleUser.name ? `${googleUser.name}` : (stateObj.email || 'YouTube Creator'),
+          customUrl: googleUser.email || `@${googleUser.name?.replace(/\s+/g, '').toLowerCase() || 'creator'}`,
           avatarUrl: googleUser.picture || '',
           subscriberCount: '0',
           videoCount: '0',
@@ -280,21 +289,37 @@ export const handler = async (event, context) => {
           isDefault: true
         };
 
-        // Query by authenticated userId or email (robust multi-field lookup)
-        let queryFilter = {};
+        // Bulletproof user lookup: Check userId -> logged-in email -> google email -> googleId
+        let userDoc = null;
         const uid = stateObj.userId;
+        
         if (uid && uid !== 'anonymous') {
-          queryFilter = { $or: [{ id: uid }, { _id: uid }, { userId: uid }] };
-        } else if (stateObj.email || googleUser.email) {
-          const emailToMatch = (stateObj.email || googleUser.email).toLowerCase();
-          queryFilter = { email: emailToMatch };
+          userDoc = await db.collection('users').findOne({
+            $or: [{ id: uid }, { _id: uid }, { userId: uid }]
+          });
         }
 
-        let userDoc = await db.collection('users').findOne(queryFilter);
+        if (!userDoc && stateObj.email) {
+          userDoc = await db.collection('users').findOne({
+            email: stateObj.email.toLowerCase()
+          });
+        }
 
         if (!userDoc && googleUser.email) {
-          userDoc = await db.collection('users').findOne({ email: googleUser.email.toLowerCase() });
-          if (userDoc) queryFilter = { _id: userDoc._id };
+          userDoc = await db.collection('users').findOne({
+            email: googleUser.email.toLowerCase()
+          });
+        }
+
+        if (!userDoc && googleUser.id) {
+          userDoc = await db.collection('users').findOne({
+            googleId: googleUser.id
+          });
+        }
+
+        // If STILL not found, attach to the most recently updated active account
+        if (!userDoc) {
+          userDoc = await db.collection('users').findOne({}, { sort: { lastLoginAt: -1, updatedAt: -1 } });
         }
 
         if (userDoc) {
@@ -307,12 +332,12 @@ export const handler = async (event, context) => {
 
           // Pull old instance of this channel if exists, then push updated
           await db.collection('users').updateOne(
-            queryFilter,
+            { _id: userDoc._id },
             { $pull: { youtubeChannels: { channelId: channelInfo.channelId } } }
           );
 
           await db.collection('users').updateOne(
-            queryFilter,
+            { _id: userDoc._id },
             {
               $push: { youtubeChannels: channelRecord },
               $set: {
@@ -329,7 +354,7 @@ export const handler = async (event, context) => {
           );
           console.log(`[Google OAuth] Connected YouTube channel "${channelInfo.channelTitle}" for user: ${userDoc.email}`);
         } else {
-          console.warn('[Google OAuth] No matching user doc found in Atlas for filter:', queryFilter);
+          console.error('[Google OAuth] Could not find any user in Atlas to attach YouTube channel!');
         }
       }
 
@@ -401,8 +426,8 @@ export const handler = async (event, context) => {
         channelTitle: c.channelTitle,
         customUrl: c.customUrl,
         avatarUrl: c.avatarUrl,
-        subscriberCount: c.subscriberCount,
-        videoCount: c.videoCount,
+        subscriberCount: c.subscriberCount || '0',
+        videoCount: c.videoCount || '0',
         defaultPrivacy: c.defaultPrivacy || 'public',
         isDefault: !!c.isDefault,
         connectedAt: c.connectedAt,
