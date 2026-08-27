@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
-import { loginUser, initiateGoogleAuth, verifyGoogleCredential, GOOGLE_CLIENT_ID } from '../utils/authClient';
+import { loginUser, initiateGoogleAuth } from '../utils/authClient';
+import { renderGoogleSignInButton } from '../utils/googleAuthHelper';
 
 export default function LoginPage({ onLoginSuccess, onNavigateToRegister, onNavigateToLanding }) {
   const [email, setEmail] = useState('');
@@ -22,60 +23,26 @@ export default function LoginPage({ onLoginSuccess, onNavigateToRegister, onNavi
     }
   }, []);
 
-  // Initialize Google Identity Services (GSI) 1-Click Popup
+  // Initialize Google Identity Services (GSI) 1-Click Popup via Singleton
   useEffect(() => {
-    const initGsi = () => {
-      if (typeof window !== 'undefined' && window.google?.accounts?.id) {
-        try {
-          window.google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: async (response) => {
-              if (response && response.credential) {
-                audioEngine.playSfx('click');
-                setIsLoading(true);
-                setErrorMessage('');
-                try {
-                  const data = await verifyGoogleCredential(response.credential);
-                  audioEngine.playSfx('boom');
-                  if (typeof onLoginSuccess === 'function') {
-                    onLoginSuccess(data.user);
-                  }
-                } catch (err) {
-                  console.error('[LoginPage] Google credential verification error:', err);
-                  setErrorMessage(err.message || 'Google authentication failed.');
-                } finally {
-                  setIsLoading(false);
-                }
-              }
-            }
-          });
-
-          if (googleBtnRef.current) {
-            googleBtnRef.current.innerHTML = '';
-            window.google.accounts.id.renderButton(googleBtnRef.current, {
-              theme: 'filled_blue',
-              size: 'large',
-              shape: 'pill',
-              width: 380,
-              text: 'continue_with',
-              logo_alignment: 'left'
-            });
+    if (googleBtnRef.current) {
+      const cleanup = renderGoogleSignInButton(googleBtnRef.current, {
+        text: 'continue_with',
+        theme: 'filled_blue',
+        width: 380,
+        onSuccess: (user) => {
+          audioEngine.playSfx('boom');
+          if (typeof onLoginSuccess === 'function') {
+            onLoginSuccess(user);
           }
-        } catch (e) {
-          console.warn('[LoginPage] GSI init error:', e);
+        },
+        onError: (err) => {
+          console.error('[LoginPage] Google auth error:', err);
+          setErrorMessage(err.message || 'Google authentication failed.');
         }
-      }
-    };
-
-    initGsi();
-    const interval = setInterval(() => {
-      if (window.google?.accounts?.id) {
-        initGsi();
-        clearInterval(interval);
-      }
-    }, 400);
-
-    return () => clearInterval(interval);
+      });
+      return cleanup;
+    }
   }, []);
 
   const handleSubmit = async (e) => {
