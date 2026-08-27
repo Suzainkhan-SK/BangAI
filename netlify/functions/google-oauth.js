@@ -15,7 +15,8 @@ const OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/youtube.readonly',
   'https://www.googleapis.com/auth/spreadsheets',
   'https://www.googleapis.com/auth/userinfo.profile',
-  'https://www.googleapis.com/auth/userinfo.email'
+  'https://www.googleapis.com/auth/userinfo.email',
+  'openid'
 ].join(' ');
 
 // Verify JWT Token helper
@@ -33,7 +34,8 @@ function verifyToken(token) {
     if (signatureB64 !== expectedSig) return null;
 
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
-    if (payload.exp && Date.now() >= payload.exp * 1000) return null;
+    const expTime = payload.exp > 10000000000 ? payload.exp : payload.exp * 1000;
+    if (payload.exp && Date.now() >= expTime) return null;
     return payload;
   } catch (err) {
     return null;
@@ -50,10 +52,12 @@ export async function getFreshGoogleToken(channel) {
     return accessToken;
   }
 
-  if (!refreshToken) return accessToken || null;
+  if (!refreshToken) {
+    console.warn('[Google OAuth] No refresh token available for channel:', channel.channelId);
+    return accessToken || null;
+  }
 
   try {
-    console.log(`[Google OAuth] Auto-refreshing access token for channel ${channel.channelId}...`);
     const res = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -122,11 +126,13 @@ export const handler = async (event, context) => {
   if (action === 'connect') {
     const userToken = query.token || (event.headers.authorization ? event.headers.authorization.replace('Bearer ', '') : '');
     const user = verifyToken(userToken);
-    const userId = user ? user.userId : (query.userId || 'anonymous');
+    const userId = user ? (user.userId || user.id) : (query.userId || 'anonymous');
+    const userEmail = user ? user.email : '';
     const returnUrl = query.returnUrl || `${baseUrl}/#/profile`;
 
     const stateObj = {
       userId,
+      email: userEmail,
       returnUrl,
       timestamp: Date.now()
     };
@@ -138,7 +144,7 @@ export const handler = async (event, context) => {
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', OAUTH_SCOPES);
     authUrl.searchParams.set('access_type', 'offline');
-    authUrl.searchParams.set('prompt', 'select_account consent'); // Ensures account picker + permanent refresh_token is returned
+    authUrl.searchParams.set('prompt', 'select_account consent'); // Forces account selector + permanent refresh_token
     authUrl.searchParams.set('include_granted_scopes', 'true');
     authUrl.searchParams.set('state', state);
 
@@ -158,7 +164,7 @@ export const handler = async (event, context) => {
   if (query.code || action === 'callback') {
     const code = query.code;
     const error = query.error;
-    let stateObj = { returnUrl: `${baseUrl}/#/profile`, userId: null };
+    let stateObj = { returnUrl: `${baseUrl}/#/profile`, userId: null, email: null };
 
     try {
       if (query.state) {
@@ -201,7 +207,7 @@ export const handler = async (event, context) => {
           statusCode: 302,
           headers: {
             ...corsHeaders,
-            Location: `${returnUrl}?error=token_exchange_failed`
+            Location: `${returnUrl}?error=${encodeURIComponent(tokenData.error_description || 'Token exchange failed')}`
           },
           body: ''
         };
@@ -234,7 +240,7 @@ export const handler = async (event, context) => {
         console.error('[Google OAuth] Error fetching YouTube profile:', err.message);
       }
 
-      // C. Fetch Google User Profile (fallback if no channel created yet)
+      // C. Fetch Google User Profile (fallback if user hasn't initialized YouTube channel yet)
       let googleUser = {};
       try {
         const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -243,11 +249,11 @@ export const handler = async (event, context) => {
         googleUser = await userRes.json();
       } catch (e) {}
 
-      // If user has no YouTube channel, construct fallback info
+      // Fallback channel info if none returned
       if (!channelInfo) {
         channelInfo = {
-          channelId: `user_${googleUser.id || Date.now()}`,
-          channelTitle: googleUser.name || 'My YouTube Channel',
+          channelId: `ch_${googleUser.id || Date.now()}`,
+          channelTitle: googleUser.name ? `${googleUser.name}'s YouTube Channel` : 'My YouTube Channel',
           customUrl: googleUser.email || '@creator',
           avatarUrl: googleUser.picture || '',
           subscriberCount: '0',
@@ -274,15 +280,22 @@ export const handler = async (event, context) => {
           isDefault: true
         };
 
-        // Query by authenticated userId or email
+        // Query by authenticated userId or email (robust multi-field lookup)
         let queryFilter = {};
-        if (stateObj.userId && stateObj.userId !== 'anonymous') {
-          queryFilter = { userId: stateObj.userId };
-        } else if (googleUser.email) {
-          queryFilter = { email: googleUser.email.toLowerCase() };
+        const uid = stateObj.userId;
+        if (uid && uid !== 'anonymous') {
+          queryFilter = { $or: [{ id: uid }, { _id: uid }, { userId: uid }] };
+        } else if (stateObj.email || googleUser.email) {
+          const emailToMatch = (stateObj.email || googleUser.email).toLowerCase();
+          queryFilter = { email: emailToMatch };
         }
 
-        const userDoc = await db.collection('users').findOne(queryFilter);
+        let userDoc = await db.collection('users').findOne(queryFilter);
+
+        if (!userDoc && googleUser.email) {
+          userDoc = await db.collection('users').findOne({ email: googleUser.email.toLowerCase() });
+          if (userDoc) queryFilter = { _id: userDoc._id };
+        }
 
         if (userDoc) {
           // If refresh_token is missing on re-auth, preserve existing refresh_token
@@ -292,15 +305,12 @@ export const handler = async (event, context) => {
             tokenPayload.refreshToken = existingCh.tokens.refreshToken;
           }
 
-          // Remove old instance of this channel if exists, then add updated
+          // Pull old instance of this channel if exists, then push updated
           await db.collection('users').updateOne(
             queryFilter,
-            {
-              $pull: { youtubeChannels: { channelId: channelInfo.channelId } }
-            }
+            { $pull: { youtubeChannels: { channelId: channelInfo.channelId } } }
           );
 
-          // Mark other channels as non-default if this is first or set as default
           await db.collection('users').updateOne(
             queryFilter,
             {
@@ -312,24 +322,25 @@ export const handler = async (event, context) => {
                   tokens: tokenPayload,
                   autoLog: true,
                   connectedAt: new Date().toISOString()
-                }
+                },
+                updatedAt: new Date().toISOString()
               }
             }
           );
+          console.log(`[Google OAuth] Connected YouTube channel "${channelInfo.channelTitle}" for user: ${userDoc.email}`);
+        } else {
+          console.warn('[Google OAuth] No matching user doc found in Atlas for filter:', queryFilter);
         }
       }
 
       // E. Redirect back to Studio with success state
-      const redirectUrl = new URL(returnUrl);
-      redirectUrl.searchParams.set('oauth', 'success');
-      redirectUrl.searchParams.set('channel', channelInfo.channelTitle);
-      redirectUrl.searchParams.set('channelId', channelInfo.channelId);
+      const redirectTarget = `${baseUrl}/#/profile?oauth=success&channel=${encodeURIComponent(channelInfo.channelTitle)}&channelId=${encodeURIComponent(channelInfo.channelId)}`;
 
       return {
         statusCode: 302,
         headers: {
           ...corsHeaders,
-          Location: redirectUrl.toString()
+          Location: redirectTarget
         },
         body: ''
       };
@@ -372,10 +383,19 @@ export const handler = async (event, context) => {
         };
       }
 
-      const userDoc = await db.collection('users').findOne({ userId: user.userId });
+      const uid = user.userId || user.id;
+      const userDoc = await db.collection('users').findOne({
+        $or: [
+          { id: uid },
+          { _id: uid },
+          { userId: uid },
+          { email: user.email ? user.email.toLowerCase() : '' }
+        ]
+      });
+
       const rawChannels = userDoc?.youtubeChannels || [];
 
-      // Sanitize channels (remove raw refreshTokens for frontend security)
+      // Sanitize channels (omit refreshTokens for frontend security)
       const channels = rawChannels.map(c => ({
         channelId: c.channelId,
         channelTitle: c.channelTitle,
@@ -389,11 +409,11 @@ export const handler = async (event, context) => {
         isConnected: true
       }));
 
-      const sheets = userDoc?.googleSheets ? {
-        connected: !!userDoc.googleSheets.connected,
-        email: userDoc.googleSheets.email,
-        spreadsheetId: userDoc.googleSheets.spreadsheetId || null,
-        autoLog: !!userDoc.googleSheets.autoLog
+      const sheets = userDoc?.googleSheets?.connected ? {
+        connected: true,
+        email: userDoc.googleSheets.email || userDoc.email,
+        autoLog: !!userDoc.googleSheets.autoLog,
+        connectedAt: userDoc.googleSheets.connectedAt
       } : { connected: false };
 
       return {
@@ -440,8 +460,16 @@ export const handler = async (event, context) => {
     try {
       const db = await getDb();
       if (db) {
+        const uid = user.userId || user.id;
         await db.collection('users').updateOne(
-          { userId: user.userId },
+          {
+            $or: [
+              { id: uid },
+              { _id: uid },
+              { userId: uid },
+              { email: user.email ? user.email.toLowerCase() : '' }
+            ]
+          },
           { $pull: { youtubeChannels: { channelId } } }
         );
       }

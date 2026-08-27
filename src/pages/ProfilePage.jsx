@@ -32,23 +32,6 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
   const [loadingChannels, setLoadingChannels] = useState(true);
   const [oauthNotice, setOauthNotice] = useState(null);
 
-  // Check URL params for OAuth callback return
-  useEffect(() => {
-    const hash = window.location.hash || '';
-    const search = window.location.search || (hash.includes('?') ? hash.substring(hash.indexOf('?')) : '');
-    const params = new URLSearchParams(search);
-
-    if (params.get('oauth') === 'success') {
-      const chName = params.get('channel') || 'YouTube Channel';
-      setOauthNotice({ type: 'success', message: `🎉 Successfully connected: ${chName}!` });
-      audioEngine.playSfx('boom');
-      // Clean up URL without reload
-      window.history.replaceState({}, document.title, window.location.pathname + '#/profile');
-    } else if (params.get('error')) {
-      setOauthNotice({ type: 'error', message: `⚠️ Google authorization failed: ${params.get('error')}` });
-    }
-  }, []);
-
   // Fetch connected channels & sheets from Netlify serverless token vault
   const fetchChannels = async () => {
     setLoadingChannels(true);
@@ -68,6 +51,24 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
       setLoadingChannels(false);
     }
   };
+
+  // Check URL params for OAuth callback return
+  useEffect(() => {
+    const hash = window.location.hash || '';
+    const search = window.location.search || (hash.includes('?') ? hash.substring(hash.indexOf('?')) : '');
+    const params = new URLSearchParams(search);
+
+    if (params.get('oauth') === 'success') {
+      const chName = params.get('channel') || 'YouTube Channel';
+      setOauthNotice({ type: 'success', message: `🎉 Successfully connected: ${chName}!` });
+      audioEngine.playSfx('boom');
+      fetchChannels();
+      // Clean up URL without reload
+      window.history.replaceState({}, document.title, window.location.pathname + '#/profile');
+    } else if (params.get('error')) {
+      setOauthNotice({ type: 'error', message: `⚠️ Google authorization failed: ${params.get('error')}` });
+    }
+  }, []);
 
   useEffect(() => {
     fetchChannels();
