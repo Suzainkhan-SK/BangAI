@@ -72,23 +72,61 @@ export const handler = async (event, context) => {
       db = await getDb();
     } catch (e) {}
 
-    // Retrieve user's dynamic Google OAuth token for selected channel
+    // Retrieve user's dynamic Google OAuth token for selected channel and sheet
     let googleAccessToken = null;
     let selectedChannel = null;
+    let userSheetAccessToken = null;
+    let userSpreadsheetId = '';
+    let userSheetName = 'Production Log';
 
-    if (db && user?.userId) {
-      const userDoc = await db.collection('users').findOne({ userId: user.userId });
+    const userId = user?.userId || user?.id || payload.userId;
+    const userEmail = user?.email || payload.email;
+
+    if (db && (userId || userEmail)) {
+      const userDoc = await db.collection('users').findOne({
+        $or: [
+          { userId: userId },
+          { id: userId },
+          { _id: userId },
+          { email: userEmail ? userEmail.toLowerCase() : '' }
+        ]
+      });
+
       const channels = userDoc?.youtubeChannels || [];
-
       if (channelId) {
         selectedChannel = channels.find(c => c.channelId === channelId);
       } else {
         selectedChannel = channels.find(c => c.isDefault) || channels[0];
       }
 
-      if (selectedChannel) {
-        googleAccessToken = await getFreshGoogleToken(selectedChannel);
+      if (selectedChannel && selectedChannel.tokens) {
+        googleAccessToken = await getFreshGoogleToken(selectedChannel, 'youtubeChannels') || selectedChannel.tokens.accessToken || null;
       }
+
+      // Sheets
+      const selectedSheetId = payload.selectedSheetId || payload.sheetId;
+      const sheets = userDoc?.sheets || [];
+      let targetSheet = selectedSheetId ? sheets.find(s => s.sheetId === selectedSheetId || s.spreadsheetId === selectedSheetId) : (sheets.find(s => s.isDefault) || sheets[0] || null);
+
+      if (targetSheet) {
+        const sheetContainer = targetSheet.tokens ? targetSheet : selectedChannel;
+        if (sheetContainer && sheetContainer.tokens) {
+          userSheetAccessToken = await getFreshGoogleToken(sheetContainer, 'youtubeChannels') || sheetContainer.tokens.accessToken || null;
+        }
+        userSpreadsheetId = targetSheet.spreadsheetId || targetSheet.sheetId || '';
+        userSheetName = targetSheet.sheetName || 'Production Log';
+      }
+    }
+
+    if (!googleAccessToken) {
+      return {
+        statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          error: 'NO_CHANNEL_CONNECTED', 
+          message: 'No connected YouTube channel found. Please connect your YouTube channel in Profile to upload.' 
+        })
+      };
     }
 
     console.log('[Bang AI] Dispatching YouTube Upload to n8n Cloud for thread:', threadId, 'Channel:', selectedChannel?.channelTitle || 'Default');
@@ -120,8 +158,14 @@ export const handler = async (event, context) => {
           webhookSecret: webhookSecret,
           callbackUrl,
           googleAccessToken: googleAccessToken || '',
+          userYouTubeAccessToken: googleAccessToken || '',
           channelId: selectedChannel?.channelId || '',
           channelTitle: selectedChannel?.channelTitle || '',
+          userYouTubeChannelTitle: selectedChannel?.channelTitle || '',
+          userYouTubeChannelId: selectedChannel?.channelId || '',
+          userSheetAccessToken: userSheetAccessToken || '',
+          userSpreadsheetId: userSpreadsheetId || '',
+          userSheetName: userSheetName || 'Production Log',
           privacyStatus: privacy || selectedChannel?.defaultPrivacy || 'public',
           timestamp: now.toISOString()
         })
