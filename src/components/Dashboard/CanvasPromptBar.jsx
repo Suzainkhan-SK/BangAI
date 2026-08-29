@@ -470,22 +470,26 @@ export default function CanvasPromptBar(props) {
               {showChannelDropdown && (
                 <div style={{
                   position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  right: 0,
-                  width: '280px',
-                  background: 'var(--bg-card, #121826)',
-                  border: '1px solid var(--border-medium, rgba(255, 255, 255, 0.15))',
+                  bottom: 'calc(100% + 10px)',
+                  right: isMobile ? '-40px' : 0,
+                  width: isMobile ? 'min(290px, 90vw)' : '300px',
+                  background: 'rgba(18, 24, 38, 0.96)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
                   borderRadius: '16px',
-                  padding: '10px',
-                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.65)',
-                  backdropFilter: 'blur(16px)',
-                  zIndex: 200
+                  padding: '12px',
+                  boxShadow: '0 -16px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(239, 68, 68, 0.15)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  zIndex: 300,
+                  maxHeight: 'min(380px, 60vh)',
+                  overflowY: 'auto'
                 }}>
-                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--text-muted)', padding: '4px 8px 8px 8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '6px' }}>
-                    SELECT YOUTUBE CHANNEL (CHANGE ANYTIME)
+                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--text-muted)', padding: '2px 4px 8px 4px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>SELECT YOUTUBE CHANNEL</span>
+                    <span style={{ color: '#ef4444', fontSize: '9.5px', background: 'rgba(239, 68, 68, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>LIVE UPLOAD</span>
                   </div>
 
-                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  <div>
                     {channels.length > 0 ? (
                       channels.map((ch) => {
                         const isSelected = (selectedChannelId === ch.channelId) || (!selectedChannelId && ch.isDefault);
@@ -504,18 +508,18 @@ export default function CanvasPromptBar(props) {
                               justifyContent: 'space-between',
                               padding: '8px 10px',
                               borderRadius: '10px',
-                              background: isSelected ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
-                              border: isSelected ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid transparent',
+                              background: isSelected ? 'rgba(239, 68, 68, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+                              border: isSelected ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid rgba(255, 255, 255, 0.04)',
                               cursor: 'pointer',
-                              marginBottom: '4px',
+                              marginBottom: '6px',
                               transition: 'all 0.15s ease'
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
                               {ch.avatarUrl ? (
-                                <img src={ch.avatarUrl} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%' }} />
+                                <img src={ch.avatarUrl} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0 }} />
                               ) : (
-                                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#ef4444', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#ef4444', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0 }}>
                                   {ch.channelTitle?.[0] || 'Y'}
                                 </div>
                               )}
@@ -524,7 +528,7 @@ export default function CanvasPromptBar(props) {
                                   {ch.channelTitle}
                                 </div>
                                 <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                                  {ch.customUrl || `@${ch.channelId.substring(0, 8)}`}
+                                  {ch.customUrl || `@${ch.channelId.substring(0, 10)}`}
                                 </div>
                               </div>
                             </div>
@@ -533,36 +537,13 @@ export default function CanvasPromptBar(props) {
                         );
                       })
                     ) : (
-                      <div style={{ padding: '10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11.5px' }}>
-                        No channels connected yet.
+                      <div style={{ padding: '14px 10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '10px', marginBottom: '8px' }}>
+                        No YouTube channel connected yet.
                       </div>
                     )}
-
-                    <div
-                      onClick={() => {
-                        audioEngine.playSfx('click');
-                        setChannelValue('');
-                        setShowChannelDropdown(false);
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 10px',
-                        borderRadius: '10px',
-                        background: !selectedChannelId ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-                        cursor: 'pointer',
-                        marginBottom: '4px'
-                      }}
-                    >
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                        ⚡ Master Account (System Default)
-                      </div>
-                      {!selectedChannelId && <Check size={14} color="var(--accent-primary)" />}
-                    </div>
                   </div>
 
-                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <button
                       type="button"
                       onClick={() => {
@@ -572,24 +553,26 @@ export default function CanvasPromptBar(props) {
                       }}
                       style={{
                         width: '100%',
-                        background: 'none',
-                        border: 'none',
+                        background: 'rgba(56, 189, 248, 0.08)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        borderRadius: '8px',
                         color: '#38bdf8',
                         fontSize: '11.5px',
                         fontWeight: 700,
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '6px',
-                        padding: '4px 6px'
+                        padding: '6px 8px'
                       }}
                     >
                       <Plus size={13} />
-                      <span>+ Connect Channel in Profile</span>
+                      <span>+ Connect YouTube Channel in Profile</span>
                     </button>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-Upload</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-Upload to this channel</span>
                       <button
                         type="button"
                         onClick={() => setAutoUploadToYouTube(!autoUploadToYouTube)}
@@ -598,7 +581,7 @@ export default function CanvasPromptBar(props) {
                           color: '#fff',
                           border: 'none',
                           borderRadius: '99px',
-                          padding: '2px 8px',
+                          padding: '3px 10px',
                           fontSize: '10px',
                           fontWeight: 800,
                           cursor: 'pointer'
@@ -647,22 +630,26 @@ export default function CanvasPromptBar(props) {
               {showSheetDropdown && (
                 <div style={{
                   position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  right: 0,
-                  width: '280px',
-                  background: 'var(--bg-card, #121826)',
-                  border: '1px solid var(--border-medium, rgba(255, 255, 255, 0.15))',
+                  bottom: 'calc(100% + 10px)',
+                  right: isMobile ? '-10px' : 0,
+                  width: isMobile ? 'min(290px, 90vw)' : '300px',
+                  background: 'rgba(18, 24, 38, 0.96)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
                   borderRadius: '16px',
-                  padding: '10px',
-                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.65)',
-                  backdropFilter: 'blur(16px)',
-                  zIndex: 200
+                  padding: '12px',
+                  boxShadow: '0 -16px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(16, 185, 129, 0.15)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  zIndex: 300,
+                  maxHeight: 'min(380px, 60vh)',
+                  overflowY: 'auto'
                 }}>
-                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--text-muted)', padding: '4px 8px 8px 8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '6px' }}>
-                    SELECT GOOGLE SHEET (CHANGE ANYTIME)
+                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--text-muted)', padding: '2px 4px 8px 4px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>SELECT GOOGLE SHEET</span>
+                    <span style={{ color: '#10b981', fontSize: '9.5px', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>AUTO-SYNC</span>
                   </div>
 
-                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  <div>
                     {sheets.length > 0 ? (
                       sheets.map((s) => {
                         const isSelected = (selectedSheetId === s.sheetId) || (selectedSheetId === s.spreadsheetId) || (!selectedSheetId && s.isDefault);
@@ -681,15 +668,15 @@ export default function CanvasPromptBar(props) {
                               justifyContent: 'space-between',
                               padding: '8px 10px',
                               borderRadius: '10px',
-                              background: isSelected ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                              border: isSelected ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
+                              background: isSelected ? 'rgba(16, 185, 129, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+                              border: isSelected ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid rgba(255, 255, 255, 0.04)',
                               cursor: 'pointer',
-                              marginBottom: '4px',
+                              marginBottom: '6px',
                               transition: 'all 0.15s ease'
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                              <Table size={16} color="#10b981" />
+                              <Table size={16} color="#10b981" style={{ flexShrink: 0 }} />
                               <div style={{ overflow: 'hidden' }}>
                                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                                   {s.title || 'Production Log'}
@@ -704,36 +691,13 @@ export default function CanvasPromptBar(props) {
                         );
                       })
                     ) : (
-                      <div style={{ padding: '10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11.5px' }}>
-                        No Google Sheets linked yet.
+                      <div style={{ padding: '14px 10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '10px', marginBottom: '8px' }}>
+                        No Google Sheets connected yet.
                       </div>
                     )}
-
-                    <div
-                      onClick={() => {
-                        audioEngine.playSfx('click');
-                        setSheetValue('');
-                        setShowSheetDropdown(false);
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 10px',
-                        borderRadius: '10px',
-                        background: !selectedSheetId ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-                        cursor: 'pointer',
-                        marginBottom: '4px'
-                      }}
-                    >
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                        ⚡ Master Sheet (System Default)
-                      </div>
-                      {!selectedSheetId && <Check size={14} color="var(--accent-primary)" />}
-                    </div>
                   </div>
 
-                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <button
                       type="button"
                       onClick={() => {
@@ -743,16 +707,18 @@ export default function CanvasPromptBar(props) {
                       }}
                       style={{
                         width: '100%',
-                        background: 'none',
-                        border: 'none',
+                        background: 'rgba(16, 185, 129, 0.08)',
+                        border: '1px solid rgba(16, 185, 129, 0.25)',
+                        borderRadius: '8px',
                         color: '#10b981',
                         fontSize: '11.5px',
                         fontWeight: 700,
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '6px',
-                        padding: '4px 6px'
+                        padding: '6px 8px'
                       }}
                     >
                       <Plus size={13} />
@@ -760,7 +726,7 @@ export default function CanvasPromptBar(props) {
                     </button>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-Log</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-Log to this sheet</span>
                       <button
                         type="button"
                         onClick={() => setAutoLogToSheet(!autoLogToSheet)}
@@ -769,7 +735,7 @@ export default function CanvasPromptBar(props) {
                           color: '#fff',
                           border: 'none',
                           borderRadius: '99px',
-                          padding: '2px 8px',
+                          padding: '3px 10px',
                           fontSize: '10px',
                           fontWeight: 800,
                           cursor: 'pointer'

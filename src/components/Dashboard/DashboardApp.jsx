@@ -821,7 +821,9 @@ export default function DashboardApp({
             selectedSheetId,
             sheetId: selectedSheetId,
             autoLogToSheet,
-            token: typeof window !== 'undefined' ? (localStorage.getItem('bang_auth_token') || localStorage.getItem('shortsai_auth_token') || '') : ''
+            token: getAuthToken(),
+            email: (getStoredUser() || {}).email || '',
+            userId: (getStoredUser() || {}).id || (getStoredUser() || {}).userId || (getStoredUser() || {})._id || ''
           }
         })
       });
@@ -1183,8 +1185,15 @@ export default function DashboardApp({
           subtitleSettings: chosenSubtitleSettings,
           musicId: chosenMusicId,
           musicTrackUrl: chosenMusicTrackUrl,
-          musicVolume: chosenMusicVolume,
-          autoUploadToYouTube: !!autoUploadToYouTube
+          autoUploadToYouTube: !!autoUploadToYouTube,
+          selectedChannelId,
+          channelId: selectedChannelId,
+          selectedSheetId,
+          sheetId: selectedSheetId,
+          autoLogToSheet,
+          token: getAuthToken(),
+          email: (getStoredUser() || {}).email || '',
+          userId: (getStoredUser() || {}).id || (getStoredUser() || {}).userId || (getStoredUser() || {})._id || ''
         })
       });
 
