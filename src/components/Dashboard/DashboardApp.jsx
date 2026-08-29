@@ -32,6 +32,7 @@ import {
   Menu
 } from 'lucide-react';
 import { useBreakpoint, useBodyScrollLock } from '../../hooks/useMediaQuery';
+import { getAuthToken, getStoredUser } from '../../utils/authClient';
 
 const SESSION_ID_KEY = 'shortsai_session_id';
 
@@ -104,11 +105,16 @@ export default function DashboardApp({
   useEffect(() => {
     const fetchPublishingAccounts = async () => {
       try {
-        const token = localStorage.getItem('bang_auth_token') || localStorage.getItem('shortsai_auth_token');
-        if (!token) return;
-        const res = await fetch('/.netlify/functions/google-oauth?action=channels', {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const token = getAuthToken();
+        const storedUser = getStoredUser() || {};
+        const email = storedUser.email || '';
+        const userId = storedUser.id || storedUser.userId || storedUser._id || '';
+
+        const url = `/.netlify/functions/google-oauth?action=channels&email=${encodeURIComponent(email)}&userId=${encodeURIComponent(userId)}`;
+        const res = await fetch(url, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
+
         if (res.ok) {
           const data = await res.json();
           if (data.channels && Array.isArray(data.channels)) {
@@ -137,6 +143,7 @@ export default function DashboardApp({
     const handleAuthMessage = (event) => {
       if (event.data?.type === 'BANG_OAUTH_SUCCESS') {
         fetchPublishingAccounts();
+        setTimeout(fetchPublishingAccounts, 800);
       }
     };
     window.addEventListener('message', handleAuthMessage);

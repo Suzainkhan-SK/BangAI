@@ -138,6 +138,24 @@ export default function CanvasPromptBar(props) {
   const activeChannel = channels.find(c => c.channelId === selectedChannelId) || (channels.length > 0 ? (channels.find(c => c.isDefault) || channels[0]) : null);
   const activeSheet = sheets.find(s => s.sheetId === selectedSheetId || s.spreadsheetId === selectedSheetId) || (sheets.length > 0 ? (sheets.find(s => s.isDefault) || sheets[0]) : null);
 
+  const [showChannelDropdown, setShowChannelDropdown] = useState(false);
+  const [showSheetDropdown, setShowSheetDropdown] = useState(false);
+  const channelDropdownRef = useRef(null);
+  const sheetDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (channelDropdownRef.current && !channelDropdownRef.current.contains(e.target)) {
+        setShowChannelDropdown(false);
+      }
+      if (sheetDropdownRef.current && !sheetDropdownRef.current.contains(e.target)) {
+        setShowSheetDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const isGenerating = !!props.isGenerating;
   const textareaRef = useRef(null);
   const { isMobile, isXSmall, isTouch } = useBreakpoint();
@@ -413,14 +431,364 @@ export default function CanvasPromptBar(props) {
             </button>
           </div>
 
-          {/* Right Header: Keyboard Shortcut Helper */}
-          {!isMobile && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                <Command size={10} /> <code>/</code> for commands
-              </span>
+          {/* Target YouTube Channel & Google Sheet Selectors (Top Header Bar) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+            {/* 1. YouTube Channel Dropdown Popover */}
+            <div ref={channelDropdownRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  audioEngine.playSfx('click');
+                  setShowChannelDropdown(!showChannelDropdown);
+                  setShowSheetDropdown(false);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  borderRadius: '99px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  border: activeChannel ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid var(--border-subtle)',
+                  background: activeChannel ? 'rgba(239, 68, 68, 0.14)' : 'var(--bg-input)',
+                  color: activeChannel ? '#fca5a5' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Select target YouTube Channel for upload (Change anytime)"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#ef4444">
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+                <span style={{ maxWidth: isMobile ? '85px' : '130px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activeChannel ? activeChannel.channelTitle : (channels.length > 0 ? channels[0].channelTitle : 'YouTube: Auto')}
+                </span>
+                <ChevronDown size={12} />
+              </button>
+
+              {showChannelDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: '280px',
+                  background: 'var(--bg-card, #121826)',
+                  border: '1px solid var(--border-medium, rgba(255, 255, 255, 0.15))',
+                  borderRadius: '16px',
+                  padding: '10px',
+                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.65)',
+                  backdropFilter: 'blur(16px)',
+                  zIndex: 200
+                }}>
+                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--text-muted)', padding: '4px 8px 8px 8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '6px' }}>
+                    SELECT YOUTUBE CHANNEL (CHANGE ANYTIME)
+                  </div>
+
+                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {channels.length > 0 ? (
+                      channels.map((ch) => {
+                        const isSelected = (selectedChannelId === ch.channelId) || (!selectedChannelId && ch.isDefault);
+                        return (
+                          <div
+                            key={ch.channelId}
+                            onClick={() => {
+                              audioEngine.playSfx('click');
+                              setChannelValue(ch.channelId);
+                              setAutoUploadToYouTube(true);
+                              setShowChannelDropdown(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 10px',
+                              borderRadius: '10px',
+                              background: isSelected ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+                              border: isSelected ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid transparent',
+                              cursor: 'pointer',
+                              marginBottom: '4px',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                              {ch.avatarUrl ? (
+                                <img src={ch.avatarUrl} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%' }} />
+                              ) : (
+                                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#ef4444', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                                  {ch.channelTitle?.[0] || 'Y'}
+                                </div>
+                              )}
+                              <div style={{ overflow: 'hidden' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                  {ch.channelTitle}
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                                  {ch.customUrl || `@${ch.channelId.substring(0, 8)}`}
+                                </div>
+                              </div>
+                            </div>
+                            {isSelected && <Check size={14} color="#ef4444" />}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div style={{ padding: '10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11.5px' }}>
+                        No channels connected yet.
+                      </div>
+                    )}
+
+                    <div
+                      onClick={() => {
+                        audioEngine.playSfx('click');
+                        setChannelValue('');
+                        setShowChannelDropdown(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 10px',
+                        borderRadius: '10px',
+                        background: !selectedChannelId ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                        cursor: 'pointer',
+                        marginBottom: '4px'
+                      }}
+                    >
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        ⚡ Master Account (System Default)
+                      </div>
+                      {!selectedChannelId && <Check size={14} color="var(--accent-primary)" />}
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowChannelDropdown(false);
+                        if (typeof props.onOpenProfile === 'function') props.onOpenProfile('youtube');
+                        else window.location.hash = '#/profile';
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'none',
+                        border: 'none',
+                        color: '#38bdf8',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '4px 6px'
+                      }}
+                    >
+                      <Plus size={13} />
+                      <span>+ Connect Channel in Profile</span>
+                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-Upload</span>
+                      <button
+                        type="button"
+                        onClick={() => setAutoUploadToYouTube(!autoUploadToYouTube)}
+                        style={{
+                          background: autoUploadToYouTube ? '#ef4444' : 'var(--bg-input)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '99px',
+                          padding: '2px 8px',
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {autoUploadToYouTube ? 'ON' : 'OFF'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* 2. Google Sheet Dropdown Popover */}
+            <div ref={sheetDropdownRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  audioEngine.playSfx('click');
+                  setShowSheetDropdown(!showSheetDropdown);
+                  setShowChannelDropdown(false);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  borderRadius: '99px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  border: activeSheet ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid var(--border-subtle)',
+                  background: activeSheet ? 'rgba(16, 185, 129, 0.14)' : 'var(--bg-input)',
+                  color: activeSheet ? '#6ee7b7' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Select Google Sheet to log video data (Change anytime)"
+              >
+                <Table size={13} color="#10b981" />
+                <span style={{ maxWidth: isMobile ? '85px' : '130px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activeSheet ? activeSheet.title : (sheets.length > 0 ? sheets[0].title : 'Sheets: Auto-Log')}
+                </span>
+                <ChevronDown size={12} />
+              </button>
+
+              {showSheetDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: '280px',
+                  background: 'var(--bg-card, #121826)',
+                  border: '1px solid var(--border-medium, rgba(255, 255, 255, 0.15))',
+                  borderRadius: '16px',
+                  padding: '10px',
+                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.65)',
+                  backdropFilter: 'blur(16px)',
+                  zIndex: 200
+                }}>
+                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--text-muted)', padding: '4px 8px 8px 8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '6px' }}>
+                    SELECT GOOGLE SHEET (CHANGE ANYTIME)
+                  </div>
+
+                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {sheets.length > 0 ? (
+                      sheets.map((s) => {
+                        const isSelected = (selectedSheetId === s.sheetId) || (selectedSheetId === s.spreadsheetId) || (!selectedSheetId && s.isDefault);
+                        return (
+                          <div
+                            key={s.sheetId || s.spreadsheetId}
+                            onClick={() => {
+                              audioEngine.playSfx('click');
+                              setSheetValue(s.sheetId || s.spreadsheetId);
+                              setAutoLogToSheet(true);
+                              setShowSheetDropdown(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 10px',
+                              borderRadius: '10px',
+                              background: isSelected ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                              border: isSelected ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
+                              cursor: 'pointer',
+                              marginBottom: '4px',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                              <Table size={16} color="#10b981" />
+                              <div style={{ overflow: 'hidden' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                  {s.title || 'Production Log'}
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                                  Tab: {s.sheetName || 'Sheet1'}
+                                </div>
+                              </div>
+                            </div>
+                            {isSelected && <Check size={14} color="#10b981" />}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div style={{ padding: '10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11.5px' }}>
+                        No Google Sheets linked yet.
+                      </div>
+                    )}
+
+                    <div
+                      onClick={() => {
+                        audioEngine.playSfx('click');
+                        setSheetValue('');
+                        setShowSheetDropdown(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 10px',
+                        borderRadius: '10px',
+                        background: !selectedSheetId ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                        cursor: 'pointer',
+                        marginBottom: '4px'
+                      }}
+                    >
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        ⚡ Master Sheet (System Default)
+                      </div>
+                      {!selectedSheetId && <Check size={14} color="var(--accent-primary)" />}
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSheetDropdown(false);
+                        if (typeof props.onOpenProfile === 'function') props.onOpenProfile('sheets');
+                        else window.location.hash = '#/profile';
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'none',
+                        border: 'none',
+                        color: '#10b981',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '4px 6px'
+                      }}
+                    >
+                      <Plus size={13} />
+                      <span>+ Connect / Create Sheet in Profile</span>
+                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-Log</span>
+                      <button
+                        type="button"
+                        onClick={() => setAutoLogToSheet(!autoLogToSheet)}
+                        style={{
+                          background: autoLogToSheet ? '#10b981' : 'var(--bg-input)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '99px',
+                          padding: '2px 8px',
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {autoLogToSheet ? 'ON' : 'OFF'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {!isMobile && (
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <Command size={10} /> <code>/</code>
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Text Input Row */}
@@ -623,122 +991,6 @@ export default function CanvasPromptBar(props) {
                     {l.flag} {l.label}
                   </option>
                 ))}
-              </select>
-            </div>
-
-            {/* 4. Target YouTube Channel Pill */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-              <select
-                value={selectedChannelId}
-                onChange={(e) => {
-                  if (e.target.value === '__connect_channel__') {
-                    if (typeof props.onOpenProfile === 'function') props.onOpenProfile('youtube');
-                    else window.location.hash = '#/profile';
-                    return;
-                  }
-                  setChannelValue(e.target.value);
-                  if (e.target.value && !autoUploadToYouTube) {
-                    setAutoUploadToYouTube(true);
-                  }
-                }}
-                aria-label="Target YouTube Channel"
-                title="Target YouTube Channel: AI will generate and upload your Short to this specific channel"
-                style={{
-                  background: selectedChannelId ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-input)',
-                  color: selectedChannelId ? '#fca5a5' : 'var(--text-secondary)',
-                  border: selectedChannelId ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-subtle)',
-                  borderRadius: '99px',
-                  paddingTop: isTouch ? '7px' : '5px',
-                  paddingBottom: isTouch ? '7px' : '5px',
-                  paddingLeft: isTouch ? '14px' : '12px',
-                  paddingRight: '14px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  outline: 'none',
-                  appearance: 'none',
-                  maxWidth: isMobile ? '54vw' : 'none',
-                  textOverflow: 'ellipsis'
-                }}
-              >
-                {channels.length > 0 ? (
-                  <>
-                    <optgroup label="🔴 Connected YouTube Channels">
-                      {channels.map((ch) => (
-                        <option key={ch.channelId} value={ch.channelId}>
-                          🔴 {ch.channelTitle} {ch.customUrl ? `(${ch.customUrl})` : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="⚙️ Channel Options">
-                      <option value="">⚡ Master Account (System Default)</option>
-                      <option value="__connect_channel__">➕ Manage Channels in Profile...</option>
-                    </optgroup>
-                  </>
-                ) : (
-                  <>
-                    <option value="">⚡ Master Account (Default)</option>
-                    <option value="__connect_channel__">🔴 + Connect YouTube Channel...</option>
-                  </>
-                )}
-              </select>
-            </div>
-
-            {/* 5. Production Google Sheet Pill */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-              <select
-                value={selectedSheetId}
-                onChange={(e) => {
-                  if (e.target.value === '__connect_sheet__') {
-                    if (typeof props.onOpenProfile === 'function') props.onOpenProfile('sheets');
-                    else window.location.hash = '#/profile';
-                    return;
-                  }
-                  setSheetValue(e.target.value);
-                  if (e.target.value && !autoLogToSheet) {
-                    setAutoLogToSheet(true);
-                  }
-                }}
-                aria-label="Production Google Sheet"
-                title="Google Sheet: Logs metadata, prompts, tags, script, and YouTube URLs to this spreadsheet"
-                style={{
-                  background: selectedSheetId ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-input)',
-                  color: selectedSheetId ? '#6ee7b7' : 'var(--text-secondary)',
-                  border: selectedSheetId ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-subtle)',
-                  borderRadius: '99px',
-                  paddingTop: isTouch ? '7px' : '5px',
-                  paddingBottom: isTouch ? '7px' : '5px',
-                  paddingLeft: isTouch ? '14px' : '12px',
-                  paddingRight: '14px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  outline: 'none',
-                  appearance: 'none',
-                  maxWidth: isMobile ? '54vw' : 'none',
-                  textOverflow: 'ellipsis'
-                }}
-              >
-                {sheets.length > 0 ? (
-                  <>
-                    <optgroup label="📊 Connected Google Sheets">
-                      {sheets.map((s) => (
-                        <option key={s.sheetId || s.spreadsheetId} value={s.sheetId || s.spreadsheetId}>
-                          📊 {s.title || 'Production Log'} ({s.sheetName || 'Sheet1'})
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="⚙️ Sheet Options">
-                      <option value="">⚡ Master Sheet (System Default)</option>
-                      <option value="__connect_sheet__">➕ Add / Connect Sheet in Profile...</option>
-                    </optgroup>
-                  </>
-                ) : (
-                  <>
-                    <option value="">⚡ Production Log Sheet (Default)</option>
-                    <option value="__connect_sheet__">📊 + Connect / Create Google Sheet...</option>
-                  </>
-                )}
               </select>
             </div>
           </div>
