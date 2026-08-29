@@ -111,6 +111,23 @@ export default function CanvasPromptBar(props) {
   const autoUploadToYouTube = props.autoUploadToYouTube ?? false;
   const setAutoUploadToYouTube = props.setAutoUploadToYouTube || (() => {});
 
+  const channels = props.channels || [];
+  const selectedChannelId = props.selectedChannelId || '';
+  const setChannelValue = (val) => {
+    if (typeof props.setSelectedChannelId === 'function') props.setSelectedChannelId(val);
+    if (typeof props.onChannelChange === 'function') props.onChannelChange(val);
+  };
+
+  const sheets = props.sheets || [];
+  const selectedSheetId = props.selectedSheetId || '';
+  const setSheetValue = (val) => {
+    if (typeof props.setSelectedSheetId === 'function') props.setSelectedSheetId(val);
+    if (typeof props.onSheetChange === 'function') props.onSheetChange(val);
+  };
+
+  const autoLogToSheet = props.autoLogToSheet ?? true;
+  const setAutoLogToSheet = props.setAutoLogToSheet || (() => {});
+
   const isGenerating = !!props.isGenerating;
   const textareaRef = useRef(null);
   const { isMobile, isXSmall, isTouch } = useBreakpoint();
@@ -625,6 +642,122 @@ export default function CanvasPromptBar(props) {
                     {l.flag} {l.label}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            {/* 4. Target YouTube Channel Pill */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              <select
+                value={selectedChannelId}
+                onChange={(e) => {
+                  if (e.target.value === '__connect_channel__') {
+                    if (typeof props.onOpenProfile === 'function') props.onOpenProfile('youtube');
+                    else window.location.hash = '#/profile';
+                    return;
+                  }
+                  setChannelValue(e.target.value);
+                  if (e.target.value && !autoUploadToYouTube) {
+                    setAutoUploadToYouTube(true);
+                  }
+                }}
+                aria-label="Target YouTube Channel"
+                title="Target YouTube Channel: AI will generate and upload your Short to this specific channel"
+                style={{
+                  background: selectedChannelId ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-input)',
+                  color: selectedChannelId ? '#fca5a5' : 'var(--text-secondary)',
+                  border: selectedChannelId ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-subtle)',
+                  borderRadius: '99px',
+                  paddingTop: isTouch ? '7px' : '5px',
+                  paddingBottom: isTouch ? '7px' : '5px',
+                  paddingLeft: isTouch ? '14px' : '12px',
+                  paddingRight: '14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  outline: 'none',
+                  appearance: 'none',
+                  maxWidth: isMobile ? '54vw' : 'none',
+                  textOverflow: 'ellipsis'
+                }}
+              >
+                {channels.length > 0 ? (
+                  <>
+                    <optgroup label="🔴 Connected YouTube Channels">
+                      {channels.map((ch) => (
+                        <option key={ch.channelId} value={ch.channelId}>
+                          🔴 {ch.channelTitle} {ch.customUrl ? `(${ch.customUrl})` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="⚙️ Channel Options">
+                      <option value="">⚡ Master Account (System Default)</option>
+                      <option value="__connect_channel__">➕ Manage Channels in Profile...</option>
+                    </optgroup>
+                  </>
+                ) : (
+                  <>
+                    <option value="">⚡ Master Account (Default)</option>
+                    <option value="__connect_channel__">🔴 + Connect YouTube Channel...</option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            {/* 5. Production Google Sheet Pill */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              <select
+                value={selectedSheetId}
+                onChange={(e) => {
+                  if (e.target.value === '__connect_sheet__') {
+                    if (typeof props.onOpenProfile === 'function') props.onOpenProfile('sheets');
+                    else window.location.hash = '#/profile';
+                    return;
+                  }
+                  setSheetValue(e.target.value);
+                  if (e.target.value && !autoLogToSheet) {
+                    setAutoLogToSheet(true);
+                  }
+                }}
+                aria-label="Production Google Sheet"
+                title="Google Sheet: Logs metadata, prompts, tags, script, and YouTube URLs to this spreadsheet"
+                style={{
+                  background: selectedSheetId ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-input)',
+                  color: selectedSheetId ? '#6ee7b7' : 'var(--text-secondary)',
+                  border: selectedSheetId ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-subtle)',
+                  borderRadius: '99px',
+                  paddingTop: isTouch ? '7px' : '5px',
+                  paddingBottom: isTouch ? '7px' : '5px',
+                  paddingLeft: isTouch ? '14px' : '12px',
+                  paddingRight: '14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  outline: 'none',
+                  appearance: 'none',
+                  maxWidth: isMobile ? '54vw' : 'none',
+                  textOverflow: 'ellipsis'
+                }}
+              >
+                {sheets.length > 0 ? (
+                  <>
+                    <optgroup label="📊 Connected Google Sheets">
+                      {sheets.map((s) => (
+                        <option key={s.sheetId || s.spreadsheetId} value={s.sheetId || s.spreadsheetId}>
+                          📊 {s.title || 'Production Log'} ({s.sheetName || 'Sheet1'})
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="⚙️ Sheet Options">
+                      <option value="">⚡ Master Sheet (System Default)</option>
+                      <option value="__connect_sheet__">➕ Add / Connect Sheet in Profile...</option>
+                    </optgroup>
+                  </>
+                ) : (
+                  <>
+                    <option value="">⚡ Production Log Sheet (Default)</option>
+                    <option value="__connect_sheet__">📊 + Connect / Create Google Sheet...</option>
+                  </>
+                )}
               </select>
             </div>
           </div>

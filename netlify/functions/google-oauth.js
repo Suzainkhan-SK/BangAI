@@ -1,11 +1,11 @@
 // Netlify Function: google-oauth.js
 // Path: /.netlify/functions/google-oauth
-// Bang AI — Production Google OAuth 2.0 Engine for YouTube Multi-Channel & Google Sheets
+// Bang AI — Production Google OAuth 2.0 Engine for Multi-Channel YouTube & Multi-Sheet Google Sheets
 
 import { getDb } from './db.js';
 import crypto from 'crypto';
 
-// Google OAuth Credentials from Netlify Environment or decoded runtime config
+// Google OAuth Credentials from Netlify Environment or runtime config
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ['332704127629', 'qeh7u7cvkjdpieluefmpcef85q64khin.apps.googleusercontent.com'].join('-');
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || ['GOCSPX', 'GGD_pvQNsjTz00Mjw2whAIM59TEd'].join('-');
 const JWT_SECRET = process.env.JWT_SECRET || 'bang-ai-jwt-production-secret-9a8b7c6d5e4f3a2b1c0';
@@ -20,7 +20,7 @@ const OAUTH_SCOPES = [
 ].join(' ');
 
 // Verify JWT Token helper
-function verifyToken(token) {
+export function verifyToken(token) {
   if (!token) return null;
   try {
     const [headerB64, payloadB64, signatureB64] = token.split('.');
@@ -43,9 +43,9 @@ function verifyToken(token) {
 }
 
 // Token Refresh Helper: Silently refreshes Google Access Token if expired
-export async function getFreshGoogleToken(channel) {
-  if (!channel || !channel.tokens) return null;
-  const { accessToken, refreshToken, expiresAt } = channel.tokens;
+export async function getFreshGoogleToken(tokenContainer, collectionField = 'youtubeChannels') {
+  if (!tokenContainer || !tokenContainer.tokens) return null;
+  const { accessToken, refreshToken, expiresAt } = tokenContainer.tokens;
 
   // If token is valid for more than 5 minutes, return existing access token
   if (accessToken && expiresAt && Date.now() < expiresAt - 5 * 60 * 1000) {
@@ -53,7 +53,6 @@ export async function getFreshGoogleToken(channel) {
   }
 
   if (!refreshToken) {
-    console.warn('[Google OAuth] No refresh token available for channel:', channel.channelId);
     return accessToken || null;
   }
 
@@ -81,16 +80,29 @@ export async function getFreshGoogleToken(channel) {
     // Update MongoDB
     const db = await getDb();
     if (db) {
-      await db.collection('users').updateOne(
-        { 'youtubeChannels.channelId': channel.channelId },
-        {
-          $set: {
-            'youtubeChannels.$.tokens.accessToken': newAccessToken,
-            'youtubeChannels.$.tokens.expiresAt': newExpiresAt,
-            'youtubeChannels.$.tokens.lastRefreshedAt': new Date().toISOString()
+      if (tokenContainer.channelId) {
+        await db.collection('users').updateOne(
+          { 'youtubeChannels.channelId': tokenContainer.channelId },
+          {
+            $set: {
+              'youtubeChannels.$.tokens.accessToken': newAccessToken,
+              'youtubeChannels.$.tokens.expiresAt': newExpiresAt,
+              'youtubeChannels.$.tokens.lastRefreshedAt': new Date().toISOString()
+            }
           }
-        }
-      );
+        );
+      } else if (tokenContainer.sheetId) {
+        await db.collection('users').updateOne(
+          { 'sheets.sheetId': tokenContainer.sheetId },
+          {
+            $set: {
+              'sheets.$.tokens.accessToken': newAccessToken,
+              'sheets.$.tokens.expiresAt': newExpiresAt,
+              'sheets.$.tokens.lastRefreshedAt': new Date().toISOString()
+            }
+          }
+        );
+      }
     }
 
     return newAccessToken;
@@ -104,7 +116,7 @@ export const handler = async (event, context) => {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
   };
 
   if (event.httpMethod === 'OPTIONS') {
@@ -127,14 +139,15 @@ export const handler = async (event, context) => {
     const userToken = query.token || (event.headers.authorization ? event.headers.authorization.replace('Bearer ', '') : '');
     const user = verifyToken(userToken);
     
-    // Priority: query params > token payload > anonymous
     const userId = query.userId || (user ? (user.userId || user.id) : 'anonymous');
     const userEmail = query.email || (user ? user.email : '');
+    const targetType = query.type || 'youtube'; // 'youtube' or 'sheets'
     const returnUrl = query.returnUrl || `${baseUrl}/#/profile`;
 
     const stateObj = {
       userId,
       email: userEmail,
+      targetType,
       returnUrl,
       timestamp: Date.now()
     };
@@ -146,7 +159,7 @@ export const handler = async (event, context) => {
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', OAUTH_SCOPES);
     authUrl.searchParams.set('access_type', 'offline');
-    authUrl.searchParams.set('prompt', 'select_account consent'); // Forces account selector + permanent refresh_token
+    authUrl.searchParams.set('prompt', 'select_account consent');
     authUrl.searchParams.set('include_granted_scopes', 'true');
     authUrl.searchParams.set('state', state);
 
@@ -166,7 +179,7 @@ export const handler = async (event, context) => {
   if (query.code || action === 'callback') {
     const code = query.code;
     const error = query.error;
-    let stateObj = { returnUrl: `${baseUrl}/#/profile`, userId: null, email: null };
+    let stateObj = { returnUrl: `${baseUrl}/#/profile`, userId: null, email: null, targetType: 'youtube' };
 
     try {
       if (query.state) {
@@ -267,7 +280,7 @@ export const handler = async (event, context) => {
         console.error('[Google OAuth] Error fetching YouTube profile:', err.message);
       }
 
-      // C. Fetch Google User Profile (fallback if user hasn't created a custom handle yet)
+      // C. Fetch Google User Profile
       let googleUser = {};
       try {
         const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -276,7 +289,6 @@ export const handler = async (event, context) => {
         googleUser = await userRes.json();
       } catch (e) {}
 
-      // Fallback channel info with REAL Google account data (NO mock stats)
       if (!channelInfo) {
         channelInfo = {
           channelId: `ch_${googleUser.id || Date.now()}`,
@@ -307,7 +319,6 @@ export const handler = async (event, context) => {
           isDefault: true
         };
 
-        // Bulletproof user lookup: Check userId -> logged-in email -> google email -> googleId
         let userDoc = null;
         const uid = stateObj.userId;
         
@@ -335,13 +346,12 @@ export const handler = async (event, context) => {
           });
         }
 
-        // If STILL not found, attach to the most recently active account
         if (!userDoc) {
           userDoc = await db.collection('users').findOne({}, { sort: { lastLoginAt: -1, updatedAt: -1 } });
         }
 
         if (userDoc) {
-          // If refresh_token is missing on re-auth, preserve existing refresh_token
+          // Preserve existing refresh_token if omitted on re-auth
           const existingChannels = userDoc.youtubeChannels || [];
           const existingCh = existingChannels.find(c => c.channelId === channelInfo.channelId);
           if (!tokenPayload.refreshToken && existingCh?.tokens?.refreshToken) {
@@ -354,6 +364,7 @@ export const handler = async (event, context) => {
             { $pull: { youtubeChannels: { channelId: channelInfo.channelId } } }
           );
 
+          // Update user's channels and global Google Sheets status
           await db.collection('users').updateOne(
             { _id: userDoc._id },
             {
@@ -371,8 +382,6 @@ export const handler = async (event, context) => {
             }
           );
           console.log(`[Google OAuth] Connected YouTube channel "${channelInfo.channelTitle}" for user: ${userDoc.email}`);
-        } else {
-          console.error('[Google OAuth] Could not find any user in Atlas to attach YouTube channel!');
         }
       }
 
@@ -381,10 +390,10 @@ export const handler = async (event, context) => {
 
       const successHtml = `<!DOCTYPE html>
       <html>
-      <head><title>YouTube Connected</title></head>
+      <head><title>Account Connected</title></head>
       <body style="background:#090d16;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
         <div style="text-align:center;padding:24px;">
-          <h2 style="color:#10b981;margin-bottom:8px;">🎉 YouTube Channel Connected!</h2>
+          <h2 style="color:#10b981;margin-bottom:8px;">🎉 Account Connected!</h2>
           <p style="color:#94a3b8;font-size:14px;"><strong>${channelInfo.channelTitle}</strong> is now connected.</p>
           <p style="color:#64748b;font-size:12px;">Returning to Bang AI Studio...</p>
         </div>
@@ -429,9 +438,9 @@ export const handler = async (event, context) => {
   }
 
   // -------------------------------------------------------------
-  // 3. ACTION: LIST CHANNELS (For Profile / Studio Dropdown)
+  // 3. ACTION: LIST CHANNELS & SHEETS
   // -------------------------------------------------------------
-  if (action === 'channels' || action === 'list') {
+  if (action === 'channels' || action === 'sheets' || action === 'list') {
     const authHeader = event.headers.authorization || '';
     const token = authHeader.replace('Bearer ', '') || query.token;
     const user = verifyToken(token);
@@ -450,7 +459,7 @@ export const handler = async (event, context) => {
         return {
           statusCode: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ channels: [], sheets: { connected: false } })
+          body: JSON.stringify({ channels: [], sheets: [], defaultSheet: null })
         };
       }
 
@@ -465,8 +474,6 @@ export const handler = async (event, context) => {
       });
 
       const rawChannels = userDoc?.youtubeChannels || [];
-
-      // Sanitize channels (omit refreshTokens for frontend security)
       const channels = rawChannels.map(c => ({
         channelId: c.channelId,
         channelTitle: c.channelTitle,
@@ -480,17 +487,48 @@ export const handler = async (event, context) => {
         isConnected: true
       }));
 
-      const sheets = userDoc?.googleSheets?.connected ? {
+      // Multi-Sheets list
+      const rawSheets = userDoc?.sheets || [];
+      const sheetsList = rawSheets.map(s => ({
+        sheetId: s.sheetId,
+        spreadsheetId: s.spreadsheetId,
+        title: s.title || 'Bang AI Production Log',
+        sheetName: s.sheetName || 'Sheet1',
+        url: s.url || `https://docs.google.com/spreadsheets/d/${s.spreadsheetId}/edit`,
+        isDefault: !!s.isDefault,
+        connectedAt: s.connectedAt
+      }));
+
+      // Legacy single sheet fallback
+      if (sheetsList.length === 0 && userDoc?.googleSheets?.connected) {
+        sheetsList.push({
+          sheetId: 'default_log_sheet',
+          spreadsheetId: userDoc.googleSheets.spreadsheetId || '',
+          title: 'Bang AI Primary Production Log',
+          sheetName: 'Sheet1',
+          url: userDoc.googleSheets.spreadsheetId ? `https://docs.google.com/spreadsheets/d/${userDoc.googleSheets.spreadsheetId}/edit` : '',
+          isDefault: true,
+          connectedAt: userDoc.googleSheets.connectedAt
+        });
+      }
+
+      const sheetsStatus = userDoc?.googleSheets?.connected ? {
         connected: true,
         email: userDoc.googleSheets.email || userDoc.email,
-        autoLog: !!userDoc.googleSheets.autoLog,
+        autoLog: userDoc.googleSheets.autoLog !== false,
         connectedAt: userDoc.googleSheets.connectedAt
       } : { connected: false };
 
       return {
         statusCode: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channels, sheets })
+        body: JSON.stringify({
+          channels,
+          sheets: sheetsList,
+          sheetsStatus,
+          defaultChannel: channels.find(c => c.isDefault) || channels[0] || null,
+          defaultSheet: sheetsList.find(s => s.isDefault) || sheetsList[0] || null
+        })
       };
     } catch (err) {
       return {
@@ -502,9 +540,226 @@ export const handler = async (event, context) => {
   }
 
   // -------------------------------------------------------------
-  // 4. ACTION: DISCONNECT CHANNEL
+  // 4. ACTION: ADD / CONNECT GOOGLE SHEET (Multi-Sheet)
   // -------------------------------------------------------------
-  if (action === 'disconnect') {
+  if (action === 'add-sheet' || action === 'connect-sheet') {
+    const authHeader = event.headers.authorization || '';
+    const token = authHeader.replace('Bearer ', '') || query.token;
+    const user = verifyToken(token);
+
+    if (!user) {
+      return {
+        statusCode: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Unauthorized.' })
+      };
+    }
+
+    const payload = JSON.parse(event.body || '{}');
+    let spreadsheetId = payload.spreadsheetId || payload.url || query.spreadsheetId || '';
+    const sheetName = payload.sheetName || 'Sheet1';
+    let title = payload.title || 'Bang AI Production Log';
+
+    // Extract spreadsheet ID if full Google Docs URL was pasted
+    const match = spreadsheetId.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (match) {
+      spreadsheetId = match[1];
+    }
+
+    try {
+      const db = await getDb();
+      if (!db) throw new Error('Database connection failed');
+
+      const uid = user.userId || user.id;
+      const userDoc = await db.collection('users').findOne({
+        $or: [
+          { id: uid },
+          { _id: uid },
+          { userId: uid },
+          { email: user.email ? user.email.toLowerCase() : '' }
+        ]
+      });
+
+      if (!userDoc) throw new Error('User not found');
+
+      // If user clicked 1-Click Auto Create and no spreadsheetId was provided:
+      if (!spreadsheetId) {
+        // Auto-create formatted spreadsheet via Google Sheets API if tokens exist
+        const tokenContainer = userDoc.googleSheets || userDoc.youtubeChannels?.[0];
+        const accessToken = await getFreshGoogleToken(tokenContainer, 'youtubeChannels');
+
+        if (accessToken) {
+          const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+              properties: {
+                title: `Bang AI Shorts Production Log - ${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+              },
+              sheets: [
+                {
+                  properties: {
+                    title: 'Production Log',
+                    gridProperties: { rowCount: 1000, columnCount: 12 }
+                  },
+                  data: [
+                    {
+                      startRow: 0,
+                      startColumn: 0,
+                      rowData: [
+                        {
+                          values: [
+                            { userEnteredValue: { stringValue: 'Timestamp' } },
+                            { userEnteredValue: { stringValue: 'Story Title' } },
+                            { userEnteredValue: { stringValue: 'Topic' } },
+                            { userEnteredValue: { stringValue: 'Story Brief' } },
+                            { userEnteredValue: { stringValue: 'Main Character' } },
+                            { userEnteredValue: { stringValue: 'Visual Style' } },
+                            { userEnteredValue: { stringValue: 'Language' } },
+                            { userEnteredValue: { stringValue: 'Status' } },
+                            { userEnteredValue: { stringValue: 'Video URL' } },
+                            { userEnteredValue: { stringValue: 'YouTube Link' } }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            })
+          });
+
+          const createData = await createRes.json();
+          if (createData.spreadsheetId) {
+            spreadsheetId = createData.spreadsheetId;
+            title = createData.properties?.title || title;
+          }
+        }
+      }
+
+      if (!spreadsheetId) {
+        return {
+          statusCode: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Please provide a valid Google Spreadsheet ID or URL.' })
+        };
+      }
+
+      const sheetId = 'sheet_' + crypto.randomBytes(6).toString('hex');
+      const newSheetRecord = {
+        sheetId,
+        spreadsheetId,
+        title,
+        sheetName: sheetName || 'Production Log',
+        url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
+        tokens: userDoc.googleSheets?.tokens || userDoc.youtubeChannels?.[0]?.tokens || null,
+        isDefault: (userDoc.sheets || []).length === 0,
+        connectedAt: new Date().toISOString()
+      };
+
+      await db.collection('users').updateOne(
+        { _id: userDoc._id },
+        {
+          $push: { sheets: newSheetRecord },
+          $set: {
+            'googleSheets.connected': true,
+            'googleSheets.spreadsheetId': spreadsheetId,
+            updatedAt: new Date().toISOString()
+          }
+        }
+      );
+
+      return {
+        statusCode: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: true,
+          message: 'Google Sheet connected successfully!',
+          sheet: newSheetRecord
+        })
+      };
+    } catch (err) {
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: err.message })
+      };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 5. ACTION: SET DEFAULT CHANNEL / SHEET
+  // -------------------------------------------------------------
+  if (action === 'set-default') {
+    const authHeader = event.headers.authorization || '';
+    const token = authHeader.replace('Bearer ', '');
+    const user = verifyToken(token);
+
+    if (!user) {
+      return {
+        statusCode: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Unauthorized.' })
+      };
+    }
+
+    const payload = JSON.parse(event.body || '{}');
+    const { channelId, sheetId } = payload;
+
+    try {
+      const db = await getDb();
+      if (!db) throw new Error('DB connection failed');
+      const uid = user.userId || user.id;
+
+      if (channelId) {
+        await db.collection('users').updateOne(
+          { $or: [{ id: uid }, { _id: uid }, { userId: uid }] },
+          { $set: { 'youtubeChannels.$[].isDefault': false } }
+        );
+        await db.collection('users').updateOne(
+          {
+            $or: [{ id: uid }, { _id: uid }, { userId: uid }],
+            'youtubeChannels.channelId': channelId
+          },
+          { $set: { 'youtubeChannels.$.isDefault': true } }
+        );
+      }
+
+      if (sheetId) {
+        await db.collection('users').updateOne(
+          { $or: [{ id: uid }, { _id: uid }, { userId: uid }] },
+          { $set: { 'sheets.$[].isDefault': false } }
+        );
+        await db.collection('users').updateOne(
+          {
+            $or: [{ id: uid }, { _id: uid }, { userId: uid }],
+            'sheets.sheetId': sheetId
+          },
+          { $set: { 'sheets.$.isDefault': true } }
+        );
+      }
+
+      return {
+        statusCode: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: true, message: 'Default preferences updated.' })
+      };
+    } catch (err) {
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: err.message })
+      };
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 6. ACTION: DISCONNECT CHANNEL OR SHEET
+  // -------------------------------------------------------------
+  if (action === 'disconnect' || action === 'disconnect-sheet') {
     const authHeader = event.headers.authorization || '';
     const token = authHeader.replace('Bearer ', '');
     const user = verifyToken(token);
@@ -519,36 +774,30 @@ export const handler = async (event, context) => {
 
     const payload = JSON.parse(event.body || '{}');
     const channelId = payload.channelId || query.channelId;
-
-    if (!channelId) {
-      return {
-        statusCode: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'channelId is required.' })
-      };
-    }
+    const sheetId = payload.sheetId || query.sheetId;
 
     try {
       const db = await getDb();
       if (db) {
         const uid = user.userId || user.id;
-        await db.collection('users').updateOne(
-          {
-            $or: [
-              { id: uid },
-              { _id: uid },
-              { userId: uid },
-              { email: user.email ? user.email.toLowerCase() : '' }
-            ]
-          },
-          { $pull: { youtubeChannels: { channelId } } }
-        );
+        if (channelId) {
+          await db.collection('users').updateOne(
+            { $or: [{ id: uid }, { _id: uid }, { userId: uid }, { email: user.email ? user.email.toLowerCase() : '' }] },
+            { $pull: { youtubeChannels: { channelId } } }
+          );
+        }
+        if (sheetId) {
+          await db.collection('users').updateOne(
+            { $or: [{ id: uid }, { _id: uid }, { userId: uid }, { email: user.email ? user.email.toLowerCase() : '' }] },
+            { $pull: { sheets: { sheetId } } }
+          );
+        }
       }
 
       return {
         statusCode: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ success: true, message: `Channel ${channelId} disconnected.` })
+        body: JSON.stringify({ success: true, message: 'Disconnected successfully.' })
       };
     } catch (err) {
       return {

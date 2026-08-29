@@ -1,8 +1,11 @@
 // Netlify Function: generate-story
 // Path: /.netlify/functions/generate-story
+// Bang AI — Dispatches prompt with dynamic user YouTube & Google Sheets OAuth credentials to n8n
 
 import fs from 'fs';
 import path from 'path';
+import { getDb } from './db.js';
+import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 
 const N8N_WEBHOOK_URL = 'https://cmpunktg23.app.n8n.cloud/webhook/viral-shorts-ai';
 const CACHE_FILE = path.join('/tmp', 'latest_story.json');
@@ -51,8 +54,93 @@ export const handler = async (event, context) => {
     const host = event.headers.host || 'bangai.netlify.app';
     const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
 
+    // Dynamic Credentials Lookup from MongoDB
+    let userYouTubeAccessToken = '';
+    let userYouTubeChannelTitle = '';
+    let userYouTubeChannelId = '';
+    let userSheetAccessToken = '';
+    let userSpreadsheetId = '';
+    let userSheetName = 'Production Log';
+
+    const authHeader = event.headers.authorization || '';
+    const userToken = authHeader.replace('Bearer ', '') || payload.token;
+    const user = verifyToken(userToken);
+
+    if (user) {
+      try {
+        const db = await getDb();
+        if (db) {
+          const uid = user.userId || user.id;
+          const userDoc = await db.collection('users').findOne({
+            $or: [
+              { id: uid },
+              { _id: uid },
+              { userId: uid },
+              { email: user.email ? user.email.toLowerCase() : '' }
+            ]
+          });
+
+          if (userDoc) {
+            // 1. Resolve Target YouTube Channel
+            const selectedChannelId = payload.selectedChannelId || payload.channelId;
+            const channels = userDoc.youtubeChannels || [];
+            let targetChannel = null;
+
+            if (selectedChannelId) {
+              targetChannel = channels.find(c => c.channelId === selectedChannelId);
+            }
+            if (!targetChannel) {
+              targetChannel = channels.find(c => c.isDefault) || channels[0] || null;
+            }
+
+            if (targetChannel && targetChannel.tokens) {
+              userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || targetChannel.tokens.accessToken || '';
+              userYouTubeChannelTitle = targetChannel.channelTitle || '';
+              userYouTubeChannelId = targetChannel.channelId || '';
+            }
+
+            // 2. Resolve Target Google Sheet
+            const selectedSheetId = payload.selectedSheetId || payload.sheetId;
+            const sheets = userDoc.sheets || [];
+            let targetSheet = null;
+
+            if (selectedSheetId) {
+              targetSheet = sheets.find(s => s.sheetId === selectedSheetId || s.spreadsheetId === selectedSheetId);
+            }
+            if (!targetSheet) {
+              targetSheet = sheets.find(s => s.isDefault) || sheets[0] || null;
+            }
+
+            // Fallback to legacy single sheet record if multi-sheet list is empty
+            if (!targetSheet && userDoc.googleSheets?.connected) {
+              targetSheet = {
+                spreadsheetId: userDoc.googleSheets.spreadsheetId || '',
+                sheetName: 'Production Log',
+                tokens: userDoc.googleSheets.tokens || targetChannel?.tokens || null
+              };
+            }
+
+            if (targetSheet) {
+              const sheetTokenContainer = targetSheet.tokens ? targetSheet : targetChannel;
+              if (sheetTokenContainer) {
+                userSheetAccessToken = await getFreshGoogleToken(sheetTokenContainer, 'youtubeChannels') || sheetTokenContainer.tokens?.accessToken || '';
+              }
+              userSpreadsheetId = targetSheet.spreadsheetId || '';
+              userSheetName = targetSheet.sheetName || 'Production Log';
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn('[generate-story] Error resolving dynamic tokens:', dbErr.message);
+      }
+    }
+
+    const autoUploadToYouTube = payload.autoUploadToYouTube !== false && !!userYouTubeAccessToken;
+    const autoLogToSheet = payload.autoLogToSheet !== false;
+
     console.log(`[Netlify] Sending prompt to n8n cloud webhook: "${prompt.substring(0, 50)}..."`);
-    console.log(`[Netlify] Callback URL: ${callbackUrl}`);
+    console.log(`[Netlify] Dynamic YouTube Channel: "${userYouTubeChannelTitle || 'Master Default'}", Auto-Upload: ${autoUploadToYouTube}`);
+    console.log(`[Netlify] Dynamic Google Sheet: "${userSpreadsheetId || 'Master Default'}", Auto-Log: ${autoLogToSheet}`);
 
     const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
     const postData = JSON.stringify({
@@ -64,6 +152,16 @@ export const handler = async (event, context) => {
       threadId: payload.threadId || '',
       sessionId: payload.sessionId || '',
       webhookSecret: webhookSecret,
+      // Dynamic User YouTube Channel OAuth
+      autoUploadToYouTube: autoUploadToYouTube,
+      userYouTubeAccessToken: userYouTubeAccessToken,
+      userYouTubeChannelTitle: userYouTubeChannelTitle,
+      userYouTubeChannelId: userYouTubeChannelId,
+      // Dynamic User Google Sheets OAuth
+      autoLogToSheet: autoLogToSheet,
+      userSheetAccessToken: userSheetAccessToken,
+      userSpreadsheetId: userSpreadsheetId,
+      userSheetName: userSheetName,
       timestamp: new Date().toISOString()
     });
 
@@ -90,6 +188,8 @@ export const handler = async (event, context) => {
         message: 'Prompt dispatched to n8n autonomous video pipeline.',
         n8nStatus: res.status,
         callbackUrl: callbackUrl,
+        selectedChannel: userYouTubeChannelTitle || null,
+        selectedSheet: userSpreadsheetId || null,
         response: respText.substring(0, 200)
       })
     };

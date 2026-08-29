@@ -6,6 +6,7 @@
 // - /refine: Claude Script Doctor Refinement
 
 import { getDb } from './db.js';
+import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg23.app.n8n.cloud/webhook/viral-shorts-ai';
 const CLAUDE_BASE_URL = process.env.CLAUDE_BASE_URL || 'https://api.llmsrelay.com';
@@ -353,6 +354,72 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
     const host = event.headers?.host || 'bangai.netlify.app';
     const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
 
+    // Dynamic Token Resolution
+    let userYouTubeAccessToken = '';
+    let userYouTubeChannelTitle = '';
+    let userYouTubeChannelId = '';
+    let userSheetAccessToken = '';
+    let userSpreadsheetId = '';
+    let userSheetName = 'Production Log';
+
+    const authHeader = event.headers.authorization || '';
+    const userToken = authHeader.replace('Bearer ', '') || settings.token;
+    const user = verifyToken(userToken);
+
+    if (user && db) {
+      try {
+        const uid = user.userId || user.id;
+        const userDoc = await db.collection('users').findOne({
+          $or: [
+            { id: uid },
+            { _id: uid },
+            { userId: uid },
+            { email: user.email ? user.email.toLowerCase() : '' }
+          ]
+        });
+
+        if (userDoc) {
+          // Channel
+          const selectedChannelId = settings.selectedChannelId || settings.channelId;
+          const channels = userDoc.youtubeChannels || [];
+          let targetChannel = selectedChannelId ? channels.find(c => c.channelId === selectedChannelId) : (channels.find(c => c.isDefault) || channels[0] || null);
+
+          if (targetChannel && targetChannel.tokens) {
+            userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || targetChannel.tokens.accessToken || '';
+            userYouTubeChannelTitle = targetChannel.channelTitle || '';
+            userYouTubeChannelId = targetChannel.channelId || '';
+          }
+
+          // Sheet
+          const selectedSheetId = settings.selectedSheetId || settings.sheetId;
+          const sheets = userDoc.sheets || [];
+          let targetSheet = selectedSheetId ? sheets.find(s => s.sheetId === selectedSheetId || s.spreadsheetId === selectedSheetId) : (sheets.find(s => s.isDefault) || sheets[0] || null);
+
+          if (!targetSheet && userDoc.googleSheets?.connected) {
+            targetSheet = {
+              spreadsheetId: userDoc.googleSheets.spreadsheetId || '',
+              sheetName: 'Production Log',
+              tokens: userDoc.googleSheets.tokens || targetChannel?.tokens || null
+            };
+          }
+
+          if (targetSheet) {
+            const sheetTokenContainer = targetSheet.tokens ? targetSheet : targetChannel;
+            if (sheetTokenContainer) {
+              userSheetAccessToken = await getFreshGoogleToken(sheetTokenContainer, 'youtubeChannels') || sheetTokenContainer.tokens?.accessToken || '';
+            }
+            userSpreadsheetId = targetSheet.spreadsheetId || '';
+            userSheetName = targetSheet.sheetName || 'Production Log';
+          }
+        }
+      } catch (tokenErr) {
+        console.warn('[chat.js] Token lookup warning:', tokenErr.message);
+      }
+    }
+
+    const autoUploadToYouTube = settings.autoUploadToYouTube !== false && !!userYouTubeAccessToken;
+    const autoLogToSheet = settings.autoLogToSheet !== false;
+
     const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
     const n8nPayload = {
       prompt: message.trim(),
@@ -362,7 +429,14 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
       voiceSpeed: Number(settings.voiceSpeed) || 1.0,
       visualStyle: settings.visualStyle || 'Cinematic Realistic',
       language: detectedLanguage,
-      autoUploadToYouTube: !!settings.autoUploadToYouTube,
+      autoUploadToYouTube: autoUploadToYouTube,
+      userYouTubeAccessToken: userYouTubeAccessToken,
+      userYouTubeChannelTitle: userYouTubeChannelTitle,
+      userYouTubeChannelId: userYouTubeChannelId,
+      autoLogToSheet: autoLogToSheet,
+      userSheetAccessToken: userSheetAccessToken,
+      userSpreadsheetId: userSpreadsheetId,
+      userSheetName: userSheetName,
       subtitleSettings: settings.subtitleSettings || null,
       musicTrackUrl: settings.musicTrackUrl || '',
       musicVolume: Number(settings.musicVolume) || 0.15,

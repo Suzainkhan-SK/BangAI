@@ -94,6 +94,59 @@ export default function DashboardApp({
   const [musicId, setMusicId] = useState(DEFAULT_MUSIC_ID);
   const [language, setLanguage] = useState('Hinglish');
   const [autoUploadToYouTube, setAutoUploadToYouTube] = useState(false);
+  const [channels, setChannels] = useState([]);
+  const [selectedChannelId, setSelectedChannelId] = useState('');
+  const [sheets, setSheets] = useState([]);
+  const [selectedSheetId, setSelectedSheetId] = useState('');
+  const [autoLogToSheet, setAutoLogToSheet] = useState(true);
+
+  // Fetch connected YouTube channels and Google Sheets
+  useEffect(() => {
+    const fetchPublishingAccounts = async () => {
+      try {
+        const token = localStorage.getItem('bang_auth_token') || localStorage.getItem('shortsai_auth_token');
+        if (!token) return;
+        const res = await fetch('/.netlify/functions/google-oauth?action=channels', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.channels && Array.isArray(data.channels)) {
+            setChannels(data.channels);
+            const defaultCh = data.channels.find(c => c.isDefault) || data.channels[0];
+            if (defaultCh && !selectedChannelId) {
+              setSelectedChannelId(defaultCh.channelId);
+              setAutoUploadToYouTube(true);
+            }
+          }
+          if (data.sheets && Array.isArray(data.sheets)) {
+            setSheets(data.sheets);
+            const defaultSh = data.sheets.find(s => s.isDefault) || data.sheets[0];
+            if (defaultSh && !selectedSheetId) {
+              setSelectedSheetId(defaultSh.sheetId || defaultSh.spreadsheetId);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[DashboardApp] Failed to load publishing accounts:', e);
+      }
+    };
+
+    fetchPublishingAccounts();
+
+    const handleAuthMessage = (event) => {
+      if (event.data?.type === 'BANG_OAUTH_SUCCESS') {
+        fetchPublishingAccounts();
+      }
+    };
+    window.addEventListener('message', handleAuthMessage);
+    window.addEventListener('focus', fetchPublishingAccounts);
+    return () => {
+      window.removeEventListener('message', handleAuthMessage);
+      window.removeEventListener('focus', fetchPublishingAccounts);
+    };
+  }, []);
+
   const [subtitleSettings, setSubtitleSettings] = useState({
     presetId: 'mrbeast-viral',
     style: 'highlight',
@@ -755,7 +808,13 @@ export default function DashboardApp({
             musicVolume,
             subtitleSettings,
             language,
-            autoUploadToYouTube
+            autoUploadToYouTube,
+            selectedChannelId,
+            channelId: selectedChannelId,
+            selectedSheetId,
+            sheetId: selectedSheetId,
+            autoLogToSheet,
+            token: typeof window !== 'undefined' ? (localStorage.getItem('bang_auth_token') || localStorage.getItem('shortsai_auth_token') || '') : ''
           }
         })
       });
@@ -1865,7 +1924,18 @@ export default function DashboardApp({
               onLanguageChange={setLanguage}
               autoUploadToYouTube={autoUploadToYouTube}
               setAutoUploadToYouTube={setAutoUploadToYouTube}
+              channels={channels}
+              selectedChannelId={selectedChannelId}
+              setSelectedChannelId={setSelectedChannelId}
+              onChannelChange={setSelectedChannelId}
+              sheets={sheets}
+              selectedSheetId={selectedSheetId}
+              setSelectedSheetId={setSelectedSheetId}
+              onSheetChange={setSelectedSheetId}
+              autoLogToSheet={autoLogToSheet}
+              setAutoLogToSheet={setAutoLogToSheet}
               onOpenStudio={() => setIsStudioOpen(true)}
+              onOpenProfile={() => { window.location.hash = '#/profile'; }}
               onStop={handleTerminateExecution}
             />
           </div>
