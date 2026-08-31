@@ -166,6 +166,7 @@ export const handler = async (event, context) => {
           userSheetAccessToken: userSheetAccessToken || '',
           userSpreadsheetId: userSpreadsheetId || '',
           userSheetName: userSheetName || 'Production Log',
+          autoLogToSheet: payload.autoLogToSheet !== false,
           privacyStatus: privacy || selectedChannel?.defaultPrivacy || 'public',
           timestamp: now.toISOString()
         })
@@ -187,10 +188,17 @@ export const handler = async (event, context) => {
     console.log('[Bang AI] n8n YouTube upload response status:', n8nStatus, 'body:', n8nText);
 
     if (db && threadId) {
+      const resolvedUserId = user?.userId || user?.id || payload.userId;
+      const resolvedEmail = (user?.email || payload.email || '').toLowerCase();
+      const threadIdentity = {};
+      if (resolvedUserId) threadIdentity.userId = resolvedUserId;
+      if (resolvedEmail) { threadIdentity.email = resolvedEmail; threadIdentity.userEmail = resolvedEmail; }
+
       await db.collection('threads').updateOne(
         { threadId },
         {
           $set: {
+            ...threadIdentity,
             status: 'UPLOADING_YOUTUBE',
             targetChannelTitle: selectedChannel?.channelTitle || 'Connected YouTube Channel',
             updatedAt: now

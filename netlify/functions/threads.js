@@ -51,8 +51,16 @@ export const handler = async (event, context) => {
         };
       }
 
+      if (!sessionId) {
+        return {
+          statusCode: 400,
+          headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'sessionId or threadId is required', threads: [] })
+        };
+      }
+
       // Fetch all threads
-      const query = sessionId ? { $or: [{ sessionId }, { sessionId: { $exists: false } }, { sessionId: null }] } : {};
+      const query = { $or: [{ sessionId }, { sessionId: { $exists: false } }, { sessionId: null }] };
       const threads = await threadsCol.find(query).sort({ updatedAt: -1 }).limit(50).toArray();
 
       // Fetch all messages for these threads to guarantee 100% complete chat history

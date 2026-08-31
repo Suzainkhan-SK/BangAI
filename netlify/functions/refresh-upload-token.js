@@ -90,7 +90,7 @@ export const handler = async (event) => {
       if (channelId) {
         container = channels.find(c => c.channelId === channelId || c.id === channelId);
       }
-      if (!container && channels.length > 0) {
+      if (!container && !channelId && channels.length > 0) {
         container = channels[0];
       }
       collectionField = 'youtubeChannels';
@@ -99,7 +99,7 @@ export const handler = async (event) => {
       if (channelId) { // channelId can carry spreadsheetId or sheetId
         container = sheetsList.find(s => s.sheetId === channelId || s.spreadsheetId === channelId || s.id === channelId);
       }
-      if (!container && sheetsList.length > 0) {
+      if (!container && !channelId && sheetsList.length > 0) {
         container = sheetsList[0];
       }
       collectionField = 'sheets';

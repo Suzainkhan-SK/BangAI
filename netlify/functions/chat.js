@@ -108,6 +108,16 @@ export const handler = async (event, context) => {
     const currentSessionId = sessionId || 'default-session';
     const now = new Date();
 
+    const authHeader = event.headers.authorization || '';
+    const userToken = authHeader.replace('Bearer ', '') || settings.token;
+    const user = verifyToken(userToken);
+
+    const threadIdentity = {};
+    const resolvedUserId = user?.userId || user?.id || settings.userId || '';
+    const resolvedEmail  = (user?.email || settings.email || '').toLowerCase();
+    if (resolvedUserId) threadIdentity.userId = resolvedUserId;
+    if (resolvedEmail)  { threadIdentity.email = resolvedEmail; threadIdentity.userEmail = resolvedEmail; }
+
     // Detect language preference
     const rawLower = (message || '').toLowerCase();
     let detectedLanguage = settings.language || 'English';
@@ -143,6 +153,7 @@ export const handler = async (event, context) => {
           { threadId: currentThreadId },
           {
             $set: {
+              ...threadIdentity,
               threadId: currentThreadId,
               sessionId: currentSessionId,
               rawUserInput: message.trim(),
@@ -361,10 +372,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
     let userSheetAccessToken = '';
     let userSpreadsheetId = '';
     let userSheetName = 'Production Log';
-
-    const authHeader = event.headers.authorization || '';
-    const userToken = authHeader.replace('Bearer ', '') || settings.token;
-    const user = verifyToken(userToken);
+    let targetChannel = null;
 
     if (user && db) {
       try {
@@ -382,7 +390,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
           // Channel
           const selectedChannelId = settings.selectedChannelId || settings.channelId;
           const channels = userDoc.youtubeChannels || [];
-          let targetChannel = selectedChannelId ? channels.find(c => c.channelId === selectedChannelId) : (channels.find(c => c.isDefault) || channels[0] || null);
+          targetChannel = selectedChannelId ? channels.find(c => c.channelId === selectedChannelId) : (channels.find(c => c.isDefault) || channels[0] || null);
 
           if (targetChannel && targetChannel.tokens) {
             userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || targetChannel.tokens.accessToken || '';
@@ -447,6 +455,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
         const v = Number(settings.musicVolume);
         return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
       })(),
+      privacyStatus: settings.privacyStatus || targetChannel?.defaultPrivacy || 'public',
       callbackUrl,
       threadId: currentThreadId,
       sessionId: currentSessionId,
@@ -502,6 +511,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
           { threadId: currentThreadId },
           {
             $set: {
+              ...threadIdentity,
               threadId: currentThreadId,
               sessionId: currentSessionId,
               status: 'GENERATING',

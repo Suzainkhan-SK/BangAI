@@ -313,13 +313,6 @@ export const handler = async (event, context) => {
           updatedAt: new Date().toISOString()
         };
 
-        const channelRecord = {
-          ...channelInfo,
-          tokens: tokenPayload,
-          connectedAt: new Date().toISOString(),
-          isDefault: true
-        };
-
         let userDoc = null;
         const uid = stateObj.userId;
         
@@ -348,42 +341,75 @@ export const handler = async (event, context) => {
         }
 
         if (!userDoc) {
-          userDoc = await db.collection('users').findOne({}, { sort: { lastLoginAt: -1, updatedAt: -1 } });
-        }
-
-        if (userDoc) {
-          // Preserve existing refresh_token if omitted on re-auth
-          const existingChannels = userDoc.youtubeChannels || [];
-          const existingCh = existingChannels.find(c => c.channelId === channelInfo.channelId);
-          if (!tokenPayload.refreshToken && existingCh?.tokens?.refreshToken) {
-            tokenPayload.refreshToken = existingCh.tokens.refreshToken;
-          }
-
-          // Pull old instance of this channel if exists, then push updated
-          await db.collection('users').updateOne(
-            { _id: userDoc._id },
-            { $pull: { youtubeChannels: { channelId: channelInfo.channelId } } }
-          );
-
-          // Update user's channels and global Google Sheets status
-          await db.collection('users').updateOne(
-            { _id: userDoc._id },
-            {
-              $push: { youtubeChannels: channelRecord },
-              $set: {
-                googleSheets: {
-                  connected: true,
-                  email: googleUser.email || userDoc.email,
-                  tokens: tokenPayload,
-                  autoLog: true,
-                  connectedAt: new Date().toISOString()
-                },
-                updatedAt: new Date().toISOString()
+          console.warn('[Google OAuth] No matching user found for OAuth callback');
+          const errHtml = `<!DOCTYPE html>
+          <html>
+          <body style="background:#090d16;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+            <div style="text-align:center;padding:24px;">
+              <h2 style="color:#ef4444;">⚠️ Authorization Cancelled</h2>
+              <p style="color:#94a3b8;">Session expired — please sign in again and reconnect your channel.</p>
+            </div>
+            <script>
+              try {
+                if (window.opener && !window.opener.closed) {
+                  window.opener.postMessage({ type: 'BANG_OAUTH_ERROR', error: 'Session expired — please sign in again and reconnect your channel.' }, '*');
+                  setTimeout(function(){ window.close(); }, 800);
+                } else {
+                  window.location.href = ${JSON.stringify(returnUrl + '?error=' + encodeURIComponent('Session expired — please sign in again and reconnect your channel.'))};
+                }
+              } catch(e) {
+                window.location.href = ${JSON.stringify(returnUrl + '?error=' + encodeURIComponent('Session expired — please sign in again and reconnect your channel.'))};
               }
-            }
-          );
-          console.log(`[Google OAuth] Connected YouTube channel "${channelInfo.channelTitle}" for user: ${userDoc.email}`);
+            </script>
+          </body>
+          </html>`;
+
+          return {
+            statusCode: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8' },
+            body: errHtml
+          };
         }
+
+        const remaining = (userDoc.youtubeChannels || []).filter(c => c.channelId !== channelInfo.channelId);
+        const channelRecord = {
+          ...channelInfo,
+          tokens: tokenPayload,
+          connectedAt: new Date().toISOString(),
+          isDefault: remaining.length === 0
+        };
+
+        // Preserve existing refresh_token if omitted on re-auth
+        const existingChannels = userDoc.youtubeChannels || [];
+        const existingCh = existingChannels.find(c => c.channelId === channelInfo.channelId);
+        if (!tokenPayload.refreshToken && existingCh?.tokens?.refreshToken) {
+          tokenPayload.refreshToken = existingCh.tokens.refreshToken;
+        }
+
+        // Pull old instance of this channel if exists, then push updated
+        await db.collection('users').updateOne(
+          { _id: userDoc._id },
+          { $pull: { youtubeChannels: { channelId: channelInfo.channelId } } }
+        );
+
+        // Update user's channels and global Google Sheets status
+        await db.collection('users').updateOne(
+          { _id: userDoc._id },
+          {
+            $push: { youtubeChannels: channelRecord },
+            $set: {
+              googleSheets: {
+                connected: true,
+                email: googleUser.email || userDoc.email,
+                tokens: tokenPayload,
+                autoLog: true,
+                connectedAt: new Date().toISOString()
+              },
+              updatedAt: new Date().toISOString()
+            }
+          }
+        );
+        console.log(`[Google OAuth] Connected YouTube channel "${channelInfo.channelTitle}" for user: ${userDoc.email}`);
       }
 
       // E. Return smart HTML with postMessage (for popup) + redirect fallback
