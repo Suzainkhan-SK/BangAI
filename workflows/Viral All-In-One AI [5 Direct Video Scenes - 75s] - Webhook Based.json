@@ -3,12 +3,12 @@
   "name": "Viral All-In-One AI [5 Direct Video Scenes - 75s] - Webhook Based",
   "active": true,
   "isArchived": false,
-  "versionId": "ecad51c4-d223-4f34-a17c-c8f9196d4740",
-  "activeVersionId": "ecad51c4-d223-4f34-a17c-c8f9196d4740",
+  "versionId": "eed4b117-2b75-446f-8cfb-983c43f9e1e3",
+  "activeVersionId": "eed4b117-2b75-446f-8cfb-983c43f9e1e3",
   "triggerCount": 2,
   "nodeCount": 269,
   "createdAt": "2026-08-27T09:18:30.381Z",
-  "updatedAt": "2026-08-31T07:02:47.153Z",
+  "updatedAt": "2026-08-31T07:21:41.177Z",
   "settings": {
     "saveExecutionProgress": true,
     "saveManualExecutions": true,
@@ -8856,8 +8856,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        17264,
-        1696
+        17376,
+        1664
       ]
     },
     {
@@ -8869,8 +8869,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        17088,
-        1232
+        17376,
+        1008
       ]
     },
     {
@@ -10875,7 +10875,7 @@
       "typeVersion": 2.2,
       "position": [
         16032,
-        1680
+        1664
       ]
     },
     {
@@ -10932,8 +10932,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        17088,
-        1424
+        17280,
+        1408
       ]
     },
     {
@@ -10961,8 +10961,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        17520,
-        1600
+        17584,
+        1472
       ]
     },
     {
@@ -11019,8 +11019,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        17520,
-        1840
+        17584,
+        1680
       ]
     },
     {
@@ -11101,8 +11101,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        17136,
-        2496
+        17024,
+        2480
       ]
     },
     {
@@ -11472,8 +11472,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        17296,
-        1232
+        17616,
+        1008
       ]
     },
     {
@@ -11586,8 +11586,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        16864,
-        1840
+        17120,
+        1680
       ],
       "onError": "continueErrorOutput"
     },
@@ -11681,8 +11681,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        17920,
-        2624
+        17808,
+        2608
       ]
     },
     {
@@ -11724,7 +11724,7 @@
       "typeVersion": 2,
       "position": [
         16544,
-        1696
+        1680
       ]
     },
     {
@@ -11761,7 +11761,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        17088,
+        17104,
         1008
       ],
       "credentials": {
@@ -11805,14 +11805,6 @@
       ]
     },
     {
-      "id": "e1f82c40-3b6b-4c55-9a8b-7c6d5e4f3a2b",
-      "name": "Approval Received?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        -2980,
-        2080
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -11835,17 +11827,17 @@
           "combinator": "and"
         },
         "options": {}
-      }
-    },
-    {
-      "id": "e2f93d51-4c7c-5d66-ab9c-8d7e6f5a4b3c",
-      "name": "Scenes Approval Received?",
+      },
+      "id": "e1f82c40-3b6b-4c55-9a8b-7c6d5e4f3a2b",
+      "name": "Approval Received?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        5850,
-        2288
-      ],
+        -2976,
+        2080
+      ]
+    },
+    {
       "parameters": {
         "conditions": {
           "options": {
@@ -11868,7 +11860,15 @@
           "combinator": "and"
         },
         "options": {}
-      }
+      },
+      "id": "e2f93d51-4c7c-5d66-ab9c-8d7e6f5a4b3c",
+      "name": "Scenes Approval Received?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5856,
+        2288
+      ]
     }
   ],
   "nodeGroups": [],
