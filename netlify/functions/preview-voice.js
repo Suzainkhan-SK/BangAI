@@ -243,8 +243,8 @@ export const handler = async (event) => {
         const start = Date.now();
         let movieUrl = null;
 
-        // Server-side short poll: max 7 seconds (zero timeout risk)
-        while (Date.now() - start < 7000) {
+        // Server-side short poll: max 5 seconds (zero timeout risk)
+        while (Date.now() - start < 5000) {
           await new Promise(r => setTimeout(r, 1200));
           const statusRes = await fetch(`https://api.json2video.com/v2/movies?project=${projectId}`, {
             headers: { 'x-api-key': apiKey }
@@ -261,7 +261,7 @@ export const handler = async (event) => {
         }
 
         if (!movieUrl) {
-          // If not finished in 7s, return project for client polling
+          // If not finished in 5s, return project for client polling
           return {
             status: 'rendering',
             project: projectId
@@ -284,7 +284,7 @@ export const handler = async (event) => {
           audioUrl: movieUrl,
           mimeType: 'video/mp4'
         };
-      }, 3);
+      }, 1);
 
       return {
         statusCode: 200,

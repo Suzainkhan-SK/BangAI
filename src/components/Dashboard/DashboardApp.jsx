@@ -169,7 +169,7 @@ export default function DashboardApp({
     allCaps: true,
     maxWordsPerLine: 3
   });
-  const [musicVolume, setMusicVolume] = useState(0.15);
+  const [musicVolume, setMusicVolume] = useState(0.08);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
 
@@ -1164,7 +1164,7 @@ export default function DashboardApp({
     const chosenSubtitleSettings = customSettings.subtitleSettings || subtitleSettings;
     const chosenMusicId = resolveMusicId(customSettings.musicId || activeThread?.musicId || musicId);
     const chosenMusicTrackUrl = customSettings.musicTrackUrl || getMusicTrackById(chosenMusicId).audioUrl || '';
-    const chosenMusicVolume = customSettings.musicVolume ?? musicVolume ?? 0.2;
+    const chosenMusicVolume = customSettings.musicVolume ?? musicVolume ?? 0.08;
 
     try {
       // 1. Resume / Launch n8n execution with refined story payload + audiovisual customization
