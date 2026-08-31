@@ -37,7 +37,8 @@ import {
   VOICE_LANGUAGES, 
   VOICE_ACCENTS, 
   getAllVoices, 
-  getVoiceById 
+  getVoiceById,
+  loadJson2VideoVoices 
 } from '../../data/voices';
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS } from '../../data/subtitleStyles';
 import { MUSIC_TRACKS as STATIC_MUSIC, MUSIC_MOODS, getMusicTrackById, resolveMusicId, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
@@ -60,13 +61,13 @@ export default function StudioLab({
   initialTab = 'voices',
   selectedVoiceId,
   onSelectVoice,
-  voiceSpeed = 1.0,
+  voiceSpeed = 1.30,
   onVoiceSpeedChange,
   subtitleSettings,
   onSubtitleChange,
   selectedMusicId,
   onSelectMusic,
-  musicVolume = 0.15,
+  musicVolume = 0.08,
   onMusicVolumeChange,
   onApplySettingsToVideo,
   onClose
@@ -78,7 +79,10 @@ export default function StudioLab({
 
   // ─── 1. VOICE STUDIO STATE ───────────────────────────────────────
   const [voices, setVoices] = useState(getAllVoices);
-  const [currentVoiceSpeed, setCurrentVoiceSpeed] = useState(Number(voiceSpeed) || 1.0);
+  const [currentVoiceSpeed, setCurrentVoiceSpeed] = useState(() => {
+    const v = Number(voiceSpeed);
+    return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30;
+  });
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
   const [voiceProviderFilter, setVoiceProviderFilter] = useState('all');
   const [voiceLanguageFilter, setVoiceLanguageFilter] = useState('all');
@@ -124,13 +128,17 @@ export default function StudioLab({
   const [musicMoodFilter, setMusicMoodFilter] = useState('all');
   const [isSearchingMusic, setIsSearchingMusic] = useState(false);
   const [playingMusicId, setPlayingMusicId] = useState(null);
-  const [currentMusicVolume, setCurrentMusicVolume] = useState(() => Number(musicVolume) || 0.15);
+  const [currentMusicVolume, setCurrentMusicVolume] = useState(() => {
+    const v = Number(musicVolume);
+    return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
+  });
   const [duckingLevel, setDuckingLevel] = useState(18);
 
   // Sync volume if prop changes
   useEffect(() => {
     if (musicVolume !== undefined) {
-      setCurrentMusicVolume(Number(musicVolume) || 0.15);
+      const v = Number(musicVolume);
+      setCurrentMusicVolume(isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08);
     }
   }, [musicVolume]);
 
@@ -452,7 +460,7 @@ export default function StudioLab({
 
         while (Date.now() - start < 45000) {
           await new Promise(r => setTimeout(r, 2000));
-          const pollRes = await fetch(`/.netlify/functions/preview-subtitle?project=${encodeURIComponent(projectId)}&apiKey=${encodeURIComponent(apiKey)}`);
+          const pollRes = await fetch(`/.netlify/functions/preview-subtitle?project=${encodeURIComponent(projectId)}`);
           const pollData = await pollRes.json();
           if (pollData.success && pollData.videoUrl) {
             setRenderedSubtitleVideoUrl(pollData.videoUrl);
@@ -731,12 +739,11 @@ export default function StudioLab({
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
               {[
-                { val: 0.90, label: '0.90x Relaxed' },
-                { val: 1.0, label: '1.0x Normal (Recommended)' },
-                { val: 1.10, label: '1.10x Dynamic' },
-                { val: 1.15, label: '1.15x Engaging' },
-                { val: 1.20, label: '1.20x Viral Pacing' },
-                { val: 1.25, label: '1.25x High Energy' }
+                { val: 1.10, label: '1.10x Relaxed' },
+                { val: 1.20, label: '1.20x Dynamic' },
+                { val: 1.30, label: '1.30x Viral (Recommended)' },
+                { val: 1.40, label: '1.40x High Energy' },
+                { val: 1.50, label: '1.50x Ultra Fast' }
               ].map(s => {
                 const isSelected = Math.abs(currentVoiceSpeed - s.val) < 0.01;
                 return (

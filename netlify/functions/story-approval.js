@@ -200,8 +200,18 @@ export const handler = async (event, context) => {
     }
 
 
-    // ── POST: n8n posts callback here ────────────────────────────────
+    // ── POST: n8n posts callback here (Authenticated via webhook secret) ────
     if (event.httpMethod === 'POST') {
+      const incomingSecret = event.headers['x-webhook-secret'] || event.headers['X-Webhook-Secret'] || '';
+      const expectedSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
+      if (!incomingSecret || incomingSecret !== expectedSecret) {
+        return {
+          statusCode: 401,
+          headers: CORS,
+          body: JSON.stringify({ success: false, error: 'Unauthorized: Invalid or missing webhook secret' })
+        };
+      }
+
       let data = {};
       try {
         const raw = typeof event.body === 'string' ? event.body : JSON.stringify(event.body || '{}');

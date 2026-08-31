@@ -459,7 +459,7 @@ export default function ResultThreadCard({
                     </div>
                     <div className="spec-item">
                       <span className="spec-label">Voiceover</span>
-                      <span className="spec-value">🎙️ {shortData.voiceName || chosenVoice?.name || 'AI Voice'} ({shortData.voiceSpeed || 1.0}x)</span>
+                      <span className="spec-value">🎙️ {shortData.voiceName || chosenVoice?.name || 'AI Voice'} ({shortData.voiceSpeed || 1.30}x)</span>
                     </div>
                     <div className="spec-item">
                       <span className="spec-label">Soundtrack</span>
@@ -709,7 +709,7 @@ export default function ResultThreadCard({
                   <Mic2 size={16} />
                   <span>Narrator Voiceover Model</span>
                 </div>
-                <span className="badge badge-brand">{shortData.voiceSpeed || 1.0}x Speed</span>
+                <span className="badge badge-brand">{shortData.voiceSpeed || 1.30}x Speed</span>
               </div>
 
               <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>

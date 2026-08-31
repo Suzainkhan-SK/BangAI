@@ -90,7 +90,7 @@ export default function DashboardApp({
 
   const [prompt, setPrompt] = useState(initialPrompt || '');
   const [voiceId, setVoiceId] = useState('adam');
-  const [voiceSpeed, setVoiceSpeed] = useState(1.0);
+  const [voiceSpeed, setVoiceSpeed] = useState(1.30);
   const [styleId, setStyleId] = useState('cinematic');
   const [musicId, setMusicId] = useState(DEFAULT_MUSIC_ID);
   const [language, setLanguage] = useState('Hinglish');
@@ -812,7 +812,7 @@ export default function DashboardApp({
             visualStyle: styleId,
             musicId,
             musicTrackUrl: getMusicTrackById(musicId).audioUrl || '',
-            musicVolume,
+            musicVolume: (getMusicTrackById(musicId).audioUrl || '') === '' ? 0 : (isFinite(Number(musicVolume)) ? Math.max(0, Math.min(0.4, Number(musicVolume))) : 0.08),
             subtitleSettings,
             language,
             autoUploadToYouTube,
@@ -1181,10 +1181,12 @@ export default function DashboardApp({
           language: activeThread?.story?.language || language || 'English',
           voiceId: chosenVoiceId,
           elevenLabsVoiceId: chosenElevenLabsVoiceId,
+          voiceSpeed: (function() { const v = Number(activeThread?.voiceSpeed || voiceSpeed); return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30; })(),
           visualStyle: activeThread?.visualStyleId || styleId || 'cinematic',
           subtitleSettings: chosenSubtitleSettings,
           musicId: chosenMusicId,
           musicTrackUrl: chosenMusicTrackUrl,
+          musicVolume: chosenMusicTrackUrl === '' ? 0 : (isFinite(Number(chosenMusicVolume)) ? Math.max(0, Math.min(0.4, Number(chosenMusicVolume))) : 0.08),
           autoUploadToYouTube: !!autoUploadToYouTube,
           selectedChannelId,
           channelId: selectedChannelId,

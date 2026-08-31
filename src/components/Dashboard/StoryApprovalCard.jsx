@@ -46,7 +46,8 @@ import {
   VOICE_LANGUAGES, 
   VOICE_ACCENTS, 
   getAllVoices, 
-  getVoiceById 
+  getVoiceById,
+  loadJson2VideoVoices
 } from '../../data/voices';
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS, resolveSubtitleConfig } from '../../data/subtitleStyles';
 import { MUSIC_TRACKS, MUSIC_MOODS, DEFAULT_MUSIC_ID, resolveMusicId, getMusicTrackById, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
@@ -193,13 +194,23 @@ export default function StoryApprovalCard({
   // ─── AUDIOVISUAL CUSTOMIZATION STATE ─────────────────────────────
   const [liveVoices, setLiveVoices] = useState(getAllVoices);
   const [selectedVoiceId, setSelectedVoiceId] = useState(() => story?.voiceId || initialVoiceId || 'adam');
-  const [voiceSpeed, setVoiceSpeed] = useState(() => Number(story?.voiceSpeed) || Number(initialVoiceSpeed) || 1.0);
+  const [voiceSpeed, setVoiceSpeed] = useState(() => {
+    const raw = Number(story?.voiceSpeed) || Number(initialVoiceSpeed);
+    return isFinite(raw) && raw > 0 ? Math.max(1.10, Math.min(1.50, raw)) : 1.30;
+  });
   const [voiceProviderFilter, setVoiceProviderFilter] = useState('all');
   const [voiceCategoryFilter, setVoiceCategoryFilter] = useState('all');
   const [voiceLanguageFilter, setVoiceLanguageFilter] = useState('all');
   const [voiceGenderFilter, setVoiceGenderFilter] = useState('all');
   const [voiceSearchQuery, setVoiceSearchQuery] = useState('');
   const [visibleVoiceCount, setVisibleVoiceCount] = useState(30);
+
+  // Lazy load voices when browsing JSON2Video catalog
+  useEffect(() => {
+    if (voiceProviderFilter !== 'elevenlabs' || voiceSearchQuery) {
+      loadJson2VideoVoices().then(() => setLiveVoices(getAllVoices()));
+    }
+  }, [voiceProviderFilter, voiceSearchQuery]);
   const [selectedSubtitleSettings, setSelectedSubtitleSettings] = useState(() => {
     return initialSubtitleSettings || {
       presetId: 'mrbeast-viral',
@@ -218,7 +229,10 @@ export default function StoryApprovalCard({
     };
   });
   const [selectedMusicId, setSelectedMusicId] = useState(() => resolveMusicId(story?.musicId || initialMusicId));
-  const [musicVolume, setMusicVolume] = useState(() => Number(initialMusicVolume) || 0.15);
+  const [musicVolume, setMusicVolume] = useState(() => {
+    const v = Number(initialMusicVolume);
+    return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
+  });
   const [voiceVolume, setVoiceVolume] = useState(1.0);
   const [duckingLevel, setDuckingLevel] = useState(18);
   const [musicMoodFilter, setMusicMoodFilter] = useState('all');
@@ -559,7 +573,7 @@ export default function StoryApprovalCard({
         body: JSON.stringify({
           voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
           text: sceneText,
-          speed: Number(voiceSpeed) || 1.0,
+          speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30; })(),
           provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
         })
       });
@@ -623,7 +637,7 @@ export default function StoryApprovalCard({
             body: JSON.stringify({
               voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
               text: text,
-              speed: Number(voiceSpeed) || 1.0,
+              speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30; })(),
               provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
             })
           });
@@ -690,7 +704,10 @@ export default function StoryApprovalCard({
     const audioUrl = track.previewUrl || track.audioUrl;
     if (audioUrl) {
       const audio = new Audio(audioUrl);
-      audio.volume = Math.max(0, Math.min(1, Number(musicVolume) || 0.15));
+      audio.volume = (function () {
+        const v = Number(musicVolume);
+        return isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.08;
+      })();
       audio.crossOrigin = 'anonymous';
       musicPlayerRef.current = audio;
       setPlayingMusicId(track.id);
@@ -762,7 +779,7 @@ export default function StoryApprovalCard({
 
         while (Date.now() - start < 45000) {
           await new Promise(r => setTimeout(r, 2000));
-          const pollRes = await fetch(`/.netlify/functions/preview-subtitle?project=${encodeURIComponent(projectId)}&apiKey=${encodeURIComponent(apiKey)}`);
+          const pollRes = await fetch(`/.netlify/functions/preview-subtitle?project=${encodeURIComponent(projectId)}`);
           const pollData = await pollRes.json();
           if (pollData.success && pollData.videoUrl) {
             setSubtitlePreviewVideoUrl(pollData.videoUrl);
@@ -792,11 +809,11 @@ export default function StoryApprovalCard({
       onApprove(story.approveUrl, {
         voiceId: selectedVoiceId,
         elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
-        voiceSpeed: Number(voiceSpeed) || 1.0,
+        voiceSpeed: (function () { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30; })(),
         subtitleSettings: resolveSubtitleConfig(selectedSubtitleSettings, sampleText, threadLanguage),
         musicId: selectedMusicId,
         musicTrackUrl: chosenMusic?.audioUrl || '',
-        musicVolume: Number(musicVolume) || 0.15
+        musicVolume: (chosenMusic?.audioUrl || '') === '' ? 0 : (function () { const v = Number(musicVolume); return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08; })()
       });
     }
   };
@@ -1122,12 +1139,11 @@ export default function StoryApprovalCard({
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                   {[
-                    { val: 0.90, label: '0.90x Relaxed' },
-                    { val: 1.0, label: '1.0x Normal (Recommended)' },
-                    { val: 1.10, label: '1.10x Dynamic' },
-                    { val: 1.15, label: '1.15x Engaging' },
-                    { val: 1.20, label: '1.20x Viral Pacing' },
-                    { val: 1.25, label: '1.25x High Energy' }
+                    { val: 1.10, label: '1.10x Relaxed' },
+                    { val: 1.20, label: '1.20x Dynamic' },
+                    { val: 1.30, label: '1.30x Viral (Recommended)' },
+                    { val: 1.40, label: '1.40x High Energy' },
+                    { val: 1.50, label: '1.50x Ultra Fast' }
                   ].map(s => {
                     const isSelected = Math.abs(voiceSpeed - s.val) < 0.01;
                     return (

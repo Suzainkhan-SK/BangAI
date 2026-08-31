@@ -1,9 +1,10 @@
 // Netlify Function: preview-subtitle
 // POST /.netlify/functions/preview-subtitle
-// GET  /.netlify/functions/preview-subtitle?project={id}&apiKey={key}
-// Renders and polls subtitle preview clips via json2video API with zero Netlify timeouts
+// GET  /.netlify/functions/preview-subtitle?project={id}
+// Renders and polls subtitle preview clips via json2video API with zero Netlify timeouts & zero client-side key leakage
 
-import { json2videoCreateMovie } from './api-keys.js';
+import { json2videoCreateMovie, getJson2VideoKey } from './api-keys.js';
+import { getDb } from './db.js';
 
 export const handler = async (event) => {
   const headers = {
@@ -17,18 +18,31 @@ export const handler = async (event) => {
     return { statusCode: 200, headers, body: '' };
   }
 
-  // ─── 1. GET: POLL PROJECT STATUS ────────────────────────────────────
+  // ─── 1. GET: POLL PROJECT STATUS (Server-Side Key Resolution) ────────
   if (event.httpMethod === 'GET') {
     try {
       const projectId = event.queryStringParameters?.project;
-      const apiKey = event.queryStringParameters?.apiKey;
 
-      if (!projectId || !apiKey) {
+      if (!projectId) {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ success: false, error: 'project and apiKey parameters are required' })
+          body: JSON.stringify({ success: false, error: 'project parameter is required' })
         };
+      }
+
+      // Look up apiKey server-side
+      let apiKey = null;
+      try {
+        const db = await getDb();
+        const doc = await db.collection('previews').findOne({ project: projectId });
+        if (doc && doc.apiKey) apiKey = doc.apiKey;
+      } catch (dbErr) {
+        console.warn('[preview-subtitle] DB lookup notice:', dbErr.message);
+      }
+
+      if (!apiKey) {
+        apiKey = getJson2VideoKey(0);
       }
 
       const res = await fetch(`https://api.json2video.com/v2/movies?project=${encodeURIComponent(projectId)}`, {
@@ -81,8 +95,7 @@ export const handler = async (event) => {
         body: JSON.stringify({
           success: true,
           status: 'rendering',
-          project: projectId,
-          apiKey
+          project: projectId
         })
       };
     } catch (err) {
@@ -143,14 +156,31 @@ export const handler = async (event) => {
         throw new Error('json2video did not return a project ID: ' + JSON.stringify(createResult));
       }
 
+      // Store project -> apiKey mapping server-side with TTL
+      try {
+        const db = await getDb();
+        await db.collection('previews').updateOne(
+          { project: createResult.project },
+          { 
+            $set: { 
+              project: createResult.project, 
+              apiKey: createResult.apiKey, 
+              createdAt: new Date() 
+            } 
+          },
+          { upsert: true }
+        );
+      } catch (dbErr) {
+        console.warn('[preview-subtitle] DB store notice:', dbErr.message);
+      }
+
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
           success: true,
           status: 'rendering',
-          project: createResult.project,
-          apiKey: createResult.apiKey
+          project: createResult.project
         })
       };
 
@@ -197,7 +227,7 @@ function buildSubtitleSettings(settings, text = '') {
   let size = Number(settings.fontSize) || 78;
   if (size > 120) size = Math.round(size / 3.5);
   j2vSettings['font-size'] = Math.max(56, Math.min(100, size));
-  if (settings.fontUrl) j2vSettings['font-url'] = settings.fontUrl;
+  if (settings.fontUrl) j2vSettings['font-url'] = String(settings.fontUrl);
 
   // Colors
   j2vSettings['word-color'] = settings.wordColor || '#FFE600';

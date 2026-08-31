@@ -23,10 +23,11 @@ import {
   VOICE_LANGUAGES, 
   VOICE_ACCENTS,
   getAllVoices,
-  getVoiceById
+  getVoiceById,
+  loadJson2VideoVoices
 } from '../../data/voices';
 
-export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed = 1.0, onVoiceSpeedChange }) {
+export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed = 1.30, onVoiceSpeedChange }) {
   // Provider: 'all' | 'elevenlabs' | 'json2video'
   const [providerFilter, setProviderFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -38,16 +39,24 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
   const [visibleCount, setVisibleCount] = useState(30);
   const [playingVoiceId, setPlayingVoiceId] = useState(null);
   const [generatingVoiceId, setGeneratingVoiceId] = useState(null);
-  const [speed, setSpeed] = useState(Number(voiceSpeed) || 1.0);
+  const [speed, setSpeed] = useState(Number(voiceSpeed) || 1.30);
   const [stability, setStability] = useState(75);
   const [customText, setCustomText] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [loadedJsonVoices, setLoadedJsonVoices] = useState(false);
   const audioRef = useRef(null);
+
+  // Lazy load json2video voices when needed
+  useEffect(() => {
+    if (providerFilter !== 'elevenlabs' || searchQuery) {
+      loadJson2VideoVoices().then(() => setLoadedJsonVoices(true));
+    }
+  }, [providerFilter, searchQuery]);
 
   // Sync speed prop
   useEffect(() => {
     if (voiceSpeed !== undefined) {
-      setSpeed(Number(voiceSpeed) || 1.0);
+      setSpeed(Number(voiceSpeed) || 1.30);
     }
   }, [voiceSpeed]);
 
@@ -615,8 +624,8 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
           </div>
           <input
             type="range"
-            min="0.7"
-            max="1.25"
+            min="1.10"
+            max="1.50"
             step="0.05"
             value={speed}
             onChange={(e) => {

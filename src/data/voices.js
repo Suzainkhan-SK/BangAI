@@ -1,6 +1,4 @@
-import JSON2VIDEO_RAW_VOICES from './json2videoVoices.json';
-
-// Complete Voice Catalog — 23 ElevenLabs Native Voices + 9,650 JSON2Video Premium ElevenLabs Voices
+// Complete Voice Catalog — 23 ElevenLabs Native Voices + 9,650 JSON2Video Premium ElevenLabs Voices (Lazy Loaded)
 
 export const VOICE_PROVIDERS = [
   { id: 'all',        label: 'All Providers',            icon: '🌐', count: 9673 },
@@ -70,7 +68,33 @@ export const VOICE_ACCENTS = [
   { id: 'swedish',    label: 'Swedish',      flag: '🇸🇪' },
 ];
 
-export const JSON2VIDEO_VOICES = JSON2VIDEO_RAW_VOICES;
+export let JSON2VIDEO_VOICES = [];
+let loadPromise = null;
+
+export async function loadJson2VideoVoices() {
+  if (JSON2VIDEO_VOICES.length > 0) return JSON2VIDEO_VOICES;
+  if (!loadPromise) {
+    loadPromise = (async () => {
+      try {
+        const res = await fetch('/data/json2videoVoices.json');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            JSON2VIDEO_VOICES = data;
+            data.forEach(v => {
+              VOICE_LOOKUP_MAP.set(v.id.toLowerCase(), v);
+              if (v.elevenLabsId) VOICE_LOOKUP_MAP.set(v.elevenLabsId.toLowerCase(), v);
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[Voices] Failed to lazy-load JSON2Video voices catalog:', err.message);
+      }
+      return JSON2VIDEO_VOICES;
+    })();
+  }
+  return loadPromise;
+}
 
 export const VOICES = [
   // ─── 🔥 VIRAL SHORTS ─────────────────────────────────────────────

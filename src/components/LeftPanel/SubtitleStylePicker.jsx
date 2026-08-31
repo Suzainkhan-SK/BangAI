@@ -82,7 +82,7 @@ export default function SubtitleStylePicker({ subtitleSettings, onSubtitleChange
 
         while (Date.now() - start < 45000) {
           await new Promise(r => setTimeout(r, 2000));
-          const pollRes = await fetch(`/.netlify/functions/preview-subtitle?project=${encodeURIComponent(projectId)}&apiKey=${encodeURIComponent(apiKey)}`);
+          const pollRes = await fetch(`/.netlify/functions/preview-subtitle?project=${encodeURIComponent(projectId)}`);
           const pollData = await pollRes.json();
           if (pollData.success && pollData.videoUrl) {
             setPreviewVideoUrl(pollData.videoUrl);

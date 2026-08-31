@@ -426,7 +426,10 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
       rawUserInput: message.trim(),
       voiceId: settings.voiceId || 'adam',
       elevenLabsVoiceId: settings.elevenLabsVoiceId || '',
-      voiceSpeed: Number(settings.voiceSpeed) || 1.0,
+      voiceSpeed: (function () {
+        const v = Number(settings.voiceSpeed);
+        return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30;
+      })(),
       visualStyle: settings.visualStyle || 'Cinematic Realistic',
       language: detectedLanguage,
       autoUploadToYouTube: autoUploadToYouTube,
@@ -438,8 +441,12 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
       userSpreadsheetId: userSpreadsheetId,
       userSheetName: userSheetName,
       subtitleSettings: settings.subtitleSettings || null,
+      musicId: settings.musicId || 'mystery2',
       musicTrackUrl: settings.musicTrackUrl || '',
-      musicVolume: Number(settings.musicVolume) || 0.15,
+      musicVolume: (function () {
+        const v = Number(settings.musicVolume);
+        return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
+      })(),
       callbackUrl,
       threadId: currentThreadId,
       sessionId: currentSessionId,

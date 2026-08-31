@@ -91,9 +91,10 @@ export async function getFreshGoogleToken(tokenContainer, collectionField = 'you
             }
           }
         );
-      } else if (tokenContainer.sheetId) {
+      } else if (tokenContainer.sheetId || tokenContainer.spreadsheetId) {
+        const sid = tokenContainer.sheetId || tokenContainer.spreadsheetId;
         await db.collection('users').updateOne(
-          { 'sheets.sheetId': tokenContainer.sheetId },
+          { $or: [{ 'sheets.sheetId': sid }, { 'sheets.spreadsheetId': sid }] },
           {
             $set: {
               'sheets.$.tokens.accessToken': newAccessToken,

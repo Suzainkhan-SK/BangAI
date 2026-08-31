@@ -50,7 +50,7 @@ function buildResumeUrl(rawUrl, action, extraParams = {}) {
     return u.toString();
   } catch (err) {
     const sep = rawUrl.includes('?') ? '&' : '?';
-    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(extraParams.refinePrompt || '')}&voiceId=${encodeURIComponent(extraParams.voiceId || '')}&voiceSpeed=${encodeURIComponent(extraParams.voiceSpeed || '1.0')}`;
+    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(extraParams.refinePrompt || '')}&voiceId=${encodeURIComponent(extraParams.voiceId || '')}&voiceSpeed=${encodeURIComponent(extraParams.voiceSpeed || '1.30')}`;
   }
 }
 
@@ -151,12 +151,23 @@ export const handler = async (event, context) => {
       language = 'English',
       voiceId = 'adam',
       elevenLabsVoiceId = '',
+      voiceSpeed = 1.30,
       visualStyle = 'Cinematic Realistic',
       subtitleSettings = null,
-      musicId = 'mystery',
+      musicId = 'mystery2',
       musicTrackUrl = '',
-      musicVolume = 0.2
+      musicVolume = 0.08
     } = payload;
+
+    const safeVoiceSpeed = (function() {
+      const v = Number(voiceSpeed);
+      return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30;
+    })();
+
+    const safeMusicVolume = (function() {
+      const v = Number(musicVolume);
+      return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
+    })();
 
     const now = new Date();
     const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
@@ -203,10 +214,11 @@ export const handler = async (event, context) => {
       refineRound,
       voiceId,
       elevenLabsVoiceId,
+      voiceSpeed: safeVoiceSpeed,
       subtitleSettings,
       musicId,
       musicTrackUrl,
-      musicVolume
+      musicVolume: safeMusicVolume
     });
     console.log(`[approve-story] Built n8n target URL for action "${action}":`, targetResumeUrl);
 
@@ -420,11 +432,12 @@ export const handler = async (event, context) => {
         sessionId,
         voiceId,
         elevenLabsVoiceId,
+        voiceSpeed: safeVoiceSpeed,
         visualStyle,
         subtitleSettings,
         musicId,
         musicTrackUrl,
-        musicVolume,
+        musicVolume: safeMusicVolume,
         language,
         webhookSecret
       };

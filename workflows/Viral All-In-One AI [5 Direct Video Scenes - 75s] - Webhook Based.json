@@ -2243,6 +2243,11 @@
             "node": "Dynamic User Google Sheets Logger",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Update DB (Safe)1",
+            "type": "main",
+            "index": 0
           }
         ],
         [
@@ -3106,6 +3111,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Send Approval Timeout to Website",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -3147,6 +3159,13 @@
         [
           {
             "node": "Route Scenes Approval Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Approval Timeout to Website",
             "type": "main",
             "index": 0
           }
@@ -3418,7 +3437,7 @@
         ],
         [
           {
-            "node": "Dynamic User Google Sheets Logger",
+            "node": "Mark No Upload",
             "type": "main",
             "index": 0
           }
@@ -3515,12 +3534,23 @@
           }
         ]
       ]
+    },
+    "Mark No Upload": {
+      "main": [
+        [
+          {
+            "node": "Dynamic User Google Sheets Logger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "nodes": [
     {
       "parameters": {
-        "jsCode": "return [\n  { json: { apiKey: \"5RBJDXZfAjfT1CSJ6F18DlZ7hvACfw7hfCtEdC1p\", projectId: \"CjM7kbDAqKnONcEB\" } },\n  { json: { apiKey: \"bkMJgjP3rg5biC8IhpmBHWgcyMDGtKOaWCfrWMDr\", projectId: \"R9deHmLcsXWpvTCe\" } },\n  { json: { apiKey: \"iO35tF7OiF2qCOXxNG7jeqCt1pybM8DTimt9CQde\", projectId: \"SHRO0dD5KpxFB7cD\" } },\n  { json: { apiKey: \"bSpli5IVfhntedcQ4ojZNAh0NbVrFvrQeqSBlcED\", projectId: \"K9ZIKXV6TJG6EAjg\" } },\n  { json: { apiKey: \"yIqAElPcjxK5f3IpGPfdgdnbrs28U2eFGOex3CmQ\", projectId: \"gcxvnbZcMKi9Cl5k\" } },\n  { json: { apiKey: \"5AJsPTU5i6paKSBiOHGMFxDyLdtt4HtRHHdDHgbF\", projectId: \"gsGIrxftDo150e0H\" } },\n  { json: { apiKey: \"qT2CRNdFqhCVo6cflCodcQGDA2QeECSgCDaPaBdZ\", projectId: \"Rh1ebQitL1Em2GWh\" } },\n  { json: { apiKey: \"CXsjF5qtpyGRKnT7Z6cFIF6fbcdoXUmeLm68RFfU\", projectId: \"MbE9gywn0ByNupFl\" } },\n  { json: { apiKey: \"3xWslsvFpEngdKaE9EemBl8MVxFbGHfmyS0aEpMl\", projectId: \"joFopBbYZmfOGRZX\" } },\n  { json: { apiKey: \"DifOT2Rf63MfBk0ygGxcmA0fUCFfLIeU2fqERXl6\", projectId: \"PhbMkDC8WCDJ7Jyy\" } },\n  { json: { apiKey: \"EeYdLtcdYLpFrLyfxA9xVRfZyYvfVUwlFMtKBxce\", projectId: \"ShFCBMVn4sr9fBIZ\" } },\n  { json: { apiKey: \"bqRgP7J8oLlGCeHGFw40GeGSjYEPMk2ACDHNmg59\", projectId: \"yFDAyAi9GsCopDeG\" } },\n  { json: { apiKey: \"5RBJDXZfAjfT1CSJ6F18DlZ7hvACfw7hfCtEdC1p\", projectId: \"CjM7kbDAqKnONcEB\" } },\n  { json: { apiKey: \"sfFRAabwexs2aHndO2L8aZGYdDeKmKe52Crc3j5A\", projectId: \"M2QF8aeIZArsgDGH\" } },\n  { json: { apiKey: \"ndbvcg1ywVxXflBEb3BgKmxIDM1B6oqfcEqDl4Fi\", projectId: \"DXA2C8CAWs4EbADW\" } },\n  { json: { apiKey: \"GSL4t3J9mdgUV5ZRkimaGW2eJGFDxZCK4Wybe8AG\", projectId: \"mdck4eOUAQR9xj7m\" } },\n  { json: { apiKey: \"6DhlYdbU4CMhBeyvMJvGLgqLpMXFd3nsn3A4vAaG\", projectId: \"gepFw6UsFM8OoASd\" } },\n  { json: { apiKey: \"DFQexiiDd6G89kc8axgtl6TwqODbqAYfaaFqNQsU\", projectId: \"220iG4TVDcSJW3bd\" } },\n  { json: { apiKey: \"CyDMbAebBJc9r7SCeossEaDFwguFUMgYdifw5qca\", projectId: \"fGAA124wp92fHYIw\" } },\n  { json: { apiKey: \"PCB7e6KJFAbMkRTI7bRMmA1Qx3s6BjN9ZRArsxxE\", projectId: \"ieoe6qDZ1dFLjfdk\" } },\n  { json: { apiKey: \"egbRbtyogRFZhAlTbWQyEblpNYtUMdFCGlGMXZHp\", projectId: \"2sDBnWZcG5cYgB1E\" } },\n  { json: { apiKey: \"bBMutqf20dohWwSS9jrH4GUdCTUAGR6Unvby4GLn\", projectId: \"5CdACWetB28jABQU\" } },\n  { json: { apiKey: \"y1IrNRwvFcyQBBEvNDkb3BVLojf7jFuxbyFuPw4s\", projectId: \"guLxKl2DPB8cvcU4\" } },\n  { json: { apiKey: \"OJHg9hVf1RO3blk7DbFrVbMYoBPsVDee3krItEsb\", projectId: \"0LeNuBRTTgAQKObf\" } },\n  { json: { apiKey: \"CdwyGvVmPNcUrIWtrSLUEcDhifnCRBpV1Zl4A4CA\", projectId: \"eYAROdOlupCeRS6W\" } },\n  { json: { apiKey: \"7FpY5IRA7FlcIsEKnq2toPONeKmCjeMhQcHeKFYE\", projectId: \"2XWndUaBfFIe9eMY\" } },\n  { json: { apiKey: \"WKxyTvwAEZVLCfK66HHdvBdADCcSCYLAF4H23YwC\", projectId: \"SeCpqGEIDIEDZAX1\" } },\n  { json: { apiKey: \"prxIQv6USq1uQrTcBs8SclZVF0fDSG1bfE1Co6eK\", projectId: \"qa4GGb3Ggggdl9Fs\" } },\n  { json: { apiKey: \"bcdEAd9Q6xiECSXgsryeZ4aGmE5Of2BErTFBPp8p\", projectId: \"fnN5IFkfBqEYGptn\" } },\n  { json: { apiKey: \"3E7N7ZUwxkZbhilE38GdJbc25QAEHd2XbFgt2yvo\", projectId: \"kpygJRy2o78FIGXS\" } },\n  { json: { apiKey: \"6JAtAqb4Gd30aJO8ue4E1d2hlecsd62wBgs4rrur\", projectId: \"eK2aDhGoUVK31xBF\" } },\n  { json: { apiKey: \"Z6LaADbhPB4eRDEeXwFhWZ7GGdfoYfr3Ek2kAEC3\", projectId: \"eZmKlTbcCFf3CR9c\" } },\n  { json: { apiKey: \"8eymrFBcFpBXviGlhQlpGTBfffXyNc5screaJDAd\", projectId: \"DDFDrDWBh4dfGbEd\" } },\n  { json: { apiKey: \"bGBVbGBwARvEiKdjwBmrY6IB1FGGvfTSuf8PIygo\", projectId: \"hEGh9bttZ2yfbVgr\" } },\n  { json: { apiKey: \"EvF8Eb6j7CjZEkrhT1IlxZcBhXA3eVAGqOCJFrAC\", projectId: \"b7wgQXjOpgreOyci\" } },\n  { json: { apiKey: \"KAFa2aerVLDgyVfdFnenN24Qt0gNdfqyVeUefq6c\", projectId: \"YDbaQfecXUdvP5gb\" } },\n  { json: { apiKey: \"bkMJgjP3rg5biC8IhpmBHWgcyMDGtKOaWCfrWMDr\", projectId: \"R9deHmLcsXWpvTCe\" } },\n  { json: { apiKey: \"a1nfi8RjAq6YguJ2pq8ldYmLNQk61eOdGNxCgEwB\", projectId: \"fexkiXliZVD5cboY\" } },\n  { json: { apiKey: \"bSpli5IVfhntedcQ4ojZNAh0NbVrFvrQeqSBlcED\", projectId: \"K9ZIKXV6TJG6EAjg\" } },\n  { json: { apiKey: \"yIqAElPcjxK5f3IpGPfdgdnbrs28U2eFGOex3CmQ\", projectId: \"gcxvnbZcMKi9Cl5k\" } },\n  { json: { apiKey: \"5AJsPTU5i6paKSBiOHGMFxDyLdtt4HtRHHdDHgbF\", projectId: \"gsGIrxftDo150e0H\" } },\n  { json: { apiKey: \"qT2CRNdFqhCVo6cflCodcQGDA2QeECSgCDaPaBdZ\", projectId: \"Rh1ebQitL1Em2GWh\" } },\n  { json: { apiKey: \"CXsjF5qtpyGRKnT7Z6cFIF6fbcdoXUmeLm68RFfU\", projectId: \"MbE9gywn0ByNupFl\" } },\n  { json: { apiKey: \"FDeKPDdmEnEDbAScpfrvbgLTjvNUFHAIp0tkOTso\", projectId: \"cx7dUMGfoukRw2Zu\" } },\n  { json: { apiKey: \"UV2enJLOGeqbEyTBnFNvgmjNEVjcbN7yB7ByGFul\", projectId: \"EfgbjJKXtHelD2CE\" } },\n  { json: { apiKey: \"ZrwmDuAEgrDF3k3AA2gyHGgdKcr2n8B74dFWIdcZ\", projectId: \"plbkjEZsdIJaBBVU\" } },\n  { json: { apiKey: \"eJVc2pCExWoag5CIfSOGcELDe9AuEmDmMBeRtFVq\", projectId: \"8DYwM8oM76DBCK0V\" } },\n  { json: { apiKey: \"7fO9AfhlLPCU19Ap2jPSqV0DnV3GZu2nyTPRjoo3\", projectId: \"Co9fmGviEedeB7ZP\" } },\n  { json: { apiKey: \"GMhlgVdwr1gb9OcyJdunZtL1UCvOIV05CmBfIBCf\", projectId: \"bFfkeOg0adJiff5g\" } },\n  { json: { apiKey: \"FDeKPDdmEnEDbAScpfrvbgLTjvNUFHAIp0tkOTso\", projectId: \"cx7dUMGfoukRw2Zu\" } },\n  { json: { apiKey: \"UV2enJLOGeqbEyTBnFNvgmjNEVjcbN7yB7ByGFul\", projectId: \"EfgbjJKXtHelD2CE\" } },\n  { json: { apiKey: \"ZrwmDuAEgrDF3k3AA2gyHGgdKcr2n8B74dFWIdcZ\", projectId: \"plbkjEZsdIJaBBVU\" } },\n  { json: { apiKey: \"eJVc2pCExWoag5CIfSOGcELDe9AuEmDmMBeRtFVq\", projectId: \"8DYwM8oM76DBCK0V\" } },\n  { json: { apiKey: \"7fO9AfhlLPCU19Ap2jPSqV0DnV3GZu2nyTPRjoo3\", projectId: \"Co9fmGviEedeB7ZP\" } },\n  { json: { apiKey: \"GMhlgVdwr1gb9OcyJdunZtL1UCvOIV05CmBfIBCf\", projectId: \"bFfkeOg0adJiff5g\" } },\n  { json: { apiKey: \"J5BmyrMIukxobA35ey3cLMBbicnweUTJ9Gedac7L\", projectId: \"cGg4gDfXGbQAA9tt\" } },\n  { json: { apiKey: \"3WnGE449dgAEQUfHUeQCcNF3fYOcWGAQZgwchCnY\", projectId: \"DcWGBjyTAgf5AO1S\" } },\n  { json: { apiKey: \"FDeKPDdmEnEDbAScpfrvbgLTjvNUFHAIp0tkOTso\", projectId: \"cx7dUMGfoukRw2Zu\" } },\n  { json: { apiKey: \"UV2enJLOGeqbEyTBnFNvgmjNEVjcbN7yB7ByGFul\", projectId: \"EfgbjJKXtHelD2CE\" } },\n  { json: { apiKey: \"ZrwmDuAEgrDF3k3AA2gyHGgdKcr2n8B74dFWIdcZ\", projectId: \"plbkjEZsdIJaBBVU\" } },\n  { json: { apiKey: \"eJVc2pCExWoag5CIfSOGcELDe9AuEmDmMBeRtFVq\", projectId: \"8DYwM8oM76DBCK0V\" } },\n  { json: { apiKey: \"7fO9AfhlLPCU19Ap2jPSqV0DnV3GZu2nyTPRjoo3\", projectId: \"Co9fmGviEedeB7ZP\" } },\n  { json: { apiKey: \"GMhlgVdwr1gb9OcyJdunZtL1UCvOIV05CmBfIBCf\", projectId: \"bFfkeOg0adJiff5g\" } },\n  { json: { apiKey: \"J5BmyrMIukxobA35ey3cLMBbicnweUTJ9Gedac7L\", projectId: \"cGg4gDfXGbQAA9tt\" } },\n  { json: { apiKey: \"3WnGE449dgAEQUfHUeQCcNF3fYOcWGAQZgwchCnY\", projectId: \"DcWGBjyTAgf5AO1S\" } },\n  { json: { apiKey: \"bfEQBWvgRrgNgcpQZ0vIhRgcEmAfn0CA0ZEYXY9F\", projectId: \"FjedCFDgdKGAKbfL\" } },\n  { json: { apiKey: \"Ym8ag80RSmRBxu6AQtJ9D6xr3Af70jrWj6p5eDLa\", projectId: \"d5S0hSBbc83Decd9\" } },\n  { json: { apiKey: \"laAik1IYoVfBNIJblGFUgGVfJBcCMMgA8XBTA3Aa\", projectId: \"al9eLcNgsefJOnIY\" } },\n  { json: { apiKey: \"LXxNWgENcrGGtfGSDyvZTwKDGmfbN1FePK0oBEgj\", projectId: \"3KoVLD1R6xnF8iUB\" } },\n  { json: { apiKey: \"VCf2736qHyJNCjAd2HFLhgRKO7r3ZbFtwTaAgjjA\", projectId: \"VCgBBg7dGVBAZ3vn\" } },\n  { json: { apiKey: \"SOenPfawumFLsBQYTO5QMHEc8skd5CiPpDlKtGti\", projectId: \"KBcvPBf45pPoSqxL\" } },\n  { json: { apiKey: \"Lb9cCku2ikRxwoCgg6fRtgGfJDOPtjAtm02xYAI3\", projectId: \"ryvtiJGg9xHCdoHN\" } },\n  { json: { apiKey: \"Mo09pAaADos9BogbEmnx30wXFWqGN4jwdcAcekHe\", projectId: \"GkGdAnESi4ygYO8X\" } },\n  { json: { apiKey: \"DH4eBFtrCxjGDK7q4ktcnP4DmbBs8B2A7V3kh3G4\", projectId: \"4YB3c20duGC39wkg\" } },\n  { json: { apiKey: \"AFPYEgCEUA3kj9s2bh0rYpePf7C9Jc6FeluCeToM\", projectId: \"ecCivbc3FfiVKibL\" } },\n  { json: { apiKey: \"XaCI2ybA9AmbLdJO4hRhwPJMXMghfhfZ3PF8gq6S\", projectId: \"ciGwjQNAgeVE9cBG\" } },\n  { json: { apiKey: \"GvspdJsRLEpJXRTngsdGfKIBmGIcvDXLDABGyikL\", projectId: \"ikuPimqp3rpY37uH\" } },\n  { json: { apiKey: \"XuNQANWmR31NxbDsEDxNYKyef8CmEWCpSgpZAQVG\", projectId: \"MbHFheGIWPX7qBY8\" } },\n  { json: { apiKey: \"a01W3HX3WWmbEobrrAgq7iQEgwLTe6dDmsgrEfIs\", projectId: \"BGfhJb8gq3B9gKKR\" } },\n  { json: { apiKey: \"5vDvakJPyF2vrNNrAbdddGDeLgSDOL86DIDN4MDa\", projectId: \"HZ4bKxmFRZgs473d\" } },\n  { json: { apiKey: \"cbBsAxJo5WCEr7hD56ce9O6OBRtRnbefOnP1Mm0g\", projectId: \"fWMP2fXw6FBfeGgq\" } },\n  { json: { apiKey: \"ExMAuEvWfcRffheGGwmEUyKcQZOOs56A2dEug2ug\", projectId: \"EeLckY49BcffAySN\" } },\n  { json: { apiKey: \"MAgKbblcbJAsZCYFPlFHgGUEp8Fp5Lfpnh6CoVMk\", projectId: \"QDFUg8VcfALLsfXs\" } },\n  { json: { apiKey: \"c69YY0DTc3BEASHS5rBbRqRcjv8XZvNVWyfdBK8i\", projectId: \"wX6RpFjBMRyptMaL\" } }\n];"
+        "jsCode": "return [\n  { json: { apiKey: \"5RBJDXZfAjfT1CSJ6F18DlZ7hvACfw7hfCtEdC1p\", projectId: \"CjM7kbDAqKnONcEB\" } },\n  { json: { apiKey: \"bkMJgjP3rg5biC8IhpmBHWgcyMDGtKOaWCfrWMDr\", projectId: \"R9deHmLcsXWpvTCe\" } },\n  { json: { apiKey: \"iO35tF7OiF2qCOXxNG7jeqCt1pybM8DTimt9CQde\", projectId: \"SHRO0dD5KpxFB7cD\" } },\n  { json: { apiKey: \"bSpli5IVfhntedcQ4ojZNAh0NbVrFvrQeqSBlcED\", projectId: \"K9ZIKXV6TJG6EAjg\" } },\n  { json: { apiKey: \"yIqAElPcjxK5f3IpGPfdgdnbrs28U2eFGOex3CmQ\", projectId: \"gcxvnbZcMKi9Cl5k\" } },\n  { json: { apiKey: \"5AJsPTU5i6paKSBiOHGMFxDyLdtt4HtRHHdDHgbF\", projectId: \"gsGIrxftDo150e0H\" } },\n  { json: { apiKey: \"qT2CRNdFqhCVo6cflCodcQGDA2QeECSgCDaPaBdZ\", projectId: \"Rh1ebQitL1Em2GWh\" } },\n  { json: { apiKey: \"CXsjF5qtpyGRKnT7Z6cFIF6fbcdoXUmeLm68RFfU\", projectId: \"MbE9gywn0ByNupFl\" } },\n  { json: { apiKey: \"3xWslsvFpEngdKaE9EemBl8MVxFbGHfmyS0aEpMl\", projectId: \"joFopBbYZmfOGRZX\" } },\n  { json: { apiKey: \"DifOT2Rf63MfBk0ygGxcmA0fUCFfLIeU2fqERXl6\", projectId: \"PhbMkDC8WCDJ7Jyy\" } },\n  { json: { apiKey: \"EeYdLtcdYLpFrLyfxA9xVRfZyYvfVUwlFMtKBxce\", projectId: \"ShFCBMVn4sr9fBIZ\" } },\n  { json: { apiKey: \"bqRgP7J8oLlGCeHGFw40GeGSjYEPMk2ACDHNmg59\", projectId: \"yFDAyAi9GsCopDeG\" } },\n  { json: { apiKey: \"sfFRAabwexs2aHndO2L8aZGYdDeKmKe52Crc3j5A\", projectId: \"M2QF8aeIZArsgDGH\" } },\n  { json: { apiKey: \"ndbvcg1ywVxXflBEb3BgKmxIDM1B6oqfcEqDl4Fi\", projectId: \"DXA2C8CAWs4EbADW\" } },\n  { json: { apiKey: \"GSL4t3J9mdgUV5ZRkimaGW2eJGFDxZCK4Wybe8AG\", projectId: \"mdck4eOUAQR9xj7m\" } },\n  { json: { apiKey: \"6DhlYdbU4CMhBeyvMJvGLgqLpMXFd3nsn3A4vAaG\", projectId: \"gepFw6UsFM8OoASd\" } },\n  { json: { apiKey: \"DFQexiiDd6G89kc8axgtl6TwqODbqAYfaaFqNQsU\", projectId: \"220iG4TVDcSJW3bd\" } },\n  { json: { apiKey: \"CyDMbAebBJc9r7SCeossEaDFwguFUMgYdifw5qca\", projectId: \"fGAA124wp92fHYIw\" } },\n  { json: { apiKey: \"PCB7e6KJFAbMkRTI7bRMmA1Qx3s6BjN9ZRArsxxE\", projectId: \"ieoe6qDZ1dFLjfdk\" } },\n  { json: { apiKey: \"egbRbtyogRFZhAlTbWQyEblpNYtUMdFCGlGMXZHp\", projectId: \"2sDBnWZcG5cYgB1E\" } },\n  { json: { apiKey: \"bBMutqf20dohWwSS9jrH4GUdCTUAGR6Unvby4GLn\", projectId: \"5CdACWetB28jABQU\" } },\n  { json: { apiKey: \"y1IrNRwvFcyQBBEvNDkb3BVLojf7jFuxbyFuPw4s\", projectId: \"guLxKl2DPB8cvcU4\" } },\n  { json: { apiKey: \"OJHg9hVf1RO3blk7DbFrVbMYoBPsVDee3krItEsb\", projectId: \"0LeNuBRTTgAQKObf\" } },\n  { json: { apiKey: \"CdwyGvVmPNcUrIWtrSLUEcDhifnCRBpV1Zl4A4CA\", projectId: \"eYAROdOlupCeRS6W\" } },\n  { json: { apiKey: \"7FpY5IRA7FlcIsEKnq2toPONeKmCjeMhQcHeKFYE\", projectId: \"2XWndUaBfFIe9eMY\" } },\n  { json: { apiKey: \"WKxyTvwAEZVLCfK66HHdvBdADCcSCYLAF4H23YwC\", projectId: \"SeCpqGEIDIEDZAX1\" } },\n  { json: { apiKey: \"prxIQv6USq1uQrTcBs8SclZVF0fDSG1bfE1Co6eK\", projectId: \"qa4GGb3Ggggdl9Fs\" } },\n  { json: { apiKey: \"bcdEAd9Q6xiECSXgsryeZ4aGmE5Of2BErTFBPp8p\", projectId: \"fnN5IFkfBqEYGptn\" } },\n  { json: { apiKey: \"3E7N7ZUwxkZbhilE38GdJbc25QAEHd2XbFgt2yvo\", projectId: \"kpygJRy2o78FIGXS\" } },\n  { json: { apiKey: \"6JAtAqb4Gd30aJO8ue4E1d2hlecsd62wBgs4rrur\", projectId: \"eK2aDhGoUVK31xBF\" } },\n  { json: { apiKey: \"Z6LaADbhPB4eRDEeXwFhWZ7GGdfoYfr3Ek2kAEC3\", projectId: \"eZmKlTbcCFf3CR9c\" } },\n  { json: { apiKey: \"8eymrFBcFpBXviGlhQlpGTBfffXyNc5screaJDAd\", projectId: \"DDFDrDWBh4dfGbEd\" } },\n  { json: { apiKey: \"bGBVbGBwARvEiKdjwBmrY6IB1FGGvfTSuf8PIygo\", projectId: \"hEGh9bttZ2yfbVgr\" } },\n  { json: { apiKey: \"EvF8Eb6j7CjZEkrhT1IlxZcBhXA3eVAGqOCJFrAC\", projectId: \"b7wgQXjOpgreOyci\" } },\n  { json: { apiKey: \"KAFa2aerVLDgyVfdFnenN24Qt0gNdfqyVeUefq6c\", projectId: \"YDbaQfecXUdvP5gb\" } },\n  { json: { apiKey: \"a1nfi8RjAq6YguJ2pq8ldYmLNQk61eOdGNxCgEwB\", projectId: \"fexkiXliZVD5cboY\" } },\n  { json: { apiKey: \"FDeKPDdmEnEDbAScpfrvbgLTjvNUFHAIp0tkOTso\", projectId: \"cx7dUMGfoukRw2Zu\" } },\n  { json: { apiKey: \"UV2enJLOGeqbEyTBnFNvgmjNEVjcbN7yB7ByGFul\", projectId: \"EfgbjJKXtHelD2CE\" } },\n  { json: { apiKey: \"ZrwmDuAEgrDF3k3AA2gyHGgdKcr2n8B74dFWIdcZ\", projectId: \"plbkjEZsdIJaBBVU\" } },\n  { json: { apiKey: \"eJVc2pCExWoag5CIfSOGcELDe9AuEmDmMBeRtFVq\", projectId: \"8DYwM8oM76DBCK0V\" } },\n  { json: { apiKey: \"7fO9AfhlLPCU19Ap2jPSqV0DnV3GZu2nyTPRjoo3\", projectId: \"Co9fmGviEedeB7ZP\" } },\n  { json: { apiKey: \"GMhlgVdwr1gb9OcyJdunZtL1UCvOIV05CmBfIBCf\", projectId: \"bFfkeOg0adJiff5g\" } },\n  { json: { apiKey: \"J5BmyrMIukxobA35ey3cLMBbicnweUTJ9Gedac7L\", projectId: \"cGg4gDfXGbQAA9tt\" } },\n  { json: { apiKey: \"3WnGE449dgAEQUfHUeQCcNF3fYOcWGAQZgwchCnY\", projectId: \"DcWGBjyTAgf5AO1S\" } },\n  { json: { apiKey: \"bfEQBWvgRrgNgcpQZ0vIhRgcEmAfn0CA0ZEYXY9F\", projectId: \"FjedCFDgdKGAKbfL\" } },\n  { json: { apiKey: \"Ym8ag80RSmRBxu6AQtJ9D6xr3Af70jrWj6p5eDLa\", projectId: \"d5S0hSBbc83Decd9\" } },\n  { json: { apiKey: \"laAik1IYoVfBNIJblGFUgGVfJBcCMMgA8XBTA3Aa\", projectId: \"al9eLcNgsefJOnIY\" } },\n  { json: { apiKey: \"LXxNWgENcrGGtfGSDyvZTwKDGmfbN1FePK0oBEgj\", projectId: \"3KoVLD1R6xnF8iUB\" } },\n  { json: { apiKey: \"VCf2736qHyJNCjAd2HFLhgRKO7r3ZbFtwTaAgjjA\", projectId: \"VCgBBg7dGVBAZ3vn\" } },\n  { json: { apiKey: \"SOenPfawumFLsBQYTO5QMHEc8skd5CiPpDlKtGti\", projectId: \"KBcvPBf45pPoSqxL\" } },\n  { json: { apiKey: \"Lb9cCku2ikRxwoCgg6fRtgGfJDOPtjAtm02xYAI3\", projectId: \"ryvtiJGg9xHCdoHN\" } },\n  { json: { apiKey: \"Mo09pAaADos9BogbEmnx30wXFWqGN4jwdcAcekHe\", projectId: \"GkGdAnESi4ygYO8X\" } },\n  { json: { apiKey: \"DH4eBFtrCxjGDK7q4ktcnP4DmbBs8B2A7V3kh3G4\", projectId: \"4YB3c20duGC39wkg\" } },\n  { json: { apiKey: \"AFPYEgCEUA3kj9s2bh0rYpePf7C9Jc6FeluCeToM\", projectId: \"ecCivbc3FfiVKibL\" } },\n  { json: { apiKey: \"XaCI2ybA9AmbLdJO4hRhwPJMXMghfhfZ3PF8gq6S\", projectId: \"ciGwjQNAgeVE9cBG\" } },\n  { json: { apiKey: \"GvspdJsRLEpJXRTngsdGfKIBmGIcvDXLDABGyikL\", projectId: \"ikuPimqp3rpY37uH\" } },\n  { json: { apiKey: \"XuNQANWmR31NxbDsEDxNYKyef8CmEWCpSgpZAQVG\", projectId: \"MbHFheGIWPX7qBY8\" } },\n  { json: { apiKey: \"a01W3HX3WWmbEobrrAgq7iQEgwLTe6dDmsgrEfIs\", projectId: \"BGfhJb8gq3B9gKKR\" } },\n  { json: { apiKey: \"5vDvakJPyF2vrNNrAbdddGDeLgSDOL86DIDN4MDa\", projectId: \"HZ4bKxmFRZgs473d\" } },\n  { json: { apiKey: \"cbBsAxJo5WCEr7hD56ce9O6OBRtRnbefOnP1Mm0g\", projectId: \"fWMP2fXw6FBfeGgq\" } },\n  { json: { apiKey: \"ExMAuEvWfcRffheGGwmEUyKcQZOOs56A2dEug2ug\", projectId: \"EeLckY49BcffAySN\" } },\n  { json: { apiKey: \"MAgKbblcbJAsZCYFPlFHgGUEp8Fp5Lfpnh6CoVMk\", projectId: \"QDFUg8VcfALLsfXs\" } },\n  { json: { apiKey: \"c69YY0DTc3BEASHS5rBbRqRcjv8XZvNVWyfdBK8i\", projectId: \"wX6RpFjBMRyptMaL\" } }\n];"
       },
       "id": "c1700389-1696-4879-9dea-988ce76e3941",
       "name": "Config: json2video Keys",
@@ -3583,7 +3613,7 @@
         "conditions": {
           "number": [
             {
-              "value1": "={{ $json.remaining_quota.time }}",
+              "value1": "={{ $json.remaining_quota?.time || 0 }}",
               "operation": "larger",
               "value2": 80
             }
@@ -3693,7 +3723,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => {\n  let p = {};\n  try { p = $('Filter: My Chat Only').first().json || {}; } catch (e) { p = {}; }\n  let s = {};\n  try { s = $('Parse Strategy Output').first().json || {}; } catch (e) { s = {}; }\n  let t = {};\n  try { t = $('Parse Topic Analyzer Output').first().json || {}; } catch (e) { t = {}; }\n\n  let staticData = {};\n  try { staticData = $getWorkflowStaticData('global') || {}; } catch (e) { staticData = {}; }\n  const custom = staticData.userSelectedCustomSettings || {};\n\n  let waitItem = {};\n  try {\n    const rawWait = $('Wait for Scenes Approval').first().json || {};\n    waitItem = rawWait.body || rawWait.query || rawWait || {};\n  } catch (e) { waitItem = {}; }\n\n  let merged = [];\n  try { merged = $('Merge Hybrid Scenes').all() || []; } catch (e) { merged = []; }\n\n  const rows = [];\n  for (let i = 0; i < merged.length; i++) {\n    const d = (merged[i] && merged[i].json) ? merged[i].json : {};\n    const url = String(d.url || '');\n    if (url.indexOf('http') !== 0) continue;\n    rows.push({\n      n: Number(d.sceneNumber) || (i + 1),\n      url: url,\n      dur: Number(d.duration) || 15,\n      vo: String(d.voiceoverText || '')\n    });\n  }\n  rows.sort(function (a, b) { return a.n - b.n; });\n\n  const allVoiceover = rows.map(r => r.vo).join(' ');\n  const lang = String(s.language || t.language || p.language || 'English').toLowerCase();\n  \n  // Unicode Range \\u0900-\\u097F represents Devanagari (Hindi, Marathi, Nepali, Sanskrit)\n  const hasDevanagari = /[\\u0900-\\u097F]/.test(allVoiceover) || lang.indexOf('hindi') !== -1 || lang.indexOf('hinglish') !== -1;\n  const subLang = hasDevanagari ? 'hi' : 'en';\n\n  // 1. DYNAMIC VOICE RESOLUTION\n  const VOICE_MAP = {\n    'adam': 'pNInz6obpgDQGcFmaJgB',\n    'rachel': '21m00Tcm4TlvDq8ikWAM',\n    'marcus': 'onwK4e9ZLuTAKqWW03F9',\n    'aarav': 'ErXwobaYiN019PkySvjV',\n    'priya': 'EXAVITQu4vr4xnSDxMaL',\n    'charlie': 'IKne3meq5aSn9XLyUdCD',\n    'george': 'JBFqnCBsd6RMkjVDRZzb',\n    'callum': 'N2lVS1w4EtoT3dr4eOWO',\n    'sarah': 'EXAVITQu4vr4xnSDxMaL',\n    'charlotte': 'XB0fDUnXU5powFXDhCwa',\n    'josh': 'TxGEqnHWrfWFTfGW9XjX',\n    'arnold': 'VR6AewLTigWG4xSOukaG',\n    'domi': 'AZnzlk1XvdvUeBnXmlld',\n    'elli': 'MF3mGyEYCl7XYWbV9V6O',\n    'antoni': 'ErXwobaYiN019PkySvjV',\n    'bella': 'EXAVITQu4vr4xnSDxMaL',\n    'brian': 'nPczCjzI2devNBz1zQrb',\n    'daniel': 'onwK4e9ZLuTAKqWW03F9',\n    'emily': 'LcfcDJNigL5wcS5z9bmt',\n    'ethan': 'g5CIjZEefAph4nQFvHAz',\n    'freya': 'jsCqWAovK2LkecY7zXl4',\n    'giggle': 'MF3mGyEYCl7XYWbV9V6O',\n    'glinda': 'z9fAnlkpzviPz146aGWa',\n    'grace': 'oWAxZDx7w5VEj9dCyTzz',\n    'harry': 'SOYHLrjzK2X1ezoY6cvb',\n    'james': 'ZQe5CZNOzWyzPSCn5a3c',\n    'jeremy': 'bVMeCyTHy58xNoL34h3p',\n    'jessie': 't0jbNlEBZNuSJaPyNmEY',\n    'joseph': 'Zlb1dXrM653N07WRdFW3',\n    'liam': 'TX3LPaxmHKxFdv7VOQHJ',\n    'matilda': 'XrExE9yKIg1WjnnlVkGX',\n    'michael': 'flq6f7yk4E4fJM5XTYTV',\n    'nicole': 'piTKgcLEGmPE4e6mEKli',\n    'patrick': 'ODq5zmih8GrVes37Dizd',\n    'sam': 'yoZ06aMxZJJ28mfd3POQ',\n    'serena': 'pMsXgjiT309w3j25d482'\n  };\n\n  const rawVoice = String(custom.elevenLabsVoiceId || waitItem.elevenLabsVoiceId || custom.voiceId || waitItem.voiceId || p.elevenLabsVoiceId || p.voiceId || 'adam').trim();\n  const voice = /^[A-Za-z0-9_-]{18,}$/.test(rawVoice) ? rawVoice : (VOICE_MAP[rawVoice.toLowerCase()] || 'pNInz6obpgDQGcFmaJgB');\n\n  // Dynamic Voice Speed (Fallback 1.0, clamped to safe 0.7 - 1.25 range)\n  const rawSpeed = custom.voiceSpeed !== undefined ? custom.voiceSpeed : (waitItem.voiceSpeed !== undefined ? waitItem.voiceSpeed : (p.voiceSpeed !== undefined ? p.voiceSpeed : 1.0));\n  const parsedSpeed = Number(rawSpeed) || 1.0;\n  const voiceSpeed = Math.max(0.7, Math.min(1.25, Number(parsedSpeed.toFixed(2))));\n\n  // 2. DYNAMIC SUBTITLE STYLES RESOLUTION\n  let userSubs = custom.subtitleSettings || waitItem.subtitleSettings || p.subtitleSettings || {};\n  if (typeof userSubs === 'string') {\n    try { userSubs = JSON.parse(userSubs); } catch(e) { userSubs = {}; }\n  }\n\n  const subStyle = userSubs.style || 'highlight';\n\n  // Automatically enforce Devanagari font when Devanagari script is present to prevent tofu [][][][] boxes\n  let subFont = userSubs.fontFamily;\n  let allCaps = userSubs.allCaps !== undefined ? Boolean(userSubs.allCaps) : true;\n\n  if (hasDevanagari) {\n    if (!subFont || ['Montserrat', 'Inter', 'Bebas Neue', 'Luckiest Guy', 'Bangers', 'Oswald', 'Permanent Marker'].includes(subFont)) {\n      subFont = 'Noto Sans Devanagari';\n    }\n    allCaps = false; // Devanagari does not have uppercase; disabling prevents font glyph corruption\n  } else {\n    subFont = subFont || 'Montserrat';\n  }\n\n  let rawFontSize = Number(userSubs.fontSize) || 78;\n  if (rawFontSize > 120) rawFontSize = Math.round(rawFontSize / 3.5);\n  const subSize = Math.max(56, Math.min(100, rawFontSize));\n\n  const subWordColor = userSubs.wordColor || '#FFE600';\n  const subLineColor = userSubs.lineColor || '#FFFFFF';\n  const subOutlineColor = userSubs.outlineColor || '#000000';\n  const subOutlineWidth = Number(userSubs.outlineWidth !== undefined ? userSubs.outlineWidth : 8);\n  const subPos = userSubs.position || 'center-bottom';\n  const maxWords = Number(userSubs.maxWordsPerLine) || 3;\n\n  const subSettings = {\n    'font-family': subFont,\n    'font-size': subSize,\n    'font-weight': '900',\n    'position': subPos,\n    'line-color': subLineColor,\n    'word-color': subWordColor,\n    'outline-color': subOutlineColor,\n    'outline-width': subOutlineWidth,\n    'max-words-per-line': maxWords,\n    'all-caps': allCaps,\n    'style': subStyle === 'classic-progressive' ? 'highlight' : subStyle\n  };\n  if (userSubs.boxColor && userSubs.boxColor.trim()) subSettings['box-color'] = userSubs.boxColor.trim();\n\n  // 3. DYNAMIC BACKGROUND MUSIC RESOLUTION\n  const bgmUrl = custom.musicTrackUrl || waitItem.musicTrackUrl || p.musicTrackUrl || 'https://ia600105.us.archive.org/20/items/tension_time_soundridemusic/tension_time_soundridemusic.mp3';\n  const rawVol = custom.musicVolume !== undefined ? custom.musicVolume : (waitItem.musicVolume !== undefined ? waitItem.musicVolume : (p.musicVolume !== undefined ? p.musicVolume : 0.15));\n  const bgmVolume = Number(rawVol) || 0.15;\n\n  const scenes = rows.map(function (r) {\n    return {\n      duration: r.dur,\n      transition: { style: 'fade', duration: 0.3 },\n      elements: [\n        {\n          type: 'video',\n          src: r.url,\n          'keep-audio': false,\n          volume: 0,\n          'aspect-ratio': '9:16',\n          width: 1080,\n          height: 1920,\n          fit: 'cover',\n          duration: -1,\n          speed: 1.0\n        },\n        {\n          type: 'voice',\n          voice: voice,\n          text: r.vo,\n          model: 'elevenlabs',\n          speed: voiceSpeed\n        }\n      ]\n    };\n  });\n\n  return JSON.stringify({\n    resolution: 'instagram-story',\n    quality: 'high',\n    elements: [\n      {\n        type: 'subtitles',\n        model: 'whisper',\n        language: subLang,\n        settings: subSettings\n      },\n      {\n        type: 'audio',\n        src: bgmUrl,\n        volume: bgmVolume,\n        loop: -1,\n        duration: -2,\n        'fade-out': 2\n      }\n    ],\n    scenes: scenes\n  });\n})() }}",
+        "jsonBody": "={{ (() => {\n  let p = {};\n  try { p = $('Filter: My Chat Only').first().json || {}; } catch (e) { p = {}; }\n  let s = {};\n  try { s = $('Parse Strategy Output').first().json || {}; } catch (e) { s = {}; }\n  let t = {};\n  try { t = $('Parse Topic Analyzer Output').first().json || {}; } catch (e) { t = {}; }\n\n  let staticData = {};\n  try { staticData = $getWorkflowStaticData('global') || {}; } catch (e) { staticData = {}; }\n  const custom = staticData.userSelectedCustomSettings || {};\n\n  let waitItem = {};\n  try {\n    const rawWait = $('Wait for Scenes Approval').first().json || {};\n    waitItem = rawWait.body || rawWait.query || rawWait || {};\n  } catch (e) { waitItem = {}; }\n\n  let merged = [];\n  try { merged = $('Merge Hybrid Scenes').all() || []; } catch (e) { merged = []; }\n\n  const rows = [];\n  for (let i = 0; i < merged.length; i++) {\n    const d = (merged[i] && merged[i].json) ? merged[i].json : {};\n    const url = String(d.url || '');\n    if (url.indexOf('http') !== 0) continue;\n    rows.push({\n      n: Number(d.sceneNumber) || (i + 1),\n      url: url,\n      dur: Number(d.duration) || 15,\n      vo: String(d.voiceoverText || '')\n    });\n  }\n  rows.sort(function (a, b) { return a.n - b.n; });\n\n  const allVoiceover = rows.map(r => r.vo).join(' ');\n  const lang = String(s.language || t.language || p.language || 'English').toLowerCase();\n  \n  // Unicode Range \\u0900-\\u097F represents Devanagari (Hindi, Marathi, Nepali, Sanskrit)\n  const hasDevanagari = /[\\u0900-\\u097F]/.test(allVoiceover) || lang.indexOf('hindi') !== -1 || lang.indexOf('hinglish') !== -1;\n  const subLang = hasDevanagari ? 'hi' : 'en';\n\n  // 1. DYNAMIC VOICE RESOLUTION\n  const VOICE_MAP = {\n    'adam': 'pNInz6obpgDQGcFmaJgB',\n    'rachel': '21m00Tcm4TlvDq8ikWAM',\n    'marcus': 'onwK4e9ZLuTAKqWW03F9',\n    'aarav': 'ErXwobaYiN019PkySvjV',\n    'priya': 'EXAVITQu4vr4xnSDxMaL',\n    'charlie': 'IKne3meq5aSn9XLyUdCD',\n    'george': 'JBFqnCBsd6RMkjVDRZzb',\n    'callum': 'N2lVS1w4EtoT3dr4eOWO',\n    'sarah': 'EXAVITQu4vr4xnSDxMaL',\n    'charlotte': 'XB0fDUnXU5powFXDhCwa',\n    'josh': 'TxGEqnHWrfWFTfGW9XjX',\n    'arnold': 'VR6AewLTigWG4xSOukaG',\n    'domi': 'AZnzlk1XvdvUeBnXmlld',\n    'elli': 'MF3mGyEYCl7XYWbV9V6O',\n    'antoni': 'ErXwobaYiN019PkySvjV',\n    'bella': 'EXAVITQu4vr4xnSDxMaL',\n    'brian': 'nPczCjzI2devNBz1zQrb',\n    'daniel': 'onwK4e9ZLuTAKqWW03F9',\n    'emily': 'LcfcDJNigL5wcS5z9bmt',\n    'ethan': 'g5CIjZEefAph4nQFvHAz',\n    'freya': 'jsCqWAovK2LkecY7zXl4',\n    'giggle': 'MF3mGyEYCl7XYWbV9V6O',\n    'glinda': 'z9fAnlkpzviPz146aGWa',\n    'grace': 'oWAxZDx7w5VEj9dCyTzz',\n    'harry': 'SOYHLrjzK2X1ezoY6cvb',\n    'james': 'ZQe5CZNOzWyzPSCn5a3c',\n    'jeremy': 'bVMeCyTHy58xNoL34h3p',\n    'jessie': 't0jbNlEBZNuSJaPyNmEY',\n    'joseph': 'Zlb1dXrM653N07WRdFW3',\n    'liam': 'TX3LPaxmHKxFdv7VOQHJ',\n    'matilda': 'XrExE9yKIg1WjnnlVkGX',\n    'michael': 'flq6f7yk4E4fJM5XTYTV',\n    'nicole': 'piTKgcLEGmPE4e6mEKli',\n    'patrick': 'ODq5zmih8GrVes37Dizd',\n    'sam': 'yoZ06aMxZJJ28mfd3POQ',\n    'serena': 'pMsXgjiT309w3j25d482'\n  };\n\n  const rawVoice = String(custom.elevenLabsVoiceId || waitItem.elevenLabsVoiceId || custom.voiceId || waitItem.voiceId || p.elevenLabsVoiceId || p.voiceId || 'adam').trim();\n  const voice = /^[A-Za-z0-9_-]{18,}$/.test(rawVoice) ? rawVoice : (VOICE_MAP[rawVoice.toLowerCase()] || 'pNInz6obpgDQGcFmaJgB');\n\n  // Dynamic Voice Speed (Fallback 1.30, safe 1.10 - 1.50 range)\n  const rawSpeed = custom.voiceSpeed !== undefined ? custom.voiceSpeed : (waitItem.voiceSpeed !== undefined ? waitItem.voiceSpeed : (p.voiceSpeed !== undefined ? p.voiceSpeed : 1.30));\n  const parsedSpeed = Number(rawSpeed);\n  const safeSpeed = isFinite(parsedSpeed) && parsedSpeed > 0 ? parsedSpeed : 1.30;\n  const voiceSpeed = Math.max(1.10, Math.min(1.50, Number(safeSpeed.toFixed(2))));\n\n  // 2. DYNAMIC SUBTITLE STYLES RESOLUTION\n  let userSubs = custom.subtitleSettings || waitItem.subtitleSettings || p.subtitleSettings || {};\n  if (typeof userSubs === 'string') {\n    try { userSubs = JSON.parse(userSubs); } catch(e) { userSubs = {}; }\n  }\n\n  const subStyle = userSubs.style || 'highlight';\n\n  // Automatically enforce Devanagari font when Devanagari script is present to prevent tofu [][][][] boxes\n  let subFont = userSubs.fontFamily;\n  let allCaps = userSubs.allCaps !== undefined ? Boolean(userSubs.allCaps) : true;\n\n  if (hasDevanagari) {\n    if (!subFont || ['Montserrat', 'Inter', 'Bebas Neue', 'Luckiest Guy', 'Bangers', 'Oswald', 'Permanent Marker'].includes(subFont)) {\n      subFont = 'Noto Sans Devanagari';\n    }\n    allCaps = false; // Devanagari does not have uppercase; disabling prevents font glyph corruption\n  } else {\n    subFont = subFont || 'Montserrat';\n  }\n\n  let rawFontSize = Number(userSubs.fontSize) || 78;\n  if (rawFontSize > 120) rawFontSize = Math.round(rawFontSize / 3.5);\n  const subSize = Math.max(56, Math.min(100, rawFontSize));\n\n  const subWordColor = userSubs.wordColor || '#FFE600';\n  const subLineColor = userSubs.lineColor || '#FFFFFF';\n  const subOutlineColor = userSubs.outlineColor || '#000000';\n  const subOutlineWidth = Number(userSubs.outlineWidth !== undefined ? userSubs.outlineWidth : 8);\n  const subPos = userSubs.position || 'center-bottom';\n  const maxWords = Number(userSubs.maxWordsPerLine) || 3;\n\n  const subSettings = {\n    'font-family': subFont,\n    'font-size': subSize,\n    'font-weight': '900',\n    'position': subPos,\n    'line-color': subLineColor,\n    'word-color': subWordColor,\n    'outline-color': subOutlineColor,\n    'outline-width': subOutlineWidth,\n    'max-words-per-line': maxWords,\n    'all-caps': allCaps,\n    'style': subStyle === 'classic-progressive' ? 'highlight' : subStyle\n  };\n  if (userSubs.boxColor && userSubs.boxColor.trim()) subSettings['box-color'] = userSubs.boxColor.trim();\n  if (userSubs.fontUrl) subSettings['font-url'] = String(userSubs.fontUrl);\n\n  // 3. DYNAMIC BACKGROUND MUSIC RESOLUTION\n  const bgmUrl = custom.musicTrackUrl !== undefined ? custom.musicTrackUrl : (waitItem.musicTrackUrl !== undefined ? waitItem.musicTrackUrl : (p.musicTrackUrl !== undefined ? p.musicTrackUrl : 'https://bangai.netlify.app/music/mystery2.mp3'));\n  const rawVol = custom.musicVolume !== undefined ? custom.musicVolume : (waitItem.musicVolume !== undefined ? waitItem.musicVolume : (p.musicVolume !== undefined ? p.musicVolume : 0.08));\n  const parsedVol = Number(rawVol);\n  const bgmVolume = isFinite(parsedVol) ? Math.max(0, Math.min(0.4, parsedVol)) : 0.08;\n\n  const topElements = [\n    {\n      type: 'subtitles',\n      model: 'whisper',\n      language: subLang,\n      settings: subSettings\n    }\n  ];\n\n  if (bgmUrl && String(bgmUrl).trim() !== '' && bgmVolume > 0) {\n    topElements.push({\n      type: 'audio',\n      src: String(bgmUrl).trim(),\n      volume: bgmVolume,\n      loop: -1,\n      duration: -2,\n      'fade-out': 2\n    });\n  }\n\n  const scenes = rows.map(function (r) {\n    return {\n      duration: r.dur,\n      transition: { style: 'fade', duration: 0.3 },\n      elements: [\n        {\n          type: 'video',\n          src: r.url,\n          'keep-audio': false,\n          volume: 0,\n          'aspect-ratio': '9:16',\n          width: 1080,\n          height: 1920,\n          fit: 'cover',\n          duration: -1,\n          speed: 1.0\n        },\n        {\n          type: 'voice',\n          voice: voice,\n          text: r.vo,\n          model: 'elevenlabs',\n          speed: voiceSpeed\n        }\n      ]\n    };\n  });\n\n  return JSON.stringify({\n    resolution: 'instagram-story',\n    quality: 'high',\n    elements: topElements,\n    scenes: scenes\n  });\n})() }}",
         "options": {}
       },
       "id": "8b694e4b-49c8-455a-a212-67f242dfe333",
@@ -3938,7 +3968,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "69b968e4-419d-47e6-bc92-0d176e5dc7ff",
       "name": "Primary Video Switch1",
@@ -4095,7 +4127,7 @@
                 "conditions": [
                   {
                     "id": "rule-success",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "success",
                     "operator": {
                       "type": "string",
@@ -4117,7 +4149,7 @@
                 "conditions": [
                   {
                     "id": "rule-waiting",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "waiting",
                     "operator": {
                       "type": "string",
@@ -4139,7 +4171,7 @@
                 "conditions": [
                   {
                     "id": "rule-fail",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "failed",
                     "operator": {
                       "type": "string",
@@ -4152,7 +4184,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "7961af94-b990-4edd-983c-55b65b087042",
       "name": "Primary Video Status Switch1",
@@ -4446,7 +4480,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "3c1f5eb9-43a9-4c6c-beaf-c18d5500e7eb",
       "name": "Backup Video Switch1",
@@ -4576,7 +4612,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "bff78e4b-b7c5-4aae-92a1-8ea8b5f5f925",
       "name": "Backup Video Status Switch1",
@@ -4880,7 +4918,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "9b916346-57a4-4a62-9fd2-f671ba51f74c",
       "name": "Primary Video Switch2",
@@ -5037,7 +5077,7 @@
                 "conditions": [
                   {
                     "id": "rule-success",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "success",
                     "operator": {
                       "type": "string",
@@ -5059,7 +5099,7 @@
                 "conditions": [
                   {
                     "id": "rule-waiting",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "waiting",
                     "operator": {
                       "type": "string",
@@ -5081,7 +5121,7 @@
                 "conditions": [
                   {
                     "id": "rule-fail",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "failed",
                     "operator": {
                       "type": "string",
@@ -5094,7 +5134,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "baf42674-ab97-4984-95a0-76b54f5ea2cb",
       "name": "Primary Video Status Switch2",
@@ -5416,7 +5458,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "f1dee5ae-ab17-4947-8a35-415e6d4a548f",
       "name": "Backup Video Switch2",
@@ -5546,7 +5590,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "145fbda1-f67b-4e27-8a8e-79f19bfd8b03",
       "name": "Backup Video Status Switch2",
@@ -5850,7 +5896,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "bb4aadce-129b-4bee-9ea1-98886020dc34",
       "name": "Primary Video Switch3",
@@ -6007,7 +6055,7 @@
                 "conditions": [
                   {
                     "id": "rule-success",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "success",
                     "operator": {
                       "type": "string",
@@ -6029,7 +6077,7 @@
                 "conditions": [
                   {
                     "id": "rule-waiting",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "waiting",
                     "operator": {
                       "type": "string",
@@ -6051,7 +6099,7 @@
                 "conditions": [
                   {
                     "id": "rule-fail",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "failed",
                     "operator": {
                       "type": "string",
@@ -6064,7 +6112,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "df983548-6b7a-4a36-ba89-59e1a5541fcf",
       "name": "Primary Video Status Switch3",
@@ -6386,7 +6436,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "5ce2709e-1480-43ac-b29e-efff72b2bf98",
       "name": "Backup Video Switch3",
@@ -6516,7 +6568,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "bc3d027d-1c00-4c68-ab8f-d2e359f136f3",
       "name": "Backup Video Status Switch3",
@@ -6820,7 +6874,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "9d5667cd-85bf-4318-b187-2fd4574a2d79",
       "name": "Primary Video Switch4",
@@ -6977,7 +7033,7 @@
                 "conditions": [
                   {
                     "id": "rule-success",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "success",
                     "operator": {
                       "type": "string",
@@ -6999,7 +7055,7 @@
                 "conditions": [
                   {
                     "id": "rule-waiting",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "waiting",
                     "operator": {
                       "type": "string",
@@ -7021,7 +7077,7 @@
                 "conditions": [
                   {
                     "id": "rule-fail",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "failed",
                     "operator": {
                       "type": "string",
@@ -7034,7 +7090,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "648678ac-a5dc-4ae3-9769-8100b7d848db",
       "name": "Primary Video Status Switch4",
@@ -7356,7 +7414,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "f1b872eb-fed5-472c-a88b-ebcdfaf13f33",
       "name": "Backup Video Switch4",
@@ -7486,7 +7546,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "7f9d2d85-245a-4308-beb7-6d9f2f18c182",
       "name": "Backup Video Status Switch4",
@@ -7790,7 +7852,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "314b54af-079b-40f6-a14a-2b3ccc230fd5",
       "name": "Primary Video Switch5",
@@ -7947,7 +8011,7 @@
                 "conditions": [
                   {
                     "id": "rule-success",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "success",
                     "operator": {
                       "type": "string",
@@ -7969,7 +8033,7 @@
                 "conditions": [
                   {
                     "id": "rule-waiting",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "waiting",
                     "operator": {
                       "type": "string",
@@ -7991,7 +8055,7 @@
                 "conditions": [
                   {
                     "id": "rule-fail",
-                    "leftValue": "={{ $json.data.state }}",
+                    "leftValue": "={{ $json.data?.state || '' }}",
                     "rightValue": "failed",
                     "operator": {
                       "type": "string",
@@ -8004,7 +8068,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "53f78ce0-58d3-4226-8a88-cb41379b9adf",
       "name": "Primary Video Status Switch5",
@@ -8326,7 +8392,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "3df1286a-a75a-416b-8abd-4b52afd8172f",
       "name": "Backup Video Switch5",
@@ -8456,7 +8524,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "5486b0cf-45a4-48da-a488-a38b8ea95963",
       "name": "Backup Video Status Switch5",
@@ -8582,7 +8652,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const mergeData = $input.first().json;\nconst urlMap = {};\nconst keys = Object.keys(mergeData);\n\nkeys.forEach(k => {\n  if (k === 'sceneNumber' || k.match(/^sceneNumber_\\d+$/)) {\n    const sceneNum = parseInt(mergeData[k], 10);\n    let urlKey;\n    if (k === 'sceneNumber') {\n      urlKey = 'videoUrl';\n    } else {\n      const suffix = k.slice('sceneNumber'.length);\n      urlKey = 'videoUrl' + suffix;\n    }\n    \n    let finalUrl = mergeData[urlKey] || '';\n    if (Array.isArray(finalUrl)) finalUrl = finalUrl[0];\n    if (sceneNum && finalUrl) urlMap[sceneNum] = finalUrl;\n  }\n});\n\nconst staticData = $getWorkflowStaticData('global');\nconst script = staticData.islamicFullScript || {};\nconst fullScenes = script.scenes || [];\n\nif (!fullScenes || fullScenes.length === 0) {\n  throw new Error('[Merge Hybrid Scenes] No scenes found in islamicFullScript. Check Split Scenes ran correctly.');\n}\n\nreturn fullScenes.map((scene, index) => {\n  const sceneNum = index + 1;\n  return {\n    json: {\n      sceneNumber:        sceneNum,\n      sceneIndex:         index,\n      voiceoverText:      scene.voiceoverText || '',\n      videoPrompt:        scene.videoPrompt || '',\n      duration:           scene.duration || 15,\n      title:              script.title || '',\n      corePlot:           script.corePlot || '',\n      tags:               script.tags || [],\n      youtubeDescription: script.youtubeDescription || '',\n      mainCharacter:      script.mainCharacter || '',\n      category:           script.category || 'Education',\n      url:                urlMap[sceneNum] || '',\n      type:               'video'\n    }\n  };\n});"
+        "jsCode": "const mergeData = $input.first().json;\nconst urlMap = {};\nconst keys = Object.keys(mergeData);\n\nkeys.forEach(k => {\n  if (k === 'sceneNumber' || k.match(/^sceneNumber_\\d+$/)) {\n    const sceneNum = parseInt(mergeData[k], 10);\n    let urlKey;\n    if (k === 'sceneNumber') {\n      urlKey = 'videoUrl';\n    } else {\n      const suffix = k.slice('sceneNumber'.length);\n      urlKey = 'videoUrl' + suffix;\n    }\n    \n    let finalUrl = mergeData[urlKey] || '';\n    if (Array.isArray(finalUrl)) finalUrl = finalUrl[0];\n    if (sceneNum && finalUrl) urlMap[sceneNum] = finalUrl;\n  }\n});\n\nconst staticData = $getWorkflowStaticData('global');\nconst script = staticData.islamicFullScript || {};\nconst fullScenes = script.scenes || [];\n\nif (!fullScenes || fullScenes.length === 0) {\n  return [{\n    json: {\n      mergeFailed: true,\n      error: 'No scenes found in islamicFullScript. Check Split Scenes ran correctly.'\n    }\n  }];\n}\n\nreturn fullScenes.map((scene, index) => {\n  const sceneNum = index + 1;\n  return {\n    json: {\n      sceneNumber:        sceneNum,\n      sceneIndex:         index,\n      voiceoverText:      scene.voiceoverText || '',\n      videoPrompt:        scene.videoPrompt || '',\n      duration:           scene.duration || 15,\n      title:              script.title || '',\n      corePlot:           script.corePlot || '',\n      tags:               script.tags || [],\n      youtubeDescription: script.youtubeDescription || '',\n      mainCharacter:      script.mainCharacter || '',\n      category:           script.category || 'Education',\n      url:                urlMap[sceneNum] || '',\n      type:               'video'\n    }\n  };\n});"
       },
       "id": "39b55b7e-40df-4e8c-86b0-51f80f7f9952",
       "name": "Merge Hybrid Scenes",
@@ -8623,7 +8693,7 @@
         "conditions": {
           "string": [
             {
-              "value1": "={{ $json.movie.status }}",
+              "value1": "={{ $json.movie?.status || '' }}",
               "value2": "done"
             }
           ]
@@ -8644,7 +8714,7 @@
         "conditions": {
           "string": [
             {
-              "value1": "={{ $json.movie.status }}",
+              "value1": "={{ $json.movie?.status || '' }}",
               "value2": "error"
             }
           ]
@@ -8674,7 +8744,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $json.movie.url }}",
+        "url": "={{ $json.movie?.url || $json.movieUrl || '' }}",
         "options": {
           "response": {
             "response": {
@@ -8691,7 +8761,7 @@
         15840,
         1680
       ],
-      "onError": "continueRegularOutput"
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -10359,7 +10429,9 @@
             "Visual Style": "={{ $('Parse Strategy Output').first().json.visualStyle || '' }}",
             "Language": "={{ $('Parse Strategy Output').first().json.language || '' }}",
             "Angle Differentiator": "={{ ($('Parse Strategy Output').first().json.angleDifferentiator || '').toString().slice(0,300) }}",
-            "Run ID": "={{ $execution.id }}"
+            "Run ID": "={{ $execution.id }}",
+            "Video URL": "={{ $json.movie?.url || $json.movieUrl || $('Status = Done?').first().json?.movie?.url || '' }}",
+            "YouTube Link": "={{ $json.uploadId ? ('https://youtube.com/shorts/' + $json.uploadId) : '' }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -10501,7 +10573,7 @@
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true,
-              "removed": true
+              "removed": false
             },
             {
               "id": "YouTube Link",
@@ -10538,7 +10610,11 @@
     {
       "parameters": {
         "resume": "webhook",
-        "options": {}
+        "options": {},
+        "limitWaitTime": true,
+        "limitType": "afterTimeInterval",
+        "resumeAmount": 30,
+        "resumeUnit": "minutes"
       },
       "id": "cfd3fff8-fd43-432b-997b-17114429cf9d",
       "name": "Wait for Approval",
@@ -10685,7 +10761,11 @@
     {
       "parameters": {
         "resume": "webhook",
-        "options": {}
+        "options": {},
+        "limitWaitTime": true,
+        "limitType": "afterTimeInterval",
+        "resumeAmount": 30,
+        "resumeUnit": "minutes"
       },
       "id": "abe9ade1-282f-4c06-8029-fbd95865eb90",
       "name": "Wait for Scenes Approval",
@@ -10699,7 +10779,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Restore all 5 validated scenes and store user custom settings in staticData\nconst staticData = $getWorkflowStaticData('global');\nconst p = $('Filter: My Chat Only').first().json;\n\nlet waitItem = {};\ntry {\n  const rawWait = $('Wait for Scenes Approval').first().json || {};\n  waitItem = rawWait.body || rawWait.query || rawWait || {};\n} catch(e) {\n  waitItem = {};\n}\n\n// Preserve user selected custom audiovisual settings across the workflow (fallback voiceSpeed: 1.0)\nstaticData.userSelectedCustomSettings = {\n  voiceId: waitItem.voiceId || p.voiceId || 'adam',\n  elevenLabsVoiceId: waitItem.elevenLabsVoiceId || p.elevenLabsVoiceId || '',\n  voiceSpeed: Number(waitItem.voiceSpeed !== undefined ? waitItem.voiceSpeed : (p.voiceSpeed !== undefined ? p.voiceSpeed : 1.0)) || 1.0,\n  musicId: waitItem.musicId || p.musicId || 'mystery',\n  musicTrackUrl: waitItem.musicTrackUrl || p.musicTrackUrl || '',\n  musicVolume: waitItem.musicVolume !== undefined ? Number(waitItem.musicVolume) : (p.musicVolume !== undefined ? Number(p.musicVolume) : 0.15),\n  subtitleSettings: waitItem.subtitleSettings || p.subtitleSettings || null\n};\n\nif (staticData.savedScenesForProduction && Array.isArray(staticData.savedScenesForProduction) && staticData.savedScenesForProduction.length === 5) {\n  return staticData.savedScenesForProduction.map((scene, idx) => ({\n    json: {\n      ...scene,\n      sceneNumber: idx + 1,\n      sceneIndex: idx,\n      totalScenes: 5,\n      threadId: p.threadId,\n      sessionId: p.sessionId,\n      callbackUrl: p.callbackUrl\n    }\n  }));\n}\n\nconst scenes = $('Split Scenes').all().map((item, idx) => ({\n  json: {\n    ...item.json,\n    sceneNumber: idx + 1,\n    sceneIndex: idx,\n    totalScenes: 5,\n    threadId: p.threadId,\n    sessionId: p.sessionId,\n    callbackUrl: p.callbackUrl\n  }\n}));\n\nreturn scenes;"
+        "jsCode": "// Restore all 5 validated scenes and store user custom settings in staticData\nconst staticData = $getWorkflowStaticData('global');\nconst p = $('Filter: My Chat Only').first().json;\n\nlet waitItem = {};\ntry {\n  const rawWait = $('Wait for Scenes Approval').first().json || {};\n  waitItem = rawWait.body || rawWait.query || rawWait || {};\n} catch(e) {\n  waitItem = {};\n}\n\n// Preserve user selected custom audiovisual settings across the workflow (fallback voiceSpeed: 1.30, volume: 0.08)\nconst rawSpeed = waitItem.voiceSpeed !== undefined ? waitItem.voiceSpeed : (p.voiceSpeed !== undefined ? p.voiceSpeed : 1.30);\nconst parsedSpeed = Number(rawSpeed);\nconst safeSpeed = isFinite(parsedSpeed) && parsedSpeed > 0 ? Math.max(1.10, Math.min(1.50, parsedSpeed)) : 1.30;\n\nconst rawVol = waitItem.musicVolume !== undefined ? waitItem.musicVolume : (p.musicVolume !== undefined ? p.musicVolume : 0.08);\nconst parsedVol = Number(rawVol);\nconst safeVol = isFinite(parsedVol) ? Math.max(0, Math.min(0.4, parsedVol)) : 0.08;\n\nconst musicTrackUrl = waitItem.musicTrackUrl !== undefined ? String(waitItem.musicTrackUrl) : (p.musicTrackUrl !== undefined ? String(p.musicTrackUrl) : '');\n\nstaticData.userSelectedCustomSettings = {\n  voiceId: waitItem.voiceId || p.voiceId || 'adam',\n  elevenLabsVoiceId: waitItem.elevenLabsVoiceId || p.elevenLabsVoiceId || '',\n  voiceSpeed: safeSpeed,\n  musicId: waitItem.musicId || p.musicId || 'mystery2',\n  musicTrackUrl: musicTrackUrl,\n  musicVolume: safeVol,\n  subtitleSettings: waitItem.subtitleSettings || p.subtitleSettings || null\n};\n\nif (staticData.savedScenesForProduction && Array.isArray(staticData.savedScenesForProduction) && staticData.savedScenesForProduction.length === 5) {\n  return staticData.savedScenesForProduction.map((scene, idx) => ({\n    json: {\n      ...scene,\n      sceneNumber: idx + 1,\n      sceneIndex: idx,\n      totalScenes: 5,\n      threadId: p.threadId,\n      sessionId: p.sessionId,\n      callbackUrl: p.callbackUrl\n    }\n  }));\n}\n\nconst scenes = $('Split Scenes').all().map((item, idx) => ({\n  json: {\n    ...item.json,\n    sceneNumber: idx + 1,\n    sceneIndex: idx,\n    totalScenes: 5,\n    threadId: p.threadId,\n    sessionId: p.sessionId,\n    callbackUrl: p.callbackUrl\n  }\n}));\n\nreturn scenes;"
       },
       "id": "0d6a7d7f-502c-43d1-9dce-0a6556c5ad63",
       "name": "Restore 5 Scenes",
@@ -10941,15 +11021,15 @@
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
+            "caseSensitive": false,
             "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
+            "typeValidation": "loose",
+            "version": 3
           },
           "conditions": [
             {
               "id": "cond-manual-yt",
-              "leftValue": "={{ !!$json.uploadId }}",
+              "leftValue": "={{ !$json.error && !!($json.uploadId || $json.id) }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -11106,7 +11186,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "fd23d334-a963-487e-8705-9e37e93f5a2a",
       "name": "Route Story Approval Action",
@@ -11241,7 +11323,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": 0
+        }
       },
       "id": "02c4d1fe-dd03-40d8-b076-8953a2af0164",
       "name": "Route Scenes Approval Action",
@@ -11379,7 +11463,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Filter: My Chat Only — authenticate + normalize website payload\n// (voice, speed, music, subtitles) with strict prompt validation\nconst raw      = $input.first().json || {};\nconst headers  = raw.headers || {};\nconst body     = raw.body || raw;\nconst query    = raw.query || {};\nconst settings = body.settings || {};\n\n// ---------- SECURITY ----------\nconst VALID_SECRET = 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';\nconst providedSecret = headers['x-webhook-secret']\n  || headers['X-Webhook-Secret']\n  || body.webhookSecret\n  || body.secretKey\n  || query.secret\n  || raw.webhookSecret;\n\nif (providedSecret && providedSecret !== VALID_SECRET) {\n  throw new Error('Unauthorized: Invalid webhook security secret');\n}\n\n// ---------- PROMPT (REQUIRED - never invent one) ----------\nconst rawPrompt = body.prompt || body.message || body.rawUserInput\n  || query.prompt || query.message || raw.prompt || '';\n\nif (typeof rawPrompt !== 'string' || !rawPrompt.trim()) {\n  throw new Error('User prompt is required from website');\n}\nconst prompt = rawPrompt.trim();\n\n// ---------- LANGUAGE (typed instruction wins over website default) ----------\nconst lower = prompt.toLowerCase();\nlet language = body.language || query.language || settings.language || 'Hinglish';\n\nif (lower.includes('in english') || lower.includes('english only') || lower.includes('only english') || lower.includes('english mein')) {\n  language = 'English';\n} else if (lower.includes('in hinglish') || lower.includes('hinglish only') || lower.includes('only hinglish')) {\n  language = 'Hinglish';\n} else if (lower.includes('in hindi') || lower.includes('hindi only') || lower.includes('only hindi') || lower.includes('hindi mein')) {\n  language = 'Hindi';\n}\n\n// ---------- HELPERS ----------\nconst firstDefined = (...vals) => {\n  for (const v of vals) if (v !== undefined && v !== null && v !== '') return v;\n  return undefined;\n};\nconst clampNum = (val, min, max, fallback) => {\n  const n = Number(val);\n  if (!isFinite(n)) return fallback;\n  return Math.max(min, Math.min(max, n));\n};\n\n// ---------- VOICE ----------\nconst voiceId          = firstDefined(body.voiceId, query.voiceId, settings.voiceId) || 'adam';\nconst elevenLabsVoiceId = String(firstDefined(body.elevenLabsVoiceId, query.elevenLabsVoiceId, settings.elevenLabsVoiceId) || '').trim();\n\n// 1.30 keeps a 190-200 char line inside one 15s clip. Never default below 1.10.\nconst voiceSpeed = clampNum(\n  firstDefined(body.voiceSpeed, query.voiceSpeed, settings.voiceSpeed),\n  1.10, 1.50, 1.30\n);\n\n// ---------- MUSIC (0 is a valid choice = muted) ----------\nconst musicId       = firstDefined(body.musicId, query.musicId, settings.musicId) || 'mystery';\nconst musicTrackUrl = String(firstDefined(body.musicTrackUrl, query.musicTrackUrl, settings.musicTrackUrl) || '').trim();\n\nlet rawVolume = body.musicVolume;\nif (rawVolume === undefined) rawVolume = query.musicVolume;\nif (rawVolume === undefined) rawVolume = settings.musicVolume;\nconst musicVolume = clampNum(rawVolume, 0, 0.4, 0.08);\n\n// ---------- SUBTITLES ----------\nlet subtitleSettings = firstDefined(body.subtitleSettings, query.subtitleSettings, settings.subtitleSettings) || null;\nif (typeof subtitleSettings === 'string') {\n  try { subtitleSettings = JSON.parse(subtitleSettings); } catch (e) { subtitleSettings = null; }\n}\nif (subtitleSettings && typeof subtitleSettings !== 'object') subtitleSettings = null;\n\n// ---------- IDENTITY ----------\nconst threadId    = firstDefined(body.threadId, query.threadId, raw.threadId) || ('thread-' + Date.now());\nconst sessionId   = firstDefined(body.sessionId, query.sessionId, raw.sessionId) || 'session-default';\nconst callbackUrl = firstDefined(body.callbackUrl, query.callbackUrl, raw.callbackUrl)\n  || 'https://bangai.netlify.app/.netlify/functions/story-approval';\n\nreturn [{\n  json: {\n    rawUserInput: prompt,\n    prompt: prompt,\n    threadId: threadId,\n    sessionId: sessionId,\n    callbackUrl: callbackUrl,\n    voiceId: voiceId,\n    elevenLabsVoiceId: elevenLabsVoiceId,\n    voiceSpeed: voiceSpeed,\n    visualStyle: firstDefined(body.visualStyle, query.visualStyle, settings.visualStyle) || 'Cinematic Realistic',\n    musicId: musicId,\n    musicTrackUrl: musicTrackUrl,\n    musicVolume: musicVolume,\n    subtitleSettings: subtitleSettings,\n    language: language,\n    autoUploadToYouTube: !!(body.autoUploadToYouTube || query.autoUploadToYouTube || settings.autoUploadToYouTube),\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Filter: My Chat Only — authenticate + normalize website payload\n// (voice, speed, music, subtitles, YouTube & Google Sheets) with strict prompt validation\nconst raw      = $input.first().json || {};\nconst headers  = raw.headers || {};\nconst body     = raw.body || raw;\nconst query    = raw.query || {};\nconst settings = body.settings || {};\n\n// ---------- SECURITY ----------\nconst VALID_SECRET = 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';\nconst providedSecret = headers['x-webhook-secret']\n  || headers['X-Webhook-Secret']\n  || body.webhookSecret\n  || body.secretKey\n  || query.secret\n  || raw.webhookSecret;\n\nif (providedSecret && providedSecret !== VALID_SECRET) {\n  throw new Error('Unauthorized: Invalid webhook security secret');\n}\n\n// ---------- PROMPT (REQUIRED - never invent one) ----------\nconst rawPrompt = body.prompt || body.message || body.rawUserInput\n  || query.prompt || query.message || raw.prompt || '';\n\nif (typeof rawPrompt !== 'string' || !rawPrompt.trim()) {\n  throw new Error('User prompt is required from website');\n}\nconst prompt = rawPrompt.trim();\n\n// ---------- LANGUAGE (typed instruction wins over website default) ----------\nconst lower = prompt.toLowerCase();\nlet language = body.language || query.language || settings.language || 'Hinglish';\n\nif (lower.includes('in english') || lower.includes('english only') || lower.includes('only english') || lower.includes('english mein')) {\n  language = 'English';\n} else if (lower.includes('in hinglish') || lower.includes('hinglish only') || lower.includes('only hinglish')) {\n  language = 'Hinglish';\n} else if (lower.includes('in hindi') || lower.includes('hindi only') || lower.includes('only hindi') || lower.includes('hindi mein')) {\n  language = 'Hindi';\n}\n\n// ---------- HELPERS ----------\nconst firstDefined = (...vals) => {\n  for (const v of vals) if (v !== undefined && v !== null && v !== '') return v;\n  return undefined;\n};\nconst clampNum = (val, min, max, fallback) => {\n  const n = Number(val);\n  if (!isFinite(n)) return fallback;\n  return Math.max(min, Math.min(max, n));\n};\n\n// ---------- VOICE ----------\nconst voiceId          = firstDefined(body.voiceId, query.voiceId, settings.voiceId) || 'adam';\nconst elevenLabsVoiceId = String(firstDefined(body.elevenLabsVoiceId, query.elevenLabsVoiceId, settings.elevenLabsVoiceId) || '').trim();\n\n// 1.30 keeps a 190-200 char line inside one 15s clip. Never default below 1.10.\nconst voiceSpeed = clampNum(\n  firstDefined(body.voiceSpeed, query.voiceSpeed, settings.voiceSpeed),\n  1.10, 1.50, 1.30\n);\n\n// ---------- MUSIC (0 is a valid choice = muted) ----------\nconst musicId       = firstDefined(body.musicId, query.musicId, settings.musicId) || 'mystery2';\nconst musicTrackUrl = String(firstDefined(body.musicTrackUrl, query.musicTrackUrl, settings.musicTrackUrl) || '').trim();\n\nlet rawVolume = body.musicVolume;\nif (rawVolume === undefined) rawVolume = query.musicVolume;\nif (rawVolume === undefined) rawVolume = settings.musicVolume;\nconst musicVolume = clampNum(rawVolume, 0, 0.4, 0.08);\n\n// ---------- SUBTITLES ----------\nlet subtitleSettings = firstDefined(body.subtitleSettings, query.subtitleSettings, settings.subtitleSettings) || null;\nif (typeof subtitleSettings === 'string') {\n  try { subtitleSettings = JSON.parse(subtitleSettings); } catch (e) { subtitleSettings = null; }\n}\nif (subtitleSettings && typeof subtitleSettings !== 'object') subtitleSettings = null;\n\n// ---------- GOOGLE OAUTH: YOUTUBE & SHEETS (PASSTHROUGH) ----------\nconst autoUploadToYouTube     = body.autoUploadToYouTube !== undefined ? !!body.autoUploadToYouTube : (query.autoUploadToYouTube !== undefined ? !!query.autoUploadToYouTube : (settings.autoUploadToYouTube !== undefined ? !!settings.autoUploadToYouTube : false));\nconst userYouTubeAccessToken  = String(firstDefined(body.userYouTubeAccessToken, query.userYouTubeAccessToken, settings.userYouTubeAccessToken) || '').trim();\nconst userYouTubeChannelTitle = String(firstDefined(body.userYouTubeChannelTitle, query.userYouTubeChannelTitle, settings.userYouTubeChannelTitle) || '').trim();\nconst userYouTubeChannelId    = String(firstDefined(body.userYouTubeChannelId, query.userYouTubeChannelId, settings.userYouTubeChannelId) || '').trim();\n\nconst autoLogToSheet          = body.autoLogToSheet !== undefined ? !!body.autoLogToSheet : (query.autoLogToSheet !== undefined ? !!query.autoLogToSheet : (settings.autoLogToSheet !== undefined ? !!settings.autoLogToSheet : true));\nconst userSheetAccessToken    = String(firstDefined(body.userSheetAccessToken, query.userSheetAccessToken, settings.userSheetAccessToken) || '').trim();\nconst userSpreadsheetId       = String(firstDefined(body.userSpreadsheetId, query.userSpreadsheetId, settings.userSpreadsheetId) || '').trim();\nconst userSheetName           = String(firstDefined(body.userSheetName, query.userSheetName, settings.userSheetName) || 'Production Log').trim();\n\n// ---------- IDENTITY ----------\nconst threadId    = firstDefined(body.threadId, query.threadId, raw.threadId) || ('thread-' + Date.now());\nconst sessionId   = firstDefined(body.sessionId, query.sessionId, raw.sessionId) || 'session-default';\nconst callbackUrl = firstDefined(body.callbackUrl, query.callbackUrl, raw.callbackUrl)\n  || 'https://bangai.netlify.app/.netlify/functions/story-approval';\n\nreturn [{\n  json: {\n    rawUserInput: prompt,\n    prompt: prompt,\n    threadId: threadId,\n    sessionId: sessionId,\n    callbackUrl: callbackUrl,\n    voiceId: voiceId,\n    elevenLabsVoiceId: elevenLabsVoiceId,\n    voiceSpeed: voiceSpeed,\n    visualStyle: firstDefined(body.visualStyle, query.visualStyle, settings.visualStyle) || 'Cinematic Realistic',\n    musicId: musicId,\n    musicTrackUrl: musicTrackUrl,\n    musicVolume: musicVolume,\n    subtitleSettings: subtitleSettings,\n    language: language,\n    autoUploadToYouTube: autoUploadToYouTube,\n    userYouTubeAccessToken: userYouTubeAccessToken,\n    userYouTubeChannelTitle: userYouTubeChannelTitle,\n    userYouTubeChannelId: userYouTubeChannelId,\n    autoLogToSheet: autoLogToSheet,\n    userSheetAccessToken: userSheetAccessToken,\n    userSpreadsheetId: userSpreadsheetId,\n    userSheetName: userSheetName,\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "id": "56c71cfb-3c0e-492d-8186-27b49932df89",
       "name": "Filter: My Chat Only",
@@ -11426,7 +11510,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Dynamic YouTube Upload Node: Uploads directly to User's Connected Channel using their OAuth Token\nconst item = $input.first();\nconst binaryData = item.binary?.data || Object.values(item.binary || {})[0];\nlet chatCtx = {};\ntry { chatCtx = $('Filter: My Chat Only').first().json || {}; } catch(e) {}\nlet splitScenes = {};\ntry { splitScenes = $('Split Scenes').first().json || {}; } catch(e) {}\nlet parseStrategy = {};\ntry { parseStrategy = $('Parse Strategy Output').first().json || {}; } catch(e) {}\nlet parseTopic = {};\ntry { parseTopic = $('Parse Topic Analyzer Output').first().json || {}; } catch(e) {}\n\nconst accessToken = chatCtx.userYouTubeAccessToken;\nconst title = (splitScenes.title || chatCtx.title || chatCtx.rawUserInput || 'Viral YouTube Short').substring(0, 100);\nconst description = splitScenes.youtubeDescription || chatCtx.description || '';\nconst tags = Array.isArray(splitScenes.tags) ? splitScenes.tags : (splitScenes.tags ? splitScenes.tags.split(',') : []);\n\nif (!accessToken || !binaryData) {\n  throw new Error('User YouTube OAuth access token or video binary is missing');\n}\n\nconst metadata = {\n  snippet: {\n    title: title,\n    description: description,\n    tags: tags.map(t => t.replace(/[<>]/g, '').trim()).filter(t => t.length > 0).slice(0, 30),\n    categoryId: '24',\n    defaultLanguage: (parseStrategy.language === 'English') ? 'en' : 'hi'\n  },\n  status: {\n    privacyStatus: 'public',\n    selfDeclaredMadeForKids: false,\n    embeddable: true,\n    publicStatsViewable: true\n  }\n};\n\nconst initRes = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {\n  method: 'POST',\n  headers: {\n    'Authorization': 'Bearer ' + accessToken,\n    'Content-Type': 'application/json; charset=UTF-8',\n    'X-Upload-Content-Type': binaryData.mimeType || 'video/mp4'\n  },\n  body: JSON.stringify(metadata)\n});\n\nif (!initRes.ok) {\n  const errText = await initRes.text();\n  throw new Error('YouTube Upload Init Failed: ' + errText);\n}\n\nconst uploadUrl = initRes.headers.get('location');\nif (!uploadUrl) {\n  throw new Error('YouTube API did not return upload location URL');\n}\n\nconst videoBuffer = Buffer.from(binaryData.data, 'base64');\nconst uploadRes = await fetch(uploadUrl, {\n  method: 'PUT',\n  headers: {\n    'Content-Type': binaryData.mimeType || 'video/mp4',\n    'Content-Length': videoBuffer.length.toString()\n  },\n  body: videoBuffer\n});\n\nconst uploadJson = await uploadRes.json();\nconst videoId = uploadJson.id;\n\nif (!videoId) {\n  throw new Error('YouTube Upload Failed: ' + JSON.stringify(uploadJson));\n}\n\nreturn [{\n  json: {\n    success: true,\n    uploadId: videoId,\n    id: videoId,\n    title: title,\n    url: 'https://youtube.com/shorts/' + videoId,\n    channelTitle: chatCtx.userYouTubeChannelTitle || '',\n    userUploaded: true\n  },\n  binary: item.binary\n}];"
+        "jsCode": "// Dynamic YouTube Upload Node: Uploads directly to User's Connected Channel with Token Refresh & Binary Helper\nconst item = $input.first();\nlet binaryData = item.binary?.data || Object.values(item.binary || {})[0];\nlet chatCtx = {};\ntry { chatCtx = $('Filter: My Chat Only').first().json || {}; } catch(e) {}\nlet splitScenes = {};\ntry { splitScenes = $('Split Scenes').first().json || {}; } catch(e) {}\nlet parseStrategy = {};\ntry { parseStrategy = $('Parse Strategy Output').first().json || {}; } catch(e) {}\nlet parseTopic = {};\ntry { parseTopic = $('Parse Topic Analyzer Output').first().json || {}; } catch(e) {}\n\nlet accessToken = chatCtx.userYouTubeAccessToken;\n\n// 1. Silent token refresh before upload\nif (chatCtx.threadId) {\n  try {\n    const refreshRes = await fetch('https://bangai.netlify.app/.netlify/functions/refresh-upload-token', {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'x-webhook-secret': 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0'\n      },\n      body: JSON.stringify({\n        threadId: chatCtx.threadId,\n        channelId: chatCtx.userYouTubeChannelId || '',\n        scope: 'youtube'\n      })\n    });\n    if (refreshRes.ok) {\n      const refreshData = await refreshRes.json();\n      if (refreshData.accessToken) {\n        accessToken = refreshData.accessToken;\n      }\n    }\n  } catch (refreshErr) {\n    console.warn('[n8n YouTube Upload] Token refresh notice:', refreshErr.message);\n  }\n}\n\nconst title = (splitScenes.title || chatCtx.title || chatCtx.rawUserInput || 'Viral YouTube Short').substring(0, 100);\nconst description = splitScenes.youtubeDescription || chatCtx.description || '';\nconst tags = Array.isArray(splitScenes.tags) ? splitScenes.tags : (splitScenes.tags ? splitScenes.tags.split(',') : []);\n\nif (!accessToken) {\n  throw new Error('User YouTube OAuth access token is missing');\n}\n\n// 2. Resolve video binary buffer with robust fallback\nlet videoBuffer = null;\nif (binaryData && binaryData.data) {\n  videoBuffer = Buffer.from(binaryData.data, 'base64');\n} else if (this.helpers && typeof this.helpers.getBinaryDataBuffer === 'function') {\n  try {\n    videoBuffer = await this.helpers.getBinaryDataBuffer(0, 'data');\n  } catch (e) {\n    try {\n      const keys = Object.keys(item.binary || {});\n      if (keys.length > 0) videoBuffer = await this.helpers.getBinaryDataBuffer(0, keys[0]);\n    } catch (_) {}\n  }\n}\n\nif (!videoBuffer) {\n  throw new Error('Video file binary buffer could not be loaded');\n}\n\nconst mimeType = binaryData?.mimeType || 'video/mp4';\n\nconst metadata = {\n  snippet: {\n    title: title,\n    description: description,\n    tags: tags.map(t => t.replace(/[<>]/g, '').trim()).filter(t => t.length > 0).slice(0, 30),\n    categoryId: '24',\n    defaultLanguage: (parseStrategy.language === 'English') ? 'en' : 'hi'\n  },\n  status: {\n    privacyStatus: 'public',\n    selfDeclaredMadeForKids: false,\n    embeddable: true,\n    publicStatsViewable: true\n  }\n};\n\nconst initRes = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {\n  method: 'POST',\n  headers: {\n    'Authorization': 'Bearer ' + accessToken,\n    'Content-Type': 'application/json; charset=UTF-8',\n    'X-Upload-Content-Type': mimeType\n  },\n  body: JSON.stringify(metadata)\n});\n\nif (!initRes.ok) {\n  const errText = await initRes.text();\n  throw new Error('YouTube Upload Init Failed: ' + errText);\n}\n\nconst uploadUrl = initRes.headers.get('location');\nif (!uploadUrl) {\n  throw new Error('YouTube API did not return upload location URL');\n}\n\nconst uploadRes = await fetch(uploadUrl, {\n  method: 'PUT',\n  headers: {\n    'Content-Type': mimeType,\n    'Content-Length': videoBuffer.length.toString()\n  },\n  body: videoBuffer\n});\n\nconst uploadJson = await uploadRes.json();\nconst videoId = uploadJson.id;\n\nif (!videoId) {\n  throw new Error('YouTube Upload Failed: ' + JSON.stringify(uploadJson));\n}\n\nreturn [{\n  json: {\n    success: true,\n    uploadId: videoId,\n    id: videoId,\n    title: title,\n    url: 'https://youtube.com/shorts/' + videoId,\n    channelTitle: chatCtx.userYouTubeChannelTitle || '',\n    userUploaded: true\n  },\n  binary: item.binary\n}];"
       },
       "id": "dff65a46-0682-4270-aad5-31a1850bdb3d",
       "name": "Dynamic User YouTube Upload",
@@ -11435,11 +11519,12 @@
       "position": [
         16544,
         1408
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Dynamic Google Sheets Logger: Logs video production row directly to User's Connected Spreadsheet\nconst item = $input.first()?.json || {};\nlet chatCtx = {};\ntry { chatCtx = $('Filter: My Chat Only').first().json || {}; } catch(e) {}\nlet splitScenes = {};\ntry { splitScenes = $('Split Scenes').first().json || {}; } catch(e) {}\nlet parseTopic = {};\ntry { parseTopic = $('Parse Topic Analyzer Output').first().json || {}; } catch(e) {}\nlet parseStrategy = {};\ntry { parseStrategy = $('Parse Strategy Output').first().json || {}; } catch(e) {}\nlet videoUrl = '';\ntry { videoUrl = $('Status = Done?').first().json?.movie?.url || ''; } catch(e) {}\n\nconst userSheetToken = chatCtx.userSheetAccessToken;\nconst userSpreadsheetId = chatCtx.userSpreadsheetId;\nconst userSheetName = chatCtx.userSheetName || 'Production Log';\nconst youtubeLink = item.uploadId ? ('https://youtube.com/shorts/' + item.uploadId) : (item.url || '');\n\nif (userSheetToken && userSpreadsheetId) {\n  try {\n    const range = encodeURIComponent(userSheetName || 'Sheet1');\n    const rowValues = [\n      new Date().toISOString().replace('T', ' ').substring(0, 16),\n      parseStrategy.suggestedTitle || splitScenes.title || chatCtx.prompt || 'Viral Short',\n      parseTopic.specificTopic || chatCtx.prompt || '',\n      (parseStrategy.storyBrief || splitScenes.storyBrief || '').toString().slice(0, 480),\n      parseStrategy.mainCharacterHint || '',\n      parseStrategy.visualStyle || 'Cinematic',\n      parseStrategy.language || 'Hinglish',\n      'Uploaded to YouTube',\n      videoUrl,\n      youtubeLink\n    ];\n\n    await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + userSpreadsheetId + '/values/' + range + ':append?valueInputOption=USER_ENTERED', {\n      method: 'POST',\n      headers: {\n        'Authorization': 'Bearer ' + userSheetToken,\n        'Content-Type': 'application/json'\n      },\n      body: JSON.stringify({\n        range: userSheetName || 'Sheet1',\n        majorDimension: 'ROWS',\n        values: [rowValues]\n      })\n    });\n  } catch (err) {\n    console.warn('[n8n] Error appending to user Google Sheet:', err.message);\n  }\n}\n\nreturn [{ json: item }];"
+        "jsCode": "// Dynamic Google Sheets Logger: Logs video production row directly to User's Connected Spreadsheet\nconst item = $input.first()?.json || {};\nlet chatCtx = {};\ntry { chatCtx = $('Filter: My Chat Only').first().json || {}; } catch(e) {}\nlet splitScenes = {};\ntry { splitScenes = $('Split Scenes').first().json || {}; } catch(e) {}\nlet parseTopic = {};\ntry { parseTopic = $('Parse Topic Analyzer Output').first().json || {}; } catch(e) {}\nlet parseStrategy = {};\ntry { parseStrategy = $('Parse Strategy Output').first().json || {}; } catch(e) {}\nlet videoUrl = '';\ntry { videoUrl = $('Status = Done?').first().json?.movie?.url || ''; } catch(e) {}\n\nlet userSheetToken = chatCtx.userSheetAccessToken;\nconst userSpreadsheetId = chatCtx.userSpreadsheetId;\nconst userSheetName = chatCtx.userSheetName || 'Production Log';\nconst youtubeLink = item.uploadId ? ('https://youtube.com/shorts/' + item.uploadId) : (item.url || '');\n\nlet sheetError = null;\n\nif (userSpreadsheetId) {\n  // Pre-append token refresh\n  if (chatCtx.threadId) {\n    try {\n      const refreshRes = await fetch('https://bangai.netlify.app/.netlify/functions/refresh-upload-token', {\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n          'x-webhook-secret': 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0'\n        },\n        body: JSON.stringify({\n          threadId: chatCtx.threadId,\n          channelId: userSpreadsheetId,\n          scope: 'sheets'\n        })\n      });\n      if (refreshRes.ok) {\n        const refreshData = await refreshRes.json();\n        if (refreshData.accessToken) userSheetToken = refreshData.accessToken;\n      }\n    } catch (e) {}\n  }\n\n  if (userSheetToken) {\n    try {\n      const range = encodeURIComponent(userSheetName || 'Sheet1');\n      const rowValues = [\n        new Date().toISOString().replace('T', ' ').substring(0, 16),\n        parseStrategy.suggestedTitle || splitScenes.title || chatCtx.prompt || 'Viral Short',\n        parseTopic.specificTopic || chatCtx.prompt || '',\n        (parseStrategy.storyBrief || splitScenes.storyBrief || '').toString().slice(0, 480),\n        parseStrategy.mainCharacterHint || '',\n        parseStrategy.visualStyle || 'Cinematic',\n        parseStrategy.language || 'Hinglish',\n        item.uploadId ? 'Uploaded to YouTube' : 'Video Rendered',\n        videoUrl,\n        youtubeLink\n      ];\n\n      const sheetRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + userSpreadsheetId + '/values/' + range + ':append?valueInputOption=USER_ENTERED', {\n        method: 'POST',\n        headers: {\n          'Authorization': 'Bearer ' + userSheetToken,\n          'Content-Type': 'application/json'\n        },\n        body: JSON.stringify({\n          range: userSheetName || 'Sheet1',\n          majorDimension: 'ROWS',\n          values: [rowValues]\n        })\n      });\n\n      if (!sheetRes.ok) {\n        const errTxt = await sheetRes.text();\n        console.warn('[n8n] Google Sheets API error:', errTxt);\n        sheetError = 'Google Sheets error: ' + errTxt;\n      }\n    } catch (err) {\n      console.warn('[n8n] Error appending to user Google Sheet:', err.message);\n      sheetError = err.message;\n    }\n  }\n}\n\nreturn [{\n  json: {\n    ...item,\n    sheetLogged: (userSheetToken && userSpreadsheetId && !sheetError) ? true : false,\n    error: sheetError || undefined\n  }\n}];"
       },
       "id": "7a880cd7-bedd-4816-9091-2657363f27c0",
       "name": "Dynamic User Google Sheets Logger",
@@ -11448,7 +11533,8 @@
       "position": [
         16640,
         1696
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -11485,7 +11571,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Dynamic YouTube Upload Node (Manual): Uploads directly to User's Connected Channel using their OAuth Token\nconst item = $input.first();\nconst binaryData = item.binary?.data || Object.values(item.binary || {})[0];\nlet ctx = {};\ntry { ctx = $('Format Manual Upload Context').first().json || {}; } catch(e) {}\n\nconst accessToken = ctx.userYouTubeAccessToken;\nconst title = (ctx.title || 'Viral YouTube Short').substring(0, 100);\nconst description = ctx.description || '';\nconst tags = Array.isArray(ctx.tags) ? ctx.tags : (ctx.tags ? ctx.tags.split(',') : []);\n\nif (!accessToken) {\n  throw new Error('User YouTube OAuth access token is missing for manual upload');\n}\nif (!binaryData) {\n  throw new Error('Video file binary data is missing for manual upload');\n}\n\nconst metadata = {\n  snippet: {\n    title: title,\n    description: description,\n    tags: tags.map(t => t.replace(/[<>]/g, '').trim()).filter(t => t.length > 0).slice(0, 30),\n    categoryId: '24',\n    defaultLanguage: (ctx.language === 'English') ? 'en' : 'hi'\n  },\n  status: {\n    privacyStatus: 'public',\n    selfDeclaredMadeForKids: false,\n    embeddable: true,\n    publicStatsViewable: true\n  }\n};\n\nconst initRes = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {\n  method: 'POST',\n  headers: {\n    'Authorization': 'Bearer ' + accessToken,\n    'Content-Type': 'application/json; charset=UTF-8',\n    'X-Upload-Content-Type': binaryData.mimeType || 'video/mp4'\n  },\n  body: JSON.stringify(metadata)\n});\n\nif (!initRes.ok) {\n  const errText = await initRes.text();\n  throw new Error('Manual YouTube Upload Init Failed: ' + errText);\n}\n\nconst uploadUrl = initRes.headers.get('location');\nif (!uploadUrl) {\n  throw new Error('YouTube API did not return upload location URL');\n}\n\nconst videoBuffer = Buffer.from(binaryData.data, 'base64');\nconst uploadRes = await fetch(uploadUrl, {\n  method: 'PUT',\n  headers: {\n    'Content-Type': binaryData.mimeType || 'video/mp4',\n    'Content-Length': videoBuffer.length.toString()\n  },\n  body: videoBuffer\n});\n\nconst uploadJson = await uploadRes.json();\nconst videoId = uploadJson.id;\n\nif (!videoId) {\n  throw new Error('Manual YouTube Upload Failed: ' + JSON.stringify(uploadJson));\n}\n\nreturn [{\n  json: {\n    success: true,\n    uploadId: videoId,\n    id: videoId,\n    title: title,\n    url: 'https://youtube.com/shorts/' + videoId,\n    channelTitle: ctx.userYouTubeChannelTitle || '',\n    userUploaded: true\n  },\n  binary: item.binary\n}];"
+        "jsCode": "// Dynamic YouTube Upload Node (Manual): Uploads directly to User's Connected Channel with Token Refresh & Binary Helper\nconst item = $input.first();\nlet binaryData = item.binary?.data || Object.values(item.binary || {})[0];\nlet ctx = {};\ntry { ctx = $('Format Manual Upload Context').first().json || {}; } catch(e) {}\n\nlet accessToken = ctx.userYouTubeAccessToken;\n\n// 1. Silent token refresh before upload\nif (ctx.threadId) {\n  try {\n    const refreshRes = await fetch('https://bangai.netlify.app/.netlify/functions/refresh-upload-token', {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'x-webhook-secret': 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0'\n      },\n      body: JSON.stringify({\n        threadId: ctx.threadId,\n        channelId: ctx.userYouTubeChannelId || '',\n        scope: 'youtube'\n      })\n    });\n    if (refreshRes.ok) {\n      const refreshData = await refreshRes.json();\n      if (refreshData.accessToken) {\n        accessToken = refreshData.accessToken;\n      }\n    }\n  } catch (refreshErr) {\n    console.warn('[n8n Manual YouTube Upload] Token refresh notice:', refreshErr.message);\n  }\n}\n\nconst title = (ctx.title || 'Viral YouTube Short').substring(0, 100);\nconst description = ctx.description || '';\nconst tags = Array.isArray(ctx.tags) ? ctx.tags : (ctx.tags ? ctx.tags.split(',') : []);\n\nif (!accessToken) {\n  throw new Error('User YouTube OAuth access token is missing for manual upload');\n}\n\n// 2. Resolve video binary buffer with robust fallback\nlet videoBuffer = null;\nif (binaryData && binaryData.data) {\n  videoBuffer = Buffer.from(binaryData.data, 'base64');\n} else if (this.helpers && typeof this.helpers.getBinaryDataBuffer === 'function') {\n  try {\n    videoBuffer = await this.helpers.getBinaryDataBuffer(0, 'data');\n  } catch (e) {\n    try {\n      const keys = Object.keys(item.binary || {});\n      if (keys.length > 0) videoBuffer = await this.helpers.getBinaryDataBuffer(0, keys[0]);\n    } catch (_) {}\n  }\n}\n\nif (!videoBuffer) {\n  throw new Error('Video file binary buffer could not be loaded for manual upload');\n}\n\nconst mimeType = binaryData?.mimeType || 'video/mp4';\n\nconst metadata = {\n  snippet: {\n    title: title,\n    description: description,\n    tags: tags.map(t => t.replace(/[<>]/g, '').trim()).filter(t => t.length > 0).slice(0, 30),\n    categoryId: '24',\n    defaultLanguage: (ctx.language === 'English') ? 'en' : 'hi'\n  },\n  status: {\n    privacyStatus: 'public',\n    selfDeclaredMadeForKids: false,\n    embeddable: true,\n    publicStatsViewable: true\n  }\n};\n\nconst initRes = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {\n  method: 'POST',\n  headers: {\n    'Authorization': 'Bearer ' + accessToken,\n    'Content-Type': 'application/json; charset=UTF-8',\n    'X-Upload-Content-Type': mimeType\n  },\n  body: JSON.stringify(metadata)\n});\n\nif (!initRes.ok) {\n  const errText = await initRes.text();\n  throw new Error('Manual YouTube Upload Init Failed: ' + errText);\n}\n\nconst uploadUrl = initRes.headers.get('location');\nif (!uploadUrl) {\n  throw new Error('YouTube API did not return upload location URL');\n}\n\nconst uploadRes = await fetch(uploadUrl, {\n  method: 'PUT',\n  headers: {\n    'Content-Type': mimeType,\n    'Content-Length': videoBuffer.length.toString()\n  },\n  body: videoBuffer\n});\n\nconst uploadJson = await uploadRes.json();\nconst videoId = uploadJson.id;\n\nif (!videoId) {\n  throw new Error('Manual YouTube Upload Failed: ' + JSON.stringify(uploadJson));\n}\n\nreturn [{\n  json: {\n    success: true,\n    uploadId: videoId,\n    id: videoId,\n    title: title,\n    url: 'https://youtube.com/shorts/' + videoId,\n    channelTitle: ctx.userYouTubeChannelTitle || '',\n    userUploaded: true\n  },\n  binary: item.binary\n}];"
       },
       "id": "44bf6df1-32b6-41b4-849c-957359f61a46",
       "name": "Dynamic User YouTube Upload (Manual)",
@@ -11494,11 +11580,12 @@
       "position": [
         16656,
         2496
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Dynamic Google Sheets Logger (Manual Upload): Logs manual upload row directly to User's Connected Spreadsheet\nconst item = $input.first()?.json || {};\nlet ctx = {};\ntry { ctx = $('Format Manual Upload Context').first().json || {}; } catch(e) {}\n\nconst userSheetToken = ctx.userSheetAccessToken;\nconst userSpreadsheetId = ctx.userSpreadsheetId;\nconst userSheetName = ctx.userSheetName || 'Production Log';\nconst youtubeLink = item.uploadId ? ('https://youtube.com/shorts/' + item.uploadId) : (item.url || '');\n\nlet sheetError = null;\n\nif (userSheetToken && userSpreadsheetId) {\n  try {\n    const range = encodeURIComponent(userSheetName || 'Sheet1');\n    const rowValues = [\n      new Date().toISOString().replace('T', ' ').substring(0, 16),\n      ctx.title || 'Viral Short',\n      ctx.topic || ctx.title || '',\n      (ctx.storyBrief || ctx.description || '').toString().slice(0, 480),\n      ctx.mainCharacter || '',\n      ctx.visualStyle || 'Cinematic',\n      ctx.language || 'English',\n      'Uploaded to YouTube (Manual)',\n      ctx.videoUrl || '',\n      youtubeLink\n    ];\n\n    const sheetRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + userSpreadsheetId + '/values/' + range + ':append?valueInputOption=USER_ENTERED', {\n      method: 'POST',\n      headers: {\n        'Authorization': 'Bearer ' + userSheetToken,\n        'Content-Type': 'application/json'\n      },\n      body: JSON.stringify({\n        range: userSheetName || 'Sheet1',\n        majorDimension: 'ROWS',\n        values: [rowValues]\n      })\n    });\n\n    if (!sheetRes.ok) {\n      const errTxt = await sheetRes.text();\n      console.warn('[n8n] Google Sheets API warning (Manual):', errTxt);\n      sheetError = 'Google Sheets API error: ' + errTxt;\n    }\n  } catch (err) {\n    console.warn('[n8n] Error appending manual upload to user Google Sheet:', err.message);\n    sheetError = err.message;\n  }\n}\n\nreturn [{\n  json: {\n    ...item,\n    sheetLogged: (userSheetToken && userSpreadsheetId && !sheetError) ? true : false,\n    error: sheetError || undefined\n  }\n}];"
+        "jsCode": "// Dynamic Google Sheets Logger (Manual Upload): Logs manual upload row directly to User's Connected Spreadsheet\nconst item = $input.first()?.json || {};\nlet ctx = {};\ntry { ctx = $('Format Manual Upload Context').first().json || {}; } catch(e) {}\n\nlet userSheetToken = ctx.userSheetAccessToken;\nconst userSpreadsheetId = ctx.userSpreadsheetId;\nconst userSheetName = ctx.userSheetName || 'Production Log';\nconst youtubeLink = item.uploadId ? ('https://youtube.com/shorts/' + item.uploadId) : (item.url || '');\n\nlet sheetError = null;\n\nif (userSpreadsheetId) {\n  if (ctx.threadId) {\n    try {\n      const refreshRes = await fetch('https://bangai.netlify.app/.netlify/functions/refresh-upload-token', {\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n          'x-webhook-secret': 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0'\n        },\n        body: JSON.stringify({\n          threadId: ctx.threadId,\n          channelId: userSpreadsheetId,\n          scope: 'sheets'\n        })\n      });\n      if (refreshRes.ok) {\n        const refreshData = await refreshRes.json();\n        if (refreshData.accessToken) userSheetToken = refreshData.accessToken;\n      }\n    } catch (e) {}\n  }\n\n  if (userSheetToken) {\n    try {\n      const range = encodeURIComponent(userSheetName || 'Sheet1');\n      const rowValues = [\n        new Date().toISOString().replace('T', ' ').substring(0, 16),\n        ctx.title || 'Viral Short',\n        ctx.topic || ctx.title || '',\n        (ctx.storyBrief || ctx.description || '').toString().slice(0, 480),\n        ctx.mainCharacter || '',\n        ctx.visualStyle || 'Cinematic',\n        ctx.language || 'English',\n        'Uploaded to YouTube (Manual)',\n        ctx.videoUrl || '',\n        youtubeLink\n      ];\n\n      const sheetRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + userSpreadsheetId + '/values/' + range + ':append?valueInputOption=USER_ENTERED', {\n        method: 'POST',\n        headers: {\n          'Authorization': 'Bearer ' + userSheetToken,\n          'Content-Type': 'application/json'\n        },\n        body: JSON.stringify({\n          range: userSheetName || 'Sheet1',\n          majorDimension: 'ROWS',\n          values: [rowValues]\n        })\n      });\n\n      if (!sheetRes.ok) {\n        const errTxt = await sheetRes.text();\n        console.warn('[n8n] Google Sheets API warning (Manual):', errTxt);\n        sheetError = 'Google Sheets API error: ' + errTxt;\n      }\n    } catch (err) {\n      console.warn('[n8n] Error appending manual upload to user Google Sheet:', err.message);\n      sheetError = err.message;\n    }\n  }\n}\n\nreturn [{\n  json: {\n    ...item,\n    sheetLogged: (userSheetToken && userSpreadsheetId && !sheetError) ? true : false,\n    error: sheetError || undefined\n  }\n}];"
       },
       "id": "ae431109-f9bd-43dd-923c-db1bd2520512",
       "name": "Dynamic User Google Sheets Logger (Manual)",
@@ -11507,27 +11594,22 @@
       "position": [
         17568,
         2624
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
         "conditions": {
-          "boolean": [
-            {
-              "value1": "={{ !$json.error }}",
-              "value2": true
-            }
-          ],
           "options": {
-            "caseSensitive": true,
+            "caseSensitive": false,
             "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
+            "typeValidation": "loose",
+            "version": 3
           },
           "conditions": [
             {
               "id": "cond-manual-db",
-              "leftValue": "={{ !.error }}",
+              "leftValue": "={{ !$json.error }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -11542,7 +11624,7 @@
       "id": "79a9934c-7881-49b2-b5ff-b89c9f0c15da",
       "name": "DB Success? (Manual)",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
+      "typeVersion": 2.2,
       "position": [
         17920,
         2624
@@ -11575,6 +11657,97 @@
       "position": [
         18176,
         2720
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mark No Upload — user has not connected YouTube\nconst items = $input.all();\nreturn items.map(item => {\n  const json = item.json || {};\n  return {\n    json: {\n      ...json,\n      youtubeUploaded: false,\n      youtubeUrl: '',\n      youtubeVideoId: '',\n      uploadId: ''\n    }\n  };\n});"
+      },
+      "id": "a2-mark-no-upload-node",
+      "name": "Mark No Upload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16544,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "16EeZ2y1Xn1TCpmfcXEv7eeQM3Z-ARxkdRunsiQaWUQc",
+          "mode": "list",
+          "cachedResultName": "VIRAL_TOPICS_AI_MEMORY",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16EeZ2y1Xn1TCpmfcXEv7eeQM3Z-ARxkdRunsiQaWUQc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Run ID": "={{ $execution.id }}",
+            "Status": "Uploaded to YouTube",
+            "YouTube Link": "={{ $json.url || ($json.uploadId ? (\"https://youtube.com/shorts/\" + $json.uploadId) : \"\") }}"
+          },
+          "matchingColumns": [
+            "Run ID"
+          ]
+        },
+        "options": {}
+      },
+      "id": "a7-update-db-safe1-node",
+      "name": "Update DB (Safe)1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        17136,
+        1168
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "EHh3nxX5QNoAPO3j",
+          "name": "8360"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ (() => { let p = {}; try { p = $('Filter: My Chat Only').first().json || {}; } catch(e) {} return p.callbackUrl || 'https://bangai.netlify.app/.netlify/functions/story-approval'; })() }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-webhook-secret",
+              "value": "s-vshorts-sec-9a8b7c6d5e4f3a2b1c0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => { let p = {}; try { p = $('Filter: My Chat Only').first().json || {}; } catch(e) {} return { status: 'EXECUTION_TIMEOUT', threadId: p.threadId || '', sessionId: p.sessionId || '', message: 'Approval timed out after 30 minutes of inactivity', timestamp: new Date().toISOString() }; })()) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "a8-send-approval-timeout-node",
+      "name": "Send Approval Timeout to Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2900,
+        2400
       ]
     }
   ],
