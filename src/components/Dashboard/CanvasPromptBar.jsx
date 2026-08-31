@@ -135,6 +135,12 @@ export default function CanvasPromptBar(props) {
   const autoLogToSheet = props.autoLogToSheet ?? true;
   const setAutoLogToSheet = props.setAutoLogToSheet || (() => {});
 
+  const privacyStatus = props.privacyStatus || 'public';
+  const setPrivacyValue = (val) => {
+    if (typeof props.setPrivacyStatus === 'function') props.setPrivacyStatus(val);
+    if (typeof props.onPrivacyChange === 'function') props.onPrivacyChange(val);
+  };
+
   const activeChannel = channels.find(c => c.channelId === selectedChannelId) || (channels.length > 0 ? (channels.find(c => c.isDefault) || channels[0]) : null);
   const activeSheet = sheets.find(s => s.sheetId === selectedSheetId || s.spreadsheetId === selectedSheetId) || (sheets.length > 0 ? (sheets.find(s => s.isDefault) || sheets[0]) : null);
 
@@ -589,6 +595,39 @@ export default function CanvasPromptBar(props) {
                       >
                         {autoUploadToYouTube ? 'ON' : 'OFF'}
                       </button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px', borderTop: '1px dashed rgba(255,255,255,0.08)', paddingTop: '8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Privacy</span>
+                      <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '2px', borderRadius: '8px' }}>
+                        {['public', 'unlisted', 'private'].map((p) => {
+                          const isAct = privacyStatus === p;
+                          return (
+                            <button
+                              key={p}
+                              type="button"
+                              onClick={() => {
+                                audioEngine.playSfx('click');
+                                setPrivacyValue(p);
+                              }}
+                              style={{
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '2px 8px',
+                                fontSize: '10px',
+                                fontWeight: isAct ? 800 : 500,
+                                textTransform: 'capitalize',
+                                cursor: 'pointer',
+                                background: isAct ? '#ef4444' : 'transparent',
+                                color: isAct ? '#fff' : 'var(--text-muted)',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {p}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -100,6 +100,7 @@ export default function DashboardApp({
   const [sheets, setSheets] = useState([]);
   const [selectedSheetId, setSelectedSheetId] = useState('');
   const [autoLogToSheet, setAutoLogToSheet] = useState(true);
+  const [privacyStatus, setPrivacyStatus] = useState('public');
 
   // Fetch connected YouTube channels and Google Sheets
   useEffect(() => {
@@ -123,6 +124,8 @@ export default function DashboardApp({
             if (defaultCh && !selectedChannelId) {
               setSelectedChannelId(defaultCh.channelId);
               setAutoUploadToYouTube(true);
+              const chPrivacy = String(defaultCh.defaultPrivacy || '').toLowerCase();
+              if (['public', 'private', 'unlisted'].includes(chPrivacy)) setPrivacyStatus(chPrivacy);
             }
           }
           if (data.sheets && Array.isArray(data.sheets)) {
@@ -821,6 +824,7 @@ export default function DashboardApp({
             selectedSheetId,
             sheetId: selectedSheetId,
             autoLogToSheet,
+            privacyStatus,
             token: getAuthToken(),
             email: (getStoredUser() || {}).email || '',
             userId: (getStoredUser() || {}).id || (getStoredUser() || {}).userId || (getStoredUser() || {})._id || ''
@@ -1165,6 +1169,8 @@ export default function DashboardApp({
     const chosenMusicId = resolveMusicId(customSettings.musicId || activeThread?.musicId || musicId);
     const chosenMusicTrackUrl = customSettings.musicTrackUrl || getMusicTrackById(chosenMusicId).audioUrl || '';
     const chosenMusicVolume = customSettings.musicVolume ?? musicVolume ?? 0.08;
+    const chosenVoiceSpeed = customSettings.voiceSpeed ?? activeThread?.voiceSpeed ?? voiceSpeed ?? 1.30;
+    const chosenPrivacyStatus = customSettings.privacyStatus || privacyStatus || 'public';
 
     try {
       // 1. Resume / Launch n8n execution with refined story payload + audiovisual customization
@@ -1181,7 +1187,7 @@ export default function DashboardApp({
           language: activeThread?.story?.language || language || 'English',
           voiceId: chosenVoiceId,
           elevenLabsVoiceId: chosenElevenLabsVoiceId,
-          voiceSpeed: (function() { const v = Number(activeThread?.voiceSpeed || voiceSpeed); return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30; })(),
+          voiceSpeed: (function() { const v = Number(chosenVoiceSpeed); return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30; })(),
           visualStyle: activeThread?.visualStyleId || styleId || 'cinematic',
           subtitleSettings: chosenSubtitleSettings,
           musicId: chosenMusicId,
@@ -1193,6 +1199,7 @@ export default function DashboardApp({
           selectedSheetId,
           sheetId: selectedSheetId,
           autoLogToSheet,
+          privacyStatus: chosenPrivacyStatus,
           token: getAuthToken(),
           email: (getStoredUser() || {}).email || '',
           userId: (getStoredUser() || {}).id || (getStoredUser() || {}).userId || (getStoredUser() || {})._id || ''
@@ -1266,15 +1273,31 @@ export default function DashboardApp({
     audioEngine.playSfx('boom');
 
     try {
+      const authToken = getAuthToken();
+      const storedUser = getStoredUser() || {};
       const res = await fetch('/.netlify/functions/upload-youtube', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+        },
         body: JSON.stringify({
           threadId: activeThread.threadId || activeThread.id,
+          sessionId,
           title: activeThread.title,
           description: activeThread.youtubeDescription,
           tags: activeThread.tags,
-          videoUrl: activeThread.videoUrl
+          videoUrl: activeThread.videoUrl,
+          channelId: selectedChannelId,
+          selectedSheetId,
+          sheetId: selectedSheetId,
+          autoLogToSheet,
+          privacy: privacyStatus,
+          language: activeThread.language || language,
+          visualStyle: activeThread.visualStyleId || styleId,
+          storyBrief: activeThread.story?.storyBrief || activeThread.storyBrief || '',
+          userId: storedUser.id || storedUser.userId || storedUser._id || '',
+          email: storedUser.email || ''
         })
       });
 
@@ -1712,6 +1735,7 @@ export default function DashboardApp({
               initialSubtitleSettings={subtitleSettings}
               initialMusicId={musicId}
               initialMusicVolume={musicVolume}
+              initialPrivacyStatus={privacyStatus}
               onApprove={handleApproveStory}
               onReject={handleRejectStory}
               onRefine={handleRefineStory}
@@ -1952,6 +1976,9 @@ export default function DashboardApp({
               onSheetChange={setSelectedSheetId}
               autoLogToSheet={autoLogToSheet}
               setAutoLogToSheet={setAutoLogToSheet}
+              privacyStatus={privacyStatus}
+              setPrivacyStatus={setPrivacyStatus}
+              onPrivacyChange={setPrivacyStatus}
               onOpenStudio={() => setIsStudioOpen(true)}
               onOpenProfile={() => { window.location.hash = '#/profile'; }}
               onStop={handleTerminateExecution}

@@ -176,6 +176,7 @@ export default function StoryApprovalCard({
   initialSubtitleSettings = null,
   initialMusicId = DEFAULT_MUSIC_ID,
   initialMusicVolume = 0.08,
+  initialPrivacyStatus = 'public',
   onApprove, 
   onReject, 
   onRefine,
@@ -233,6 +234,7 @@ export default function StoryApprovalCard({
     const v = Number(initialMusicVolume);
     return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
   });
+  const [privacyStatus, setPrivacyStatus] = useState(() => story?.privacyStatus || initialPrivacyStatus || 'public');
   const [voiceVolume, setVoiceVolume] = useState(1.0);
   const [duckingLevel, setDuckingLevel] = useState(18);
   const [musicMoodFilter, setMusicMoodFilter] = useState('all');
@@ -813,7 +815,8 @@ export default function StoryApprovalCard({
         subtitleSettings: resolveSubtitleConfig(selectedSubtitleSettings, sampleText, threadLanguage),
         musicId: selectedMusicId,
         musicTrackUrl: chosenMusic?.audioUrl || '',
-        musicVolume: (chosenMusic?.audioUrl || '') === '' ? 0 : (function () { const v = Number(musicVolume); return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08; })()
+        musicVolume: (chosenMusic?.audioUrl || '') === '' ? 0 : (function () { const v = Number(musicVolume); return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08; })(),
+        privacyStatus: privacyStatus
       });
     }
   };
@@ -1023,6 +1026,30 @@ export default function StoryApprovalCard({
             >
               <span>🎵 {selectedMusicObj?.name} ({Math.round(musicVolume * 100)}% vol)</span>
             </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255, 255, 255, 0.04)', padding: '2px 4px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '4px' }}>YouTube:</span>
+              {['public', 'unlisted', 'private'].map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPrivacyStatus(p)}
+                  style={{
+                    background: privacyStatus === p ? (p === 'public' ? 'rgba(16, 185, 129, 0.2)' : p === 'unlisted' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(139, 92, 246, 0.2)') : 'transparent',
+                    color: privacyStatus === p ? (p === 'public' ? '#10b981' : p === 'unlisted' ? '#f59e0b' : '#a78bfa') : 'var(--text-muted)',
+                    border: privacyStatus === p ? `1px solid ${p === 'public' ? 'rgba(16, 185, 129, 0.4)' : p === 'unlisted' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(139, 92, 246, 0.4)'}` : '1px solid transparent',
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    textTransform: 'capitalize'
+                  }}
+                >
+                  {p === 'public' ? '🌐 Public' : p === 'unlisted' ? '🔗 Unlisted' : '🔒 Private'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
