@@ -409,6 +409,25 @@ export const handler = async (event, context) => {
             }
           }
         );
+
+        // Normalise default flags: exactly one channel may be isDefault
+        const afterDoc = await db.collection('users').findOne(
+          { _id: userDoc._id },
+          { projection: { youtubeChannels: 1 } }
+        );
+        const allChannels = afterDoc?.youtubeChannels || [];
+        const keepDefaultId = (allChannels.filter(c => c.isDefault)[0] || allChannels[0])?.channelId;
+        if (keepDefaultId) {
+          await db.collection('users').updateOne(
+            { _id: userDoc._id },
+            { $set: { 'youtubeChannels.$[].isDefault': false } }
+          );
+          await db.collection('users').updateOne(
+            { _id: userDoc._id, 'youtubeChannels.channelId': keepDefaultId },
+            { $set: { 'youtubeChannels.$.isDefault': true } }
+          );
+        }
+
         console.log(`[Google OAuth] Connected YouTube channel "${channelInfo.channelTitle}" for user: ${userDoc.email}`);
       }
 

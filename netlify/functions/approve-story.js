@@ -43,6 +43,7 @@ function buildResumeUrl(rawUrl, action, extraParams = {}) {
     if (extraParams.musicId) u.searchParams.set('musicId', extraParams.musicId);
     if (extraParams.musicTrackUrl) u.searchParams.set('musicTrackUrl', extraParams.musicTrackUrl);
     if (extraParams.musicVolume !== undefined) u.searchParams.set('musicVolume', String(extraParams.musicVolume));
+    if (extraParams.privacyStatus) u.searchParams.set('privacyStatus', extraParams.privacyStatus);
     if (extraParams.subtitleSettings) {
       u.searchParams.set('subtitleSettings', typeof extraParams.subtitleSettings === 'string' ? extraParams.subtitleSettings : JSON.stringify(extraParams.subtitleSettings));
     }
@@ -156,7 +157,8 @@ export const handler = async (event, context) => {
       subtitleSettings = null,
       musicId = 'mystery2',
       musicTrackUrl = '',
-      musicVolume = 0.08
+      musicVolume = 0.08,
+      privacyStatus = 'public'
     } = payload;
 
     const safeVoiceSpeed = (function() {
@@ -167,6 +169,11 @@ export const handler = async (event, context) => {
     const safeMusicVolume = (function() {
       const v = Number(musicVolume);
       return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
+    })();
+
+    const safePrivacyStatus = (function() {
+      const p = String(privacyStatus || '').toLowerCase();
+      return ['public', 'private', 'unlisted'].includes(p) ? p : 'public';
     })();
 
     const now = new Date();
@@ -218,7 +225,8 @@ export const handler = async (event, context) => {
       subtitleSettings,
       musicId,
       musicTrackUrl,
-      musicVolume: safeMusicVolume
+      musicVolume: safeMusicVolume,
+      privacyStatus: safePrivacyStatus
     });
     console.log(`[approve-story] Built n8n target URL for action "${action}":`, targetResumeUrl);
 
@@ -438,6 +446,7 @@ export const handler = async (event, context) => {
         musicId,
         musicTrackUrl,
         musicVolume: safeMusicVolume,
+        privacyStatus: safePrivacyStatus,
         language,
         webhookSecret
       };

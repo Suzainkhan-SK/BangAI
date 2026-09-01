@@ -1172,6 +1172,10 @@ export default function DashboardApp({
     const chosenVoiceSpeed = customSettings.voiceSpeed ?? activeThread?.voiceSpeed ?? voiceSpeed ?? 1.30;
     const chosenPrivacyStatus = customSettings.privacyStatus || privacyStatus || 'public';
 
+    if (customSettings.privacyStatus && customSettings.privacyStatus !== privacyStatus) {
+      setPrivacyStatus(customSettings.privacyStatus);
+    }
+
     try {
       // 1. Resume / Launch n8n execution with refined story payload + audiovisual customization
       const res = await fetch('/.netlify/functions/approve-story', {

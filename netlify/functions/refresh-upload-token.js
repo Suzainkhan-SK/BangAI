@@ -95,7 +95,19 @@ export const handler = async (event) => {
       }
       collectionField = 'youtubeChannels';
     } else if (scope === 'sheets') {
-      const sheetsList = user.sheets || user.googleSheets || [];
+      const sheetsList = Array.isArray(user.sheets) ? user.sheets.slice() : [];
+      const legacySheet = (user.googleSheets && !Array.isArray(user.googleSheets)) ? user.googleSheets : null;
+      if (legacySheet && legacySheet.tokens) {
+        const legacyId = legacySheet.spreadsheetId || '';
+        const alreadyListed = legacyId && sheetsList.some(s => s.spreadsheetId === legacyId || s.sheetId === legacyId);
+        if (!alreadyListed) {
+          sheetsList.push({
+            sheetId: 'default_log_sheet',
+            spreadsheetId: legacyId,
+            tokens: legacySheet.tokens
+          });
+        }
+      }
       if (channelId) { // channelId can carry spreadsheetId or sheetId
         container = sheetsList.find(s => s.sheetId === channelId || s.spreadsheetId === channelId || s.id === channelId);
       }

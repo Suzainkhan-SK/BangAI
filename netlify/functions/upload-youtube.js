@@ -108,6 +108,14 @@ export const handler = async (event, context) => {
       const sheets = userDoc?.sheets || [];
       let targetSheet = selectedSheetId ? sheets.find(s => s.sheetId === selectedSheetId || s.spreadsheetId === selectedSheetId) : (sheets.find(s => s.isDefault) || sheets[0] || null);
 
+      if (!targetSheet && userDoc?.googleSheets?.connected) {
+        targetSheet = {
+          spreadsheetId: userDoc.googleSheets.spreadsheetId || '',
+          sheetName: 'Production Log',
+          tokens: userDoc.googleSheets.tokens || selectedChannel?.tokens || null
+        };
+      }
+
       if (targetSheet) {
         const sheetContainer = targetSheet.tokens ? targetSheet : selectedChannel;
         if (sheetContainer && sheetContainer.tokens) {

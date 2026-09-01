@@ -118,6 +118,10 @@ export const handler = async (event, context) => {
     if (resolvedUserId) threadIdentity.userId = resolvedUserId;
     if (resolvedEmail)  { threadIdentity.email = resolvedEmail; threadIdentity.userEmail = resolvedEmail; }
 
+    const rawSettings = settings || {};
+    const rawPrivacy = rawSettings.privacyStatus || rawSettings.privacy || 'public';
+    const safePrivacyStatus = ['public', 'private', 'unlisted'].includes(String(rawPrivacy).toLowerCase()) ? String(rawPrivacy).toLowerCase() : 'public';
+
     // Detect language preference
     const rawLower = (message || '').toLowerCase();
     let detectedLanguage = settings.language || 'English';
@@ -160,6 +164,7 @@ export const handler = async (event, context) => {
               lastPrompt: message.trim(),
               mode,
               language: detectedLanguage,
+              privacyStatus: safePrivacyStatus,
               updatedAt: now
             },
             $push: {
@@ -455,7 +460,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
         const v = Number(settings.musicVolume);
         return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
       })(),
-      privacyStatus: settings.privacyStatus || targetChannel?.defaultPrivacy || 'public',
+      privacyStatus: safePrivacyStatus || targetChannel?.defaultPrivacy || 'public',
       callbackUrl,
       threadId: currentThreadId,
       sessionId: currentSessionId,
@@ -519,6 +524,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
               rawUserInput: message.trim(),
               mode: 'VIDEO_GENERATION',
               language: detectedLanguage,
+              privacyStatus: safePrivacyStatus,
               updatedAt: now
             },
             $setOnInsert: { createdAt: now }
