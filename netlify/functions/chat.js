@@ -118,9 +118,7 @@ export const handler = async (event, context) => {
     if (resolvedUserId) threadIdentity.userId = resolvedUserId;
     if (resolvedEmail)  { threadIdentity.email = resolvedEmail; threadIdentity.userEmail = resolvedEmail; }
 
-    const rawSettings = settings || {};
-    const rawPrivacy = rawSettings.privacyStatus || rawSettings.privacy || 'public';
-    const safePrivacyStatus = ['public', 'private', 'unlisted'].includes(String(rawPrivacy).toLowerCase()) ? String(rawPrivacy).toLowerCase() : 'public';
+    let safePrivacyStatus = 'public';
 
     // Detect language preference
     const rawLower = (message || '').toLowerCase();
@@ -433,6 +431,15 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
     const autoUploadToYouTube = settings.autoUploadToYouTube !== false && !!userYouTubeAccessToken;
     const autoLogToSheet = settings.autoLogToSheet !== false;
 
+    const rawSettings = settings || {};
+    const rawPrivacy = rawSettings.privacyStatus || rawSettings.privacy || '';
+    const requestedPrivacy = String(rawPrivacy).toLowerCase();
+    safePrivacyStatus = ['public', 'private', 'unlisted'].includes(requestedPrivacy)
+      ? requestedPrivacy
+      : (['public', 'private', 'unlisted'].includes(String(targetChannel?.defaultPrivacy || '').toLowerCase())
+          ? String(targetChannel.defaultPrivacy).toLowerCase()
+          : 'public');
+
     const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
     const n8nPayload = {
       prompt: message.trim(),
@@ -460,7 +467,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
         const v = Number(settings.musicVolume);
         return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
       })(),
-      privacyStatus: safePrivacyStatus || targetChannel?.defaultPrivacy || 'public',
+      privacyStatus: safePrivacyStatus,
       callbackUrl,
       threadId: currentThreadId,
       sessionId: currentSessionId,

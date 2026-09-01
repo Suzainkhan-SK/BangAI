@@ -1033,6 +1033,8 @@ export default function StoryApprovalCard({
                 <button
                   key={p}
                   type="button"
+                  aria-pressed={privacyStatus === p}
+                  aria-label={`Set YouTube privacy to ${p}`}
                   onClick={() => setPrivacyStatus(p)}
                   style={{
                     background: privacyStatus === p ? (p === 'public' ? 'rgba(16, 185, 129, 0.2)' : p === 'unlisted' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(139, 92, 246, 0.2)') : 'transparent',

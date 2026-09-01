@@ -606,6 +606,8 @@ export default function CanvasPromptBar(props) {
                             <button
                               key={p}
                               type="button"
+                              aria-pressed={privacyStatus === p}
+                              aria-label={`Set YouTube privacy to ${p}`}
                               onClick={() => {
                                 audioEngine.playSfx('click');
                                 setPrivacyValue(p);
