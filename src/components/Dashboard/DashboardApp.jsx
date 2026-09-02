@@ -54,6 +54,8 @@ function getOrCreateSessionId() {
 export default function DashboardApp({ 
   initialPresetId = null,
   initialPrompt = '',
+  routeThreadId = null,
+  currentRoutePath = 'dashboard',
   sidebarCollapsed = false,
   onToggleSidebar,
   user,
@@ -77,12 +79,16 @@ export default function DashboardApp({
     return [];
   });
 
-  const [activeThreadId, setActiveThreadId] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('shortsai_active_thread_id') || initialPresetId || null;
-    }
-    return initialPresetId || null;
-  });
+  const [activeThreadId, setActiveThreadId] = useState(routeThreadId || initialPresetId || null);
+
+  useEffect(() => {
+    try { localStorage.removeItem('shortsai_active_thread_id'); } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    if (routeThreadId && routeThreadId !== activeThreadId) setActiveThreadId(routeThreadId);
+    if (!routeThreadId && activeThreadId) setActiveThreadId(null);
+  }, [routeThreadId]);
 
   // Sync all thread changes to localStorage immediately on every change
   useEffect(() => {
@@ -281,16 +287,6 @@ export default function DashboardApp({
 
               return merged;
             });
-
-            const savedId = typeof window !== 'undefined' ? localStorage.getItem('shortsai_active_thread_id') : null;
-            const match = data.threads.find(t => t.threadId === savedId || t.id === savedId);
-            if (match) {
-              setActiveThreadId(match.threadId || match.id);
-            } else if (!activeThreadId && data.threads.length > 0) {
-              const defaultId = data.threads[0].threadId || data.threads[0].id;
-              setActiveThreadId(defaultId);
-              if (typeof window !== 'undefined') localStorage.setItem('shortsai_active_thread_id', defaultId);
-            }
           }
         }
       } catch (err) {
@@ -656,8 +652,8 @@ export default function DashboardApp({
     if (!t) return;
     const tid = t.threadId || t.id;
     setActiveThreadId(tid);
-    if (typeof window !== 'undefined' && tid) {
-      localStorage.setItem('shortsai_active_thread_id', tid);
+    if (typeof onNavigate === 'function') {
+      onNavigate('dashboard/t/' + tid);
     }
     setPrompt('');
     if (t.voiceId) setVoiceId(t.voiceId);
@@ -684,8 +680,8 @@ export default function DashboardApp({
     if (item.voice) setVoiceId(item.voice);
     if (item.style) setStyleId(item.style);
     setActiveThreadId(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('shortsai_active_thread_id');
+    if (typeof onNavigate === 'function') {
+      onNavigate('dashboard');
     }
     setIsGenerating(false);
     setIsChatResponding(false);
@@ -698,8 +694,8 @@ export default function DashboardApp({
 
   const handleNewShort = () => {
     setActiveThreadId(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('shortsai_active_thread_id');
+    if (typeof onNavigate === 'function') {
+      onNavigate('dashboard');
     }
     setPrompt('');
     setIsGenerating(false);
@@ -737,11 +733,13 @@ export default function DashboardApp({
     const messageText = rawText.trim();
     const mode = overrideMode || detectMode(messageText);
 
-    // If user asked for /studio or clicked the Studio Lab pill, toggle Studio
+    // /studio now navigates to the standalone Design Studio route.
     if (mode === 'STUDIO' || messageText.startsWith('/studio')) {
       audioEngine.playSfx('shimmer');
-      setIsStudioOpen(prev => !prev);
+      const askedTab = messageText.replace(/^\/studio\s*/i, '').trim().toLowerCase();
+      const tab = ['voices', 'subtitles', 'music'].includes(askedTab) ? askedTab : 'voices';
       setPrompt('');
+      handleOpenStudio(tab);
       return;
     }
 
@@ -752,8 +750,8 @@ export default function DashboardApp({
     if (!currentThreadId || (mode === 'VIDEO_GENERATION' && activeThread?.status === 'COMPLETED')) {
       currentThreadId = 'thread-' + startTime;
       setActiveThreadId(currentThreadId);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('shortsai_active_thread_id', currentThreadId);
+      if (typeof onNavigate === 'function') {
+        onNavigate('dashboard/t/' + currentThreadId);
       }
     }
 
@@ -1365,7 +1363,7 @@ export default function DashboardApp({
           user={user}
           onOpenSettings={onNavigateToSettings}
           onLogout={onLogout}
-          currentRoutePath="dashboard"
+          currentRoutePath={currentRoutePath}
           onNavigate={onNavigate}
           isMobileDrawer={isMobile}
           onCloseDrawer={() => setIsMobileSidebarOpen(false)}

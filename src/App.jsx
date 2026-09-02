@@ -149,7 +149,10 @@ function AppContent() {
   useEffect(() => {
     try {
       if (currentRoute?.path !== undefined) {
-        localStorage.setItem('shortsai_view', currentRoute.path || 'landing');
+        const persistPath = (currentRoute.path || 'landing').startsWith('dashboard/t/')
+          ? 'dashboard'
+          : (currentRoute.path || 'landing');
+        localStorage.setItem('shortsai_view', persistPath);
         if (!currentRoute.path) {
           if (window.location.hash) history.replaceState(null, '', window.location.pathname);
         } else {
@@ -297,6 +300,8 @@ function AppContent() {
           user ? (
             <DashboardApp
               user={user}
+              routeThreadId={currentRoute?.params?.threadId || null}
+              currentRoutePath={currentRoutePath}
               initialPrompt={pendingPrompt}
               initialPresetId={selectedPresetForDashboard}
               onClearPendingPrompt={() => {
@@ -324,6 +329,10 @@ function AppContent() {
           user ? (
             <StudioPage
               tab={currentRoute.tab || 'voices'}
+              user={user}
+              currentRoutePath={currentRoutePath}
+              collapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
               onNavigate={handleNavigate}
             />
           ) : (

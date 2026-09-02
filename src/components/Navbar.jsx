@@ -61,7 +61,8 @@ export default function Navbar({
 
   const NAV_LINKS = user
     ? [
-        { label: 'Studio', view: 'dashboard' },
+        { label: 'Dashboard', view: 'dashboard' },
+        { label: 'Studio', view: 'studio/voices' },
         { label: 'Profile', view: 'profile' },
         { label: 'Settings', view: 'settings' },
         { label: 'API', view: 'api' },
@@ -76,7 +77,8 @@ export default function Navbar({
       ];
 
   const NavPill = ({ label, view, anchor }) => {
-    const active = !anchor && currentView === view;
+    const isPathMatch = view && (currentView === view || currentView.startsWith(view.split('/')[0] + '/'));
+    const active = !anchor && (currentView === view || isPathMatch);
     return (
       <button onClick={() => go(view, anchor)} style={{
         padding: '6px 15px', borderRadius: '99px', border: 'none', cursor: 'pointer',
@@ -127,7 +129,7 @@ export default function Navbar({
 
         {/* ── LEFT: Hamburger + Brand ─────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, minWidth: 0 }}>
-          {user && currentView === 'dashboard' && !isMobile && (
+          {user && (currentView === 'dashboard' || currentView.startsWith('dashboard/')) && !isMobile && (
             <button onClick={() => { audioEngine.playSfx('click'); onToggleSidebar(); }}
               style={{
                 width: '34px', height: '34px', borderRadius: '10px', padding: 0,
@@ -171,7 +173,7 @@ export default function Navbar({
           </div>
 
           {/* Live model pill — dashboard only, desktop only */}
-          {user && currentView === 'dashboard' && !isTablet && (
+          {user && (currentView === 'dashboard' || currentView.startsWith('dashboard/')) && !isTablet && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: '5px',
               background: 'rgba(16,185,129,0.08)',
@@ -423,7 +425,8 @@ export default function Navbar({
             )}
 
             {NAV_LINKS.map(link => {
-              const active = !link.anchor && currentView === link.view;
+              const isPathMatch = link.view && (currentView === link.view || currentView.startsWith(link.view.split('/')[0] + '/'));
+              const active = !link.anchor && (currentView === link.view || isPathMatch);
               return (
                 <button
                   key={`m-${link.view}-${link.label}`}

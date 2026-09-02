@@ -37,10 +37,10 @@ import {
   VOICE_LANGUAGES, 
   VOICE_ACCENTS, 
   getAllVoices, 
-  getVoiceById,
-  loadJson2VideoVoices 
+  getVoiceById
 } from '../../data/voices';
 import { useVoiceCatalog } from '../../hooks/useVoiceCatalog';
+import SubtitleLivePreview from './SubtitleLivePreview';
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS } from '../../data/subtitleStyles';
 import { MUSIC_TRACKS as STATIC_MUSIC, MUSIC_MOODS, getMusicTrackById, resolveMusicId, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
@@ -136,6 +136,7 @@ export default function StudioLab({
   const [isSubtitleRendering, setIsSubtitleRendering] = useState(false);
   const [renderedSubtitleVideoUrl, setRenderedSubtitleVideoUrl] = useState(null);
   const [subtitleRenderError, setSubtitleRenderError] = useState(null);
+  const [subtitleRenderStatus, setSubtitleRenderStatus] = useState(null);
   const [subtitleVoiceId, setSubtitleVoiceId] = useState('adam'); // Voice used for subtitle render
 
   // ─── 3. MUSIC STUDIO STATE ───────────────────────────────────────
@@ -444,6 +445,7 @@ export default function StudioLab({
   const handleRenderSubtitlePreview = async () => {
     setIsSubtitleRendering(true);
     setSubtitleRenderError(null);
+    setSubtitleRenderStatus('Initializing preview render...');
     setRenderedSubtitleVideoUrl(null);
 
     const chosenVoice = voices.find(v => v.id === subtitleVoiceId) || voices[0];
@@ -454,8 +456,11 @@ export default function StudioLab({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subtitleSettings: currentSubtitleSettings,
-          text: subtitleCustomText.substring(0, 180),
-          voiceId: chosenVoice.name || 'Adam'
+          text: subtitleCustomText.substring(0, 200),
+          elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || 'pNInz6obpgDQGcFmaJgB',
+          voiceId: chosenVoice?.id || 'adam',
+          language: 'Hinglish',
+          voiceSpeed: currentVoiceSpeed
         })
       });
 
@@ -466,30 +471,37 @@ export default function StudioLab({
 
       if (data.videoUrl) {
         setRenderedSubtitleVideoUrl(data.videoUrl);
+        setSubtitleRenderStatus(null);
         return;
       }
 
-      if (data.project && data.apiKey) {
+      if (data.project) {
         const projectId = data.project;
-        const apiKey = data.apiKey;
         const start = Date.now();
+        setSubtitleRenderStatus('Queued on json2video…');
 
-        while (Date.now() - start < 45000) {
-          await new Promise(r => setTimeout(r, 2000));
+        while (Date.now() - start < 150000) { // whisper transcription needs the headroom
+          await new Promise(r => setTimeout(r, 2500));
           const pollRes = await fetch(`/.netlify/functions/preview-subtitle?project=${encodeURIComponent(projectId)}`);
           const pollData = await pollRes.json();
-          if (pollData.success && pollData.videoUrl) {
+
+          if (pollData.videoUrl) {
             setRenderedSubtitleVideoUrl(pollData.videoUrl);
+            setSubtitleRenderStatus(null);
             return;
           }
-          if (pollData.status === 'error') {
+          if (pollData.status === 'error' || pollData.success === false) {
             throw new Error(pollData.error || 'Render failed on cloud engine');
           }
+          setSubtitleRenderStatus(`Rendering… ${Math.round((Date.now() - start) / 1000)}s`);
         }
-        throw new Error('Subtitle render timed out. Please retry.');
+        throw new Error('Subtitle render timed out after 150s. Please retry.');
       }
+
+      throw new Error(data.error || 'json2video did not return a project id');
     } catch (err) {
       setSubtitleRenderError(err.message || 'Network error rendering subtitles');
+      setSubtitleRenderStatus(null);
     } finally {
       setIsSubtitleRendering(false);
     }
@@ -1305,6 +1317,18 @@ export default function StudioLab({
                   style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }} />
               </div>
 
+              {/* Shadow Offset (0 = off) */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                  <span>Shadow Offset (0 = off)</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{Number(currentSubtitleSettings.shadowOffset) || 0}px</span>
+                </div>
+                <input type="range" min="0" max="12" step="1"
+                  value={Number(currentSubtitleSettings.shadowOffset) || 0}
+                  onChange={(e) => handleUpdateSubtitleSetting('shadowOffset', parseInt(e.target.value, 10))}
+                  style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }} />
+              </div>
+
               {/* Position + All-Caps Toggle */}
               <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 200px', minWidth: 0 }}>
@@ -1342,6 +1366,12 @@ export default function StudioLab({
               </div>
             </div>
 
+            {/* Real-time Subtitle Live Preview Frame (No Network Call) */}
+            <SubtitleLivePreview
+              subtitleSettings={currentSubtitleSettings}
+              text={subtitleCustomText}
+            />
+
             {/* Render Button */}
             <button type="button" onClick={handleRenderSubtitlePreview}
               disabled={isSubtitleRendering}
@@ -1373,7 +1403,7 @@ export default function StudioLab({
                 <div style={{ padding: '40px', textAlign: 'center', color: '#fbbf24' }}>
                   <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 14px' }} />
                   <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '4px' }}>
-                    Rendering with json2video Cloud...
+                    {subtitleRenderStatus || 'Rendering with json2video Cloud...'}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                     Synthesizing voice & baking subtitle animations

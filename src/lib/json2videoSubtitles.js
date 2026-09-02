@@ -91,3 +91,13 @@ export function toJson2VideoSubtitleSettings(settings, sampleText = '') {
   }
   return out;
 }
+
+// Mirrors the language pick inside the n8n `Submit Job` expression. Keep the two in step.
+export function detectSubtitleLanguage(text = '', language = '') {
+  const hasDevanagari = /[ऀ-ॿ]/.test(String(text));
+  const lang = String(language || '').toLowerCase();
+  if (hasDevanagari) return 'hi';
+  if (lang.indexOf('hinglish') !== -1) return 'hi-Latn';
+  if (lang.indexOf('hindi') !== -1) return 'hi';
+  return 'en';
+}

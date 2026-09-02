@@ -1,8 +1,16 @@
 import React from 'react';
 import StudioLab from '../components/Studio/StudioLab';
+import AppShell from '../components/Layout/AppShell';
 import { useVideoSettings } from '../state/videoSettings';
 
-export default function StudioPage({ tab = 'voices', onNavigate }) {
+export default function StudioPage({
+  tab = 'voices',
+  user,
+  currentRoutePath = 'studio/voices',
+  collapsed = false,
+  onToggleCollapse,
+  onNavigate
+}) {
   const { settings, updateSettings } = useVideoSettings();
 
   const handleApplySettings = (newSettings) => {
@@ -25,23 +33,31 @@ export default function StudioPage({ tab = 'voices', onNavigate }) {
   };
 
   return (
-    <div style={{ flex: 1, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
-      <StudioLab
-        initialTab={tab}
-        onTabChange={handleTabChange}
-        selectedVoiceId={settings.voiceId}
-        onSelectVoice={(voiceId) => updateSettings({ voiceId })}
-        voiceSpeed={settings.voiceSpeed}
-        onVoiceSpeedChange={(voiceSpeed) => updateSettings({ voiceSpeed })}
-        subtitleSettings={settings.subtitleSettings}
-        onSubtitleChange={(subtitleSettings) => updateSettings({ subtitleSettings })}
-        selectedMusicId={settings.musicId}
-        onSelectMusic={(musicId) => updateSettings({ musicId })}
-        musicVolume={settings.musicVolume}
-        onMusicVolumeChange={(musicVolume) => updateSettings({ musicVolume })}
-        onApplySettingsToVideo={handleApplySettings}
-        onClose={handleClose}
-      />
-    </div>
+    <AppShell
+      user={user}
+      currentRoutePath={currentRoutePath}
+      onNavigate={onNavigate}
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
+    >
+      <div style={{ flex: 1, width: '100%', height: '100%', overflowY: 'auto' }}>
+        <StudioLab
+          initialTab={tab}
+          onTabChange={handleTabChange}
+          selectedVoiceId={settings.voiceId}
+          onSelectVoice={(voiceId) => updateSettings({ voiceId })}
+          voiceSpeed={settings.voiceSpeed}
+          onVoiceSpeedChange={(voiceSpeed) => updateSettings({ voiceSpeed })}
+          subtitleSettings={settings.subtitleSettings}
+          onSubtitleChange={(subtitleSettings) => updateSettings({ subtitleSettings })}
+          selectedMusicId={settings.musicId}
+          onSelectMusic={(musicId) => updateSettings({ musicId })}
+          musicVolume={settings.musicVolume}
+          onMusicVolumeChange={(musicVolume) => updateSettings({ musicVolume })}
+          onApplySettingsToVideo={handleApplySettings}
+          onClose={handleClose}
+        />
+      </div>
+    </AppShell>
   );
 }
