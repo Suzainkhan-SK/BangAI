@@ -46,9 +46,9 @@ import {
   VOICE_LANGUAGES, 
   VOICE_ACCENTS, 
   getAllVoices, 
-  getVoiceById,
-  loadJson2VideoVoices
+  getVoiceById
 } from '../../data/voices';
+import { useVoiceCatalog } from '../../hooks/useVoiceCatalog';
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS, resolveSubtitleConfig } from '../../data/subtitleStyles';
 import { MUSIC_TRACKS, MUSIC_MOODS, DEFAULT_MUSIC_ID, resolveMusicId, getMusicTrackById, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
 import { useBreakpoint } from '../../hooks/useMediaQuery';
@@ -206,16 +206,17 @@ export default function StoryApprovalCard({
   const [voiceSearchQuery, setVoiceSearchQuery] = useState('');
   const [visibleVoiceCount, setVisibleVoiceCount] = useState(30);
 
-  // Lazy load voices when browsing JSON2Video catalog
+  const { ready } = useVoiceCatalog();
   useEffect(() => {
-    if (voiceProviderFilter !== 'elevenlabs' || voiceSearchQuery) {
-      loadJson2VideoVoices().then(() => setLiveVoices(getAllVoices()));
+    if (ready) {
+      setLiveVoices(getAllVoices());
     }
-  }, [voiceProviderFilter, voiceSearchQuery]);
+  }, [ready]);
+
   const [selectedSubtitleSettings, setSelectedSubtitleSettings] = useState(() => {
     return initialSubtitleSettings || {
       presetId: 'mrbeast-viral',
-      style: 'highlight',
+      style: 'classic-progressive',
       fontFamily: 'Montserrat',
       fontSize: 78,
       wordColor: '#FFE600',
@@ -224,7 +225,7 @@ export default function StoryApprovalCard({
       outlineWidth: 10,
       shadowColor: '#000000',
       boxColor: '',
-      position: 'center-bottom',
+      position: 'mid-bottom-center',
       allCaps: true,
       maxWordsPerLine: 3
     };
@@ -1513,7 +1514,7 @@ export default function StoryApprovalCard({
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: selectedSubtitleSettings.position === 'center-top' ? 'flex-start' : (selectedSubtitleSettings.position === 'center-bottom' ? 'flex-end' : 'center'),
+                justifyContent: (selectedSubtitleSettings.position === 'top-center' || selectedSubtitleSettings.position === 'mid-top-center') ? 'flex-start' : ((selectedSubtitleSettings.position === 'mid-bottom-center' || selectedSubtitleSettings.position === 'bottom-center') ? 'flex-end' : 'center'),
                 minHeight: '130px',
                 position: 'relative',
                 overflow: 'hidden',

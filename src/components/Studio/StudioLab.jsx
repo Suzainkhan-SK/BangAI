@@ -40,6 +40,7 @@ import {
   getVoiceById,
   loadJson2VideoVoices 
 } from '../../data/voices';
+import { useVoiceCatalog } from '../../hooks/useVoiceCatalog';
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS } from '../../data/subtitleStyles';
 import { MUSIC_TRACKS as STATIC_MUSIC, MUSIC_MOODS, getMusicTrackById, resolveMusicId, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
@@ -59,6 +60,7 @@ const DURATION_TARGETS = [
 
 export default function StudioLab({
   initialTab = 'voices',
+  onTabChange,
   selectedVoiceId,
   onSelectVoice,
   voiceSpeed = 1.30,
@@ -73,6 +75,20 @@ export default function StudioLab({
   onClose
 }) {
   const [activeTab, setActiveTab] = useState(initialTab); // 'voices' | 'subtitles' | 'music'
+  const { ready, loading: isCatalogLoading, error: catalogError, reload: reloadCatalog } = useVoiceCatalog();
+
+  useEffect(() => {
+    if (initialTab && (initialTab === 'voices' || initialTab === 'subtitles' || initialTab === 'music')) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const handleTabClick = (tabId) => {
+    setActiveTab(tabId);
+    if (typeof onTabChange === 'function') {
+      onTabChange(tabId);
+    }
+  };
 
   // Inline styles beat CSS classes, so structural responsiveness is driven here.
   const { isMobile, isTablet } = useBreakpoint();
@@ -102,7 +118,7 @@ export default function StudioLab({
   const [currentSubtitleSettings, setCurrentSubtitleSettings] = useState(() => {
     return subtitleSettings || {
       presetId: 'mrbeast-viral',
-      style: 'highlight',
+      style: 'classic-progressive',
       fontFamily: 'Montserrat',
       fontSize: 78,
       wordColor: '#FFE600',
@@ -111,7 +127,7 @@ export default function StudioLab({
       outlineWidth: 10,
       shadowColor: '#000000',
       boxColor: '',
-      position: 'center-bottom',
+      position: 'mid-bottom-center',
       allCaps: true,
       maxWordsPerLine: 3
     };
@@ -218,9 +234,9 @@ export default function StudioLab({
   // Filter voices with fast memoization
   const filteredVoices = useMemo(() => {
     let sourceList = [];
-    if (voiceProviderFilter === 'elevenlabs') sourceList = STATIC_VOICES;
+    if (voiceProviderFilter === 'elevenlabs') sourceList = voices && voices.length > 0 ? voices : STATIC_VOICES;
     else if (voiceProviderFilter === 'json2video') sourceList = JSON2VIDEO_VOICES;
-    else sourceList = voices && voices.length > STATIC_VOICES.length ? voices : getAllVoices();
+    else sourceList = getAllVoices();
 
     const q = voiceSearchQuery.trim().toLowerCase();
 
@@ -245,7 +261,7 @@ export default function StudioLab({
       }
       return true;
     });
-  }, [voices, voiceProviderFilter, voiceCategoryFilter, voiceLanguageFilter, voiceAccentFilter, voiceGenderFilter, voiceSearchQuery]);
+  }, [voices, voiceProviderFilter, voiceCategoryFilter, voiceLanguageFilter, voiceAccentFilter, voiceGenderFilter, voiceSearchQuery, ready]);
 
   useEffect(() => {
     setVisibleVoiceCount(40);
@@ -646,7 +662,7 @@ export default function StudioLab({
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
-            <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
+            <button key={tab.id} type="button" onClick={() => handleTabClick(tab.id)}
               style={{
                 paddingTop: '9px', paddingBottom: '9px',
                 paddingLeft: isMobile ? '13px' : '18px',
@@ -921,6 +937,23 @@ export default function StudioLab({
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 10px' }} />
               <div>Fetching latest voices from ElevenLabs API...</div>
+            </div>
+          ) : (isCatalogLoading && (voiceProviderFilter === 'json2video' || (voiceProviderFilter === 'all' && filteredVoices.length === 0))) ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 10px' }} />
+              <div>Loading 9,650 premium voices…</div>
+            </div>
+          ) : (catalogError && voiceProviderFilter === 'json2video' && filteredVoices.length === 0) ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#ef4444' }}>
+              <AlertTriangle size={32} style={{ margin: '0 auto 10px', opacity: 0.8 }} />
+              <div style={{ fontSize: '14px', fontWeight: 600 }}>{catalogError}</div>
+              <button
+                type="button"
+                onClick={reloadCatalog}
+                style={{ marginTop: '12px', padding: '6px 16px', borderRadius: '8px', background: 'var(--accent-primary)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+              >
+                Retry
+              </button>
             </div>
           ) : filteredVoices.length === 0 ? (
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>

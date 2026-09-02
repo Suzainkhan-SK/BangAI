@@ -5,6 +5,7 @@
 
 import { json2videoCreateMovie, getJson2VideoKey } from './api-keys.js';
 import { getDb } from './db.js';
+import { toJson2VideoSubtitleSettings } from '../../src/lib/json2videoSubtitles.js';
 
 export const handler = async (event) => {
   const headers = {
@@ -144,7 +145,7 @@ export const handler = async (event) => {
         elements: [
           {
             type: 'subtitles',
-            settings: buildSubtitleSettings(subtitleSettings, previewText)
+            settings: toJson2VideoSubtitleSettings(subtitleSettings, previewText)
           }
         ]
       };
@@ -199,49 +200,3 @@ export const handler = async (event) => {
 
   return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
 };
-
-/**
- * Convert frontend subtitle settings to strict json2video subtitle settings format.
- */
-function buildSubtitleSettings(settings, text = '') {
-  const j2vSettings = {};
-
-  // Style preset (docs support: 'classic', 'highlight', 'boxed-word', 'boxed-line', 'classic-one-word')
-  let style = settings.style || 'highlight';
-  if (style === 'classic-progressive') style = 'highlight';
-  j2vSettings.style = style;
-
-  // Language / Script Detection (Devanagari Unicode \u0900-\u097F)
-  const hasDevanagari = /[\u0900-\u097F]/.test(text);
-  let font = settings.fontFamily || 'Montserrat';
-  let allCaps = settings.allCaps !== undefined ? Boolean(settings.allCaps) : true;
-
-  if (hasDevanagari) {
-    if (['Montserrat', 'Inter', 'Bebas Neue', 'Luckiest Guy', 'Bangers', 'Oswald', 'Permanent Marker'].includes(font)) {
-      font = 'Noto Sans Devanagari';
-    }
-    allCaps = false; // Prevent tofu rendering on Devanagari characters
-  }
-
-  j2vSettings['font-family'] = font;
-  let size = Number(settings.fontSize) || 78;
-  if (size > 120) size = Math.round(size / 3.5);
-  j2vSettings['font-size'] = Math.max(56, Math.min(100, size));
-  if (settings.fontUrl) j2vSettings['font-url'] = String(settings.fontUrl);
-
-  // Colors
-  j2vSettings['word-color'] = settings.wordColor || '#FFE600';
-  j2vSettings['line-color'] = settings.lineColor || '#FFFFFF';
-  j2vSettings['outline-color'] = settings.outlineColor || '#000000';
-  if (settings.boxColor && settings.boxColor.trim()) {
-    j2vSettings['box-color'] = settings.boxColor.trim();
-  }
-
-  // Sizing & Positioning
-  j2vSettings['outline-width'] = Number(settings.outlineWidth !== undefined ? settings.outlineWidth : 8);
-  j2vSettings.position = settings.position || 'center-bottom';
-  j2vSettings['all-caps'] = allCaps;
-  j2vSettings['max-words-per-line'] = Number(settings.maxWordsPerLine) || 3;
-
-  return j2vSettings;
-}

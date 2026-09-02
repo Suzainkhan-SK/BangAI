@@ -1,6 +1,8 @@
 // Subtitle style presets modeled after top viral creators (MrBeast, Alex Hormozi, Iman Gadzhi, Ali Abdaal, Vox / Dev)
 // These map directly to json2video's whisper subtitle rendering engine
 
+import { normalizeSubtitleStyle, normalizeSubtitlePosition } from '../lib/json2videoSubtitles.js';
+
 export const SUBTITLE_STYLES = [
   {
     id: 'mrbeast-viral',
@@ -11,7 +13,7 @@ export const SUBTITLE_STYLES = [
     badge: '🔥 Most Viral',
     color: '#FFE600',
     // json2video whisper settings (1080x1920 canvas)
-    style: 'highlight',
+    style: 'classic-progressive',
     fontFamily: 'Montserrat',
     fontSize: 78,
     wordColor: '#FFE600',
@@ -55,7 +57,7 @@ export const SUBTITLE_STYLES = [
     icon: '👑',
     badge: '✨ Aesthetic',
     color: '#EAB308',
-    style: 'highlight',
+    style: 'classic-progressive',
     fontFamily: 'Inter',
     fontSize: 68,
     wordColor: '#EAB308',
@@ -64,7 +66,7 @@ export const SUBTITLE_STYLES = [
     outlineWidth: 6,
     shadowColor: '#000000',
     boxColor: '',
-    position: 'center-bottom',
+    position: 'mid-bottom-center',
     allCaps: false,
     maxWordsPerLine: 4,
     samplePreview: 'The secret discipline top performers never talk about'
@@ -77,7 +79,7 @@ export const SUBTITLE_STYLES = [
     icon: '💎',
     badge: '📱 Modern',
     color: '#06B6D4',
-    style: 'highlight',
+    style: 'classic-progressive',
     fontFamily: 'Inter',
     fontSize: 72,
     wordColor: '#06B6D4',
@@ -99,7 +101,7 @@ export const SUBTITLE_STYLES = [
     icon: '🔥',
     badge: '🚀 High Energy',
     color: '#EF4444',
-    style: 'highlight',
+    style: 'classic-progressive',
     fontFamily: 'Bebas Neue',
     fontSize: 84,
     wordColor: '#EF4444',
@@ -154,9 +156,9 @@ export const SUBTITLE_FONTS = [
 
 // Subtitle position options
 export const SUBTITLE_POSITIONS = [
-  { id: 'bottom', name: 'Lower Third (Center Bottom - Recommended)', value: 'center-bottom' },
+  { id: 'bottom', name: 'Lower Third (Center Bottom - Recommended)', value: 'mid-bottom-center' },
   { id: 'center', name: 'Center Screen (Standard Shorts)', value: 'center-center' },
-  { id: 'top', name: 'Top Header (Center Top)', value: 'center-top' }
+  { id: 'top', name: 'Top Header (Center Top)', value: 'top-center' }
 ];
 
 /**
@@ -187,6 +189,7 @@ export function resolveSubtitleConfig(settings, sampleText = '', language = '') 
     ...settings,
     fontFamily,
     allCaps,
-    position: settings?.position || 'center-bottom'
+    style: normalizeSubtitleStyle(settings?.style),
+    position: normalizeSubtitlePosition(settings?.position)
   };
 }

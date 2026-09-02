@@ -4,44 +4,51 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardApp from './components/Dashboard/DashboardApp';
+import StudioPage from './pages/StudioPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import ApiDocsPage from './pages/ApiDocsPage';
 import PricingPage from './pages/PricingPage';
 import { audioEngine } from './audio/audioEngine';
 import { getStoredUser, verifySession, logoutUser } from './utils/authClient';
+import { ROUTES, matchRoute } from './routes';
+import { VideoSettingsProvider } from './state/videoSettings';
 
-const PRIVATE_ROUTES = ['dashboard', 'profile', 'settings'];
+export const APP_ROUTES = ROUTES;
 
-// Helper to get initial view from URL hash or localStorage with strict auth check
-function getInitialView() {
+// Helper to get initial route from URL hash or localStorage with auth check
+function resolveInitialRoute() {
   if (typeof window !== 'undefined') {
     // Check if returning from Google OAuth
     const search = window.location.search || (window.location.hash.includes('?') ? window.location.hash.substring(window.location.hash.indexOf('?')) : '');
     const params = new URLSearchParams(search);
     if (params.get('auth') === 'google_success' && params.get('token')) {
-      return 'dashboard';
+      return matchRoute('dashboard');
     }
 
-    const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0].toLowerCase();
-    const validViews = ['landing', 'login', 'register', 'dashboard', 'profile', 'settings', 'api', 'pricing'];
+    const hash = window.location.hash;
+    const matched = matchRoute(hash);
     const hasToken = !!(localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token'));
 
-    if (hash && validViews.includes(hash)) {
-      if (PRIVATE_ROUTES.includes(hash) && !hasToken) {
-        return 'login';
+    if (matched) {
+      if (matched.private && !hasToken) {
+        return matchRoute('login');
       }
-      return hash;
+      return matched;
     }
+
     const savedView = localStorage.getItem('bangai_view') || localStorage.getItem('shortsai_view');
-    if (savedView && validViews.includes(savedView)) {
-      if (PRIVATE_ROUTES.includes(savedView) && !hasToken) {
-        return 'login';
+    if (savedView) {
+      const savedMatched = matchRoute(savedView);
+      if (savedMatched) {
+        if (savedMatched.private && !hasToken) {
+          return matchRoute('login');
+        }
+        return savedMatched;
       }
-      return savedView;
     }
   }
-  return 'landing';
+  return matchRoute('');
 }
 
 // Helper to get initial theme from localStorage
@@ -55,10 +62,10 @@ function getInitialTheme() {
   return 'dark';
 }
 
-export default function App() {
+function AppContent() {
   const [theme, setTheme] = useState(getInitialTheme);
   const [user, setUser] = useState(getStoredUser);
-  const [currentView, setCurrentView] = useState(getInitialView);
+  const [currentRoute, setCurrentRoute] = useState(resolveInitialRoute);
   const [pendingPrompt, setPendingPrompt] = useState('');
   const [selectedPresetForDashboard, setSelectedPresetForDashboard] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -87,7 +94,8 @@ export default function App() {
       }
 
       audioEngine.playSfx('boom');
-      setCurrentView('dashboard');
+      const dashRoute = matchRoute('dashboard');
+      setCurrentRoute(dashRoute);
       // Clean URL hash without params
       window.history.replaceState({}, document.title, window.location.pathname + '#/dashboard');
     }
@@ -98,8 +106,8 @@ export default function App() {
     const hasToken = !!(localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token'));
     if (!hasToken) {
       setUser(null);
-      if (PRIVATE_ROUTES.includes(currentView)) {
-        setCurrentView('login');
+      if (currentRoute?.private) {
+        setCurrentRoute(matchRoute('login'));
       }
       return;
     }
@@ -109,8 +117,8 @@ export default function App() {
         setUser(verifiedUser);
       } else {
         setUser(null);
-        if (PRIVATE_ROUTES.includes(currentView)) {
-          setCurrentView('login');
+        if (currentRoute?.private) {
+          setCurrentRoute(matchRoute('login'));
         }
       }
     });
@@ -118,13 +126,16 @@ export default function App() {
 
   // Strict Route Guard: Kick unauthenticated users out of private routes
   useEffect(() => {
-    if (PRIVATE_ROUTES.includes(currentView) && !user) {
-      setCurrentView('login');
-      if (window.location.hash !== '#/login') {
-        window.location.hash = '#/login';
+    if (currentRoute?.private && !user) {
+      const hasToken = !!(localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token'));
+      if (!hasToken) {
+        setCurrentRoute(matchRoute('login'));
+        if (window.location.hash !== '#/login') {
+          window.location.hash = '#/login';
+        }
       }
     }
-  }, [currentView, user]);
+  }, [currentRoute, user]);
 
   // Apply & Persist Theme
   useEffect(() => {
@@ -137,33 +148,35 @@ export default function App() {
   // Persist Current View to localStorage and URL Hash
   useEffect(() => {
     try {
-      localStorage.setItem('shortsai_view', currentView);
-      if (currentView === 'landing') {
-        if (window.location.hash) history.replaceState(null, '', window.location.pathname);
-      } else {
-        if (window.location.hash !== `#/${currentView}`) {
-          window.location.hash = `#/${currentView}`;
+      if (currentRoute?.path !== undefined) {
+        localStorage.setItem('shortsai_view', currentRoute.path || 'landing');
+        if (!currentRoute.path) {
+          if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+        } else {
+          if (window.location.hash !== `#/${currentRoute.path}`) {
+            window.location.hash = `#/${currentRoute.path}`;
+          }
         }
       }
     } catch (e) {}
-  }, [currentView]);
+  }, [currentRoute]);
 
   // Listen to browser Back/Forward (Hash Change)
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
-      const validViews = ['landing', 'login', 'register', 'dashboard', 'profile', 'settings', 'api', 'pricing'];
-      const hasToken = !!localStorage.getItem('shortsai_token');
+      const matched = matchRoute(window.location.hash);
+      const hasToken = !!(localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token'));
 
-      if (hash && validViews.includes(hash)) {
-        if (PRIVATE_ROUTES.includes(hash) && (!user || !hasToken)) {
-          setCurrentView('login');
+      if (matched) {
+        if (matched.private && (!user || !hasToken)) {
+          setCurrentRoute(matchRoute('login'));
           window.location.hash = '#/login';
           return;
         }
-        setCurrentView(hash);
-      } else if (!hash) {
-        setCurrentView('landing');
+        setCurrentRoute(matched);
+      } else {
+        const fallback = (user && hasToken) ? matchRoute('dashboard') : matchRoute('');
+        setCurrentRoute(fallback);
       }
     };
 
@@ -176,56 +189,65 @@ export default function App() {
   };
 
   // Protected Navigation handler
-  const handleNavigate = (view) => {
+  const handleNavigate = (target) => {
     audioEngine.playSfx('click');
-    const hasToken = !!localStorage.getItem('shortsai_token');
+    const matched = matchRoute(target) || matchRoute('dashboard');
+    const hasToken = !!(localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token'));
 
-    if (PRIVATE_ROUTES.includes(view) && (!user || !hasToken)) {
+    if (matched.private && (!user || !hasToken)) {
       // Direct unauthenticated users to login
-      setCurrentView('login');
+      setCurrentRoute(matchRoute('login'));
       window.location.hash = '#/login';
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    setCurrentView(view);
+    setCurrentRoute(matched);
+    if (matched.path) {
+      window.location.hash = `#/${matched.path}`;
+    } else {
+      if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
-    setCurrentView('dashboard');
+    handleNavigate('dashboard');
   };
 
   const handleLogout = () => {
     audioEngine.playSfx('click');
     logoutUser();
     setUser(null);
-    setCurrentView('landing');
+    handleNavigate('');
   };
 
   const handleStartCreationFromHero = (prompt) => {
     setPendingPrompt(prompt);
     setSelectedPresetForDashboard(null);
-    const hasToken = !!localStorage.getItem('shortsai_token');
+    const hasToken = !!(localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token'));
 
     if (!user || !hasToken) {
-      setCurrentView('register');
+      handleNavigate('register');
       return;
     }
-    setCurrentView('dashboard');
+    handleNavigate('dashboard');
   };
 
   const handleSelectPresetFromShowcase = (presetId) => {
     setSelectedPresetForDashboard(presetId);
-    const hasToken = !!localStorage.getItem('shortsai_token');
+    const hasToken = !!(localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token'));
 
     if (!user || !hasToken) {
-      setCurrentView('register');
+      handleNavigate('register');
       return;
     }
-    setCurrentView('dashboard');
+    handleNavigate('dashboard');
   };
+
+  const currentView = currentRoute?.view || 'landing';
+  const currentRoutePath = currentRoute?.path || '';
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', width: '100%', overflowX: 'hidden' }}>
@@ -233,7 +255,7 @@ export default function App() {
       <Navbar
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        currentView={currentView}
+        currentView={currentRoutePath || currentView}
         onNavigate={handleNavigate}
         user={user}
         onLogout={handleLogout}
@@ -259,7 +281,7 @@ export default function App() {
           <LoginPage
             onLoginSuccess={handleLoginSuccess}
             onNavigateToRegister={() => handleNavigate('register')}
-            onNavigateToLanding={() => handleNavigate('landing')}
+            onNavigateToLanding={() => handleNavigate('')}
           />
         )}
 
@@ -267,7 +289,7 @@ export default function App() {
           <RegisterPage
             onRegisterSuccess={handleLoginSuccess}
             onNavigateToLogin={() => handleNavigate('login')}
-            onNavigateToLanding={() => handleNavigate('landing')}
+            onNavigateToLanding={() => handleNavigate('')}
           />
         )}
 
@@ -285,13 +307,30 @@ export default function App() {
               onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
               onNavigateToSettings={() => handleNavigate('settings')}
               onNavigateToProfile={() => handleNavigate('profile')}
+              onNavigate={handleNavigate}
+              onOpenStudio={(tab) => handleNavigate('studio/' + (tab || 'voices'))}
               onLogout={handleLogout}
             />
           ) : (
             <LoginPage
               onLoginSuccess={handleLoginSuccess}
               onNavigateToRegister={() => handleNavigate('register')}
-              onNavigateToLanding={() => handleNavigate('landing')}
+              onNavigateToLanding={() => handleNavigate('')}
+            />
+          )
+        )}
+
+        {(currentView === 'studio' || currentView === 'studio-voices' || currentView === 'studio-subtitles' || currentView === 'studio-music') && (
+          user ? (
+            <StudioPage
+              tab={currentRoute.tab || 'voices'}
+              onNavigate={handleNavigate}
+            />
+          ) : (
+            <LoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onNavigateToRegister={() => handleNavigate('register')}
+              onNavigateToLanding={() => handleNavigate('')}
             />
           )
         )}
@@ -307,7 +346,7 @@ export default function App() {
             <LoginPage
               onLoginSuccess={handleLoginSuccess}
               onNavigateToRegister={() => handleNavigate('register')}
-              onNavigateToLanding={() => handleNavigate('landing')}
+              onNavigateToLanding={() => handleNavigate('')}
             />
           )
         )}
@@ -322,7 +361,7 @@ export default function App() {
             <LoginPage
               onLoginSuccess={handleLoginSuccess}
               onNavigateToRegister={() => handleNavigate('register')}
-              onNavigateToLanding={() => handleNavigate('landing')}
+              onNavigateToLanding={() => handleNavigate('')}
             />
           )
         )}
@@ -342,5 +381,13 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <VideoSettingsProvider>
+      <AppContent />
+    </VideoSettingsProvider>
   );
 }

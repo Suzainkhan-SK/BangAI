@@ -10,7 +10,7 @@ import { VOICES } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS, DEFAULT_MUSIC_ID, resolveMusicId, getMusicTrackById } from '../../data/musicTracks';
 import { SUBTITLE_STYLES } from '../../data/subtitleStyles';
-import StudioLab from '../Studio/StudioLab';
+import { useVideoSettings } from '../../state/videoSettings';
 import { audioEngine } from '../../audio/audioEngine';
 import { detectMode } from '../../utils/detectIntent';
 import { 
@@ -58,6 +58,9 @@ export default function DashboardApp({
   onToggleSidebar,
   user,
   onNavigateToSettings,
+  onNavigateToProfile,
+  onNavigate,
+  onOpenStudio,
   onLogout
 }) {
   const [sessionId] = useState(getOrCreateSessionId);
@@ -88,19 +91,31 @@ export default function DashboardApp({
     }
   }, [pastShorts]);
 
+  const { settings: videoSettings, updateSettings: updateVideoSettings } = useVideoSettings();
+  const voiceId = videoSettings.voiceId;
+  const setVoiceId = (v) => updateVideoSettings({ voiceId: v });
+  const voiceSpeed = videoSettings.voiceSpeed;
+  const setVoiceSpeed = (s) => updateVideoSettings({ voiceSpeed: s });
+  const styleId = videoSettings.styleId;
+  const setStyleId = (st) => updateVideoSettings({ styleId: st });
+  const musicId = videoSettings.musicId;
+  const setMusicId = (m) => updateVideoSettings({ musicId: m });
+  const language = videoSettings.language;
+  const setLanguage = (l) => updateVideoSettings({ language: l });
+  const subtitleSettings = videoSettings.subtitleSettings;
+  const setSubtitleSettings = (sub) => updateVideoSettings({ subtitleSettings: sub });
+  const musicVolume = videoSettings.musicVolume;
+  const setMusicVolume = (mv) => updateVideoSettings({ musicVolume: mv });
+  const privacyStatus = videoSettings.privacyStatus;
+  const setPrivacyStatus = (p) => updateVideoSettings({ privacyStatus: p });
+
   const [prompt, setPrompt] = useState(initialPrompt || '');
-  const [voiceId, setVoiceId] = useState('adam');
-  const [voiceSpeed, setVoiceSpeed] = useState(1.30);
-  const [styleId, setStyleId] = useState('cinematic');
-  const [musicId, setMusicId] = useState(DEFAULT_MUSIC_ID);
-  const [language, setLanguage] = useState('Hinglish');
   const [autoUploadToYouTube, setAutoUploadToYouTube] = useState(false);
   const [channels, setChannels] = useState([]);
   const [selectedChannelId, setSelectedChannelId] = useState('');
   const [sheets, setSheets] = useState([]);
   const [selectedSheetId, setSelectedSheetId] = useState('');
   const [autoLogToSheet, setAutoLogToSheet] = useState(true);
-  const [privacyStatus, setPrivacyStatus] = useState('public');
 
   // Fetch connected YouTube channels and Google Sheets
   useEffect(() => {
@@ -157,24 +172,17 @@ export default function DashboardApp({
     };
   }, []);
 
-  const [subtitleSettings, setSubtitleSettings] = useState({
-    presetId: 'mrbeast-viral',
-    style: 'highlight',
-    fontFamily: 'Montserrat',
-    fontSize: 78,
-    wordColor: '#FFE600',
-    lineColor: '#FFFFFF',
-    outlineColor: '#000000',
-    outlineWidth: 10,
-    shadowColor: '#000000',
-    boxColor: '',
-    position: 'center-bottom',
-    allCaps: true,
-    maxWordsPerLine: 3
-  });
-  const [musicVolume, setMusicVolume] = useState(0.08);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isStudioOpen, setIsStudioOpen] = useState(false);
+
+  const handleOpenStudio = (tab = 'voices') => {
+    if (typeof onOpenStudio === 'function') {
+      onOpenStudio(tab);
+    } else if (typeof onNavigate === 'function') {
+      onNavigate('studio/' + tab);
+    } else {
+      window.location.hash = `#/studio/${tab}`;
+    }
+  };
 
   // Single source of truth for layout decisions (inline styles beat CSS classes,
   // so structural responsiveness has to be driven from JS here).
@@ -1357,8 +1365,8 @@ export default function DashboardApp({
           user={user}
           onOpenSettings={onNavigateToSettings}
           onLogout={onLogout}
-          isStudioOpen={isStudioOpen}
-          onToggleStudio={() => { setIsStudioOpen(prev => !prev); setIsMobileSidebarOpen(false); }}
+          currentRoutePath="dashboard"
+          onNavigate={onNavigate}
           isMobileDrawer={isMobile}
           onCloseDrawer={() => setIsMobileSidebarOpen(false)}
         />
@@ -1402,23 +1410,21 @@ export default function DashboardApp({
                 : 'Bang AI Studio'}
             </div>
             <div className="truncate" style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              {isStudioOpen
-                ? 'Design Studio'
-                : activeThread
-                  ? String(activeThread.status || 'ACTIVE').replace(/_/g, ' ').toLowerCase()
-                  : `${pastShorts.length} video${pastShorts.length === 1 ? '' : 's'} in history`}
+              {activeThread
+                ? String(activeThread.status || 'ACTIVE').replace(/_/g, ' ').toLowerCase()
+                : `${pastShorts.length} video${pastShorts.length === 1 ? '' : 's'} in history`}
             </div>
           </div>
 
           <button
-            onClick={() => { audioEngine.playSfx('click'); setIsStudioOpen(prev => !prev); }}
+            onClick={() => { audioEngine.playSfx('click'); handleOpenStudio('voices'); }}
             className="icon-btn"
-            aria-label={isStudioOpen ? 'Close Design Studio' : 'Open Design Studio'}
+            aria-label="Open Design Studio"
             style={{
               width: '38px', height: '38px', borderRadius: '11px',
-              background: isStudioOpen ? 'rgba(16,185,129,0.16)' : 'var(--bg-card)',
-              border: `1px solid ${isStudioOpen ? 'rgba(16,185,129,0.55)' : 'var(--border-subtle)'}`,
-              color: isStudioOpen ? '#10b981' : 'var(--text-muted)',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+              color: '#10b981',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0
             }}
@@ -1442,59 +1448,7 @@ export default function DashboardApp({
         </div>
 
         <div className="studio-main-content">
-          {/* ── DEDICATED DESIGN STUDIO SCREEN ── */}
-          {isStudioOpen ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '60px' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 16px',
-                background: 'var(--bg-card)',
-                borderRadius: '16px',
-                border: '1px solid var(--border-subtle)',
-                boxShadow: 'var(--shadow-card)'
-              }}>
-                <button
-                  onClick={() => setIsStudioOpen(false)}
-                  className="btn-outline"
-                  style={{ fontSize: '12.5px', padding: '6px 14px', gap: '6px', fontWeight: 700 }}
-                >
-                  <ArrowLeft size={14} />
-                  <span>Back to Shorts Canvas</span>
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="badge badge-brand" style={{ fontSize: '11px', fontWeight: 800 }}>
-                    ✨ Standalone Audiovisual Studio
-                  </span>
-                </div>
-              </div>
-
-              <StudioLab
-                selectedVoiceId={voiceId}
-                onSelectVoice={(vId) => setVoiceId(vId)}
-                voiceSpeed={voiceSpeed}
-                onVoiceSpeedChange={(spd) => setVoiceSpeed(spd)}
-                subtitleSettings={subtitleSettings}
-                onSubtitleChange={(subs) => setSubtitleSettings(subs)}
-                selectedMusicId={musicId}
-                onSelectMusic={(mId) => setMusicId(mId)}
-                musicVolume={musicVolume}
-                onMusicVolumeChange={(vol) => setMusicVolume(vol)}
-                onApplySettingsToVideo={(settings) => {
-                  if (settings.voiceId) setVoiceId(settings.voiceId);
-                  if (settings.voiceSpeed) setVoiceSpeed(settings.voiceSpeed);
-                  if (settings.subtitleSettings) setSubtitleSettings(settings.subtitleSettings);
-                  if (settings.musicId) setMusicId(resolveMusicId(settings.musicId));
-                  if (settings.musicVolume !== undefined) setMusicVolume(settings.musicVolume);
-                  setIsStudioOpen(false);
-                }}
-                onClose={() => setIsStudioOpen(false)}
-              />
-            </div>
-          ) : (
-            <>
-              {/* Header Bar if active thread is selected */}
+          {/* Header Bar if active thread is selected */}
           {activeThread && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1917,11 +1871,8 @@ export default function DashboardApp({
             </>
           )}
 
-            </>
-          )}
-
           {/* If Empty Canvas: Show Inspiration Templates */}
-          {!activeThread && !isGenerating && !isStudioOpen && (
+          {!activeThread && !isGenerating && (
             <TemplateCards
               onSelectTemplate={handleSelectTemplate}
               onSelectPreset={handleSelectShort}
@@ -1931,18 +1882,17 @@ export default function DashboardApp({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Floating Gemini Prompt Bar (Fixed Bottom Center) - Hidden when in Dedicated Studio Mode */}
-        {!isStudioOpen && (
-          <div
-            className="prompt-bar-wrapper"
-            style={{
-              left: isMobile
-                ? 0
-                : sidebarCollapsed
-                  ? 'var(--sidebar-w-collapsed, 60px)'
-                  : 'var(--sidebar-w, 240px)'
-            }}
-          >
+        {/* Floating Gemini Prompt Bar (Fixed Bottom Center) */}
+        <div
+          className="prompt-bar-wrapper"
+          style={{
+            left: isMobile
+              ? 0
+              : sidebarCollapsed
+                ? 'var(--sidebar-w-collapsed, 60px)'
+                : 'var(--sidebar-w, 240px)'
+          }}
+        >
           <div className="prompt-bar-inner">
             <CanvasPromptBar
               prompt={prompt}
@@ -1983,13 +1933,12 @@ export default function DashboardApp({
               privacyStatus={privacyStatus}
               setPrivacyStatus={setPrivacyStatus}
               onPrivacyChange={setPrivacyStatus}
-              onOpenStudio={() => setIsStudioOpen(true)}
-              onOpenProfile={() => { window.location.hash = '#/profile'; }}
+              onOpenStudio={(tab) => handleOpenStudio(tab)}
+              onOpenProfile={() => { if (typeof onNavigateToProfile === 'function') onNavigateToProfile(); else window.location.hash = '#/profile'; }}
               onStop={handleTerminateExecution}
             />
           </div>
         </div>
-        )}
       </main>
     </div>
   );

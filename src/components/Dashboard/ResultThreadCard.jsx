@@ -806,7 +806,7 @@ export default function ResultThreadCard({
                 {chosenSubtitlePreset?.name || 'Viral Subs Highlight'}
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                Font: <strong>{chosenSubtitle?.fontFamily || 'Montserrat'}</strong> · Position: <strong>{chosenSubtitle?.position || 'center-bottom'}</strong>
+                Font: <strong>{chosenSubtitle?.fontFamily || 'Montserrat'}</strong> · Position: <strong>{chosenSubtitle?.position || 'mid-bottom-center'}</strong>
               </div>
 
               <div style={{
