@@ -1032,16 +1032,18 @@ export default function ResultThreadCard({
                   <Type size={16} />
                   <span>Subtitles Typography</span>
                 </div>
-                <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
-                  {resolved.chosenSubtitlePreset?.name || 'Kinetic Sync'}
-                </span>
+                {resolved.chosenSubtitlePreset?.name && (
+                  <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+                    {resolved.chosenSubtitlePreset.name}
+                  </span>
+                )}
               </div>
 
               <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {fmt(resolved.subtitleSettings?.fontFamily, '', 'Montserrat')} ({fmt(resolved.subtitleSettings?.fontSize, 'px', '78px')})
+                {fmt(resolved.subtitleSettings?.fontFamily)} ({fmt(resolved.subtitleSettings?.fontSize, 'px')})
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                Position: <strong>{fmt(resolved.subtitleSettings?.position, '', 'center-center')}</strong>
+                Position: <strong>{fmt(resolved.subtitleSettings?.position)}</strong>
               </div>
 
               <div style={{
@@ -1054,7 +1056,7 @@ export default function ResultThreadCard({
                 justifyContent: 'space-between'
               }}>
                 <span>Highlight: <strong style={{ color: resolved.subtitleSettings?.wordColor || '#FFE600' }}>● Active Word</strong></span>
-                <span>All Caps: <strong>{resolved.subtitleSettings?.allCaps !== false ? 'YES' : 'NO'}</strong></span>
+                <span>All Caps: <strong>{resolved.subtitleSettings ? (resolved.subtitleSettings.allCaps !== false ? 'YES' : 'NO') : 'Not reported'}</strong></span>
               </div>
             </div>
 

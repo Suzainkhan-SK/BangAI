@@ -1870,7 +1870,6 @@ export default function DashboardApp({
                 key={activeThread.id || activeThread.threadId}
                 shortData={activeThread}
                 onUploadYouTube={handleUploadYouTube}
-                onRefine={typeof handleRefineStory === 'function' ? handleRefineStory : undefined}
               />
 
               {/* YouTube Upload Success Messages — rendered BELOW the card, not above */}

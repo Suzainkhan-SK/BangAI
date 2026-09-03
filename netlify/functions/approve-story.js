@@ -490,7 +490,7 @@ export const handler = async (event, context) => {
             $push: {
               messages: {
                 role: 'assistant',
-                content: '🎬 5 scenes approved! Autonomous 4K video rendering pipeline dispatched on n8n Cloud...',
+                content: '🎬 5 scenes approved! Autonomous video rendering pipeline dispatched on n8n Cloud...',
                 timestamp: now
               }
             }

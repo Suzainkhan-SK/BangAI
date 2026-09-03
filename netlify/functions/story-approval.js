@@ -251,8 +251,8 @@ export const handler = async (event, context) => {
       } else if (['VIDEO_COMPLETED', 'VIDEO_UPLOADED_SUCCESS', 'COMPLETED', 'SUCCESS'].includes(data.status) || data.videoUrl) {
         status = 'COMPLETED';
         messageContent = data.youtubeUrl
-          ? `🎉 **4K Video Uploaded to YouTube!**\n\n📺 ${data.youtubeUrl}`
-          : `🎉 **4K Video Render Complete!**`;
+          ? `🎉 **Video Uploaded to YouTube!**\n\n📺 ${data.youtubeUrl}`
+          : `🎉 **Video Render Complete!**`;
       } else if (data.status === 'YOUTUBE_UPLOAD_FAILED') {
         status = 'COMPLETED';
         messageContent = `⚠️ YouTube Upload: ${data.errorMessage || 'Upload failed — retry available.'}`;
