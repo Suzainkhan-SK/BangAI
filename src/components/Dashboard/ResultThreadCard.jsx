@@ -489,6 +489,56 @@ export default function ResultThreadCard({
             </a>
           </div>
         </div>
+      ) : resolved.uploadStatus === 'PROCESSING' ? (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(30, 64, 175, 0.25))',
+          border: '1.5px solid #3b82f6',
+          borderRadius: '14px',
+          padding: '14px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: '#3b82f6', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CheckCircle2 size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#3b82f6' }}>
+                ✅ Uploaded to YouTube — YouTube is still processing the video.
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+                Open it in YouTube Studio to confirm. It will only appear under <strong>Shorts</strong> after processing finishes.
+                {shortData.videoId ? ` (ID: ${shortData.videoId})` : ''}
+              </div>
+            </div>
+          </div>
+          {shortData.youtubeUrl && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                onClick={handleCopyYtUrl}
+                className="btn-outline"
+                style={{ padding: '6px 12px', fontSize: '11.5px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(59,130,246,0.4)', color: '#fff' }}
+              >
+                {copiedYtUrl ? <Check size={13} color="#3b82f6" /> : <Copy size={13} />}
+                <span>{copiedYtUrl ? 'Copied Link' : 'Copy Link'}</span>
+              </button>
+              <a
+                href={shortData.youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-outline"
+                style={{ padding: '6px 14px', fontSize: '11.5px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(59,130,246,0.2)', border: '1px solid #3b82f6', color: '#fff', fontWeight: 800 }}
+              >
+                <YoutubeIcon size={14} />
+                <span>View on YouTube</span>
+                <ExternalLink size={12} />
+              </a>
+            </div>
+          )}
+        </div>
       ) : resolved.uploadStatus === 'UPLOADING' ? (
         <div style={{
           background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(6, 182, 212, 0.15))',
@@ -535,7 +585,7 @@ export default function ResultThreadCard({
                 ⚠️ YouTube Upload Encountered an Issue
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                {resolved.uploadError || 'Failed to upload video to YouTube. Check your channel token in Profile.'}
+                {resolved.uploadError || 'YouTube could not process the uploaded file'}
               </div>
             </div>
           </div>

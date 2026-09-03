@@ -178,6 +178,9 @@ export const handler = async (event, context) => {
             scenesSource: latest.scenesSource || latest.story?.scenesSource || null,
             uploadStatus: latest.uploadStatus || latest.story?.uploadStatus || null,
             uploadError: latest.uploadError || latest.story?.uploadError || null,
+            ytUploadStatus: latest.ytUploadStatus || latest.story?.ytUploadStatus || null,
+            ytProcessingStatus: latest.ytProcessingStatus || latest.story?.ytProcessingStatus || null,
+            bytesUploaded: latest.bytesUploaded ?? latest.story?.bytesUploaded ?? null,
             criticVerdict: latest.criticVerdict || latest.story?.criticVerdict || null,
             criticScore: latest.criticScore ?? null,
             errorMessage: latest.errorMessage || null,
@@ -297,8 +300,12 @@ export const handler = async (event, context) => {
       if (data.scenesSource) updateDoc.scenesSource = data.scenesSource;
       if (data.uploadStatus) updateDoc.uploadStatus = data.uploadStatus;
       if (data.uploadError) updateDoc.uploadError = data.uploadError;
+      if (data.ytUploadStatus) updateDoc.ytUploadStatus = data.ytUploadStatus;
+      if (data.ytProcessingStatus) updateDoc.ytProcessingStatus = data.ytProcessingStatus;
+      if (data.bytesUploaded !== undefined && data.bytesUploaded !== null) updateDoc.bytesUploaded = data.bytesUploaded;
 
-      // D4: Derive uploadStatus if not explicitly provided
+      // R11-E: If the incoming payload sends an explicit uploadStatus, trust it verbatim and skip derivation.
+      // Only derive when the field is absent.
       if (!updateDoc.uploadStatus) {
         if (data.status === 'YOUTUBE_UPLOAD_FAILED') {
           updateDoc.uploadStatus = 'FAILED';
@@ -311,6 +318,11 @@ export const handler = async (event, context) => {
             updateDoc.uploadStatus = 'PENDING';
           }
         }
+      }
+
+      // Never downgrade an already UPLOADED status
+      if (existing?.uploadStatus === 'UPLOADED' && updateDoc.uploadStatus !== 'UPLOADED') {
+        updateDoc.uploadStatus = 'UPLOADED';
       }
 
       const msgObj = {
