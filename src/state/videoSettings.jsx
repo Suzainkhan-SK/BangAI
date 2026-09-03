@@ -36,9 +36,9 @@ export const DEFAULT_VIDEO_SETTINGS = {
 export function sanitizeVideoSettings(input) {
   const raw = input && typeof input === 'object' ? input : {};
   
-  // Voice Speed clamp 1.10 - 1.50 (default 1.30)
+  // Voice Speed clamp 0.5 - 4.0 (default 1.30)
   const rawSpeed = Number(raw.voiceSpeed);
-  const voiceSpeed = isFinite(rawSpeed) && rawSpeed > 0 ? Math.max(1.10, Math.min(1.50, Number(rawSpeed.toFixed(2)))) : 1.30;
+  const voiceSpeed = isFinite(rawSpeed) && rawSpeed > 0 ? Math.max(0.5, Math.min(4, Number(rawSpeed.toFixed(2)))) : 1.30;
 
   // Music Volume clamp 0 - 0.4 with isFinite (default 0.08)
   const rawVol = Number(raw.musicVolume);

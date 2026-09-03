@@ -195,6 +195,40 @@ export const handler = async (event, context) => {
     const n8nText = await n8nRes.text();
     console.log('[Bang AI] n8n YouTube upload response status:', n8nStatus, 'body:', n8nText);
 
+    if (!n8nRes.ok) {
+      const errMsg = `n8n rejected the upload request (HTTP ${n8nStatus}).`;
+      if (db && threadId) {
+        await db.collection('threads').updateOne(
+          { threadId },
+          {
+            $set: {
+              uploadStatus: 'FAILED',
+              uploadError: errMsg,
+              updatedAt: now
+            },
+            $push: {
+              messages: {
+                threadId,
+                role: 'assistant',
+                content: `❌ **YouTube upload could not be started.**\n\n${errMsg}`,
+                timestamp: now
+              }
+            }
+          }
+        );
+      }
+      return {
+        statusCode: 502,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          error: 'N8N_DISPATCH_FAILED',
+          message: errMsg,
+          detail: n8nText.slice(0, 400)
+        })
+      };
+    }
+
     if (db && threadId) {
       const resolvedUserId = user?.userId || user?.id || payload.userId;
       const resolvedEmail = (user?.email || payload.email || '').toLowerCase();
@@ -207,7 +241,8 @@ export const handler = async (event, context) => {
         {
           $set: {
             ...threadIdentity,
-            status: 'UPLOADING_YOUTUBE',
+            uploadStatus: 'UPLOADING',
+            uploadError: null,
             targetChannelTitle: selectedChannel?.channelTitle || 'Connected YouTube Channel',
             updatedAt: now
           },
@@ -215,7 +250,7 @@ export const handler = async (event, context) => {
             messages: {
               threadId,
               role: 'assistant',
-              content: `🚀 **1-Click YouTube Upload initiated.** Uploading 4K Short to ${selectedChannel ? `**${selectedChannel.channelTitle}**` : 'YouTube'}...`,
+              content: `🚀 **1-Click YouTube Upload initiated.** Uploading Short to ${selectedChannel ? `**${selectedChannel.channelTitle}**` : 'YouTube'}...`,
               timestamp: now
             }
           }
@@ -231,9 +266,11 @@ export const handler = async (event, context) => {
       },
       body: JSON.stringify({
         success: true,
-        message: 'YouTube upload job dispatched to n8n Cloud',
+        dispatched: true,
+        uploadStatus: 'UPLOADING',
+        message: 'Upload job accepted by n8n. Waiting for YouTube to return a video ID.',
         channel: selectedChannel?.channelTitle || null,
-        n8nResponse: n8nText
+        n8nStatus
       })
     };
   } catch (err) {

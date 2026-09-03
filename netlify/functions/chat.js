@@ -448,7 +448,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
       elevenLabsVoiceId: settings.elevenLabsVoiceId || '',
       voiceSpeed: (function () {
         const v = Number(settings.voiceSpeed);
-        return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30;
+        return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30;
       })(),
       visualStyle: settings.visualStyle || 'Cinematic Realistic',
       language: detectedLanguage,
@@ -532,6 +532,18 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
               mode: 'VIDEO_GENERATION',
               language: detectedLanguage,
               privacyStatus: safePrivacyStatus,
+              finalSettings: {
+                voiceId: n8nPayload.voiceId,
+                elevenLabsVoiceId: n8nPayload.elevenLabsVoiceId,
+                voiceSpeed: n8nPayload.voiceSpeed,
+                musicId: n8nPayload.musicId,
+                musicTrackUrl: n8nPayload.musicTrackUrl,
+                musicVolume: n8nPayload.musicVolume,
+                subtitleSettings: n8nPayload.subtitleSettings,
+                visualStyle: n8nPayload.visualStyle,
+                language: n8nPayload.language,
+                privacyStatus: n8nPayload.privacyStatus
+              },
               updatedAt: now
             },
             $setOnInsert: { createdAt: now }

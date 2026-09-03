@@ -67,8 +67,9 @@ function AppContent() {
   const [user, setUser] = useState(getStoredUser);
   const [currentRoute, setCurrentRoute] = useState(resolveInitialRoute);
   const [pendingPrompt, setPendingPrompt] = useState('');
-  const [selectedPresetForDashboard, setSelectedPresetForDashboard] = useState(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('bangai_sidebar_collapsed') === 'true'; } catch (e) { return false; }
+  });
 
   // 1. Capture Google OAuth callback tokens from URL if present
   useEffect(() => {

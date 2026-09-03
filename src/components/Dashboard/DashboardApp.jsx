@@ -455,8 +455,10 @@ export default function DashboardApp({
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
             const existing = t.messages || [];
-            const msgText = data.youtubeUrl
-              ? `🎉 **Video Uploaded to YouTube!**\n📺 ${data.youtubeUrl}`
+            const realUrl = data.youtubeUrl || data.story?.youtubeUrl || t.youtubeUrl;
+            const hasVideoId = !!(data.videoId || data.story?.videoId || t.videoId);
+            const msgText = (realUrl && hasVideoId)
+              ? `🎉 **Video Uploaded to YouTube!**\n📺 ${realUrl}`
               : `🎉 **Video Render Complete!**`;
             // Never invent a score here — surface whatever the workflow
             // actually reported, and keep the previous value otherwise.
@@ -464,15 +466,21 @@ export default function DashboardApp({
               data.criticScore ?? data.story?.criticScore ?? data.viralityScore ?? data.story?.viralityScore
             );
             return {
-              ...t, status: 'COMPLETED',
+              ...t,
+              status: 'COMPLETED',
               criticScore: Number.isFinite(reportedScore) && reportedScore > 0 ? reportedScore : t.criticScore,
+              criticVerdict: data.criticVerdict || data.story?.criticVerdict || t.criticVerdict || null,
+              finalSettings: data.finalSettings || data.story?.finalSettings || t.finalSettings || null,
+              scenesSource: data.scenesSource || data.story?.scenesSource || t.scenesSource || null,
+              uploadStatus: data.uploadStatus || data.story?.uploadStatus || t.uploadStatus || (realUrl ? 'UPLOADED' : 'PENDING'),
+              uploadError: data.uploadError !== undefined ? data.uploadError : (data.story?.uploadError ?? t.uploadError ?? null),
               title: data.title || data.story?.title || t.title,
               videoUrl: data.videoUrl || data.story?.videoUrl || t.videoUrl,
-              youtubeUrl: data.youtubeUrl || data.story?.youtubeUrl || t.youtubeUrl,
-              videoId: data.videoId || data.story?.videoId || t.videoId,
+              youtubeUrl: realUrl || null,
+              videoId: data.videoId || data.story?.videoId || t.videoId || null,
               scenes: data.scenes || data.story?.scenes || t.scenes,
-              youtubeDescription: data.youtubeDescription || t.youtubeDescription,
-              tags: data.tags || t.tags,
+              youtubeDescription: data.youtubeDescription || data.story?.youtubeDescription || t.youtubeDescription,
+              tags: data.tags || data.story?.tags || t.tags,
               messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
             };
           }));
@@ -765,12 +773,20 @@ export default function DashboardApp({
       title: messageText,
       rawUserInput: messageText,
       voiceId: voiceId,
+      elevenLabsVoiceId: videoSettings?.elevenLabsVoiceId || '',
+      voiceSpeed: videoSettings?.voiceSpeed ?? 1.30,
       visualStyleId: styleId,
       musicId: musicId,
+      musicTrackUrl: videoSettings?.musicTrackUrl || '',
+      musicVolume: videoSettings?.musicVolume ?? 0.08,
+      subtitleSettings: videoSettings?.subtitleSettings || null,
+      aspectRatio: '9:16',
+      uploadStatus: 'PENDING',
       language: language,
-      // Carried over from the thread being continued; a fresh thread has no
-      // score until the workflow's critic actually returns one.
-      criticScore: activeThread?.criticScore,
+      criticScore: activeThread?.criticScore ?? null,
+      criticVerdict: activeThread?.criticVerdict ?? null,
+      finalSettings: activeThread?.finalSettings ?? null,
+      scenesSource: activeThread?.scenesSource ?? null,
       status: mode === 'VIDEO_GENERATION' ? 'GENERATING' : (activeThread?.status || 'CHAT'),
       story: activeThread?.story || null,
       scenes: activeThread?.scenes || null,
@@ -1197,7 +1213,7 @@ export default function DashboardApp({
           language: activeThread?.story?.language || language || 'English',
           voiceId: chosenVoiceId,
           elevenLabsVoiceId: chosenElevenLabsVoiceId,
-          voiceSpeed: (function() { const v = Number(chosenVoiceSpeed); return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30; })(),
+          voiceSpeed: (function() { const v = Number(chosenVoiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30; })(),
           visualStyle: activeThread?.visualStyleId || styleId || 'cinematic',
           subtitleSettings: chosenSubtitleSettings,
           musicId: chosenMusicId,
@@ -1317,11 +1333,27 @@ export default function DashboardApp({
           (t.threadId === activeThreadId || t.id === activeThreadId)
             ? {
                 ...t,
-                youtubeUrl: data.youtubeUrl,
-                videoId: data.uploadId,
+                uploadStatus: 'UPLOADING',
+                uploadError: null,
                 messages: [
                   ...(t.messages || []),
-                  { role: 'assistant', content: `🚀 **1-Click Upload to YouTube Success!**\n\n📺 **Watch Short:** ${data.youtubeUrl}` }
+                  { role: 'assistant', content: `🚀 **1-Click Upload to YouTube initiated.** Uploading to ${data.channel ? `**${data.channel}**` : 'YouTube'}...` }
+                ]
+              }
+            : t
+        ));
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        const errMsg = errData.message || 'YouTube upload request failed.';
+        setPastShorts(prev => prev.map(t => 
+          (t.threadId === activeThreadId || t.id === activeThreadId)
+            ? {
+                ...t,
+                uploadStatus: 'FAILED',
+                uploadError: errMsg,
+                messages: [
+                  ...(t.messages || []),
+                  { role: 'assistant', content: `❌ **YouTube upload failed to start:** ${errMsg}` }
                 ]
               }
             : t
@@ -1838,7 +1870,7 @@ export default function DashboardApp({
                 key={activeThread.id || activeThread.threadId}
                 shortData={activeThread}
                 onUploadYouTube={handleUploadYouTube}
-                onRegenerate={() => handleGenerate('VIDEO_GENERATION')}
+                onRefine={typeof handleRefineStory === 'function' ? handleRefineStory : undefined}
               />
 
               {/* YouTube Upload Success Messages — rendered BELOW the card, not above */}

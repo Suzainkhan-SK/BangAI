@@ -194,11 +194,34 @@ export default function StoryApprovalCard({
 
   // ─── AUDIOVISUAL CUSTOMIZATION STATE ─────────────────────────────
   const [liveVoices, setLiveVoices] = useState(getAllVoices);
-  const [selectedVoiceId, setSelectedVoiceId] = useState(() => story?.voiceId || initialVoiceId || 'adam');
-  const [voiceSpeed, setVoiceSpeed] = useState(() => {
-    const raw = Number(story?.voiceSpeed) || Number(initialVoiceSpeed);
-    return isFinite(raw) && raw > 0 ? Math.max(1.10, Math.min(1.50, raw)) : 1.30;
-  });
+
+  // 1. Voice ID
+  const seedVoiceId = () => {
+    return story?.finalSettings?.voiceId || story?.voiceId || initialVoiceId || 'adam';
+  };
+  const [selectedVoiceId, setSelectedVoiceId] = useState(seedVoiceId);
+  const voiceTouchedRef = useRef(false);
+  useEffect(() => {
+    if (voiceTouchedRef.current) return;
+    const next = seedVoiceId();
+    if (next !== selectedVoiceId) setSelectedVoiceId(next);
+  }, [story?.finalSettings?.voiceId, story?.voiceId, initialVoiceId]);
+
+  // 2. Voice Speed
+  const seedSpeed = () => {
+    const raw = Number(
+      story?.finalSettings?.voiceSpeed ?? story?.voiceSpeed ?? initialVoiceSpeed
+    );
+    return Number.isFinite(raw) && raw > 0 ? Math.max(0.5, Math.min(4, raw)) : 1.30;
+  };
+  const [voiceSpeed, setVoiceSpeed] = useState(seedSpeed);
+  const speedTouchedRef = useRef(false);
+  useEffect(() => {
+    if (speedTouchedRef.current) return;
+    const next = seedSpeed();
+    if (next !== voiceSpeed) setVoiceSpeed(next);
+  }, [story?.finalSettings?.voiceSpeed, story?.voiceSpeed, initialVoiceSpeed]);
+
   const [voiceProviderFilter, setVoiceProviderFilter] = useState('all');
   const [voiceCategoryFilter, setVoiceCategoryFilter] = useState('all');
   const [voiceLanguageFilter, setVoiceLanguageFilter] = useState('all');
@@ -213,8 +236,9 @@ export default function StoryApprovalCard({
     }
   }, [ready]);
 
-  const [selectedSubtitleSettings, setSelectedSubtitleSettings] = useState(() => {
-    return initialSubtitleSettings || {
+  // 3. Subtitle Settings
+  const seedSubtitleSettings = () => {
+    return story?.finalSettings?.subtitleSettings || story?.subtitleSettings || initialSubtitleSettings || {
       presetId: 'mrbeast-viral',
       style: 'classic-progressive',
       fontFamily: 'Montserrat',
@@ -224,17 +248,47 @@ export default function StoryApprovalCard({
       outlineColor: '#000000',
       outlineWidth: 10,
       shadowColor: '#000000',
+      shadowOffset: 0,
       boxColor: '',
-      position: 'mid-bottom-center',
+      position: 'center-center',
       allCaps: true,
       maxWordsPerLine: 3
     };
-  });
-  const [selectedMusicId, setSelectedMusicId] = useState(() => resolveMusicId(story?.musicId || initialMusicId));
-  const [musicVolume, setMusicVolume] = useState(() => {
-    const v = Number(initialMusicVolume);
+  };
+  const [selectedSubtitleSettings, setSelectedSubtitleSettings] = useState(seedSubtitleSettings);
+  const subtitleTouchedRef = useRef(false);
+  useEffect(() => {
+    if (subtitleTouchedRef.current) return;
+    const next = seedSubtitleSettings();
+    if (next !== selectedSubtitleSettings) setSelectedSubtitleSettings(next);
+  }, [story?.finalSettings?.subtitleSettings, story?.subtitleSettings, initialSubtitleSettings]);
+
+  // 4. Music ID
+  const seedMusicId = () => {
+    return resolveMusicId(story?.finalSettings?.musicId || story?.musicId || initialMusicId);
+  };
+  const [selectedMusicId, setSelectedMusicId] = useState(seedMusicId);
+  const musicTouchedRef = useRef(false);
+  useEffect(() => {
+    if (musicTouchedRef.current) return;
+    const next = seedMusicId();
+    if (next !== selectedMusicId) setSelectedMusicId(next);
+  }, [story?.finalSettings?.musicId, story?.musicId, initialMusicId]);
+
+  // 5. Music Volume
+  const seedMusicVolume = () => {
+    const raw = story?.finalSettings?.musicVolume ?? story?.musicVolume ?? initialMusicVolume;
+    const v = Number(raw);
     return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
-  });
+  };
+  const [musicVolume, setMusicVolume] = useState(seedMusicVolume);
+  const volumeTouchedRef = useRef(false);
+  useEffect(() => {
+    if (volumeTouchedRef.current) return;
+    const next = seedMusicVolume();
+    if (next !== musicVolume) setMusicVolume(next);
+  }, [story?.finalSettings?.musicVolume, story?.musicVolume, initialMusicVolume]);
+
   const [privacyStatus, setPrivacyStatus] = useState(() => story?.privacyStatus || initialPrivacyStatus || 'public');
   const [voiceVolume, setVoiceVolume] = useState(1.0);
   const [duckingLevel, setDuckingLevel] = useState(18);
@@ -576,7 +630,7 @@ export default function StoryApprovalCard({
         body: JSON.stringify({
           voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
           text: sceneText,
-          speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30; })(),
+          speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30; })(),
           provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
         })
       });
@@ -640,7 +694,7 @@ export default function StoryApprovalCard({
             body: JSON.stringify({
               voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
               text: text,
-              speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30; })(),
+              speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30; })(),
               provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
             })
           });
@@ -812,7 +866,7 @@ export default function StoryApprovalCard({
       onApprove(story.approveUrl, {
         voiceId: selectedVoiceId,
         elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
-        voiceSpeed: (function () { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30; })(),
+        voiceSpeed: (function () { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30; })(),
         subtitleSettings: resolveSubtitleConfig(selectedSubtitleSettings, sampleText, threadLanguage),
         musicId: selectedMusicId,
         musicTrackUrl: chosenMusic?.audioUrl || '',
@@ -1180,7 +1234,7 @@ export default function StoryApprovalCard({
                       <button
                         key={s.val}
                         type="button"
-                        onClick={() => setVoiceSpeed(s.val)}
+                        onClick={() => { speedTouchedRef.current = true; setVoiceSpeed(s.val); }}
                         style={{
                           background: isSelected ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'var(--bg-input)',
                           border: `1px solid ${isSelected ? '#6366f1' : 'var(--border-subtle)'}`,
@@ -1367,7 +1421,7 @@ export default function StoryApprovalCard({
                   return (
                     <div
                       key={voice.id}
-                      onClick={() => setSelectedVoiceId(voice.elevenLabsId || voice.id)}
+                      onClick={() => { voiceTouchedRef.current = true; setSelectedVoiceId(voice.elevenLabsId || voice.id); }}
                       style={{
                         background: isSelected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
                         border: `1.5px solid ${isSelected ? cardColor : 'var(--border-subtle)'}`,
@@ -1581,6 +1635,7 @@ export default function StoryApprovalCard({
                     <div
                       key={preset.id}
                       onClick={() => {
+                        subtitleTouchedRef.current = true;
                         setSelectedSubtitleSettings(prev => ({
                           ...prev,
                           presetId: preset.id,
@@ -1592,6 +1647,7 @@ export default function StoryApprovalCard({
                           outlineColor: preset.outlineColor,
                           outlineWidth: preset.outlineWidth,
                           shadowColor: preset.shadowColor || '#000000',
+                          shadowOffset: preset.shadowOffset ?? 0,
                           boxColor: preset.boxColor || '',
                           position: preset.position,
                           allCaps: preset.allCaps,
@@ -1663,7 +1719,7 @@ export default function StoryApprovalCard({
                   <label style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Font Family</label>
                   <select
                     value={selectedSubtitleSettings.fontFamily}
-                    onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, fontFamily: e.target.value }))}
+                    onChange={e => { subtitleTouchedRef.current = true; setSelectedSubtitleSettings(prev => ({ ...prev, fontFamily: e.target.value })); }}
                     style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}
                   >
                     {SUBTITLE_FONTS.map(f => (
@@ -1680,7 +1736,7 @@ export default function StoryApprovalCard({
                   <input
                     type="range" min="56" max="100" step="2"
                     value={selectedSubtitleSettings.fontSize}
-                    onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, fontSize: parseInt(e.target.value) }))}
+                    onChange={e => { subtitleTouchedRef.current = true; setSelectedSubtitleSettings(prev => ({ ...prev, fontSize: parseInt(e.target.value) })); }}
                     style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }}
                   />
                 </div>
@@ -1689,7 +1745,7 @@ export default function StoryApprovalCard({
                   <label style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Screen Position</label>
                   <select
                     value={selectedSubtitleSettings.position}
-                    onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, position: e.target.value }))}
+                    onChange={e => { subtitleTouchedRef.current = true; setSelectedSubtitleSettings(prev => ({ ...prev, position: e.target.value })); }}
                     style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}
                   >
                     {SUBTITLE_POSITIONS.map(p => (
@@ -1704,13 +1760,13 @@ export default function StoryApprovalCard({
                     <input
                       type="color"
                       value={selectedSubtitleSettings.wordColor || '#FFE600'}
-                      onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, wordColor: e.target.value }))}
+                      onChange={e => { subtitleTouchedRef.current = true; setSelectedSubtitleSettings(prev => ({ ...prev, wordColor: e.target.value })); }}
                       style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'transparent' }}
                     />
                     <input
                       type="text"
                       value={selectedSubtitleSettings.wordColor || '#FFE600'}
-                      onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, wordColor: e.target.value }))}
+                      onChange={e => { subtitleTouchedRef.current = true; setSelectedSubtitleSettings(prev => ({ ...prev, wordColor: e.target.value })); }}
                       style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}
                     />
                   </div>
@@ -1722,13 +1778,13 @@ export default function StoryApprovalCard({
                     <input
                       type="color"
                       value={selectedSubtitleSettings.lineColor || '#FFFFFF'}
-                      onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, lineColor: e.target.value }))}
+                      onChange={e => { subtitleTouchedRef.current = true; setSelectedSubtitleSettings(prev => ({ ...prev, lineColor: e.target.value })); }}
                       style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'transparent' }}
                     />
                     <input
                       type="text"
                       value={selectedSubtitleSettings.lineColor || '#FFFFFF'}
-                      onChange={e => setSelectedSubtitleSettings(prev => ({ ...prev, lineColor: e.target.value }))}
+                      onChange={e => { subtitleTouchedRef.current = true; setSelectedSubtitleSettings(prev => ({ ...prev, lineColor: e.target.value })); }}
                       style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}
                     />
                   </div>
@@ -1802,7 +1858,7 @@ export default function StoryApprovalCard({
                     <input
                       type="range" min="0" max="1" step="0.01"
                       value={musicVolume}
-                      onChange={e => setMusicVolume(parseFloat(e.target.value))}
+                      onChange={e => { volumeTouchedRef.current = true; setMusicVolume(parseFloat(e.target.value)); }}
                       style={{ width: '90px', accentColor: '#06b6d4', cursor: 'pointer' }}
                     />
                   </div>
@@ -1816,7 +1872,7 @@ export default function StoryApprovalCard({
                       <button
                         key={p.l}
                         type="button"
-                        onClick={() => setMusicVolume(p.v)}
+                        onClick={() => { volumeTouchedRef.current = true; setMusicVolume(p.v); }}
                         style={{
                           background: Math.abs(musicVolume - p.v) < 0.03 ? 'rgba(6,182,212,0.25)' : 'var(--bg-card)',
                           border: `1px solid ${Math.abs(musicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--border-subtle)'}`,
@@ -1844,7 +1900,7 @@ export default function StoryApprovalCard({
                     return (
                       <div
                         key={track.id}
-                        onClick={() => setSelectedMusicId(track.id)}
+                        onClick={() => { musicTouchedRef.current = true; setSelectedMusicId(track.id); }}
                         style={{
                           background: isSelected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
                           border: `1.5px solid ${isSelected ? track.color : 'var(--border-subtle)'}`,

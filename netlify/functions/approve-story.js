@@ -163,7 +163,7 @@ export const handler = async (event, context) => {
 
     const safeVoiceSpeed = (function() {
       const v = Number(voiceSpeed);
-      return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30;
+      return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30;
     })();
 
     const safeMusicVolume = (function() {
@@ -475,6 +475,16 @@ export const handler = async (event, context) => {
             $set: { 
               status: 'RENDERING_VIDEO', 
               'story.approveUrl': null,
+              'finalSettings.voiceId': voiceId,
+              'finalSettings.elevenLabsVoiceId': elevenLabsVoiceId,
+              'finalSettings.voiceSpeed': safeVoiceSpeed,
+              'finalSettings.visualStyle': visualStyle,
+              'finalSettings.subtitleSettings': subtitleSettings,
+              'finalSettings.musicId': musicId,
+              'finalSettings.musicTrackUrl': musicTrackUrl,
+              'finalSettings.musicVolume': safeMusicVolume,
+              'finalSettings.privacyStatus': safePrivacyStatus,
+              'finalSettings.language': language,
               updatedAt: now 
             },
             $push: {
@@ -507,6 +517,16 @@ export const handler = async (event, context) => {
       action: 'APPROVE',
       threadId,
       sessionId,
+      voiceId,
+      elevenLabsVoiceId,
+      voiceSpeed: safeVoiceSpeed,
+      visualStyle,
+      subtitleSettings,
+      musicId,
+      musicTrackUrl,
+      musicVolume: safeMusicVolume,
+      privacyStatus: safePrivacyStatus,
+      language,
       webhookSecret
     };
 
@@ -535,6 +555,16 @@ export const handler = async (event, context) => {
             $set: { 
               status: 'GENERATING_SCENES', 
               'story.approveUrl': null,
+              'finalSettings.voiceId': voiceId,
+              'finalSettings.elevenLabsVoiceId': elevenLabsVoiceId,
+              'finalSettings.voiceSpeed': safeVoiceSpeed,
+              'finalSettings.visualStyle': visualStyle,
+              'finalSettings.subtitleSettings': subtitleSettings,
+              'finalSettings.musicId': musicId,
+              'finalSettings.musicTrackUrl': musicTrackUrl,
+              'finalSettings.musicVolume': safeMusicVolume,
+              'finalSettings.privacyStatus': safePrivacyStatus,
+              'finalSettings.language': language,
               updatedAt: now 
             },
             $push: {

@@ -9,7 +9,7 @@ const N8N_API_URL = 'https://cmpunktg23.app.n8n.cloud/api/v1';
 const N8N_API_KEY = process.env.N8N_API_KEY || 'n8n_api_d07ac84c49c0e4b37d0025c7d8cb5c6d773a14f0';
 const WORKFLOW_ID = '8gjIDzachTHImGke';
 
-const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'];
+const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'UPLOADING_YOUTUBE', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'];
 
 // Fallback: query n8n execution API to find if this thread got a story callback
 async function checkN8nExecutionForThread(threadId) {
@@ -174,6 +174,12 @@ export const handler = async (event, context) => {
             title: latest.title || latest.story?.suggestedTitle,
             youtubeDescription: latest.youtubeDescription,
             tags: latest.tags,
+            finalSettings: latest.finalSettings || latest.story?.finalSettings || null,
+            scenesSource: latest.scenesSource || latest.story?.scenesSource || null,
+            uploadStatus: latest.uploadStatus || latest.story?.uploadStatus || null,
+            uploadError: latest.uploadError || latest.story?.uploadError || null,
+            criticVerdict: latest.criticVerdict || latest.story?.criticVerdict || null,
+            criticScore: latest.criticScore ?? null,
             errorMessage: latest.errorMessage || null,
             refined: !!(latest.story?.refined || latest.refined),
             refineTimestamp: latest.story?.refineTimestamp || latest.refineTimestamp || null,
@@ -225,6 +231,7 @@ export const handler = async (event, context) => {
 
       const now = new Date();
       const threadId = data.threadId || `thread-${Date.now()}`;
+      const existing = await threadsCol.findOne({ threadId });
 
       let status = 'READY_FOR_APPROVAL';
       let messageContent = `Story ready for review: "${data.suggestedTitle || data.title || 'New Story'}"`;
@@ -260,8 +267,8 @@ export const handler = async (event, context) => {
         updatedAt: now
       };
 
-      // Persist the full data blob as `story` so GET always returns it
-      updateDoc.story = data;
+      // Persist the full data blob merged with existing story so manual callbacks don't wipe previous data
+      updateDoc.story = { ...((existing && existing.story) || {}), ...data };
       if (data.title || data.suggestedTitle) updateDoc.title = data.title || data.suggestedTitle;
       if (data.approveUrl) updateDoc.approveUrl = data.approveUrl;
       if (data.cancelUrl) updateDoc.cancelUrl = data.cancelUrl;
@@ -282,8 +289,29 @@ export const handler = async (event, context) => {
       if (data.refined !== undefined || data.isRefined !== undefined) updateDoc.refined = !!(data.refined || data.isRefined);
       if (data.refineTimestamp) updateDoc.refineTimestamp = data.refineTimestamp;
       if (data.timestamp) updateDoc.storyTimestamp = data.timestamp;
-      if (status === 'COMPLETED') updateDoc.criticScore = 99;
-      if (status === 'COMPLETED') updateDoc.criticScore = 99;
+
+      // D1 & D3: Real fields from workflow
+      if (data.criticScore !== undefined && data.criticScore !== null) updateDoc.criticScore = data.criticScore;
+      if (data.criticVerdict) updateDoc.criticVerdict = data.criticVerdict;
+      if (data.finalSettings) updateDoc.finalSettings = data.finalSettings;
+      if (data.scenesSource) updateDoc.scenesSource = data.scenesSource;
+      if (data.uploadStatus) updateDoc.uploadStatus = data.uploadStatus;
+      if (data.uploadError) updateDoc.uploadError = data.uploadError;
+
+      // D4: Derive uploadStatus if not explicitly provided
+      if (!updateDoc.uploadStatus) {
+        if (data.status === 'YOUTUBE_UPLOAD_FAILED') {
+          updateDoc.uploadStatus = 'FAILED';
+        } else if (data.status === 'VIDEO_UPLOADED_SUCCESS' || (['VIDEO_COMPLETED', 'COMPLETED', 'SUCCESS'].includes(data.status) && typeof data.youtubeUrl === 'string' && data.youtubeUrl.startsWith('http'))) {
+          updateDoc.uploadStatus = 'UPLOADED';
+        } else if (['VIDEO_COMPLETED', 'COMPLETED', 'SUCCESS'].includes(data.status)) {
+          if (existing?.uploadStatus === 'UPLOADED') {
+            updateDoc.uploadStatus = 'UPLOADED';
+          } else {
+            updateDoc.uploadStatus = 'PENDING';
+          }
+        }
+      }
 
       const msgObj = {
         threadId,
