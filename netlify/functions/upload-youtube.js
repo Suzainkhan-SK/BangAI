@@ -6,7 +6,7 @@ import { getDb } from './db.js';
 import { getFreshGoogleToken } from './google-oauth.js';
 import crypto from 'crypto';
 
-const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg23.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
+const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg24.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
 const JWT_SECRET = process.env.JWT_SECRET || 'bang-ai-jwt-production-secret-9a8b7c6d5e4f3a2b1c0';
 
 function verifyToken(token) {

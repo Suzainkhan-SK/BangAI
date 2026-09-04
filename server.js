@@ -9,7 +9,7 @@ import https from 'https';
 
 const PORT = 3001;
 const PUBLIC_TUNNEL_URL = 'https://shortsai-api-bridge.loca.lt';
-const N8N_WEBHOOK_URL = 'https://cmpunktg23.app.n8n.cloud/webhook/viral-shorts-ai';
+const N8N_WEBHOOK_URL = 'https://cmpunktg24.app.n8n.cloud/webhook/viral-shorts-ai';
 
 // In-memory store for active story generations & SSE subscribers
 const activeStories = new Map();

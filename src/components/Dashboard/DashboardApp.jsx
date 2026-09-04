@@ -1671,7 +1671,7 @@ export default function DashboardApp({
                 </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                <a href="https://cmpunktg23.app.n8n.cloud/workflow/8gjIDzachTHImGke" target="_blank" rel="noopener noreferrer" className="btn-glow" style={{ fontSize: '12px', padding: '7px 16px', gap: '6px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                <a href="https://cmpunktg24.app.n8n.cloud/workflow/SGV0CuCxmG7fKv9O" target="_blank" rel="noopener noreferrer" className="btn-glow" style={{ fontSize: '12px', padding: '7px 16px', gap: '6px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
                   <ExternalLink size={13} /><span>Open n8n Workflow</span>
                 </a>
                 <button onClick={() => handleGenerate('VIDEO_GENERATION', activeThread.rawUserInput)} className="btn-outline" style={{ fontSize: '12px', padding: '7px 16px', gap: '6px' }}>

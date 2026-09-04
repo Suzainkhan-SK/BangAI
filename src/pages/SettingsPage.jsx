@@ -23,7 +23,7 @@ export default function SettingsPage({ onNavigateToDashboard }) {
   const [auto4K, setAuto4K] = useState(true);
   const [autoSubtitles, setAutoSubtitles] = useState(true);
   const [autoPinComment, setAutoPinComment] = useState(true);
-  const [webhookUrl, setWebhookUrl] = useState('https://cmpunktg23.app.n8n.cloud/webhook/viral-shorts-ai');
+  const [webhookUrl, setWebhookUrl] = useState('https://cmpunktg24.app.n8n.cloud/webhook/viral-shorts-ai');
   const [saved, setSaved] = useState(false);
 
   const handleSave = (e) => {

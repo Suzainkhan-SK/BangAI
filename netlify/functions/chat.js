@@ -8,7 +8,7 @@
 import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg23.app.n8n.cloud/webhook/viral-shorts-ai';
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg24.app.n8n.cloud/webhook/viral-shorts-ai';
 const CLAUDE_BASE_URL = process.env.CLAUDE_BASE_URL || 'https://api.llmsrelay.com';
 
 const CLAUDE_KEYS = [
@@ -511,7 +511,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
         body: JSON.stringify({
           success: false,
           error: 'WORKFLOW_INACTIVE',
-          message: `n8n Cloud returned HTTP ${n8nResponseStatus}. Please ensure workflow 8gjIDzachTHImGke is Published & Active in cmpunktg23.`
+          message: `n8n Cloud returned HTTP ${n8nResponseStatus}. Please ensure workflow SGV0CuCxmG7fKv9O is Published & Active in cmpunktg24.`
         })
       };
     }

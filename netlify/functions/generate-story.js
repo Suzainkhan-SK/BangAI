@@ -7,7 +7,7 @@ import path from 'path';
 import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 
-const N8N_WEBHOOK_URL = 'https://cmpunktg23.app.n8n.cloud/webhook/viral-shorts-ai';
+const N8N_WEBHOOK_URL = 'https://cmpunktg24.app.n8n.cloud/webhook/viral-shorts-ai';
 const CACHE_FILE = path.join('/tmp', 'latest_story.json');
 
 export const handler = async (event, context) => {
