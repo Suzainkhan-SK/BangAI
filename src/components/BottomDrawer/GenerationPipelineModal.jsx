@@ -31,14 +31,18 @@ export default function GenerationPipelineModal({
     </svg>
   );
 
+  const sceneList = Array.isArray(scenes) && scenes.length > 0 ? scenes : [];
+  const sceneCount = sceneList.length || 5;
+  const totalDuration = sceneCount * 15;
+
   const stages = [
     { name: 'Stage 0: Topic & Genre Classification', desc: 'Gemini 2.5 Flash categorizing theme & anti-duplicate check', icon: <Cpu size={14} color="#818cf8" /> },
-    { name: 'Stage 1: Strategy Engine Brain', desc: 'Generating 5-beat emotional arc & high-converting title', icon: <Sparkles size={14} color="#f59e0b" /> },
-    { name: 'Stage 2: Master Screenplay Production', desc: 'Writing 5 scenes with strict 190-200 char timing & Grok prompts', icon: <Layers size={14} color="#3b82f6" /> },
+    { name: 'Stage 1: Strategy Engine Brain', desc: 'Generating emotional arc & high-converting title', icon: <Sparkles size={14} color="#f59e0b" /> },
+    { name: 'Stage 2: Master Screenplay Production', desc: `Writing ${sceneCount} scenes with calibrated voiceover timing & video prompts`, icon: <Layers size={14} color="#3b82f6" /> },
     { name: 'Stage 3: 7-Checkpoint Quality Critic', desc: 'Auditing character counts, visual consistency & safety policy', icon: <CheckCircle2 size={14} color="#10b981" /> },
-    { name: 'Stage 4A: Grok Imagine 1.5 Video Generation', desc: 'Rendering 5 parallel 15s 4K 9:16 vertical video scenes', icon: <Video size={14} color="#06b6d4" /> },
-    { name: 'Stage 4B: ElevenLabs Voice Synthesis & BGM Ducking', desc: `Generating speech (${voiceName}) & mixing ${musicName} at -18dB`, icon: <Volume2 size={14} color="#ec4899" /> },
-    { name: 'Stage 5: Final 4K Assembly & YouTube Upload', desc: 'Concatenating 5 scenes, animated captions & publishing to YouTube', icon: youtubeSvg },
+    { name: 'Stage 4A: Autonomous Video Generation', desc: `Rendering ${sceneCount} parallel 15s 9:16 vertical video scenes`, icon: <Video size={14} color="#06b6d4" /> },
+    { name: 'Stage 4B: Voice Synthesis & BGM Ducking', desc: `Generating speech (${voiceName}) & mixing ${musicName} at -18dB`, icon: <Volume2 size={14} color="#ec4899" /> },
+    { name: 'Stage 5: Final Video Assembly & YouTube Upload', desc: `Concatenating ${sceneCount} scenes, animated captions & publishing to YouTube`, icon: youtubeSvg },
   ];
 
   useEffect(() => {
@@ -119,7 +123,7 @@ export default function GenerationPipelineModal({
             </div>
             <div>
               <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '16px' }}>
-                {isCompleted ? '🎉 75s Video Generation Complete!' : '⚡ Executing Autonomous Production Pipeline...'}
+                {isCompleted ? `🎉 ${totalDuration}s Video Generation Complete!` : '⚡ Executing Autonomous Production Pipeline...'}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                 Target: {title}

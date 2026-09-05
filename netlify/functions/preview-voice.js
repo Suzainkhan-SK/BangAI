@@ -135,7 +135,7 @@ export const handler = async (event) => {
 
     const trimmedText = String(text).trim().substring(0, 500);
     const parsedSpeed = Number(speed);
-    const safeSpeed = isFinite(parsedSpeed) && parsedSpeed > 0 ? parsedSpeed : 1.30;
+    const safeSpeed = isFinite(parsedSpeed) && parsedSpeed > 0 ? parsedSpeed : 1.10;
     const voiceSpeed = Math.min(Math.max(Number(safeSpeed.toFixed(2)), 1.10), 1.50);
 
     // Determine target provider

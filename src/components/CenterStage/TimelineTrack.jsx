@@ -13,7 +13,9 @@ export default function TimelineTrack({
   voiceName,
   musicName
 }) {
-  const totalSeconds = 75;
+  const sceneList = Array.isArray(scenes) && scenes.length > 0 ? scenes : [];
+  const sceneCount = sceneList.length || 5;
+  const totalSeconds = sceneCount * 15;
 
   useEffect(() => {
     let interval = null;
@@ -25,7 +27,7 @@ export default function TimelineTrack({
             return 0;
           }
           const next = prev + 0.25;
-          const currentSceneIdx = Math.min(Math.floor(next / 15), 4);
+          const currentSceneIdx = Math.min(Math.floor(next / 15), Math.max(0, sceneCount - 1));
           setActiveSceneIndex(currentSceneIdx);
           return next;
         });
@@ -105,7 +107,7 @@ export default function TimelineTrack({
             border: '1px solid var(--border-subtle)',
             color: 'var(--accent-cyan)'
           }}>
-            {formatTime(currentTime)} <span style={{ color: 'var(--text-muted)' }}>/ 1:15.0</span>
+            {formatTime(currentTime)} <span style={{ color: 'var(--text-muted)' }}>/ {formatTime(totalSeconds)}</span>
           </div>
         </div>
 
@@ -143,7 +145,7 @@ export default function TimelineTrack({
         const width = rect.width - 20;
         const newSecs = Math.max(0, Math.min(totalSeconds, (clickX / width) * totalSeconds));
         setCurrentTime(newSecs);
-        setActiveSceneIndex(Math.min(Math.floor(newSecs / 15), 4));
+        setActiveSceneIndex(Math.min(Math.floor(newSecs / 15), Math.max(0, sceneCount - 1)));
       }}
       >
         {/* Playhead Needle */}
@@ -171,9 +173,9 @@ export default function TimelineTrack({
         <div style={{ display: 'flex', gap: '4px', height: '24px', alignItems: 'center' }}>
           <div style={{ width: '65px', fontSize: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
             <Video size={10} color="#818cf8" />
-            <span>Video (5)</span>
+            <span>Video ({sceneCount})</span>
           </div>
-          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', height: '100%' }}>
+          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: `repeat(${sceneCount}, 1fr)`, gap: '4px', height: '100%' }}>
             {scenes.map((s, idx) => {
               const isCurrent = activeSceneIndex === idx;
               return (

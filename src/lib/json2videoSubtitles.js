@@ -54,40 +54,62 @@ export function migrateSubtitleSettings(settings) {
   return s;
 }
 
-// Returns ONLY keys from the json2video closed list.
+export function ensureCamelCaseSubtitles(settings) {
+  if (!settings || typeof settings !== 'object') return null;
+  const s = settings;
+  return {
+    presetId: s.presetId || s.PresetId || 'mrbeast-viral',
+    style: normalizeSubtitleStyle(s.style || s.Style),
+    fontFamily: s.fontFamily || s.FontFamily || s['font-family'] || 'Montserrat',
+    fontSize: Number(s.fontSize || s.FontSize || s['font-size'] || 78),
+    wordColor: s.wordColor || s.WordColor || s['word-color'] || '#FFE600',
+    lineColor: s.lineColor || s.LineColor || s['line-color'] || '#FFFFFF',
+    outlineColor: s.outlineColor || s.OutlineColor || s['outline-color'] || '#000000',
+    outlineWidth: Number(s.outlineWidth !== undefined ? s.outlineWidth : (s.OutlineWidth !== undefined ? s.OutlineWidth : (s['outline-width'] !== undefined ? s['outline-width'] : 8))),
+    shadowColor: s.shadowColor || s.ShadowColor || s['shadow-color'] || '#000000',
+    shadowOffset: Number(s.shadowOffset !== undefined ? s.shadowOffset : (s.ShadowOffset !== undefined ? s.ShadowOffset : (s['shadow-offset'] !== undefined ? s['shadow-offset'] : 0))),
+    boxColor: s.boxColor || s.BoxColor || s['box-color'] || '',
+    position: normalizeSubtitlePosition(s.position || s.Position),
+    allCaps: s.allCaps !== undefined ? Boolean(s.allCaps) : (s.AllCaps !== undefined ? Boolean(s.AllCaps) : (s['all-caps'] !== undefined ? Boolean(s['all-caps']) : true)),
+    maxWordsPerLine: Number(s.maxWordsPerLine || s.MaxWordsPerLine || s['max-words-per-line'] || 3)
+  };
+}
+
+// Returns ONLY keys from the json2video closed list (kebab-case HTTP payload format).
 export function toJson2VideoSubtitleSettings(settings, sampleText = '') {
   const s = settings && typeof settings === 'object' ? settings : {};
+  const normalized = ensureCamelCaseSubtitles(s) || {};
   const hasDevanagari = DEVANAGARI.test(String(sampleText || ''));
 
-  let font = s.fontFamily || 'Montserrat';
-  let allCaps = s.allCaps !== undefined ? Boolean(s.allCaps) : true;
+  let font = normalized.fontFamily || 'Montserrat';
+  let allCaps = normalized.allCaps !== undefined ? Boolean(normalized.allCaps) : true;
   if (hasDevanagari) {
     if (LATIN_ONLY_FONTS.includes(font)) font = 'Noto Sans Devanagari';
     allCaps = false; // Devanagari has no uppercase; all-caps corrupts glyphs
   }
 
-  let size = Number(s.fontSize) || 78;
+  let size = Number(normalized.fontSize) || 78;
   if (size > 200) size = Math.round(size / 3.5); // legacy CSS-ish values only
   size = Math.max(56, Math.min(150, Math.round(size)));
 
   const out = {
-    'style': normalizeSubtitleStyle(s.style),
-    'position': normalizeSubtitlePosition(s.position),
+    'style': normalizeSubtitleStyle(normalized.style),
+    'position': normalizeSubtitlePosition(normalized.position),
     'font-family': font,
     'font-size': size,
     'font-weight': '900',
-    'word-color': s.wordColor || '#FFE600',
-    'line-color': s.lineColor || '#FFFFFF',
-    'outline-color': s.outlineColor || '#000000',
-    'outline-width': Number(s.outlineWidth !== undefined ? s.outlineWidth : 8),
-    'max-words-per-line': Number(s.maxWordsPerLine) || 3,
+    'word-color': normalized.wordColor || '#FFE600',
+    'line-color': normalized.lineColor || '#FFFFFF',
+    'outline-color': normalized.outlineColor || '#000000',
+    'outline-width': Number(normalized.outlineWidth !== undefined ? normalized.outlineWidth : 8),
+    'max-words-per-line': Number(normalized.maxWordsPerLine) || 3,
     'all-caps': allCaps
   };
-  if (s.boxColor && String(s.boxColor).trim()) out['box-color'] = String(s.boxColor).trim();
-  if (s.fontUrl) out['font-url'] = String(s.fontUrl);
-  if (s.shadowColor && Number(s.shadowOffset) > 0) {
-    out['shadow-color'] = String(s.shadowColor);
-    out['shadow-offset'] = Number(s.shadowOffset);
+  if (normalized.boxColor && String(normalized.boxColor).trim()) out['box-color'] = String(normalized.boxColor).trim();
+  if (s.fontUrl || s.FontUrl) out['font-url'] = String(s.fontUrl || s.FontUrl);
+  if (normalized.shadowColor && Number(normalized.shadowOffset) > 0) {
+    out['shadow-color'] = String(normalized.shadowColor);
+    out['shadow-offset'] = Number(normalized.shadowOffset);
   }
   return out;
 }

@@ -16,6 +16,7 @@ const STATUS_CONFIG = {
   RENDERING_VIDEO:          { color: '#38bdf8', label: 'Rendering' },
   CANCELLED:                { color: '#64748b', label: 'Cancelled' },
   WORKFLOW_INACTIVE:        { color: '#ef4444', label: 'Failed' },
+  EXECUTION_TIMEOUT:        { color: '#f59e0b', label: 'Timed Out' },
   CHAT:                     { color: '#94a3b8', label: 'Chat' },
 };
 
@@ -303,8 +304,8 @@ export default function Sidebar({
               <button
                 key={id}
                 type="button"
-                title={s.name || s.title || s.rawUserInput || 'History Thread'}
-                aria-label={s.name || s.title || s.rawUserInput || 'History Thread'}
+                title={s.name || s.title || s.rawUserInput || '—'}
+                aria-label={s.name || s.title || s.rawUserInput || '—'}
                 onClick={() => {
                   audioEngine.playSfx('click');
                   if (typeof onSelectShort === 'function') onSelectShort(id);
@@ -589,7 +590,7 @@ export default function Sidebar({
                 const id = s.threadId || s.id;
                 const isActive = activeShortId === id || currentRoutePath === 'dashboard/t/' + id;
                 const isHovered = hoveredId === id;
-                const label = s.name || s.title || s.rawUserInput || 'Untitled Video';
+                const label = s.name || s.title || s.rawUserInput || '—';
                 const timeAgo = formatRelativeTime(getThreadTimestamp(s));
 
                 return (

@@ -29,10 +29,12 @@ import {
   User,
   Send,
   ExternalLink,
-  Menu
+  Menu,
+  Clock
 } from 'lucide-react';
 import { useBreakpoint, useBodyScrollLock } from '../../hooks/useMediaQuery';
 import { getAuthToken, getStoredUser } from '../../utils/authClient';
+import { ensureCamelCaseSubtitles } from '../../lib/json2videoSubtitles';
 
 const SESSION_ID_KEY = 'shortsai_session_id';
 
@@ -414,14 +416,23 @@ export default function DashboardApp({
         if (status === 'WORKFLOW_INACTIVE' || status === 'EXECUTION_TIMEOUT') {
           if (isStatusTransition) audioEngine.playSfx('click');
           setIsGenerating(false);
+          setGenerationStage('');
+          lastStoryApprovalTimeRef.current = 0;
+          lastScenesApprovalTimeRef.current = 0;
+          refiningStartTimeRef.current = 0;
+          generationStartTimeRef.current = 0;
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
             const existing = t.messages || [];
-            const msgText = `⏱️ Workflow execution was cancelled or timed out. ${data.errorMessage || 'You can retry the pipeline.'}`;
+            const msgText = status === 'EXECUTION_TIMEOUT'
+              ? `⏱️ Workflow execution timed out or stalled: ${data.errorMessage || 'Please retry.'}`
+              : `⏱️ Workflow execution was cancelled or inactive. ${data.errorMessage || 'You can retry the pipeline.'}`;
             return {
               ...t,
-              status: 'WORKFLOW_INACTIVE',
-              errorMessage: data.errorMessage || 'n8n workflow execution was cancelled or timed out. Please check your n8n Cloud settings and retry.',
+              status: status,
+              errorMessage: data.errorMessage || (status === 'EXECUTION_TIMEOUT'
+                ? 'Workflow execution timed out or stalled. Please retry.'
+                : 'n8n workflow execution was cancelled or timed out. Please check your n8n Cloud settings and retry.'),
               messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
             };
           }));
@@ -533,10 +544,14 @@ export default function DashboardApp({
             if (['RENDERING_VIDEO', 'COMPLETED'].includes(t.status)) return t;
             const existing = t.messages || [];
             const titleStr = data.story?.suggestedTitle || data.story?.title || data.title || t.title;
-            const msgText = `🎬 Final 5 scenes generated: "${titleStr}". Review before video rendering.`;
+            const sceneCount = Array.isArray(data.scenes) ? data.scenes.length : (data.totalScenes || 5);
+            const msgText = `🎬 Final ${sceneCount} scenes generated: "${titleStr}". Review before video rendering.`;
             return {
               ...t, status: 'SCENES_READY_FOR_APPROVAL',
               title: titleStr,
+              executionId: data.executionId || data.story?.executionId || t.executionId,
+              totalScenes: sceneCount,
+              finalSettings: data.finalSettings || data.story?.finalSettings || t.finalSettings,
               story: {
                 ...(data.story || t.story || {}),
                 changedFields: data.changedFields || data.story?.changedFields || null,
@@ -613,6 +628,8 @@ export default function DashboardApp({
             return {
               ...t, status: 'READY_FOR_APPROVAL',
               title: titleStr,
+              executionId: data.executionId || data.story?.executionId || t.executionId,
+              totalScenes: data.totalScenes || t.totalScenes || 5,
               story: {
                 ...(data.story || data),
                 changedFields: data.changedFields || data.story?.changedFields || null,
@@ -777,7 +794,7 @@ export default function DashboardApp({
       rawUserInput: messageText,
       voiceId: voiceId,
       elevenLabsVoiceId: videoSettings?.elevenLabsVoiceId || '',
-      voiceSpeed: videoSettings?.voiceSpeed ?? 1.30,
+      voiceSpeed: videoSettings?.voiceSpeed ?? 1.10,
       visualStyleId: styleId,
       musicId: musicId,
       musicTrackUrl: videoSettings?.musicTrackUrl || '',
@@ -1042,6 +1059,7 @@ export default function DashboardApp({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           approveUrl: cancelUrl || activeThread?.cancelUrl || activeThread?.approveUrl || activeThread?.story?.cancelUrl || activeThread?.story?.approveUrl,
+          executionId: activeThread?.executionId || activeThread?.story?.executionId || null,
           threadId: targetThreadId,
           sessionId,
           action: 'CANCEL'
@@ -1124,6 +1142,7 @@ export default function DashboardApp({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           approveUrl: effectiveApproveUrl,
+          executionId: activeThread?.executionId || activeThread?.story?.executionId || null,
           threadId: currentThreadId,
           sessionId,
           action: effectiveActionType,
@@ -1148,7 +1167,9 @@ export default function DashboardApp({
         expectedRefineRoundRef.current = 0;
         setIsGenerating(false);
         setGenerationStage('');
-        const errMsg = data.message || data.error || 'Failed to dispatch refinement to n8n AI Agent. The wait step may have timed out. Please retry.';
+        const errMsg = data.error === 'STALE_EXECUTION'
+          ? (data.message || 'This approval request has expired or a newer execution is active.')
+          : (data.message || data.error || 'Failed to dispatch refinement to n8n AI Agent. The wait step may have timed out. Please retry.');
         setPastShorts(prev => prev.map(t =>
           (t.threadId === currentThreadId || t.id === currentThreadId)
             ? {
@@ -1191,10 +1212,11 @@ export default function DashboardApp({
     const chosenVoiceId = customSettings.voiceId || activeThread?.voiceId || voiceId || 'adam';
     const chosenElevenLabsVoiceId = customSettings.elevenLabsVoiceId || (VOICES.find(v => v.id === chosenVoiceId) || {}).elevenLabsId || chosenVoiceId;
     const chosenSubtitleSettings = customSettings.subtitleSettings || subtitleSettings;
+    const normalizedSubtitles = ensureCamelCaseSubtitles(chosenSubtitleSettings) || chosenSubtitleSettings;
     const chosenMusicId = resolveMusicId(customSettings.musicId || activeThread?.musicId || musicId);
     const chosenMusicTrackUrl = customSettings.musicTrackUrl || getMusicTrackById(chosenMusicId).audioUrl || '';
     const chosenMusicVolume = customSettings.musicVolume ?? musicVolume ?? 0.08;
-    const chosenVoiceSpeed = customSettings.voiceSpeed ?? activeThread?.voiceSpeed ?? voiceSpeed ?? 1.30;
+    const chosenVoiceSpeed = customSettings.voiceSpeed ?? activeThread?.voiceSpeed ?? voiceSpeed ?? 1.10;
     const chosenPrivacyStatus = customSettings.privacyStatus || privacyStatus || 'public';
 
     if (customSettings.privacyStatus && customSettings.privacyStatus !== privacyStatus) {
@@ -1208,6 +1230,7 @@ export default function DashboardApp({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           approveUrl: approveUrl || activeThread?.approveUrl || activeThread?.story?.approveUrl,
+          executionId: activeThread?.executionId || activeThread?.story?.executionId || null,
           threadId: currentThreadId,
           sessionId,
           action: isStage2 ? 'APPROVE_SCENES' : 'APPROVE',
@@ -1216,9 +1239,9 @@ export default function DashboardApp({
           language: activeThread?.story?.language || language || 'English',
           voiceId: chosenVoiceId,
           elevenLabsVoiceId: chosenElevenLabsVoiceId,
-          voiceSpeed: (function() { const v = Number(chosenVoiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30; })(),
+          voiceSpeed: (function() { const v = Number(chosenVoiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
           visualStyle: activeThread?.visualStyleId || styleId || 'cinematic',
-          subtitleSettings: chosenSubtitleSettings,
+          subtitleSettings: normalizedSubtitles,
           musicId: chosenMusicId,
           musicTrackUrl: chosenMusicTrackUrl,
           musicVolume: chosenMusicTrackUrl === '' ? 0 : (isFinite(Number(chosenMusicVolume)) ? Math.max(0, Math.min(0.4, Number(chosenMusicVolume))) : 0.08),
@@ -1242,11 +1265,14 @@ export default function DashboardApp({
         audioEngine.playSfx('click');
         setIsGenerating(false);
         setGenerationStage('');
+        const errMsg = data.error === 'STALE_EXECUTION'
+          ? (data.message || 'This approval request has expired or a newer execution is active.')
+          : (data.message || 'Workflow approval failed. Please retry.');
         setPastShorts(prev => prev.map(t => 
           (t.threadId === currentThreadId || t.id === currentThreadId)
             ? { 
                 ...t, 
-                errorMessage: data.message || 'Workflow approval failed. Please retry.' 
+                errorMessage: errMsg
               }
             : t
         ));
@@ -1260,7 +1286,8 @@ export default function DashboardApp({
         lastScenesApprovalTimeRef.current = 0;
         generationStartTimeRef.current = Date.now();
         setIsGenerating(true);
-        setGenerationStage('Generating 5-scene master screenplay in n8n Cloud...');
+        const stage1SceneCount = activeThread?.totalScenes || (Array.isArray(activeThread?.scenes) ? activeThread.scenes.length : 5);
+        setGenerationStage(`Generating ${stage1SceneCount}-scene master screenplay in n8n Cloud...`);
         setPastShorts(prev => prev.map(t => 
           (t.threadId === currentThreadId || t.id === currentThreadId)
             ? { ...t, status: 'GENERATING_SCENES', errorMessage: null }
@@ -1439,7 +1466,7 @@ export default function DashboardApp({
               fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '-0.01em'
             }}>
               {activeThread
-                ? (activeThread.name || activeThread.title || activeThread.rawUserInput || 'Untitled Video')
+                ? (activeThread.name || activeThread.title || activeThread.rawUserInput || '—')
                 : 'Bang AI Studio'}
             </div>
             <div className="truncate" style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -1499,12 +1526,14 @@ export default function DashboardApp({
                   activeThread.status === 'COMPLETED' ? 'badge-cyan' :
                   activeThread.status === 'SCENES_READY_FOR_APPROVAL' ? 'badge-cyan' :
                   activeThread.status === 'READY_FOR_APPROVAL' ? 'badge-brand' :
+                  activeThread.status === 'EXECUTION_TIMEOUT' ? 'badge-dark' :
                   activeThread.status === 'WORKFLOW_INACTIVE' ? 'badge-dark' :
                   activeThread.status === 'CANCELLED' ? 'badge-dark' : 'badge-brand'
                 }`} style={{ fontSize: '11px' }}>
                   {activeThread.status === 'COMPLETED' ? '✓ Completed Short' :
-                   activeThread.status === 'SCENES_READY_FOR_APPROVAL' ? '🎬 Final 5 Scenes Review' :
+                   activeThread.status === 'SCENES_READY_FOR_APPROVAL' ? `🎬 Final ${activeThread.totalScenes || activeThread.scenes?.length || 5} Scenes Review` :
                    activeThread.status === 'READY_FOR_APPROVAL' ? '⚡ Stage 1 Story Review' :
+                   activeThread.status === 'EXECUTION_TIMEOUT' ? '⏱️ Timed Out' :
                    activeThread.status === 'WORKFLOW_INACTIVE' ? '⚠️ Workflow Inactive' :
                    activeThread.status === 'CANCELLED' ? '❌ Cancelled' : '⚡ Active n8n Pipeline'}
                 </span>
@@ -1681,6 +1710,45 @@ export default function DashboardApp({
             </div>
           )}
 
+          {/* 2A. Execution Timeout Alert */}
+          {activeThread && activeThread.status === 'EXECUTION_TIMEOUT' && !isGenerating && (
+            <div className="saas-card animate-float" style={{
+              padding: '24px',
+              borderRadius: '20px',
+              border: '1.5px solid rgba(245, 158, 11, 0.4)',
+              background: 'rgba(245, 158, 11, 0.05)',
+              boxShadow: 'var(--shadow-card)',
+              marginBottom: '24px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '16px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', flexShrink: 0 }}>
+                  <Clock size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15.5px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>Execution Stalled / Timed Out</div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    {activeThread.errorMessage || 'The workflow execution timed out or was cancelled by n8n Cloud.'}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                    💡 You can restart with the same prompt without losing your topic.
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                <button
+                  onClick={() => handleGenerate('VIDEO_GENERATION', activeThread.rawUserInput || activeThread.prompt || activeThread.title)}
+                  className="btn-glow"
+                  style={{ fontSize: '12px', padding: '7px 16px', gap: '6px' }}
+                >
+                  <RefreshCw size={13} /><span>Start New Generation</span>
+                </button>
+                <a href="https://cmpunktg24.app.n8n.cloud/workflow/SGV0CuCxmG7fKv9O" target="_blank" rel="noopener noreferrer" className="btn-outline" style={{ fontSize: '12px', padding: '7px 16px', gap: '6px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                  <ExternalLink size={13} /><span>Open n8n Workflow</span>
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* 2B. Video Render Failed Alert */}
           {activeThread && activeThread.status === 'RENDER_FAILED' && !isGenerating && (
             <div className="saas-card animate-float" style={{
@@ -1721,12 +1789,12 @@ export default function DashboardApp({
               story={activeThread.story || activeThread}
               scenes={activeThread.scenes}
               threadLanguage={activeThread.language || language}
-              initialVoiceId={voiceId}
-              initialVoiceSpeed={voiceSpeed}
-              initialSubtitleSettings={subtitleSettings}
-              initialMusicId={musicId}
-              initialMusicVolume={musicVolume}
-              initialPrivacyStatus={privacyStatus}
+              initialVoiceId={activeThread.finalSettings?.voiceId || activeThread.story?.finalSettings?.voiceId || voiceId}
+              initialVoiceSpeed={activeThread.finalSettings?.voiceSpeed ?? activeThread.story?.finalSettings?.voiceSpeed ?? voiceSpeed}
+              initialSubtitleSettings={activeThread.finalSettings?.subtitleSettings || activeThread.story?.finalSettings?.subtitleSettings || subtitleSettings}
+              initialMusicId={activeThread.finalSettings?.musicId || activeThread.story?.finalSettings?.musicId || musicId}
+              initialMusicVolume={activeThread.finalSettings?.musicVolume ?? activeThread.story?.finalSettings?.musicVolume ?? musicVolume}
+              initialPrivacyStatus={activeThread.finalSettings?.privacyStatus || activeThread.story?.finalSettings?.privacyStatus || privacyStatus}
               onApprove={handleApproveStory}
               onReject={handleRejectStory}
               onRefine={handleRefineStory}

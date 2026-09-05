@@ -51,7 +51,7 @@ function buildResumeUrl(rawUrl, action, extraParams = {}) {
     return u.toString();
   } catch (err) {
     const sep = rawUrl.includes('?') ? '&' : '?';
-    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(extraParams.refinePrompt || '')}&voiceId=${encodeURIComponent(extraParams.voiceId || '')}&voiceSpeed=${encodeURIComponent(extraParams.voiceSpeed || '1.30')}`;
+    return `${rawUrl}${sep}approval=${action === 'CANCEL' ? 'no' : (action.includes('REFINE') ? 'refine' : 'yes')}&action=${action}&refinePrompt=${encodeURIComponent(extraParams.refinePrompt || '')}&voiceId=${encodeURIComponent(extraParams.voiceId || '')}&voiceSpeed=${encodeURIComponent(extraParams.voiceSpeed || '1.10')}`;
   }
 }
 
@@ -152,7 +152,7 @@ export const handler = async (event, context) => {
       language = 'English',
       voiceId = 'adam',
       elevenLabsVoiceId = '',
-      voiceSpeed = 1.30,
+      voiceSpeed = 1.10,
       visualStyle = 'Cinematic Realistic',
       subtitleSettings = null,
       musicId = 'mystery2',
@@ -163,7 +163,7 @@ export const handler = async (event, context) => {
 
     const safeVoiceSpeed = (function() {
       const v = Number(voiceSpeed);
-      return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30;
+      return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10;
     })();
 
     const safeMusicVolume = (function() {
@@ -192,8 +192,25 @@ export const handler = async (event, context) => {
       try {
         const found = await db.collection('threads').findOne({ threadId });
         if (found) {
-          effectiveApproveUrl = found.approveUrl || found.resumeUrl || found.story?.approveUrl || found.story?.resumeUrl;
-          console.log('[approve-story] Resolved approveUrl from DB:', effectiveApproveUrl);
+          if (['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL'].includes(found.status)) {
+            if (payload.executionId && found.executionId && String(payload.executionId) !== String(found.executionId)) {
+              console.warn(`[approve-story] Stale executionId: payload=${payload.executionId}, found=${found.executionId}`);
+              return {
+                statusCode: 400,
+                headers: CORS,
+                body: JSON.stringify({
+                  success: false,
+                  n8nResumed: false,
+                  error: 'STALE_EXECUTION',
+                  message: 'The story was regenerated in a new execution. Please refresh the page to view the latest review state.'
+                })
+              };
+            }
+            effectiveApproveUrl = found.approveUrl || found.resumeUrl || found.story?.approveUrl || found.story?.resumeUrl;
+            console.log('[approve-story] Resolved approveUrl from DB:', effectiveApproveUrl);
+          } else {
+            console.warn(`[approve-story] DB fallback rejected: status "${found.status}" is not waiting for approval.`);
+          }
         }
       } catch (dbFindErr) {
         console.warn('[approve-story] DB find fallback notice:', dbFindErr.message);
@@ -245,6 +262,8 @@ export const handler = async (event, context) => {
             $set: { 
               status: 'CANCELLED', 
               'story.approveUrl': null,
+              approveUrl: null,
+              resumeUrl: null,
               updatedAt: now 
             },
             $push: {
@@ -475,6 +494,8 @@ export const handler = async (event, context) => {
             $set: { 
               status: 'RENDERING_VIDEO', 
               'story.approveUrl': null,
+              approveUrl: null,
+              resumeUrl: null,
               'finalSettings.voiceId': voiceId,
               'finalSettings.elevenLabsVoiceId': elevenLabsVoiceId,
               'finalSettings.voiceSpeed': safeVoiceSpeed,
@@ -555,6 +576,8 @@ export const handler = async (event, context) => {
             $set: { 
               status: 'GENERATING_SCENES', 
               'story.approveUrl': null,
+              approveUrl: null,
+              resumeUrl: null,
               'finalSettings.voiceId': voiceId,
               'finalSettings.elevenLabsVoiceId': elevenLabsVoiceId,
               'finalSettings.voiceSpeed': safeVoiceSpeed,

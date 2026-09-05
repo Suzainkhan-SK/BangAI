@@ -63,7 +63,7 @@ export default function StudioLab({
   onTabChange,
   selectedVoiceId,
   onSelectVoice,
-  voiceSpeed = 1.30,
+  voiceSpeed = 1.10,
   onVoiceSpeedChange,
   subtitleSettings,
   onSubtitleChange,
@@ -97,7 +97,7 @@ export default function StudioLab({
   const [voices, setVoices] = useState(getAllVoices);
   const [currentVoiceSpeed, setCurrentVoiceSpeed] = useState(() => {
     const v = Number(voiceSpeed);
-    return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.30;
+    return isFinite(v) && v > 0 ? Math.max(1.10, Math.min(1.50, v)) : 1.10;
   });
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
   const [voiceProviderFilter, setVoiceProviderFilter] = useState('all');
@@ -158,6 +158,16 @@ export default function StudioLab({
       setCurrentMusicVolume(isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08);
     }
   }, [musicVolume]);
+
+  // Sync voice speed if prop changes
+  useEffect(() => {
+    if (voiceSpeed !== undefined) {
+      const v = Number(voiceSpeed);
+      if (isFinite(v) && v > 0) {
+        setCurrentVoiceSpeed(Math.max(1.10, Math.min(1.50, v)));
+      }
+    }
+  }, [voiceSpeed]);
 
   const handleMusicVolumeChange = (newVol) => {
     const clamped = Math.max(0, Math.min(1, parseFloat(newVol) || 0));
@@ -767,9 +777,9 @@ export default function StudioLab({
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
               {[
-                { val: 1.10, label: '1.10x Relaxed' },
+                { val: 1.10, label: '1.10x Calibrated (Recommended)' },
                 { val: 1.20, label: '1.20x Dynamic' },
-                { val: 1.30, label: '1.30x Viral (Recommended)' },
+                { val: 1.30, label: '1.30x Viral' },
                 { val: 1.40, label: '1.40x High Energy' },
                 { val: 1.50, label: '1.50x Ultra Fast' }
               ].map(s => {

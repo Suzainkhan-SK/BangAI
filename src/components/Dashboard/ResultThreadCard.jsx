@@ -383,7 +383,7 @@ export default function ResultThreadCard({
             )}
           </div>
           <h2 className="result-title" style={{ marginTop: '8px', fontSize: isMobile ? '18px' : '22px' }}>
-            {shortData.title || 'Untitled Short'}
+            {shortData.title || '—'}
           </h2>
         </div>
 
@@ -1134,7 +1134,7 @@ export default function ResultThreadCard({
                 {fmt(resolved.visualStyle)}
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                {stats.sceneCount} scenes · {stats.durationLabel || '75s'} sequence
+                {stats.sceneCount} scenes · {stats.durationLabel || `${(stats.sceneCount || 5) * 15}s`} sequence
               </div>
 
               <div style={{
@@ -1166,7 +1166,7 @@ export default function ResultThreadCard({
                 {(shortData.title || '').length}/100 characters
               </span>
             </div>
-            <div className="seo-title-box">{shortData.title || 'Untitled'}</div>
+            <div className="seo-title-box">{shortData.title || '—'}</div>
           </div>
 
           <div className="seo-field">
