@@ -469,13 +469,13 @@ export default function StoryApprovalCard({
            (fieldName === 'storyBrief' && (changedFields.includes('storyBrief') || changedFields.includes('brief')));
   };
 
-  const isSceneChanged = (sceneNum, sceneObj) => {
+  const isSceneChanged = (sceneNum) => {
     if (refineFailed) return false;
     const changedList = Array.isArray(changedScenes) ? changedScenes.map(Number) : [];
     if (changedList.length > 0) {
       return changedList.includes(Number(sceneNum));
     }
-    return sceneObj?.refined === true;
+    return false;
   };
 
   const getLanguageCharBudget = (lang) => {

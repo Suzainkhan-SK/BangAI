@@ -187,29 +187,34 @@ export const handler = async (event, context) => {
 
     let effectiveApproveUrl = approveUrl;
 
-    // Fallback: If approveUrl is missing from payload, query MongoDB thread
-    if (!effectiveApproveUrl && threadId && db) {
+    // Check stored thread for staleness and fallback approveUrl
+    if (threadId && db) {
       try {
         const found = await db.collection('threads').findOne({ threadId });
         if (found) {
-          if (['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL'].includes(found.status)) {
-            if (payload.executionId && found.executionId && String(payload.executionId) !== String(found.executionId)) {
-              console.warn(`[approve-story] Stale executionId: payload=${payload.executionId}, found=${found.executionId}`);
-              return {
-                statusCode: 400,
-                headers: CORS,
-                body: JSON.stringify({
-                  success: false,
-                  n8nResumed: false,
-                  error: 'STALE_EXECUTION',
-                  message: 'The story was regenerated in a new execution. Please refresh the page to view the latest review state.'
-                })
-              };
+          // STALE_EXECUTION guard: runs regardless of where approveUrl came from
+          if (payload.executionId && found.executionId && String(payload.executionId) !== String(found.executionId)) {
+            console.warn(`[approve-story] Stale executionId: payload=${payload.executionId}, found=${found.executionId}`);
+            return {
+              statusCode: 400,
+              headers: CORS,
+              body: JSON.stringify({
+                success: false,
+                n8nResumed: false,
+                error: 'STALE_EXECUTION',
+                message: 'The story was regenerated in a new execution. Please refresh the page to view the latest review state.'
+              })
+            };
+          }
+
+          // Fallback: If approveUrl is missing from payload, query MongoDB thread
+          if (!effectiveApproveUrl) {
+            if (['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL'].includes(found.status)) {
+              effectiveApproveUrl = found.approveUrl || found.resumeUrl || found.story?.approveUrl || found.story?.resumeUrl;
+              console.log('[approve-story] Resolved approveUrl from DB:', effectiveApproveUrl);
+            } else {
+              console.warn(`[approve-story] DB fallback rejected: status "${found.status}" is not waiting for approval.`);
             }
-            effectiveApproveUrl = found.approveUrl || found.resumeUrl || found.story?.approveUrl || found.story?.resumeUrl;
-            console.log('[approve-story] Resolved approveUrl from DB:', effectiveApproveUrl);
-          } else {
-            console.warn(`[approve-story] DB fallback rejected: status "${found.status}" is not waiting for approval.`);
           }
         }
       } catch (dbFindErr) {

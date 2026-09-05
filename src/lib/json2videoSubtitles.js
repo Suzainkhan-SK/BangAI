@@ -57,7 +57,8 @@ export function migrateSubtitleSettings(settings) {
 export function ensureCamelCaseSubtitles(settings) {
   if (!settings || typeof settings !== 'object') return null;
   const s = settings;
-  return {
+  const fontUrlVal = s.fontUrl || s['font-url'] || s.fontURL || s.FontUrl;
+  const out = {
     presetId: s.presetId || s.PresetId || 'mrbeast-viral',
     style: normalizeSubtitleStyle(s.style || s.Style),
     fontFamily: s.fontFamily || s.FontFamily || s['font-family'] || 'Montserrat',
@@ -65,7 +66,7 @@ export function ensureCamelCaseSubtitles(settings) {
     wordColor: s.wordColor || s.WordColor || s['word-color'] || '#FFE600',
     lineColor: s.lineColor || s.LineColor || s['line-color'] || '#FFFFFF',
     outlineColor: s.outlineColor || s.OutlineColor || s['outline-color'] || '#000000',
-    outlineWidth: Number(s.outlineWidth !== undefined ? s.outlineWidth : (s.OutlineWidth !== undefined ? s.OutlineWidth : (s['outline-width'] !== undefined ? s['outline-width'] : 8))),
+    outlineWidth: Number(s.outlineWidth !== undefined ? s.outlineWidth : (s.OutlineWidth !== undefined ? s.OutlineWidth : (s['outline-width'] !== undefined ? s['outline-width'] : 10))),
     shadowColor: s.shadowColor || s.ShadowColor || s['shadow-color'] || '#000000',
     shadowOffset: Number(s.shadowOffset !== undefined ? s.shadowOffset : (s.ShadowOffset !== undefined ? s.ShadowOffset : (s['shadow-offset'] !== undefined ? s['shadow-offset'] : 0))),
     boxColor: s.boxColor || s.BoxColor || s['box-color'] || '',
@@ -73,6 +74,10 @@ export function ensureCamelCaseSubtitles(settings) {
     allCaps: s.allCaps !== undefined ? Boolean(s.allCaps) : (s.AllCaps !== undefined ? Boolean(s.AllCaps) : (s['all-caps'] !== undefined ? Boolean(s['all-caps']) : true)),
     maxWordsPerLine: Number(s.maxWordsPerLine || s.MaxWordsPerLine || s['max-words-per-line'] || 3)
   };
+  if (fontUrlVal && String(fontUrlVal).trim()) {
+    out.fontUrl = String(fontUrlVal).trim();
+  }
+  return out;
 }
 
 // Returns ONLY keys from the json2video closed list (kebab-case HTTP payload format).
@@ -101,12 +106,12 @@ export function toJson2VideoSubtitleSettings(settings, sampleText = '') {
     'word-color': normalized.wordColor || '#FFE600',
     'line-color': normalized.lineColor || '#FFFFFF',
     'outline-color': normalized.outlineColor || '#000000',
-    'outline-width': Number(normalized.outlineWidth !== undefined ? normalized.outlineWidth : 8),
+    'outline-width': Number(normalized.outlineWidth !== undefined ? normalized.outlineWidth : 10),
     'max-words-per-line': Number(normalized.maxWordsPerLine) || 3,
     'all-caps': allCaps
   };
   if (normalized.boxColor && String(normalized.boxColor).trim()) out['box-color'] = String(normalized.boxColor).trim();
-  if (s.fontUrl || s.FontUrl) out['font-url'] = String(s.fontUrl || s.FontUrl);
+  if (normalized.fontUrl || s.fontUrl || s.FontUrl) out['font-url'] = String(normalized.fontUrl || s.fontUrl || s.FontUrl);
   if (normalized.shadowColor && Number(normalized.shadowOffset) > 0) {
     out['shadow-color'] = String(normalized.shadowColor);
     out['shadow-offset'] = Number(normalized.shadowOffset);

@@ -28,7 +28,7 @@ export const DEFAULT_VIDEO_SETTINGS = {
     shadowColor: '#000000',
     shadowOffset: 0,
     boxColor: '',
-    position: 'center-center',
+    position: 'mid-bottom-center',
     allCaps: true,
     maxWordsPerLine: 3
   }

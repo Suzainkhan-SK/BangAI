@@ -315,6 +315,12 @@ export default function DashboardApp({
   const expectedRefineRoundRef = React.useRef(0);
   // Track locally cancelled threads to prevent race conditions from reviving generating animations
   const cancelledThreadsRef = React.useRef(new Set());
+  const pollStatusRef = React.useRef(null);
+  const triggerApprovalPoll = useCallback(() => {
+    if (typeof pollStatusRef.current === 'function') {
+      pollStatusRef.current();
+    }
+  }, []);
 
   // ─── 2. LIVE POLLING — adaptive interval, truth-based status sync ───
   useEffect(() => {
@@ -322,6 +328,7 @@ export default function DashboardApp({
     let stopped = false;
 
     async function pollStatus() {
+      pollStatusRef.current = pollStatus;
       if (!activeThreadId || stopped) return;
 
       try {
@@ -1179,6 +1186,10 @@ export default function DashboardApp({
               }
             : t
         ));
+        if (data.error === 'STALE_EXECUTION') {
+          triggerApprovalPoll();
+          setTimeout(triggerApprovalPoll, 500);
+        }
         return;
       }
 
@@ -1276,6 +1287,10 @@ export default function DashboardApp({
               }
             : t
         ));
+        if (data.error === 'STALE_EXECUTION') {
+          triggerApprovalPoll();
+          setTimeout(triggerApprovalPoll, 500);
+        }
         return;
       }
 

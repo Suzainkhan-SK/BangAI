@@ -12,12 +12,14 @@ import {
   Wand2
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
+import { useVideoSettings } from '../../state/videoSettings.jsx';
 
 export default function SceneCard({
   scene,
   index,
   voiceId,
   visualStyle,
+  language,
   onUpdateScene,
   isActiveScene,
   onSelectActive
@@ -25,8 +27,22 @@ export default function SceneCard({
   const [isExpanded, setIsExpanded] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const videoSettingsCtx = typeof useVideoSettings === 'function' ? useVideoSettings() : null;
+  const currentLanguage = language || videoSettingsCtx?.settings?.language || 'English';
+
+  const getLanguageCharBudget = (lang) => {
+    const l = String(lang || '').toLowerCase();
+    if (l.includes('hindi') && !l.includes('hinglish')) return 175;
+    if (l.includes('hinglish')) return 235;
+    return 275;
+  };
+
+  const targetBudget = getLanguageCharBudget(currentLanguage);
+  const optMin = Math.round(targetBudget * 0.85);
+  const optMax = Math.round(targetBudget * 1.15);
+
   const charCount = scene.voiceoverText?.length || 0;
-  const isTimingPerfect = charCount >= 185 && charCount <= 205;
+  const isTimingPerfect = charCount >= optMin && charCount <= optMax;
 
   const handlePlayVoiceover = (e) => {
     e.stopPropagation();
@@ -131,7 +147,7 @@ export default function SceneCard({
             gap: '4px'
           }}>
             {isTimingPerfect ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
-            {charCount} / 200 chars ({scene.duration}s)
+            {charCount} / {targetBudget} chars ({scene.duration || 15}s)
           </span>
 
           {/* Play Voiceover button */}
@@ -181,9 +197,9 @@ export default function SceneCard({
           {/* Voiceover Text Input */}
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>
-              <span>🎙️ Narration / Voiceover (190-200 chars recommended for 15s):</span>
+              <span>🎙️ Narration / Voiceover ({optMin}–{optMax} chars recommended for {scene.duration || 15}s at 1.10x):</span>
               <span style={{ color: isTimingPerfect ? '#34d399' : '#fbbf24' }}>
-                {200 - charCount >= 0 ? `${200 - charCount} chars remaining` : `${charCount - 200} chars over`}
+                {targetBudget - charCount >= 0 ? `${targetBudget - charCount} chars remaining` : `${charCount - targetBudget} chars over`}
               </span>
             </div>
             <textarea

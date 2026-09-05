@@ -300,12 +300,13 @@ export default function Sidebar({
           {filtered.slice(0, 6).map(s => {
             const id = s.threadId || s.id;
             const isActive = activeShortId === id || currentRoutePath === 'dashboard/t/' + id;
+            const accessibleLabel = s.name || s.title || s.rawUserInput || 'Untitled thread';
             return (
               <button
                 key={id}
                 type="button"
-                title={s.name || s.title || s.rawUserInput || '—'}
-                aria-label={s.name || s.title || s.rawUserInput || '—'}
+                title={accessibleLabel}
+                aria-label={accessibleLabel}
                 onClick={() => {
                   audioEngine.playSfx('click');
                   if (typeof onSelectShort === 'function') onSelectShort(id);
@@ -591,14 +592,15 @@ export default function Sidebar({
                 const isActive = activeShortId === id || currentRoutePath === 'dashboard/t/' + id;
                 const isHovered = hoveredId === id;
                 const label = s.name || s.title || s.rawUserInput || '—';
+                const accessibleLabel = s.name || s.title || s.rawUserInput || 'Untitled thread';
                 const timeAgo = formatRelativeTime(getThreadTimestamp(s));
 
                 return (
                   <button
                     key={id}
                     type="button"
-                    title={label}
-                    aria-label={`Open video thread: ${label}`}
+                    title={accessibleLabel}
+                    aria-label={`Open video thread: ${accessibleLabel}`}
                     onMouseEnter={() => setHoveredId(id)}
                     onMouseLeave={() => setHoveredId(null)}
                     onClick={() => {
