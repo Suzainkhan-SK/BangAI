@@ -1,14 +1,26 @@
 import React from 'react';
 import { ShieldCheck, CheckCircle2, AlertCircle, Sparkles, Award } from 'lucide-react';
+import { useVideoSettings } from '../../state/videoSettings.jsx';
 
-export default function QualityCriticScorecard({ score = 96, scenes = [] }) {
+export default function QualityCriticScorecard({ score = 96, scenes = [], language }) {
+  const videoSettingsCtx = typeof useVideoSettings === 'function' ? useVideoSettings() : null;
+  const currentLanguage = language || videoSettingsCtx?.settings?.language || 'English';
+
+  const getLanguageCharBand = (lang) => {
+    const l = String(lang || '').toLowerCase();
+    if (l.includes('hindi') && !l.includes('hinglish')) return { min: 207, max: 233 };
+    if (l.includes('hinglish')) return { min: 214, max: 242 };
+    return { min: 221, max: 249 };
+  };
+  const band = getLanguageCharBand(currentLanguage);
+
   const allScenesTimed = scenes.every((s) => {
     const len = s.voiceoverText?.length || 0;
-    return len >= 180 && len <= 210;
+    return len >= band.min && len <= band.max;
   });
 
   const checkpoints = [
-    { name: 'Voiceover Timing (190-200 chars / scene)', status: allScenesTimed ? 'pass' : 'warn' },
+    { name: `Voiceover Timing (${band.min}-${band.max} chars / scene)`, status: allScenesTimed ? 'pass' : 'warn' },
     { name: 'Language & Pronunciation Consistency', status: 'pass' },
     { name: 'Visual Style & Camera Prompt Specs', status: 'pass' },
     { name: '5-Act Narrative Arc (Hook → Climax → Res)', status: 'pass' },

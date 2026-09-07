@@ -448,7 +448,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
       elevenLabsVoiceId: settings.elevenLabsVoiceId || '',
       voiceSpeed: (function () {
         const v = Number(settings.voiceSpeed);
-        return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30;
+        return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10;
       })(),
       visualStyle: settings.visualStyle || 'Cinematic Realistic',
       language: detectedLanguage,

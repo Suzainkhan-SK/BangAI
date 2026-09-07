@@ -27,7 +27,7 @@ import {
   loadJson2VideoVoices
 } from '../../data/voices';
 
-export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed = 1.30, onVoiceSpeedChange }) {
+export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed = 1.10, onVoiceSpeedChange }) {
   // Provider: 'all' | 'elevenlabs' | 'json2video'
   const [providerFilter, setProviderFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -39,7 +39,7 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
   const [visibleCount, setVisibleCount] = useState(30);
   const [playingVoiceId, setPlayingVoiceId] = useState(null);
   const [generatingVoiceId, setGeneratingVoiceId] = useState(null);
-  const [speed, setSpeed] = useState(Number(voiceSpeed) || 1.30);
+  const [speed, setSpeed] = useState(Number(voiceSpeed) || 1.10);
   const [stability, setStability] = useState(75);
   const [customText, setCustomText] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -56,7 +56,7 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
   // Sync speed prop
   useEffect(() => {
     if (voiceSpeed !== undefined) {
-      setSpeed(Number(voiceSpeed) || 1.30);
+      setSpeed(Number(voiceSpeed) || 1.10);
     }
   }, [voiceSpeed]);
 

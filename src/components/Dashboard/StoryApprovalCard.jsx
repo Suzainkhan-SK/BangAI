@@ -52,6 +52,7 @@ import { useVoiceCatalog } from '../../hooks/useVoiceCatalog';
 import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS, resolveSubtitleConfig } from '../../data/subtitleStyles';
 import { MUSIC_TRACKS, MUSIC_MOODS, DEFAULT_MUSIC_ID, resolveMusicId, getMusicTrackById, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
 import { useBreakpoint } from '../../hooks/useMediaQuery';
+import { ensureCamelCaseSubtitles } from '../../lib/json2videoSubtitles';
 
 // Canonical Preset Definitions for Story Brief (Stage 1)
 const STORY_PRESETS = [
@@ -134,7 +135,7 @@ const SCREENPLAY_PRESETS = [
     label: 'Fix Voiceover Length Only',
     mode: 'length_fix',
     icon: '📏',
-    canonicalPrompt: 'Strictly adjust the voiceoverText length across all 5 scenes to hit the exact 190-200 character target per scene.'
+    canonicalPrompt: 'Strictly adjust the voiceoverText length across all 5 scenes to hit the calibrated target per scene (English 221-249 chars / 37-42 words, Hinglish 214-242 chars / 35-39 words, Hindi 207-233 chars / 32-36 words).'
   },
   {
     id: 'cinematic_visuals',
@@ -155,7 +156,7 @@ const SCREENPLAY_PRESETS = [
     label: 'Full Polish (All 5 Scenes)',
     mode: 'full_screenplay',
     icon: '✨',
-    canonicalPrompt: 'Perform a comprehensive polish of all 5 scenes: perfect 190-200 char voiceover text and ultra-detailed cinematic visual prompts.'
+    canonicalPrompt: 'Perform a comprehensive polish of all 5 scenes: calibrated voiceover text (English 221-249 chars, Hinglish 214-242 chars, Hindi 207-233 chars) and ultra-detailed cinematic visual prompts.'
   }
 ];
 
@@ -172,7 +173,7 @@ export default function StoryApprovalCard({
   scenes, 
   threadLanguage = 'English', 
   initialVoiceId = 'adam',
-  initialVoiceSpeed = 1.30,
+  initialVoiceSpeed = 1.10,
   initialSubtitleSettings = null,
   initialMusicId = DEFAULT_MUSIC_ID,
   initialMusicVolume = 0.08,
@@ -212,7 +213,7 @@ export default function StoryApprovalCard({
     const raw = Number(
       story?.finalSettings?.voiceSpeed ?? story?.voiceSpeed ?? initialVoiceSpeed
     );
-    return Number.isFinite(raw) && raw > 0 ? Math.max(0.5, Math.min(4, raw)) : 1.30;
+    return Number.isFinite(raw) && raw > 0 ? Math.max(0.5, Math.min(4, raw)) : 1.10;
   };
   const [voiceSpeed, setVoiceSpeed] = useState(seedSpeed);
   const speedTouchedRef = useRef(false);
@@ -238,7 +239,8 @@ export default function StoryApprovalCard({
 
   // 3. Subtitle Settings
   const seedSubtitleSettings = () => {
-    return story?.finalSettings?.subtitleSettings || story?.subtitleSettings || initialSubtitleSettings || {
+    const raw = story?.finalSettings?.subtitleSettings || story?.subtitleSettings || initialSubtitleSettings;
+    return ensureCamelCaseSubtitles(raw) || {
       presetId: 'mrbeast-viral',
       style: 'classic-progressive',
       fontFamily: 'Montserrat',
@@ -250,7 +252,7 @@ export default function StoryApprovalCard({
       shadowColor: '#000000',
       shadowOffset: 0,
       boxColor: '',
-      position: 'center-center',
+      position: 'mid-bottom-center',
       allCaps: true,
       maxWordsPerLine: 3
     };
@@ -289,7 +291,7 @@ export default function StoryApprovalCard({
     if (next !== musicVolume) setMusicVolume(next);
   }, [story?.finalSettings?.musicVolume, story?.musicVolume, initialMusicVolume]);
 
-  const [privacyStatus, setPrivacyStatus] = useState(() => story?.privacyStatus || initialPrivacyStatus || 'public');
+  const [privacyStatus, setPrivacyStatus] = useState(() => story?.finalSettings?.privacyStatus || story?.privacyStatus || initialPrivacyStatus || 'public');
   const [voiceVolume, setVoiceVolume] = useState(1.0);
   const [duckingLevel, setDuckingLevel] = useState(18);
   const [musicMoodFilter, setMusicMoodFilter] = useState('all');
@@ -467,34 +469,55 @@ export default function StoryApprovalCard({
            (fieldName === 'storyBrief' && (changedFields.includes('storyBrief') || changedFields.includes('brief')));
   };
 
-  const isSceneChanged = (sceneNum, sceneObj) => {
-    return changedScenes.includes(sceneNum) || 
-           changedScenes.includes(sceneNum - 1) || 
-           sceneObj?.refined === true;
+  const isSceneChanged = (sceneNum) => {
+    if (refineFailed) return false;
+    const changedList = Array.isArray(changedScenes) ? changedScenes.map(Number) : [];
+    if (changedList.length > 0) {
+      return changedList.includes(Number(sceneNum));
+    }
+    return false;
   };
 
-  // Character count color helper for 190-200 target
-  const getCharCountBadgeStyle = (charCount) => {
-    if (charCount >= 190 && charCount <= 200) {
+  const getLanguageBudget = (lang) => {
+    const l = String(lang || '').toLowerCase();
+    if (l.includes('hindi') && !l.includes('hinglish'))
+      return { target: 220, optMin: 207, optMax: 233, wMin: 32, wMax: 36 };
+    if (l.includes('hinglish'))
+      return { target: 228, optMin: 214, optMax: 242, wMin: 35, wMax: 39 };
+    return { target: 235, optMin: 221, optMax: 249, wMin: 37, wMax: 42 };
+  };
+
+  const budget = getLanguageBudget(threadLanguage);
+  const targetCharBudget = budget.target;
+
+  // Character and word count color helper calibrated for language & 1.10x speech speed
+  const getCharCountBadgeStyle = (charCount, wordCount) => {
+    const isCharOpt = charCount >= budget.optMin && charCount <= budget.optMax;
+    const isWordOpt = wordCount !== undefined ? (wordCount >= budget.wMin && wordCount <= budget.wMax) : true;
+    const accMin = Math.round(budget.target * 0.88);
+    const accMax = Math.round(budget.target * 1.12);
+    const isCharAcc = charCount >= accMin && charCount <= accMax;
+
+    if (isCharOpt && isWordOpt) {
       return {
         color: '#10b981',
         background: 'rgba(16, 185, 129, 0.12)',
         borderColor: 'rgba(16, 185, 129, 0.35)',
-        status: 'Optimal (190-200)'
+        status: `Optimal (${budget.optMin}–${budget.optMax} chars · ${budget.wMin}–${budget.wMax} w)`
       };
-    } else if ((charCount >= 180 && charCount < 190) || (charCount > 200 && charCount <= 210)) {
+    } else if (isCharAcc) {
       return {
         color: '#f59e0b',
         background: 'rgba(245, 158, 11, 0.12)',
         borderColor: 'rgba(245, 158, 11, 0.35)',
-        status: 'Acceptable (180-210)'
+        status: `Acceptable (${accMin}–${accMax} chars)`
       };
     } else {
       return {
         color: '#ef4444',
         background: 'rgba(239, 68, 68, 0.12)',
         borderColor: 'rgba(239, 68, 68, 0.35)',
-        status: charCount < 180 ? 'Too Short (<180)' : 'Too Long (>210)'
+        status: charCount < budget.optMin ? `Too Short (<${budget.optMin})` : `Too Long (>${budget.optMax})`
       };
     }
   };
@@ -503,7 +526,7 @@ export default function StoryApprovalCard({
   // Every number shown in the header badge is derived from the scenes below.
   const qaScenes = Array.isArray(displayScenes) ? displayScenes : [];
   const qaCharCounts = qaScenes.map(s => String(s?.voiceoverText || '').length);
-  const qaOnLength = qaCharCounts.filter(c => c >= 180 && c <= 210).length;
+  const qaOnLength = qaCharCounts.filter(c => c >= budget.optMin && c <= budget.optMax).length;
   const qaTotalChars = qaCharCounts.reduce((a, b) => a + b, 0);
   const qaRuntime = qaScenes.reduce((sum, s) => sum + (Number(s?.duration) || 15), 0);
   // ~14.5 chars/second of narration at 1.0x, adjusted by the selected pacing.
@@ -630,7 +653,7 @@ export default function StoryApprovalCard({
         body: JSON.stringify({
           voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
           text: sceneText,
-          speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30; })(),
+          speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
           provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
         })
       });
@@ -694,7 +717,7 @@ export default function StoryApprovalCard({
             body: JSON.stringify({
               voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
               text: text,
-              speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30; })(),
+              speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
               provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
             })
           });
@@ -863,11 +886,13 @@ export default function StoryApprovalCard({
       const chosenVoice = selectedVoiceObj;
       const chosenMusic = selectedMusicObj;
       const sampleText = displayScenes && displayScenes[0]?.voiceoverText ? displayScenes[0].voiceoverText : (story.viralHook || '');
+      const rawSubs = resolveSubtitleConfig(selectedSubtitleSettings, sampleText, threadLanguage);
+      const cleanSubs = ensureCamelCaseSubtitles(rawSubs) || rawSubs;
       onApprove(story.approveUrl, {
         voiceId: selectedVoiceId,
         elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
-        voiceSpeed: (function () { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.30; })(),
-        subtitleSettings: resolveSubtitleConfig(selectedSubtitleSettings, sampleText, threadLanguage),
+        voiceSpeed: (function () { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
+        subtitleSettings: cleanSubs,
         musicId: selectedMusicId,
         musicTrackUrl: chosenMusic?.audioUrl || '',
         musicVolume: (chosenMusic?.audioUrl || '') === '' ? 0 : (function () { const v = Number(musicVolume); return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08; })(),
@@ -981,16 +1006,16 @@ export default function StoryApprovalCard({
                 letterSpacing: '-0.02em',
                 margin: 0
               }}>
-                {isFinalScenesStage ? 'Stage 2: 5-Scene Screenplay Review' : 'Stage 1: Viral Story Pitch Review'}
+                {isFinalScenesStage ? `Stage 2: ${displayScenes?.length || 5}-Scene Screenplay Review` : 'Stage 1: Viral Story Pitch Review'}
               </h2>
               <span className={`badge ${isFinalScenesStage ? 'badge-cyan' : 'badge-brand'}`} style={{ fontSize: '11px', fontWeight: 800 }}>
-                {isFinalScenesStage ? '🎬 75s Video Pipeline' : '⚡ 2-Stage Approval'}
+                {isFinalScenesStage ? `🎬 ${(displayScenes?.length || 5) * 15}s Video Pipeline` : '⚡ 2-Stage Approval'}
               </span>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
               {isFinalScenesStage
-                ? 'Review 5 cinematic scenes, audition voices with scrubber, fine-tune typography & select BGM.'
-                : 'Review 3-second hook & 5-act brief before generating screenplay.'}
+                ? `Review ${displayScenes?.length || 5} cinematic scenes, audition voices with scrubber, fine-tune typography & select BGM.`
+                : 'Review 3-second hook & story brief before generating screenplay.'}
             </p>
           </div>
         </div>
@@ -1003,7 +1028,7 @@ export default function StoryApprovalCard({
             borderRadius: '99px', padding: '4px 10px', fontSize: '11.5px', fontWeight: 800, color: qaStyle.color
           }}
             title={qaScenes.length
-              ? `Measured from this script: ${qaTotalChars} characters across ${qaScenes.length} scenes. Target is 180–210 characters per scene.`
+              ? `Measured from this script: ${qaTotalChars} characters across ${qaScenes.length} scenes. Target is ${budget.optMin}–${budget.optMax} characters per scene (${threadLanguage} @ 1.10x).`
               : 'Review the hook and brief, then generate the screenplay.'}
           >
             <Flame size={13} />
@@ -1134,6 +1159,49 @@ export default function StoryApprovalCard({
         </button>
       </div>
 
+      {/* Refinement Notice or Applied Summary Banner */}
+      {refineFailed && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.12)',
+          border: '1.5px solid rgba(245, 158, 11, 0.4)',
+          borderRadius: '14px',
+          padding: '14px 18px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '12px',
+          color: '#fbbf24'
+        }}>
+          <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+          <div>
+            <div style={{ fontSize: '13.5px', fontWeight: 800, marginBottom: '3px' }}>
+              ⚠️ Refinement Notice
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              {failReason || 'The AI retained the existing scenes to maintain narrative continuity.'}
+            </div>
+          </div>
+        </div>
+      )}
+      {!refineFailed && changeSummary && (
+        <div style={{
+          background: 'rgba(16, 185, 129, 0.08)',
+          border: '1.5px solid rgba(16, 185, 129, 0.3)',
+          borderRadius: '14px',
+          padding: '12px 16px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          color: '#34d399'
+        }}>
+          <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
+          <div style={{ fontSize: '12px', lineHeight: 1.4 }}>
+            <strong>Refinement Applied (Round {refineRound}):</strong> {changeSummary}
+          </div>
+        </div>
+      )}
+
       {/* ─── 3. INLINE AUDIOVISUAL STUDIO HUB (Expandable) ──────────── */}
       {isMediaStudioOpen && (
         <div style={{
@@ -1223,9 +1291,9 @@ export default function StoryApprovalCard({
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                   {[
-                    { val: 1.10, label: '1.10x Relaxed' },
+                    { val: 1.10, label: '1.10x Calibrated (Recommended)' },
                     { val: 1.20, label: '1.20x Dynamic' },
-                    { val: 1.30, label: '1.30x Viral (Recommended)' },
+                    { val: 1.30, label: '1.30x Viral' },
                     { val: 1.40, label: '1.40x High Energy' },
                     { val: 1.50, label: '1.50x Ultra Fast' }
                   ].map(s => {
@@ -2032,10 +2100,10 @@ export default function StoryApprovalCard({
               </div>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  Master 5-Scene Voiceover Audition (75s Total Narration)
+                  Master {displayScenes.length}-Scene Voiceover Audition ({displayScenes.length * 15}s Total Narration)
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  Synthesizes and auditions all 5 scenes back-to-back with <strong>{selectedVoiceObj?.name}</strong>
+                  Synthesizes and auditions all {displayScenes.length} scenes back-to-back with <strong>{selectedVoiceObj?.name}</strong>
                 </div>
               </div>
             </div>
@@ -2257,7 +2325,8 @@ export default function StoryApprovalCard({
             {displayScenes.map((scene, idx) => {
               const sceneNum = idx + 1;
               const charCount = scene.voiceoverCharCount !== undefined ? scene.voiceoverCharCount : (scene.voiceoverText || '').length;
-              const charBadge = getCharCountBadgeStyle(charCount);
+              const wordCount = (scene.voiceoverText || '').trim().split(/\s+/).filter(Boolean).length;
+              const charBadge = getCharCountBadgeStyle(charCount, wordCount);
               const sceneChanged = isSceneChanged(sceneNum, scene);
               const isPlayingThisScene = activePlayingIndex === idx;
               const isGeneratingThis = generatingSceneIndex === idx;
@@ -2284,7 +2353,7 @@ export default function StoryApprovalCard({
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span className="badge badge-brand" style={{ fontSize: '11.5px', fontWeight: 800 }}>
-                        Scene {sceneNum} of 5 • {scene.duration || 15}s
+                        Scene {sceneNum} of {displayScenes.length} • {scene.duration || 15}s
                       </span>
                       {sceneChanged && (
                         <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '10.5px' }}>
@@ -2293,9 +2362,9 @@ export default function StoryApprovalCard({
                       )}
                     </div>
 
-                    {/* Character Count UI */}
+                    {/* Character and Word Count UI with Language Calibration */}
                     <div
-                      title={`Target: 190-200 characters. Status: ${charBadge.status}`}
+                      title={`Target: ~${budget.target} characters (${threadLanguage} @ 1.10x). Status: ${charBadge.status}`}
                       style={{
                         fontSize: '11px',
                         fontWeight: 700,
@@ -2309,7 +2378,7 @@ export default function StoryApprovalCard({
                         gap: '4px'
                       }}
                     >
-                      <span>{charCount} / 190–200 chars</span>
+                      <span>{charCount} / ~{budget.target} chars ({threadLanguage} @ 1.10x)</span>
                       <span style={{ fontSize: '9.5px', opacity: 0.85 }}>({charBadge.status})</span>
                     </div>
                   </div>
@@ -2473,7 +2542,7 @@ export default function StoryApprovalCard({
                     </div>
                   </div>
 
-                  {/* Visual Prompt Block */}
+                  {/* Shot Description / Video Prompt */}
                   <div style={{
                     fontSize: '12px',
                     color: 'var(--text-muted)',
@@ -2483,8 +2552,8 @@ export default function StoryApprovalCard({
                     lineHeight: 1.5,
                     border: '1px solid var(--border-subtle)'
                   }}>
-                    <strong style={{ color: 'var(--accent-cyan)', marginRight: '6px' }}>🎨 Visual Prompt:</strong>
-                    {scene.videoPrompt}
+                    <strong style={{ color: 'var(--accent-cyan)', marginRight: '6px' }}>🎬 Shot Description / Video Prompt:</strong>
+                    {scene.videoPrompt ? scene.videoPrompt : <span style={{ fontStyle: 'italic', opacity: 0.7 }}>— (no shot description returned)</span>}
                   </div>
                 </div>
               );
@@ -2701,8 +2770,8 @@ export default function StoryApprovalCard({
             )}
             <span>
               {isFinalScenesStage
-                ? `🚀 Approve & Render 75s Video (${selectedVoiceObj?.name || 'Chosen Voice'})`
-                : '🎬 Approve Story Brief & Generate 5 Scenes'}
+                ? `🚀 Approve & Render ${(displayScenes?.length || 5) * 15}s Video (${selectedVoiceObj?.name || 'Chosen Voice'})`
+                : `🎬 Approve Story Brief & Generate ${story?.totalScenes || 5} Scenes`}
             </span>
           </button>
         </div>

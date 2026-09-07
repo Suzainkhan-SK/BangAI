@@ -162,11 +162,20 @@ export default function ResultThreadCard({
       return m ? m[1].toUpperCase() : null;
     })();
 
+    const getLanguageCharBand = (lang) => {
+      const l = String(lang || '').toLowerCase();
+      if (l.includes('hindi') && !l.includes('hinglish')) return { min: 207, max: 233, target: 220 };
+      if (l.includes('hinglish')) return { min: 214, max: 242, target: 228 };
+      return { min: 221, max: 249, target: 235 };
+    };
+    const langBand = getLanguageCharBand(resolved.language);
+
     return {
       sceneCount: scenes.length,
       charCounts,
       totalChars: charCounts.reduce((a, b) => a + b, 0),
-      inRange: charCounts.filter(c => c >= 170 && c <= 220).length,
+      inRange: charCounts.filter(c => c >= langBand.min && c <= langBand.max).length,
+      langBand,
       scriptedDuration,
       measuredDuration,
       duration,
@@ -195,10 +204,10 @@ export default function ResultThreadCard({
   // ── Quality Audit ─────────────────────────────────────────────────────
   const auditChecks = useMemo(() => {
     const rows = [];
-    const { charCounts, sceneCount, inRange } = stats;
+    const { charCounts, sceneCount, inRange, langBand } = stats;
 
     rows.push({
-      label: 'Speech timing per scene (170–220 chars ≈ 15s)',
+      label: `Speech timing per scene (${langBand?.min || 221}–${langBand?.max || 249} chars ≈ 15s)`,
       detail: sceneCount
         ? `${inRange}/${sceneCount} scenes in range · ${charCounts.length ? `${Math.min(...charCounts)}–${Math.max(...charCounts)}` : '0'} chars`
         : 'No scenes reported in this thread',
@@ -383,7 +392,7 @@ export default function ResultThreadCard({
             )}
           </div>
           <h2 className="result-title" style={{ marginTop: '8px', fontSize: isMobile ? '18px' : '22px' }}>
-            {shortData.title || 'Untitled Short'}
+            {shortData.title || '—'}
           </h2>
         </div>
 
@@ -1134,7 +1143,7 @@ export default function ResultThreadCard({
                 {fmt(resolved.visualStyle)}
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                {stats.sceneCount} scenes · {stats.durationLabel || '75s'} sequence
+                {stats.sceneCount} scenes · {stats.durationLabel || `${(stats.sceneCount || 5) * 15}s`} sequence
               </div>
 
               <div style={{
@@ -1166,7 +1175,7 @@ export default function ResultThreadCard({
                 {(shortData.title || '').length}/100 characters
               </span>
             </div>
-            <div className="seo-title-box">{shortData.title || 'Untitled'}</div>
+            <div className="seo-title-box">{shortData.title || '—'}</div>
           </div>
 
           <div className="seo-field">

@@ -5,9 +5,10 @@ import { migrateSubtitleSettings } from '../lib/json2videoSubtitles.js';
 const STORAGE_KEY = 'bangai_video_settings_v1';
 
 export const DEFAULT_VIDEO_SETTINGS = {
+  settingsVersion: 3,
   voiceId: 'adam',
   elevenLabsVoiceId: '',
-  voiceSpeed: 1.30,
+  voiceSpeed: 1.10,
   styleId: 'cinematic',
   visualStyle: 'Cinematic Realistic',
   language: 'Hinglish',
@@ -27,7 +28,7 @@ export const DEFAULT_VIDEO_SETTINGS = {
     shadowColor: '#000000',
     shadowOffset: 0,
     boxColor: '',
-    position: 'center-center',
+    position: 'mid-bottom-center',
     allCaps: true,
     maxWordsPerLine: 3
   }
@@ -36,9 +37,9 @@ export const DEFAULT_VIDEO_SETTINGS = {
 export function sanitizeVideoSettings(input) {
   const raw = input && typeof input === 'object' ? input : {};
   
-  // Voice Speed clamp 0.5 - 4.0 (default 1.30)
+  // Voice Speed clamp 0.5 - 4.0 (default 1.10)
   const rawSpeed = Number(raw.voiceSpeed);
-  const voiceSpeed = isFinite(rawSpeed) && rawSpeed > 0 ? Math.max(0.5, Math.min(4, Number(rawSpeed.toFixed(2)))) : 1.30;
+  const voiceSpeed = isFinite(rawSpeed) && rawSpeed > 0 ? Math.max(0.5, Math.min(4, Number(rawSpeed.toFixed(2)))) : 1.10;
 
   // Music Volume clamp 0 - 0.4 with isFinite (default 0.08)
   const rawVol = Number(raw.musicVolume);
@@ -56,6 +57,7 @@ export function sanitizeVideoSettings(input) {
   });
 
   return {
+    settingsVersion: Number(raw.settingsVersion) || 3,
     voiceId: raw.voiceId || DEFAULT_VIDEO_SETTINGS.voiceId,
     elevenLabsVoiceId: raw.elevenLabsVoiceId || '',
     voiceSpeed,
@@ -76,7 +78,21 @@ function loadInitialSettings() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      return sanitizeVideoSettings(parsed);
+      if (parsed && typeof parsed === 'object') {
+        const storedVer = Number(parsed.settingsVersion) || 1;
+        if (storedVer < 2 && Number(parsed.voiceSpeed).toFixed(2) === '1.30') {
+          parsed.voiceSpeed = 1.10;
+        }
+        if (storedVer < 3 && parsed.subtitleSettings) {
+          delete parsed.subtitleSettings.position;
+        }
+        parsed.settingsVersion = 3;
+        const sanitized = sanitizeVideoSettings(parsed);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+        } catch (_) {}
+        return sanitized;
+      }
     }
   } catch (e) {
     console.warn('[videoSettings] Failed to parse saved settings, falling back to defaults:', e.message);

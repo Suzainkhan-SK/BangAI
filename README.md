@@ -41,7 +41,7 @@
 <td>
 
 ### 🤖 5-Act Screenplay Doctor
-- Mathematical 190–200 character scene pacing
+- Mathematical calibrated character scene pacing (≈15s per scene)
 - High-retention 3-second pattern interrupts
 - Multi-language support (English, Hinglish, Hindi, Spanish)
 - Story Quality Critic agent pre-screening

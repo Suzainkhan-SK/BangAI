@@ -21,7 +21,7 @@ export default function Features() {
     {
       step: '02',
       title: 'AI Screenplay & Voice Studio',
-      desc: 'Writes 5 scenes with strict 190–200 char pacing, casts ElevenLabs narrator, and selects adaptive BGM.',
+      desc: 'Writes 5 scenes with calibrated voiceover pacing (~15s per scene), casts ElevenLabs narrator, and selects adaptive BGM.',
       icon: <Layers size={20} color="#8b5cf6" />
     },
     {

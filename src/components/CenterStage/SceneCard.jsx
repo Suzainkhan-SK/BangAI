@@ -12,12 +12,14 @@ import {
   Wand2
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
+import { useVideoSettings } from '../../state/videoSettings.jsx';
 
 export default function SceneCard({
   scene,
   index,
   voiceId,
   visualStyle,
+  language,
   onUpdateScene,
   isActiveScene,
   onSelectActive
@@ -25,8 +27,25 @@ export default function SceneCard({
   const [isExpanded, setIsExpanded] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const videoSettingsCtx = typeof useVideoSettings === 'function' ? useVideoSettings() : null;
+  const currentLanguage = language || videoSettingsCtx?.settings?.language || 'English';
+
+  const getLanguageBudget = (lang) => {
+    const l = String(lang || '').toLowerCase();
+    if (l.includes('hindi') && !l.includes('hinglish'))
+      return { target: 220, optMin: 207, optMax: 233, wMin: 32, wMax: 36 };
+    if (l.includes('hinglish'))
+      return { target: 228, optMin: 214, optMax: 242, wMin: 35, wMax: 39 };
+    return { target: 235, optMin: 221, optMax: 249, wMin: 37, wMax: 42 };
+  };
+
+  const budget = getLanguageBudget(currentLanguage);
   const charCount = scene.voiceoverText?.length || 0;
-  const isTimingPerfect = charCount >= 185 && charCount <= 205;
+  const wordCount = (scene.voiceoverText || '').trim().split(/\s+/).filter(Boolean).length;
+  const isCharPerfect = charCount >= budget.optMin && charCount <= budget.optMax;
+  const isWordPerfect = wordCount >= budget.wMin && wordCount <= budget.wMax;
+  const isBothPerfect = isCharPerfect && isWordPerfect;
+  const isOnePerfect = (isCharPerfect && !isWordPerfect) || (!isCharPerfect && isWordPerfect);
 
   const handlePlayVoiceover = (e) => {
     e.stopPropagation();
@@ -117,11 +136,11 @@ export default function SceneCard({
 
         {/* Right side indicators */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Character Count Validation Badge */}
+          {/* Character and Word Count Validation Badge */}
           <span style={{
-            background: isTimingPerfect ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-            color: isTimingPerfect ? '#34d399' : '#fbbf24',
-            border: `1px solid ${isTimingPerfect ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+            background: isBothPerfect ? 'rgba(16, 185, 129, 0.15)' : (isOnePerfect ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)'),
+            color: isBothPerfect ? '#34d399' : (isOnePerfect ? '#fbbf24' : '#f87171'),
+            border: `1px solid ${isBothPerfect ? 'rgba(16, 185, 129, 0.3)' : (isOnePerfect ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)')}`,
             padding: '2px 8px',
             borderRadius: '6px',
             fontSize: '11px',
@@ -130,8 +149,8 @@ export default function SceneCard({
             alignItems: 'center',
             gap: '4px'
           }}>
-            {isTimingPerfect ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
-            {charCount} / 200 chars ({scene.duration}s)
+            {isBothPerfect ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
+            {charCount} / {budget.target} chars · {wordCount} / {budget.wMin}–{budget.wMax} words
           </span>
 
           {/* Play Voiceover button */}
@@ -181,9 +200,9 @@ export default function SceneCard({
           {/* Voiceover Text Input */}
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>
-              <span>🎙️ Narration / Voiceover (190-200 chars recommended for 15s):</span>
-              <span style={{ color: isTimingPerfect ? '#34d399' : '#fbbf24' }}>
-                {200 - charCount >= 0 ? `${200 - charCount} chars remaining` : `${charCount - 200} chars over`}
+              <span>🎙️ Narration / Voiceover ({budget.optMin}–{budget.optMax} chars · {budget.wMin}–{budget.wMax} words recommended for {scene.duration || 15}s at 1.10x):</span>
+              <span style={{ color: isBothPerfect ? '#34d399' : (isOnePerfect ? '#fbbf24' : '#f87171') }}>
+                {budget.target - charCount >= 0 ? `${budget.target - charCount} chars remaining` : `${charCount - budget.target} chars over`}
               </span>
             </div>
             <textarea
@@ -193,7 +212,7 @@ export default function SceneCard({
               style={{
                 width: '100%',
                 background: 'rgba(10, 15, 26, 0.75)',
-                border: `1px solid ${isTimingPerfect ? 'rgba(255, 255, 255, 0.12)' : 'rgba(245, 158, 11, 0.4)'}`,
+                border: `1px solid ${isBothPerfect ? 'rgba(255, 255, 255, 0.12)' : (isOnePerfect ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)')}`,
                 borderRadius: '8px',
                 padding: '8px 10px',
                 color: '#ffffff',

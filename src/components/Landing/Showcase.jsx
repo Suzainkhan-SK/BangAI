@@ -94,7 +94,7 @@ export default function Showcase({ onSelectPreset }) {
             Explore Pre-Engineered Viral Templates
           </h2>
           <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Every template is engineered with strict 190–200 character timing per scene, 
+            Every template is engineered with calibrated timing per scene (≈15s), 
             Grok video prompt parameters, and multi-genre audio scores.
           </p>
         </div>

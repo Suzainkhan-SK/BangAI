@@ -124,26 +124,32 @@ export const handler = async (event, context) => {
       }
 
       // 3. Execution stall detection — n8n can timeout/crash silently
-      //    If thread is stuck in an active generation state for > 90 minutes
-      //    with no update from n8n, surface it as EXECUTION_TIMEOUT so the
-      //    website stops animating and shows a retry card.
+      //    Adaptive per-status timeouts:
+      //    - GENERATING: 15 minutes
+      //    - GENERATING_SCENES: 15 minutes
+      //    - RENDERING_VIDEO: 90 minutes (covers long renders + buffers)
       const ACTIVE_GEN_STATUSES = ['GENERATING', 'GENERATING_SCENES', 'RENDERING_VIDEO'];
-      const STALL_TIMEOUT_MS = 90 * 60 * 1000; // 90 minutes max — covers 60 min renders + buffer
+      const STALL_TIMEOUTS_MS = {
+        GENERATING: 15 * 60 * 1000,
+        GENERATING_SCENES: 15 * 60 * 1000,
+        RENDERING_VIDEO: 90 * 60 * 1000
+      };
 
       if (latest && ACTIVE_GEN_STATUSES.includes(latest.status)) {
         const lastUpdate = latest.updatedAt ? new Date(latest.updatedAt).getTime() : 0;
         const timeSinceUpdate = Date.now() - lastUpdate;
+        const stallTimeout = STALL_TIMEOUTS_MS[latest.status] || (15 * 60 * 1000);
 
-        if (lastUpdate > 0 && timeSinceUpdate > STALL_TIMEOUT_MS) {
+        if (lastUpdate > 0 && timeSinceUpdate > stallTimeout) {
           // Mark as execution timeout
           const stallDoc = {
             status: 'EXECUTION_TIMEOUT',
-            errorMessage: `n8n workflow execution timed out or was cancelled after ${Math.round(timeSinceUpdate / 60000)} minutes. Please retry.`,
+            errorMessage: `n8n workflow execution timed out or was cancelled after ${Math.round(timeSinceUpdate / 60000)} minutes in state ${latest.status}. Please retry.`,
             updatedAt: new Date()
           };
           await threadsCol.updateOne({ threadId }, { $set: stallDoc });
           latest = { ...latest, ...stallDoc };
-          console.log(`[story-approval] Detected stalled execution for thread ${threadId} — ${Math.round(timeSinceUpdate / 60000)} minutes with no update`);
+          console.log(`[story-approval] Detected stalled execution for thread ${threadId} (${latest.status}) — ${Math.round(timeSinceUpdate / 60000)} minutes with no update`);
         } else {
           // Actively generating/rendering — return current active status to keep website animation running
           return {
@@ -176,6 +182,8 @@ export const handler = async (event, context) => {
             tags: latest.tags,
             finalSettings: latest.finalSettings || latest.story?.finalSettings || null,
             scenesSource: latest.scenesSource || latest.story?.scenesSource || null,
+            totalScenes: latest.story?.totalScenes ?? (Array.isArray(latest.scenes) ? latest.scenes.length : null),
+            executionId: latest.executionId || latest.story?.executionId || null,
             uploadStatus: latest.uploadStatus || latest.story?.uploadStatus || null,
             uploadError: latest.uploadError || latest.story?.uploadError || null,
             ytUploadStatus: latest.ytUploadStatus || latest.story?.ytUploadStatus || null,
@@ -237,7 +245,9 @@ export const handler = async (event, context) => {
       const existing = await threadsCol.findOne({ threadId });
 
       let status = 'READY_FOR_APPROVAL';
-      let messageContent = `Story ready for review: "${data.suggestedTitle || data.title || 'New Story'}"`;
+      let messageContent = (data.suggestedTitle || data.title)
+        ? `Story ready for review: "${data.suggestedTitle || data.title}"`
+        : 'Story ready for review';
 
       if (data.status === 'CANCELLED') {
         status = 'CANCELLED';
@@ -250,7 +260,11 @@ export const handler = async (event, context) => {
         messageContent = `Topic already covered: ${data.matchedTitle || data.message || 'Duplicate topic'}`;
       } else if (data.status === 'SCENES_READY_FOR_APPROVAL') {
         status = 'SCENES_READY_FOR_APPROVAL';
-        messageContent = `🎬 Final 5 scenes ready: "${data.title || data.suggestedTitle}"`;
+        const sceneCount = Array.isArray(data.scenes) ? data.scenes.length : (data.totalScenes || 5);
+        const titleStr = data.title || data.suggestedTitle;
+        messageContent = titleStr
+          ? `🎬 Final ${sceneCount} scenes ready: "${titleStr}"`
+          : `🎬 Final ${sceneCount} scenes ready`;
       } else if (['VIDEO_COMPLETED', 'VIDEO_UPLOADED_SUCCESS', 'COMPLETED', 'SUCCESS'].includes(data.status) || data.videoUrl) {
         status = 'COMPLETED';
         messageContent = data.youtubeUrl
@@ -270,6 +284,10 @@ export const handler = async (event, context) => {
         updatedAt: now
       };
 
+      if (data.executionId) {
+        updateDoc.executionId = String(data.executionId);
+      }
+
       // Persist the full data blob merged with existing story so manual callbacks don't wipe previous data
       updateDoc.story = { ...((existing && existing.story) || {}), ...data };
       if (data.title || data.suggestedTitle) updateDoc.title = data.title || data.suggestedTitle;
@@ -283,10 +301,20 @@ export const handler = async (event, context) => {
       if (data.youtubeDescription) updateDoc.youtubeDescription = data.youtubeDescription;
       if (data.tags) updateDoc.tags = data.tags;
       if (data.changedFields) updateDoc.changedFields = data.changedFields;
-      if (data.changedScenes) updateDoc.changedScenes = data.changedScenes;
-      if (data.changeSummary) updateDoc.changeSummary = data.changeSummary;
-      if (data.refineFailed !== undefined) updateDoc.refineFailed = data.refineFailed;
-      if (data.failReason) updateDoc.failReason = data.failReason;
+
+      // Hoist scene-level refine fields if not at root
+      const resolvedChangedScenes = data.changedScenes || data.story?.changedScenes || (Array.isArray(data.scenes) ? data.scenes.find(s => s && s.changedScenes)?.changedScenes : null);
+      if (resolvedChangedScenes) updateDoc.changedScenes = resolvedChangedScenes;
+
+      const resolvedChangeSummary = data.changeSummary || data.story?.changeSummary || (Array.isArray(data.scenes) ? data.scenes.find(s => s && s.changeSummary)?.changeSummary : null);
+      if (resolvedChangeSummary) updateDoc.changeSummary = resolvedChangeSummary;
+
+      const resolvedRefineFailed = data.refineFailed ?? data.story?.refineFailed ?? (Array.isArray(data.scenes) ? data.scenes.find(s => s && s.refineFailed !== undefined)?.refineFailed : undefined);
+      if (resolvedRefineFailed !== undefined) updateDoc.refineFailed = resolvedRefineFailed;
+
+      const resolvedFailReason = data.failReason || data.story?.failReason || (Array.isArray(data.scenes) ? data.scenes.find(s => s && s.failReason)?.failReason : null);
+      if (resolvedFailReason) updateDoc.failReason = resolvedFailReason;
+
       if (data.refineRound) updateDoc.refineRound = data.refineRound;
       if (data.refineMode) updateDoc.refineMode = data.refineMode;
       if (data.refined !== undefined || data.isRefined !== undefined) updateDoc.refined = !!(data.refined || data.isRefined);
