@@ -135,7 +135,7 @@ const SCREENPLAY_PRESETS = [
     label: 'Fix Voiceover Length Only',
     mode: 'length_fix',
     icon: '📏',
-    canonicalPrompt: 'Strictly adjust the voiceoverText length across all 5 scenes to hit the exact 190-200 character target per scene.'
+    canonicalPrompt: 'Strictly adjust the voiceoverText length across all 5 scenes to hit the calibrated target per scene (English 221-249 chars / 37-42 words, Hinglish 214-242 chars / 35-39 words, Hindi 207-233 chars / 32-36 words).'
   },
   {
     id: 'cinematic_visuals',
@@ -156,7 +156,7 @@ const SCREENPLAY_PRESETS = [
     label: 'Full Polish (All 5 Scenes)',
     mode: 'full_screenplay',
     icon: '✨',
-    canonicalPrompt: 'Perform a comprehensive polish of all 5 scenes: perfect 190-200 char voiceover text and ultra-detailed cinematic visual prompts.'
+    canonicalPrompt: 'Perform a comprehensive polish of all 5 scenes: calibrated voiceover text (English 221-249 chars, Hinglish 214-242 chars, Hindi 207-233 chars) and ultra-detailed cinematic visual prompts.'
   }
 ];
 
@@ -478,43 +478,46 @@ export default function StoryApprovalCard({
     return false;
   };
 
-  const getLanguageCharBudget = (lang) => {
+  const getLanguageBudget = (lang) => {
     const l = String(lang || '').toLowerCase();
-    if (l.includes('hindi') && !l.includes('hinglish')) return 175;
-    if (l.includes('hinglish')) return 235;
-    return 275;
+    if (l.includes('hindi') && !l.includes('hinglish'))
+      return { target: 220, optMin: 207, optMax: 233, wMin: 32, wMax: 36 };
+    if (l.includes('hinglish'))
+      return { target: 228, optMin: 214, optMax: 242, wMin: 35, wMax: 39 };
+    return { target: 235, optMin: 221, optMax: 249, wMin: 37, wMax: 42 };
   };
 
-  const targetCharBudget = getLanguageCharBudget(threadLanguage);
+  const budget = getLanguageBudget(threadLanguage);
+  const targetCharBudget = budget.target;
 
-  // Character count color helper calibrated for language & 1.10x speech speed
-  const getCharCountBadgeStyle = (charCount) => {
-    const target = targetCharBudget;
-    const optMin = Math.round(target * 0.85);
-    const optMax = Math.round(target * 1.15);
-    const accMin = Math.round(target * 0.75);
-    const accMax = Math.round(target * 1.25);
+  // Character and word count color helper calibrated for language & 1.10x speech speed
+  const getCharCountBadgeStyle = (charCount, wordCount) => {
+    const isCharOpt = charCount >= budget.optMin && charCount <= budget.optMax;
+    const isWordOpt = wordCount !== undefined ? (wordCount >= budget.wMin && wordCount <= budget.wMax) : true;
+    const accMin = Math.round(budget.target * 0.88);
+    const accMax = Math.round(budget.target * 1.12);
+    const isCharAcc = charCount >= accMin && charCount <= accMax;
 
-    if (charCount >= optMin && charCount <= optMax) {
+    if (isCharOpt && isWordOpt) {
       return {
         color: '#10b981',
         background: 'rgba(16, 185, 129, 0.12)',
         borderColor: 'rgba(16, 185, 129, 0.35)',
-        status: `Optimal (${optMin}–${optMax})`
+        status: `Optimal (${budget.optMin}–${budget.optMax} chars · ${budget.wMin}–${budget.wMax} w)`
       };
-    } else if (charCount >= accMin && charCount <= accMax) {
+    } else if (isCharAcc) {
       return {
         color: '#f59e0b',
         background: 'rgba(245, 158, 11, 0.12)',
         borderColor: 'rgba(245, 158, 11, 0.35)',
-        status: `Acceptable (${accMin}–${accMax})`
+        status: `Acceptable (${accMin}–${accMax} chars)`
       };
     } else {
       return {
         color: '#ef4444',
         background: 'rgba(239, 68, 68, 0.12)',
         borderColor: 'rgba(239, 68, 68, 0.35)',
-        status: charCount < accMin ? `Too Short (<${accMin})` : `Too Long (>${accMax})`
+        status: charCount < budget.optMin ? `Too Short (<${budget.optMin})` : `Too Long (>${budget.optMax})`
       };
     }
   };
@@ -523,11 +526,7 @@ export default function StoryApprovalCard({
   // Every number shown in the header badge is derived from the scenes below.
   const qaScenes = Array.isArray(displayScenes) ? displayScenes : [];
   const qaCharCounts = qaScenes.map(s => String(s?.voiceoverText || '').length);
-  const qaOnLength = qaCharCounts.filter(c => {
-    const minC = Math.round(targetCharBudget * 0.75);
-    const maxC = Math.round(targetCharBudget * 1.25);
-    return c >= minC && c <= maxC;
-  }).length;
+  const qaOnLength = qaCharCounts.filter(c => c >= budget.optMin && c <= budget.optMax).length;
   const qaTotalChars = qaCharCounts.reduce((a, b) => a + b, 0);
   const qaRuntime = qaScenes.reduce((sum, s) => sum + (Number(s?.duration) || 15), 0);
   // ~14.5 chars/second of narration at 1.0x, adjusted by the selected pacing.
@@ -1029,7 +1028,7 @@ export default function StoryApprovalCard({
             borderRadius: '99px', padding: '4px 10px', fontSize: '11.5px', fontWeight: 800, color: qaStyle.color
           }}
             title={qaScenes.length
-              ? `Measured from this script: ${qaTotalChars} characters across ${qaScenes.length} scenes. Target is 180–210 characters per scene.`
+              ? `Measured from this script: ${qaTotalChars} characters across ${qaScenes.length} scenes. Target is ${budget.optMin}–${budget.optMax} characters per scene (${threadLanguage} @ 1.10x).`
               : 'Review the hook and brief, then generate the screenplay.'}
           >
             <Flame size={13} />
@@ -2326,7 +2325,8 @@ export default function StoryApprovalCard({
             {displayScenes.map((scene, idx) => {
               const sceneNum = idx + 1;
               const charCount = scene.voiceoverCharCount !== undefined ? scene.voiceoverCharCount : (scene.voiceoverText || '').length;
-              const charBadge = getCharCountBadgeStyle(charCount);
+              const wordCount = (scene.voiceoverText || '').trim().split(/\s+/).filter(Boolean).length;
+              const charBadge = getCharCountBadgeStyle(charCount, wordCount);
               const sceneChanged = isSceneChanged(sceneNum, scene);
               const isPlayingThisScene = activePlayingIndex === idx;
               const isGeneratingThis = generatingSceneIndex === idx;
@@ -2362,9 +2362,9 @@ export default function StoryApprovalCard({
                       )}
                     </div>
 
-                    {/* Character Count UI with Language Calibration */}
+                    {/* Character and Word Count UI with Language Calibration */}
                     <div
-                      title={`Target: ~${targetCharBudget} characters (${threadLanguage} @ 1.10x). Status: ${charBadge.status}`}
+                      title={`Target: ~${budget.target} characters (${threadLanguage} @ 1.10x). Status: ${charBadge.status}`}
                       style={{
                         fontSize: '11px',
                         fontWeight: 700,
@@ -2378,7 +2378,7 @@ export default function StoryApprovalCard({
                         gap: '4px'
                       }}
                     >
-                      <span>{charCount} / ~{targetCharBudget} chars (1.10x)</span>
+                      <span>{charCount} / ~{budget.target} chars ({threadLanguage} @ 1.10x)</span>
                       <span style={{ fontSize: '9.5px', opacity: 0.85 }}>({charBadge.status})</span>
                     </div>
                   </div>
