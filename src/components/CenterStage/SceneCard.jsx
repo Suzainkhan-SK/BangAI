@@ -39,7 +39,7 @@ export default function SceneCard({
 
   const targetBudget = getLanguageCharBudget(currentLanguage);
   const optMin = Math.round(targetBudget * 0.85);
-  const optMax = Math.round(targetBudget * 1.15);
+  const optMax = targetBudget;
 
   const charCount = scene.voiceoverText?.length || 0;
   const isTimingPerfect = charCount >= optMin && charCount <= optMax;

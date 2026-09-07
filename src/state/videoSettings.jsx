@@ -5,7 +5,7 @@ import { migrateSubtitleSettings } from '../lib/json2videoSubtitles.js';
 const STORAGE_KEY = 'bangai_video_settings_v1';
 
 export const DEFAULT_VIDEO_SETTINGS = {
-  settingsVersion: 2,
+  settingsVersion: 3,
   voiceId: 'adam',
   elevenLabsVoiceId: '',
   voiceSpeed: 1.10,
@@ -57,7 +57,7 @@ export function sanitizeVideoSettings(input) {
   });
 
   return {
-    settingsVersion: Number(raw.settingsVersion) || 2,
+    settingsVersion: Number(raw.settingsVersion) || 3,
     voiceId: raw.voiceId || DEFAULT_VIDEO_SETTINGS.voiceId,
     elevenLabsVoiceId: raw.elevenLabsVoiceId || '',
     voiceSpeed,
@@ -79,10 +79,14 @@ function loadInitialSettings() {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed === 'object') {
-        if (parsed.settingsVersion !== 2 && Number(parsed.voiceSpeed).toFixed(2) === '1.30') {
+        const storedVer = Number(parsed.settingsVersion) || 1;
+        if (storedVer < 2 && Number(parsed.voiceSpeed).toFixed(2) === '1.30') {
           parsed.voiceSpeed = 1.10;
         }
-        parsed.settingsVersion = 2;
+        if (storedVer < 3 && parsed.subtitleSettings) {
+          delete parsed.subtitleSettings.position;
+        }
+        parsed.settingsVersion = 3;
         const sanitized = sanitizeVideoSettings(parsed);
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
