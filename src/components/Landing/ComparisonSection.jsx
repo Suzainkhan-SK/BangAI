@@ -9,8 +9,8 @@ export default function ComparisonSection() {
   const comparisons = [
     {
       feature: 'Story & Screenplay Writing',
-      oldWay: '3–4 hours researching topics, structuring hooks, writing scripts manually',
-      shortsAi: 'Stage 0–2 AI Engine auto-writes 5 scenes with strict 190–200 character pacing in 10s',
+      oldWay: '30-45 minutes of manual scriptwriting & character counting',
+      shortsAi: 'Stage 0–2 AI Engine auto-writes 5 scenes with calibrated pacing in 10s',
       highlight: true
     },
     {

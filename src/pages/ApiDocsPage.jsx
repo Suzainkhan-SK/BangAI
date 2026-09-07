@@ -201,7 +201,7 @@ export default function ApiDocsPage({ onNavigate }) {
         </div>
 
         <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: 1.5 }}>
-          Generates a 75-second 5-scene cinematic video short with strict 190–200 character speech pacing and automatic YouTube Data API v3 upload.
+          Generates a 75-second 5-scene cinematic video short with calibrated speech pacing and automatic YouTube Data API v3 upload.
         </p>
 
         {/* cURL Request */}

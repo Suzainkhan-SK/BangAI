@@ -56,7 +56,7 @@ export default function StoryboardEditor({
             }}
           >
             <Sparkles size={14} color="#34d399" />
-            <span>Auto-Optimize Timing (190-200 chars)</span>
+            <span>Auto-Optimize Timing (Calibrated ≈ 15s)</span>
           </button>
         </div>
       </div>
