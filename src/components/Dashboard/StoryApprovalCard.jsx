@@ -181,6 +181,7 @@ export default function StoryApprovalCard({
   onApprove, 
   onReject, 
   onRefine,
+  onVoiceChange,
   isSubmitting = false 
 }) {
   // Inline styles beat CSS classes here, so layout switching happens in JS.
@@ -192,6 +193,10 @@ export default function StoryApprovalCard({
   const [selectedPresetId, setSelectedPresetId] = useState(null);
   const [selectedScenes, setSelectedScenes] = useState([]); // [1, 2, 3, 4, 5] for scene-specific
   const [isRefining, setIsRefining] = useState(false);
+
+  // Read Aloud / Pitch Audition State (Stage 1 Story Brief)
+  const [isPitchPlaying, setIsPitchPlaying] = useState(false);
+  const [isGeneratingPitch, setIsGeneratingPitch] = useState(false);
 
   // ─── AUDIOVISUAL CUSTOMIZATION STATE ─────────────────────────────
   const [liveVoices, setLiveVoices] = useState(getAllVoices);
@@ -436,13 +441,18 @@ export default function StoryApprovalCard({
     return getMusicTrackById(selectedMusicId);
   }, [selectedMusicId]);
 
-  // Handle immediate voice change with audio reset
+  // Handle immediate voice change with audio reset and Dashboard sync
   const handleSelectVoice = (voice) => {
     if (audioPlayerRef.current) audioPlayerRef.current.pause();
     setActivePlayingIndex(null);
     setIsPlayingAllScenes(false);
+    setIsPitchPlaying(false);
+    voiceTouchedRef.current = true;
     const targetId = voice.elevenLabsId || voice.id;
     setSelectedVoiceId(targetId);
+    if (typeof onVoiceChange === 'function') {
+      onVoiceChange(targetId, voice);
+    }
   };
 
   if (!story) return null;
@@ -451,6 +461,33 @@ export default function StoryApprovalCard({
     ? scenes 
     : (story.scenes && Array.isArray(story.scenes) ? story.scenes : null);
 
+  // ── IN-PLACE EDITABLE SCENES STATE ───────────────────────────────
+  const [localScenes, setLocalScenes] = useState(() => {
+    return Array.isArray(displayScenes) ? displayScenes.map(s => ({ ...s })) : [];
+  });
+
+  // Sync when displayScenes updates from props or refinement results
+  useEffect(() => {
+    if (Array.isArray(displayScenes) && displayScenes.length > 0) {
+      setLocalScenes(displayScenes.map(s => ({ ...s })));
+    }
+  }, [displayScenes]);
+
+  const handleVoiceoverTextChange = (idx, newText) => {
+    setLocalScenes(prev => {
+      const next = [...prev];
+      if (next[idx]) {
+        next[idx] = {
+          ...next[idx],
+          voiceoverText: newText,
+          voiceoverCharCount: newText.length
+        };
+      }
+      return next;
+    });
+  };
+
+  const effectiveScenes = localScenes && localScenes.length > 0 ? localScenes : displayScenes;
   const isFinalScenesStage = !!displayScenes;
 
   // Refinement result metadata
@@ -524,7 +561,7 @@ export default function StoryApprovalCard({
 
   // ── REAL SCRIPT QA — measured from the actual script, not hardcoded ──
   // Every number shown in the header badge is derived from the scenes below.
-  const qaScenes = Array.isArray(displayScenes) ? displayScenes : [];
+  const qaScenes = Array.isArray(effectiveScenes) ? effectiveScenes : [];
   const qaCharCounts = qaScenes.map(s => String(s?.voiceoverText || '').length);
   const qaOnLength = qaCharCounts.filter(c => c >= budget.optMin && c <= budget.optMax).length;
   const qaTotalChars = qaCharCounts.reduce((a, b) => a + b, 0);
@@ -580,6 +617,70 @@ export default function StoryApprovalCard({
       audio.play().catch(() => setPlayingVoiceSampleId(null));
       audio.onended = () => setPlayingVoiceSampleId(null);
       audio.onerror = () => setPlayingVoiceSampleId(null);
+    }
+  };
+
+  // ── Stage 1: Read Aloud / AI Voice Pitch Audition ───────────────
+  const handleTogglePitchAudio = async () => {
+    if (isPitchPlaying && audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      setIsPitchPlaying(false);
+      return;
+    }
+    if (audioPlayerRef.current) audioPlayerRef.current.pause();
+
+    const pitchText = (
+      (story.viralHook ? story.viralHook + '. ' : '') +
+      (story.storyBrief || story.storySummary || story.suggestedTitle || '')
+    ).trim().substring(0, 480);
+
+    if (!pitchText) return;
+
+    const chosenVoice = selectedVoiceObj;
+    const cacheKey = `pitch_${chosenVoice.elevenLabsId || chosenVoice.id}_${voiceSpeed}_${pitchText.substring(0, 40)}`;
+
+    if (sceneAudioMap[cacheKey]) {
+      const audioSrc = sceneAudioMap[cacheKey];
+      const audio = new Audio(audioSrc);
+      audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
+      audio.crossOrigin = 'anonymous';
+      audioPlayerRef.current = audio;
+      setIsPitchPlaying(true);
+      audio.onended = () => setIsPitchPlaying(false);
+      audio.onerror = () => setIsPitchPlaying(false);
+      audio.play().catch(() => setIsPitchPlaying(false));
+      return;
+    }
+
+    setIsGeneratingPitch(true);
+    try {
+      const res = await fetch('/.netlify/functions/preview-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
+          text: pitchText,
+          speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
+          provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
+        })
+      });
+      const data = await res.json();
+      if (data.success && (data.audio || data.audioUrl)) {
+        const audioSrc = data.audioUrl || `data:${data.mimeType || 'audio/mpeg'};base64,${data.audio}`;
+        setSceneAudioMap(prev => ({ ...prev, [cacheKey]: audioSrc }));
+        const audio = new Audio(audioSrc);
+        audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
+        audio.crossOrigin = 'anonymous';
+        audioPlayerRef.current = audio;
+        setIsPitchPlaying(true);
+        audio.onended = () => setIsPitchPlaying(false);
+        audio.onerror = () => setIsPitchPlaying(false);
+        audio.play().catch(() => setIsPitchPlaying(false));
+      }
+    } catch (err) {
+      console.warn('Pitch audition error:', err);
+    } finally {
+      setIsGeneratingPitch(false);
     }
   };
 
@@ -690,7 +791,8 @@ export default function StoryApprovalCard({
 
   // Master 5-Scene Sequential Audition
   const handleAuditionAllScenes = async () => {
-    if (!displayScenes || displayScenes.length === 0) return;
+    const scenesToAudition = effectiveScenes && effectiveScenes.length > 0 ? effectiveScenes : displayScenes;
+    if (!scenesToAudition || scenesToAudition.length === 0) return;
     if (isPlayingAllScenes) {
       if (audioPlayerRef.current) audioPlayerRef.current.pause();
       setIsPlayingAllScenes(false);
@@ -701,10 +803,10 @@ export default function StoryApprovalCard({
     setIsPlayingAllScenes(true);
     const chosenVoice = selectedVoiceObj;
 
-    for (let i = 0; i < displayScenes.length; i++) {
+    for (let i = 0; i < scenesToAudition.length; i++) {
       setAllScenesProgress(i + 1);
       setActivePlayingIndex(i);
-      const text = displayScenes[i].voiceoverText;
+      const text = scenesToAudition[i].voiceoverText;
       const cacheKey = `${chosenVoice.elevenLabsId || chosenVoice.id}_${voiceSpeed}_${i}_${text}`;
 
       let audioSrc = sceneAudioMap[cacheKey];
@@ -824,8 +926,8 @@ export default function StoryApprovalCard({
     setSubtitlePreviewError(null);
     setSubtitlePreviewVideoUrl(null);
 
-    const sampleText = displayScenes && displayScenes[0]?.voiceoverText
-      ? displayScenes[0].voiceoverText.substring(0, 140)
+    const sampleText = effectiveScenes && effectiveScenes[0]?.voiceoverText
+      ? effectiveScenes[0].voiceoverText.substring(0, 140)
       : (story.viralHook || 'Watch how these subtitles boost retention by 300%!');
 
     const chosenVoice = selectedVoiceObj;
@@ -885,7 +987,8 @@ export default function StoryApprovalCard({
     if (typeof onApprove === 'function') {
       const chosenVoice = selectedVoiceObj;
       const chosenMusic = selectedMusicObj;
-      const sampleText = displayScenes && displayScenes[0]?.voiceoverText ? displayScenes[0].voiceoverText : (story.viralHook || '');
+      const scenesToForward = effectiveScenes && effectiveScenes.length > 0 ? effectiveScenes : displayScenes;
+      const sampleText = scenesToForward && scenesToForward[0]?.voiceoverText ? scenesToForward[0].voiceoverText : (story.viralHook || '');
       const rawSubs = resolveSubtitleConfig(selectedSubtitleSettings, sampleText, threadLanguage);
       const cleanSubs = ensureCamelCaseSubtitles(rawSubs) || rawSubs;
       onApprove(story.approveUrl, {
@@ -896,7 +999,11 @@ export default function StoryApprovalCard({
         musicId: selectedMusicId,
         musicTrackUrl: chosenMusic?.audioUrl || '',
         musicVolume: (chosenMusic?.audioUrl || '') === '' ? 0 : (function () { const v = Number(musicVolume); return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08; })(),
-        privacyStatus: privacyStatus
+        privacyStatus: privacyStatus,
+        visualStyle: story?.visualStyle || story?.visualStyleId || 'cinematic',
+        language: threadLanguage,
+        scenes: scenesToForward,
+        editedScenes: scenesToForward
       });
     }
   };
@@ -929,13 +1036,34 @@ export default function StoryApprovalCard({
     const action = isFinalScenesStage ? 'REFINE_SCENES' : 'REFINE_STORY';
 
     if (typeof onRefine === 'function') {
+      const chosenVoice = selectedVoiceObj;
+      const chosenMusic = selectedMusicObj;
+      const scenesToForward = effectiveScenes && effectiveScenes.length > 0 ? effectiveScenes : displayScenes;
+      const sampleText = scenesToForward && scenesToForward[0]?.voiceoverText ? scenesToForward[0].voiceoverText : (story.viralHook || '');
+      const rawSubs = resolveSubtitleConfig(selectedSubtitleSettings, sampleText, threadLanguage);
+      const cleanSubs = ensureCamelCaseSubtitles(rawSubs) || rawSubs;
+
       onRefine({
         actionType: action,
         refinePrompt: promptToSend,
         refineMode: modeToSend,
         refineScenes: selectedScenes,
         refineRound: refineRound,
-        approveUrl: story?.approveUrl || story?.resumeUrl
+        approveUrl: story?.approveUrl || story?.resumeUrl,
+        customSettings: {
+          voiceId: selectedVoiceId,
+          elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
+          voiceSpeed: (function () { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
+          subtitleSettings: cleanSubs,
+          musicId: selectedMusicId,
+          musicTrackUrl: chosenMusic?.audioUrl || '',
+          musicVolume: (chosenMusic?.audioUrl || '') === '' ? 0 : (function () { const v = Number(musicVolume); return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08; })(),
+          privacyStatus: privacyStatus,
+          visualStyle: story?.visualStyle || story?.visualStyleId || 'cinematic',
+          language: threadLanguage,
+          scenes: scenesToForward,
+          editedScenes: scenesToForward
+        }
       });
     }
   };
@@ -1106,6 +1234,28 @@ export default function StoryApprovalCard({
             >
               <span>🎵 {selectedMusicObj?.name} ({Math.round(musicVolume * 100)}% vol)</span>
             </button>
+
+            <div
+              title={`Visual Style: ${story.visualStyle || story.visualStyleId || 'Cinematic Realistic'}`}
+              style={{
+                background: 'rgba(139, 92, 246, 0.12)', color: '#a78bfa',
+                padding: '4px 10px', borderRadius: '8px', fontWeight: 700, border: '1px solid rgba(139, 92, 246, 0.3)',
+                display: 'flex', alignItems: 'center', gap: '4px'
+              }}
+            >
+              <span>🎨 {story.visualStyle || story.visualStyleId || 'Cinematic Realistic'}</span>
+            </div>
+
+            <div
+              title={`Language: ${threadLanguage || 'English'}`}
+              style={{
+                background: 'rgba(16, 185, 129, 0.12)', color: '#10b981',
+                padding: '4px 10px', borderRadius: '8px', fontWeight: 700, border: '1px solid rgba(16, 185, 129, 0.3)',
+                display: 'flex', alignItems: 'center', gap: '4px'
+              }}
+            >
+              <span>🌐 {threadLanguage || 'English'}</span>
+            </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255, 255, 255, 0.04)', padding: '2px 4px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '4px' }}>YouTube:</span>
@@ -2019,6 +2169,77 @@ export default function StoryApprovalCard({
       {/* ─── 4. STAGE 1: STORY PITCH BRIEF ──────────────────────────── */}
       {!displayScenes && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+          {/* Read Aloud Pitch Audio Bar */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(236, 72, 153, 0.12))',
+            borderRadius: '16px',
+            border: '1.5px solid rgba(99, 102, 241, 0.35)',
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '38px', height: '38px', borderRadius: '10px',
+                background: 'linear-gradient(135deg, #6366f1, #ec4899)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+                flexShrink: 0
+              }}>
+                <Volume2 size={18} />
+              </div>
+              <div>
+                <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  🎙️ AI Voice Pitch Audition (Read Aloud)
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Audition the viral hook & story narrative in <strong>{selectedVoiceObj?.name}</strong>'s voice ({voiceSpeed}x speed)
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleTogglePitchAudio}
+              disabled={isGeneratingPitch}
+              style={{
+                background: isPitchPlaying
+                  ? 'rgba(239, 68, 68, 0.2)'
+                  : 'linear-gradient(135deg, #6366f1, #ec4899)',
+                border: `1.5px solid ${isPitchPlaying ? '#ef4444' : 'transparent'}`,
+                borderRadius: '10px',
+                padding: '8px 16px',
+                color: '#fff',
+                fontSize: '12px',
+                fontWeight: 800,
+                cursor: isGeneratingPitch ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 12px rgba(99,102,241,0.25)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {isGeneratingPitch ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>Synthesizing Voice Pitch...</span>
+                </>
+              ) : isPitchPlaying ? (
+                <>
+                  <Square size={13} fill="#fff" />
+                  <span>Stop Pitch Audition</span>
+                </>
+              ) : (
+                <>
+                  <Play size={13} fill="#fff" />
+                  <span>Audition Story Pitch</span>
+                </>
+              )}
+            </button>
+          </div>
           {/* Suggested Title */}
           {story.suggestedTitle && (
             <div style={{
@@ -2322,9 +2543,9 @@ export default function StoryApprovalCard({
 
           {/* 5 Individual Scene Cards */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {displayScenes.map((scene, idx) => {
+            {effectiveScenes.map((scene, idx) => {
               const sceneNum = idx + 1;
-              const charCount = scene.voiceoverCharCount !== undefined ? scene.voiceoverCharCount : (scene.voiceoverText || '').length;
+              const charCount = (scene.voiceoverText || '').length;
               const wordCount = (scene.voiceoverText || '').trim().split(/\s+/).filter(Boolean).length;
               const charBadge = getCharCountBadgeStyle(charCount, wordCount);
               const sceneChanged = isSceneChanged(sceneNum, scene);
@@ -2353,7 +2574,7 @@ export default function StoryApprovalCard({
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span className="badge badge-brand" style={{ fontSize: '11.5px', fontWeight: 800 }}>
-                        Scene {sceneNum} of {displayScenes.length} • {scene.duration || 15}s
+                        Scene {sceneNum} of {effectiveScenes.length} • {scene.duration || 15}s
                       </span>
                       {sceneChanged && (
                         <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '10.5px' }}>
@@ -2383,20 +2604,58 @@ export default function StoryApprovalCard({
                     </div>
                   </div>
 
-                  {/* Voiceover Text Quote */}
+                  {/* In-Place Editable Voiceover Script */}
                   <div style={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: 'var(--text-primary)',
                     marginBottom: '12px',
-                    lineHeight: 1.55,
-                    padding: '10px 14px',
+                    padding: '12px 14px',
                     background: 'var(--bg-card)',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border-subtle)'
+                    borderRadius: '14px',
+                    border: '1px solid var(--border-subtle)',
+                    transition: 'border-color 0.15s ease'
                   }}>
-                    <span style={{ color: 'var(--accent-primary)', fontWeight: 800, marginRight: '6px' }}>🎙️ Voiceover:</span>
-                    "{scene.voiceoverText}"
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '8px'
+                    }}>
+                      <div style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: 'var(--accent-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        textTransform: 'uppercase'
+                      }}>
+                        <Mic2 size={12} />
+                        <span>Voiceover Script (In-Place Editable):</span>
+                      </div>
+                      <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                        ✍️ Edit text directly below to adjust wording & live pace
+                      </div>
+                    </div>
+
+                    <textarea
+                      value={scene.voiceoverText || ''}
+                      onChange={(e) => handleVoiceoverTextChange(idx, e.target.value)}
+                      rows={3}
+                      placeholder="Enter voiceover script for this scene..."
+                      style={{
+                        width: '100%',
+                        fontSize: '13.5px',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        lineHeight: 1.55,
+                        background: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '10px',
+                        padding: '10px 12px',
+                        outline: 'none',
+                        resize: 'vertical',
+                        fontFamily: 'inherit'
+                      }}
+                    />
                   </div>
 
                   {/* ── ADVANCED AUDIO PLAYER WITH SCRUBBER & DURATION TESTER ── */}
@@ -2653,7 +2912,7 @@ export default function StoryApprovalCard({
               <textarea
                 value={refineText}
                 onChange={e => setRefineText(e.target.value)}
-                placeholder="Give specific creative direction to the AI Doctor (e.g. 'Make Scene 1 more mysterious and fix character count to 195')..."
+                placeholder="Give specific creative direction to the AI Doctor (e.g. 'Make Scene 1 more mysterious and fix character count to calibrated 220')..."
                 rows={3}
                 style={{
                   width: '100%',

@@ -310,7 +310,14 @@ export const handler = async (event, context) => {
         sessionId,
         language,
         voiceId,
+        elevenLabsVoiceId,
+        voiceSpeed: safeVoiceSpeed,
         visualStyle,
+        subtitleSettings,
+        musicId,
+        musicTrackUrl,
+        musicVolume: safeMusicVolume,
+        privacyStatus: safePrivacyStatus,
         webhookSecret
       };
 
@@ -344,6 +351,16 @@ export const handler = async (event, context) => {
               'story.refined': false,
               refineTimestamp: null,
               'story.refineTimestamp': null,
+              'finalSettings.voiceId': voiceId,
+              'finalSettings.elevenLabsVoiceId': elevenLabsVoiceId,
+              'finalSettings.voiceSpeed': safeVoiceSpeed,
+              'finalSettings.visualStyle': visualStyle,
+              'finalSettings.subtitleSettings': subtitleSettings,
+              'finalSettings.musicId': musicId,
+              'finalSettings.musicTrackUrl': musicTrackUrl,
+              'finalSettings.musicVolume': safeMusicVolume,
+              'finalSettings.privacyStatus': safePrivacyStatus,
+              'finalSettings.language': language,
               generationStage: `AI Agent Story Doctor is refining story brief (Round ${refineRound})...`,
               updatedAt: now
             },
@@ -389,7 +406,15 @@ export const handler = async (event, context) => {
         sessionId,
         language,
         voiceId,
+        elevenLabsVoiceId,
+        voiceSpeed: safeVoiceSpeed,
         visualStyle,
+        subtitleSettings,
+        musicId,
+        musicTrackUrl,
+        musicVolume: safeMusicVolume,
+        privacyStatus: safePrivacyStatus,
+        scenes: payload.scenes || scenes || null,
         webhookSecret
       };
 
@@ -424,6 +449,18 @@ export const handler = async (event, context) => {
               refineTimestamp: null,
               'story.refineTimestamp': null,
               refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
+              'finalSettings.voiceId': voiceId,
+              'finalSettings.elevenLabsVoiceId': elevenLabsVoiceId,
+              'finalSettings.voiceSpeed': safeVoiceSpeed,
+              'finalSettings.visualStyle': visualStyle,
+              'finalSettings.subtitleSettings': subtitleSettings,
+              'finalSettings.musicId': musicId,
+              'finalSettings.musicTrackUrl': musicTrackUrl,
+              'finalSettings.musicVolume': safeMusicVolume,
+              'finalSettings.privacyStatus': safePrivacyStatus,
+              'finalSettings.language': language,
+              'finalSettings.scenes': payload.scenes || scenes || null,
+              ...(payload.scenes || scenes ? { scenes: payload.scenes || scenes } : {}),
               generationStage: `AI Agent Screenplay Doctor is refining 5 scenes (Round ${refineRound})...`,
               updatedAt: now
             },
@@ -472,6 +509,7 @@ export const handler = async (event, context) => {
         musicVolume: safeMusicVolume,
         privacyStatus: safePrivacyStatus,
         language,
+        scenes: payload.scenes || scenes || null,
         webhookSecret
       };
 
@@ -511,6 +549,8 @@ export const handler = async (event, context) => {
               'finalSettings.musicVolume': safeMusicVolume,
               'finalSettings.privacyStatus': safePrivacyStatus,
               'finalSettings.language': language,
+              'finalSettings.scenes': payload.scenes || scenes || null,
+              ...(payload.scenes || scenes ? { scenes: payload.scenes || scenes } : {}),
               updatedAt: now 
             },
             $push: {

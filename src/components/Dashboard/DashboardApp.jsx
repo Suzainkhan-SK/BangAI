@@ -1085,13 +1085,15 @@ export default function DashboardApp({
     let effectiveActionType = 'REFINE_STORY';
     let customUrl = customApproveUrl;
 
+    let customSettings = null;
     if (typeof params === 'object' && params !== null) {
-      // Called with object: { actionType, refinePrompt, refineMode, refineScenes, refineRound, approveUrl }
+      // Called with object: { actionType, refinePrompt, refineMode, refineScenes, refineRound, approveUrl, customSettings }
       refinePrompt = params.refinePrompt || params.prompt || '';
       refineMode = params.refineMode || params.mode || 'full';
       refineScenes = params.refineScenes || params.scenes || [];
       effectiveActionType = params.actionType || params.action || actionType || 'REFINE_STORY';
       customUrl = params.approveUrl || params.customUrl || customApproveUrl;
+      customSettings = params.customSettings || null;
     } else if (typeof params === 'string' && (params === 'REFINE_STORY' || params === 'REFINE_SCENES' || params.startsWith('REFINE'))) {
       // Called with (actionType, prompt, mode, scenes, round, url)
       effectiveActionType = params;
@@ -1138,7 +1140,14 @@ export default function DashboardApp({
             generationStage: stageMsg,
             refineRound: currentRound,
             refineMode: refineMode,
-            errorMessage: null
+            errorMessage: null,
+            ...(customSettings ? {
+              voiceId: customSettings.voiceId || t.voiceId,
+              finalSettings: {
+                ...(t.finalSettings || {}),
+                ...customSettings
+              }
+            } : {})
           }
         : t
     ));
@@ -1158,10 +1167,17 @@ export default function DashboardApp({
           refineScenes: Array.isArray(refineScenes) ? refineScenes : [],
           refineRound: currentRound,
           story: activeThread.story || null,
-          scenes: activeThread.scenes || null,
+          scenes: customSettings?.scenes || customSettings?.editedScenes || activeThread.scenes || null,
           language: activeThread.story?.language || language || 'English',
-          voiceId: activeThread.voiceId || voiceId || 'adam',
-          visualStyle: activeThread.visualStyleId || styleId || 'cinematic'
+          voiceId: customSettings?.voiceId || activeThread?.finalSettings?.voiceId || activeThread.voiceId || voiceId || 'adam',
+          elevenLabsVoiceId: customSettings?.elevenLabsVoiceId || activeThread?.finalSettings?.elevenLabsVoiceId || '',
+          voiceSpeed: customSettings?.voiceSpeed ?? activeThread?.finalSettings?.voiceSpeed ?? activeThread.voiceSpeed ?? voiceSpeed,
+          visualStyle: customSettings?.visualStyle || activeThread?.visualStyleId || styleId || 'cinematic',
+          subtitleSettings: customSettings?.subtitleSettings || activeThread?.finalSettings?.subtitleSettings || subtitleSettings,
+          musicId: customSettings?.musicId || activeThread?.finalSettings?.musicId || musicId,
+          musicTrackUrl: customSettings?.musicTrackUrl || activeThread?.finalSettings?.musicTrackUrl || '',
+          musicVolume: customSettings?.musicVolume ?? activeThread?.finalSettings?.musicVolume ?? musicVolume,
+          privacyStatus: customSettings?.privacyStatus || activeThread?.finalSettings?.privacyStatus || privacyStatus
         })
       });
 
@@ -1247,6 +1263,7 @@ export default function DashboardApp({
           action: isStage2 ? 'APPROVE_SCENES' : 'APPROVE',
           story: activeThread?.story || null,
           refinedStory: activeThread?.story || null,
+          scenes: customSettings.editedScenes || customSettings.scenes || activeThread?.scenes || null,
           language: activeThread?.story?.language || language || 'English',
           voiceId: chosenVoiceId,
           elevenLabsVoiceId: chosenElevenLabsVoiceId,
@@ -1305,7 +1322,23 @@ export default function DashboardApp({
         setGenerationStage(`Generating ${stage1SceneCount}-scene master screenplay in n8n Cloud...`);
         setPastShorts(prev => prev.map(t => 
           (t.threadId === currentThreadId || t.id === currentThreadId)
-            ? { ...t, status: 'GENERATING_SCENES', errorMessage: null }
+            ? {
+                ...t,
+                status: 'GENERATING_SCENES',
+                errorMessage: null,
+                finalSettings: {
+                  ...(t.finalSettings || {}),
+                  voiceId: chosenVoiceId,
+                  elevenLabsVoiceId: chosenElevenLabsVoiceId,
+                  voiceSpeed: chosenVoiceSpeed,
+                  visualStyle: activeThread?.visualStyleId || styleId || 'cinematic',
+                  subtitleSettings: normalizedSubtitles,
+                  musicId: chosenMusicId,
+                  musicTrackUrl: chosenMusicTrackUrl,
+                  musicVolume: chosenMusicVolume,
+                  privacyStatus: chosenPrivacyStatus
+                }
+              }
             : t
         ));
       } else if (isStage2) {
@@ -1319,6 +1352,20 @@ export default function DashboardApp({
             ? { 
                 ...t, 
                 status: 'RENDERING_VIDEO',
+                scenes: customSettings.editedScenes || customSettings.scenes || t.scenes || null,
+                finalSettings: {
+                  ...(t.finalSettings || {}),
+                  voiceId: chosenVoiceId,
+                  elevenLabsVoiceId: chosenElevenLabsVoiceId,
+                  voiceSpeed: chosenVoiceSpeed,
+                  visualStyle: activeThread?.visualStyleId || styleId || 'cinematic',
+                  subtitleSettings: normalizedSubtitles,
+                  musicId: chosenMusicId,
+                  musicTrackUrl: chosenMusicTrackUrl,
+                  musicVolume: chosenMusicVolume,
+                  privacyStatus: chosenPrivacyStatus,
+                  scenes: customSettings.editedScenes || customSettings.scenes || t.scenes || null
+                },
                 messages: [
                   ...(t.messages || []),
                   { role: 'assistant', content: '🎬 5 scenes approved! Autonomous 1080p video rendering pipeline dispatched on n8n Cloud...' }
@@ -1813,6 +1860,24 @@ export default function DashboardApp({
               onApprove={handleApproveStory}
               onReject={handleRejectStory}
               onRefine={handleRefineStory}
+              onVoiceChange={(newVoiceId, voiceObj) => {
+                setVoiceId(newVoiceId);
+                const chosenElevenLabsId = voiceObj?.elevenLabsId || voiceObj?.id || newVoiceId;
+                setPastShorts(prev => prev.map(t =>
+                  (t.threadId === activeThreadId || t.id === activeThreadId)
+                    ? {
+                        ...t,
+                        voiceId: newVoiceId,
+                        elevenLabsVoiceId: chosenElevenLabsId,
+                        finalSettings: {
+                          ...(t.finalSettings || {}),
+                          voiceId: newVoiceId,
+                          elevenLabsVoiceId: chosenElevenLabsId
+                        }
+                      }
+                    : t
+                ));
+              }}
             />
           )}
 
