@@ -152,7 +152,7 @@ export async function synthesizeVoicePreview({
     throw new Error('voiceId and text are required for voice synthesis');
   }
 
-  const trimmedText = String(text).trim().substring(0, 500);
+  const trimmedText = String(text).trim().substring(0, 3000);
 
   const res = await fetch('/.netlify/functions/preview-voice', {
     method: 'POST',

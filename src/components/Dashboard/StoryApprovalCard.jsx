@@ -340,6 +340,7 @@ export default function StoryApprovalCard({
 
   const audioPlayerRef = useRef(null);
   const musicPlayerRef = useRef(null);
+  const pitchPlaybackRunIdRef = useRef(0);
 
   useEffect(() => {
     setIsRefining(false);
@@ -348,6 +349,7 @@ export default function StoryApprovalCard({
   // Clean up audio on unmount
   useEffect(() => {
     return () => {
+      pitchPlaybackRunIdRef.current++;
       if (audioPlayerRef.current) audioPlayerRef.current.pause();
       if (musicPlayerRef.current) musicPlayerRef.current.pause();
     };
@@ -444,10 +446,12 @@ export default function StoryApprovalCard({
 
   // Handle immediate voice change with audio reset and Dashboard sync
   const handleSelectVoice = (voice) => {
+    pitchPlaybackRunIdRef.current++;
     if (audioPlayerRef.current) audioPlayerRef.current.pause();
     setActivePlayingIndex(null);
     setIsPlayingAllScenes(false);
     setIsPitchPlaying(false);
+    setIsGeneratingPitch(false);
     voiceTouchedRef.current = true;
     const targetId = voice.elevenLabsId || voice.id;
     setSelectedVoiceId(targetId);
@@ -621,74 +625,215 @@ export default function StoryApprovalCard({
     }
   };
 
+// Splits long narration at natural sentence boundaries (Hindi Purna Viram '।', '.', '!', '?', or newline)
+function splitPitchTextIntoChunks(text, maxChars = 480) {
+  if (!text || text.length <= maxChars) return [text || ''];
+  
+  const chunks = [];
+  let remaining = text;
+  
+  while (remaining.length > 0) {
+    if (remaining.length <= maxChars) {
+      chunks.push(remaining);
+      break;
+    }
+    
+    const searchSlice = remaining.substring(0, maxChars);
+    let splitIndex = -1;
+    
+    const boundaries = ['।', '.', '!', '?', '\n'];
+    for (const b of boundaries) {
+      const idx = searchSlice.lastIndexOf(b);
+      if (idx > splitIndex && idx > maxChars * 0.35) {
+        splitIndex = idx + 1;
+      }
+    }
+    
+    if (splitIndex === -1) {
+      const spaceIdx = searchSlice.lastIndexOf(' ');
+      if (spaceIdx > maxChars * 0.35) {
+        splitIndex = spaceIdx + 1;
+      } else {
+        splitIndex = maxChars;
+      }
+    }
+    
+    chunks.push(remaining.substring(0, splitIndex).trim());
+    remaining = remaining.substring(splitIndex).trim();
+  }
+  
+  return chunks.filter(c => c.length > 0);
+}
+
   // ── Stage 1: Read Aloud / AI Voice Pitch Audition ───────────────
   const handleTogglePitchAudio = async () => {
     if (isPitchPlaying && audioPlayerRef.current) {
+      pitchPlaybackRunIdRef.current++;
       audioPlayerRef.current.pause();
       setIsPitchPlaying(false);
+      setIsGeneratingPitch(false);
       return;
     }
     if (audioPlayerRef.current) audioPlayerRef.current.pause();
 
+    const runId = ++pitchPlaybackRunIdRef.current;
+
     const pitchText = (
       (story.viralHook || story.hook ? (story.viralHook || story.hook) + '. ' : '') +
       (story.storyBrief || story.brief || story.storySummary || story.corePlot || story.suggestedTitle || story.title || story.topic || '')
-    ).trim().substring(0, 480) || 
-    (effectiveScenes?.[0]?.voiceoverText ? String(effectiveScenes[0].voiceoverText).substring(0, 480) : '') ||
+    ).trim().substring(0, 3000) || 
+    (effectiveScenes?.[0]?.voiceoverText ? String(effectiveScenes[0].voiceoverText).substring(0, 3000) : '') ||
     'Experience the future of viral AI short-form content creation.';
 
     const chosenVoice = selectedVoiceObj;
-    const cacheKey = `pitch_${chosenVoice.elevenLabsId || chosenVoice.id}_${voiceSpeed}_${pitchText.substring(0, 40)}`;
+    const isJ2V = chosenVoice.source === 'json2video';
+    const voiceSpeedNum = (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })();
 
-    if (sceneAudioMap[cacheKey]) {
+    // Check if full pitch is already in cache
+    const fullCacheKey = `pitch_${chosenVoice.elevenLabsId || chosenVoice.id}_${voiceSpeed}_${pitchText.length}_${pitchText.substring(0, 40)}`;
+    if (sceneAudioMap[fullCacheKey]) {
       const audio = audioPlayerRef.current || createPrimedAudio();
       audioPlayerRef.current = audio;
       setIsPitchPlaying(true);
-      playPrimedAudio(audio, sceneAudioMap[cacheKey], {
+      playPrimedAudio(audio, sceneAudioMap[fullCacheKey], {
         volume: voiceVolume,
-        onEnded: () => setIsPitchPlaying(false),
+        onEnded: () => {
+          if (pitchPlaybackRunIdRef.current === runId) setIsPitchPlaying(false);
+        },
         onError: (e) => {
           console.warn('Cached pitch audio playback error:', e);
-          setIsPitchPlaying(false);
+          if (pitchPlaybackRunIdRef.current === runId) setIsPitchPlaying(false);
         }
       });
       return;
     }
 
-    // Prime the audio player synchronously during the user click gesture to guarantee playback
+    // Prime the audio player synchronously during the user click gesture
     const primedAudio = createPrimedAudio();
     audioPlayerRef.current = primedAudio;
     setIsGeneratingPitch(true);
-    try {
-      const voiceSpeedNum = (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })();
-      const audioSrc = await synthesizeVoicePreview({
-        voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
-        text: pitchText,
-        speed: voiceSpeedNum,
-        provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
-      });
 
-      if (audioSrc) {
-        setSceneAudioMap(prev => ({ ...prev, [cacheKey]: audioSrc }));
+    try {
+      // If using JSON2Video and text is longer than 450 chars (exceeds JSON2Video 60s plan limit),
+      // chunk into sequential parts to read the entire story pitch without getting stopped!
+      if (isJ2V && pitchText.length > 450) {
+        const chunks = splitPitchTextIntoChunks(pitchText, 450);
         setIsPitchPlaying(true);
-        playPrimedAudio(primedAudio, audioSrc, {
-          volume: voiceVolume,
-          onEnded: () => setIsPitchPlaying(false),
-          onError: (e) => {
-            console.warn('Pitch audition playback error:', e);
-            setIsPitchPlaying(false);
+
+        const chunkPromises = {};
+        const getChunkAudio = (idx) => {
+          if (idx >= chunks.length) return Promise.resolve(null);
+          const chunkText = chunks[idx];
+          const chunkKey = `pitch_${chosenVoice.elevenLabsId || chosenVoice.id}_${voiceSpeed}_${chunkText.length}_${chunkText.substring(0, 40)}`;
+          if (sceneAudioMap[chunkKey]) return Promise.resolve(sceneAudioMap[chunkKey]);
+
+          if (!chunkPromises[idx]) {
+            chunkPromises[idx] = synthesizeVoicePreview({
+              voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
+              text: chunkText,
+              speed: voiceSpeedNum,
+              provider: 'json2video'
+            }).then(src => {
+              if (src) {
+                setSceneAudioMap(prev => ({ ...prev, [chunkKey]: src }));
+              }
+              return src;
+            }).catch(err => {
+              console.warn(`Chunk ${idx} synthesis error:`, err);
+              return null;
+            });
           }
-        });
+          return chunkPromises[idx];
+        };
+
+        // Immediately start prefetching chunk 0 and chunk 1
+        getChunkAudio(0);
+        if (chunks.length > 1) {
+          getChunkAudio(1);
+        }
+
+        for (let i = 0; i < chunks.length; i++) {
+          if (pitchPlaybackRunIdRef.current !== runId) break;
+
+          const chunkKey = `pitch_${chosenVoice.elevenLabsId || chosenVoice.id}_${voiceSpeed}_${chunks[i].length}_${chunks[i].substring(0, 40)}`;
+          let chunkSrc = sceneAudioMap[chunkKey];
+
+          if (!chunkSrc) {
+            setIsGeneratingPitch(true);
+            chunkSrc = await getChunkAudio(i);
+            setIsGeneratingPitch(false);
+          }
+
+          if (pitchPlaybackRunIdRef.current !== runId) break;
+
+          // Prefetch next chunk in background while current chunk is about to play
+          if (i + 1 < chunks.length) {
+            getChunkAudio(i + 1);
+          }
+
+          if (chunkSrc) {
+            await new Promise((resolve) => {
+              const onFinish = () => {
+                primedAudio.removeEventListener('ended', onFinish);
+                primedAudio.removeEventListener('pause', onFinish);
+                primedAudio.removeEventListener('error', onFinish);
+                resolve();
+              };
+              primedAudio.addEventListener('ended', onFinish, { once: true });
+              primedAudio.addEventListener('pause', onFinish, { once: true });
+              primedAudio.addEventListener('error', onFinish, { once: true });
+
+              playPrimedAudio(primedAudio, chunkSrc, {
+                volume: voiceVolume,
+                onError: () => onFinish()
+              });
+            });
+          }
+        }
+
+        if (pitchPlaybackRunIdRef.current === runId) {
+          setIsPitchPlaying(false);
+          setIsGeneratingPitch(false);
+        }
       } else {
-        primedAudio.pause();
-        setIsPitchPlaying(false);
+        // ElevenLabs Native or single-chunk JSON2Video: synthesize full pitch in one call
+        const audioSrc = await synthesizeVoicePreview({
+          voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
+          text: pitchText,
+          speed: voiceSpeedNum,
+          provider: isJ2V ? 'json2video' : 'elevenlabs'
+        });
+
+        if (pitchPlaybackRunIdRef.current !== runId) return;
+
+        if (audioSrc) {
+          setSceneAudioMap(prev => ({ ...prev, [fullCacheKey]: audioSrc }));
+          setIsPitchPlaying(true);
+          playPrimedAudio(primedAudio, audioSrc, {
+            volume: voiceVolume,
+            onEnded: () => {
+              if (pitchPlaybackRunIdRef.current === runId) setIsPitchPlaying(false);
+            },
+            onError: (e) => {
+              console.warn('Pitch audition playback error:', e);
+              if (pitchPlaybackRunIdRef.current === runId) setIsPitchPlaying(false);
+            }
+          });
+        } else {
+          primedAudio.pause();
+          setIsPitchPlaying(false);
+        }
       }
     } catch (err) {
       console.warn('Pitch audition error:', err);
       primedAudio.pause();
-      setIsPitchPlaying(false);
+      if (pitchPlaybackRunIdRef.current === runId) {
+        setIsPitchPlaying(false);
+      }
     } finally {
-      setIsGeneratingPitch(false);
+      if (pitchPlaybackRunIdRef.current === runId) {
+        setIsGeneratingPitch(false);
+      }
     }
   };
 

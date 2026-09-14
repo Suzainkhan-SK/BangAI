@@ -175,7 +175,7 @@ export const handler = async (event) => {
       };
     }
 
-    const trimmedText = String(text).trim().substring(0, 500);
+    const trimmedText = String(text).trim().substring(0, 3000);
     const parsedSpeed = Number(speed);
     const safeSpeed = isFinite(parsedSpeed) && parsedSpeed > 0 ? parsedSpeed : 1.10;
     const voiceSpeed = Math.min(Math.max(Number(safeSpeed.toFixed(2)), 1.10), 1.50);
@@ -235,6 +235,9 @@ export const handler = async (event) => {
     // ─── 2. JSON2VIDEO PREMIUM ENGINE (Uses JSON2Video API Keys) ─────────
     try {
       const json2VideoResult = await withJson2VideoRetry(async (apiKey) => {
+        // Protect against JSON2Video 60-second plan allowance per movie
+        const j2vText = trimmedText.length > 520 ? trimmedText.substring(0, 520) : trimmedText;
+
         const createRes = await fetch('https://api.json2video.com/v2/movies', {
           method: 'POST',
           headers: {
@@ -251,7 +254,7 @@ export const handler = async (event) => {
                     type: 'voice',
                     voice: voiceId,
                     model: 'elevenlabs',
-                    text: trimmedText,
+                    text: j2vText,
                     speed: voiceSpeed
                   }
                 ]
