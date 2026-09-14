@@ -45,6 +45,7 @@ import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS } from '../../data/
 import { MUSIC_TRACKS as STATIC_MUSIC, MUSIC_MOODS, getMusicTrackById, resolveMusicId, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
 import { useBreakpoint } from '../../hooks/useMediaQuery';
+import { synthesizeVoicePreview } from '../../lib/voicePreview';
 
 // ─── DURATION TARGETS ─────────────────────────────────────────────────
 const DURATION_TARGETS = [
@@ -337,33 +338,31 @@ export default function StudioLab({
     setGeneratingVoiceId(voice.id);
 
     try {
-      const res = await fetch('/.netlify/functions/preview-voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          voiceId: voice.elevenLabsId || voice.id,
-          text: textToSpeak,
-          speed: currentVoiceSpeed,
-          provider: voice.source === 'json2video' ? 'json2video' : 'elevenlabs'
-        })
+      const audioSrc = await synthesizeVoicePreview({
+        voiceId: voice.elevenLabsId || voice.id,
+        text: textToSpeak,
+        speed: currentVoiceSpeed,
+        provider: voice.source === 'json2video' ? 'json2video' : 'elevenlabs'
       });
 
-      const data = await res.json();
-      if (data.success && (data.audio || data.audioUrl)) {
-        const audioSrc = data.audioUrl || `data:${data.mimeType || 'audio/mpeg'};base64,${data.audio}`;
+      if (audioSrc) {
         setVoiceAudioCache(prev => ({ ...prev, [cacheKey]: audioSrc }));
         if (voiceAudioRef.current) voiceAudioRef.current.pause();
         const audio = new Audio(audioSrc);
         voiceAudioRef.current = audio;
         setPlayingVoiceId(voice.id);
-        audio.play().catch(() => setPlayingVoiceId(null));
+        audio.play().catch((err) => {
+          console.warn('Playback prevented:', err);
+          setPlayingVoiceId(null);
+        });
         audio.onloadedmetadata = () => {
           setLastAudioDuration({ voiceId: voice.id, duration: audio.duration });
         };
         audio.onended = () => setPlayingVoiceId(null);
-        audio.onerror = () => setPlayingVoiceId(null);
-      } else {
-        console.error('TTS generation failed:', data.error);
+        audio.onerror = (e) => {
+          console.warn('Playback error:', e);
+          setPlayingVoiceId(null);
+        };
       }
     } catch (err) {
       console.error('TTS error:', err);

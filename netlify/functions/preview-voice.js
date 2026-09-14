@@ -5,7 +5,7 @@
 // 1. ElevenLabs Native Voices -> Directly uses ElevenLabs API with ElevenLabs API Keys
 // 2. JSON2Video Premium Voices -> Directly uses JSON2Video Voice Engine with JSON2Video API Keys
 
-import { withElevenLabsRetry, withJson2VideoRetry, getJson2VideoKey } from './api-keys.js';
+import { withElevenLabsRetry, withJson2VideoRetry, getJson2VideoKey, JSON2VIDEO_KEYS } from './api-keys.js';
 import { getDb } from './db.js';
 
 // Native ElevenLabs Pre-Made Voice IDs supported directly on ElevenLabs keys
@@ -51,6 +51,7 @@ export const handler = async (event) => {
   if (event.httpMethod === 'GET') {
     try {
       const projectId = event.queryStringParameters?.project;
+      const clientApiKey = event.queryStringParameters?.apiKey;
       if (!projectId) {
         return {
           statusCode: 400,
@@ -59,18 +60,47 @@ export const handler = async (event) => {
         };
       }
 
-      let apiKey = null;
-      try {
-        const db = await getDb();
-        const doc = await db.collection('previews').findOne({ project: projectId });
-        if (doc && doc.apiKey) apiKey = doc.apiKey;
-      } catch (e) {}
+      let apiKey = clientApiKey || null;
+      if (!apiKey) {
+        try {
+          const db = await getDb();
+          const doc = await db.collection('previews').findOne({ project: projectId });
+          if (doc && doc.apiKey) apiKey = doc.apiKey;
+        } catch (e) {}
+      }
 
-      if (!apiKey) apiKey = getJson2VideoKey(0);
+      let statusRes = null;
+      if (apiKey) {
+        statusRes = await fetch(`https://api.json2video.com/v2/movies?project=${encodeURIComponent(projectId)}`, {
+          headers: { 'x-api-key': apiKey }
+        });
+      } else {
+        // Fallback: try each key in JSON2VIDEO_KEYS
+        for (const candidateKey of JSON2VIDEO_KEYS) {
+          try {
+            const candidateRes = await fetch(`https://api.json2video.com/v2/movies?project=${encodeURIComponent(projectId)}`, {
+              headers: { 'x-api-key': candidateKey }
+            });
+            if (candidateRes.status !== 401 && candidateRes.status !== 403 && candidateRes.status !== 404) {
+              const testData = await candidateRes.clone().json().catch(() => null);
+              if (testData && testData.success !== false) {
+                statusRes = candidateRes;
+                apiKey = candidateKey;
+                break;
+              }
+            }
+          } catch (e) {}
+        }
+      }
 
-      const statusRes = await fetch(`https://api.json2video.com/v2/movies?project=${encodeURIComponent(projectId)}`, {
-        headers: { 'x-api-key': apiKey }
-      });
+      if (!statusRes) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ success: false, error: 'Could not resolve matching API key for project' })
+        };
+      }
+
       const statusData = await statusRes.json();
 
       if (statusData.movie?.status === 'done' && statusData.movie?.url) {
@@ -105,7 +135,8 @@ export const handler = async (event) => {
         body: JSON.stringify({
           success: true,
           status: 'rendering',
-          project: projectId
+          project: projectId,
+          apiKey: apiKey
         })
       };
     } catch (err) {
@@ -243,8 +274,8 @@ export const handler = async (event) => {
         const start = Date.now();
         let movieUrl = null;
 
-        // Server-side short poll: max 5 seconds (zero timeout risk)
-        while (Date.now() - start < 5000) {
+        // Server-side short poll: max 15 seconds (safely under Netlify 26s limit)
+        while (Date.now() - start < 15000) {
           await new Promise(r => setTimeout(r, 1200));
           const statusRes = await fetch(`https://api.json2video.com/v2/movies?project=${projectId}`, {
             headers: { 'x-api-key': apiKey }
@@ -261,10 +292,11 @@ export const handler = async (event) => {
         }
 
         if (!movieUrl) {
-          // If not finished in 5s, return project for client polling
+          // If not finished in 15s, return project for client polling
           return {
             status: 'rendering',
-            project: projectId
+            project: projectId,
+            apiKey: apiKey
           };
         }
 
@@ -282,9 +314,10 @@ export const handler = async (event) => {
           status: 'done',
           audio: base64Media,
           audioUrl: movieUrl,
+          apiKey: apiKey,
           mimeType: 'video/mp4'
         };
-      }, 1);
+      }, 3);
 
       return {
         statusCode: 200,
@@ -294,6 +327,7 @@ export const handler = async (event) => {
           provider: 'json2video',
           status: json2VideoResult.status,
           project: json2VideoResult.project,
+          apiKey: json2VideoResult.apiKey,
           audio: json2VideoResult.audio,
           audioUrl: json2VideoResult.audioUrl,
           mimeType: json2VideoResult.mimeType || 'video/mp4',

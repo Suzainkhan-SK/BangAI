@@ -3,18 +3,18 @@
 
 // ─── json2video API Keys (12 keys) ────────────────────────────────────
 const JSON2VIDEO_KEYS = [
-  'UyqK9IVQJp6lBewpRcWEk8GjfBjnWLb8y3FZAWD5',
-  'BSMCNOEbA5e4GOFOkfg9f5vYpOQR5cdUk9qPt9dV',
-  'dVpBkFScr1KElvbmUfcuDAENfGLUuBLb74DNr5vp',
-  'E3ybUBUvDBHEFceM4QoUGxiS6vbnpL0Z87h24Xoi',
-  'HjgybeaHuss7IH0sB2EdshSlS3AS7cWXdt78w68O',
-  'bVQPK30nOfHCtUfB7jjYO45U8mIJvZUVgrAGmeEu',
-  'Mcvgc3bcrXvdjCK7SeFvOLVJpdABdogswpiGwfhc',
-  '7iIcxBBivKYJI2Dwh8EecCteEr1LCf2c2fhwfBFk',
-  'BfVGdb6AJiYAbFD2FNsokFDfC8eEdrDZEjAHeP6B',
-  'fQWgofoFFcVO9TXD351b6aAYDHedUcM2LnBrF0Gx',
-  'iuCcWNHGIfA7DZshgdCG5YEJiel4qSMmNPeFU4R7',
-  'CclCGmgMXImymZnHctdV2bSfVe38ZlFGPI5BBBOo'
+  'CclCGmgMXImymZnHctdV2bSfVe38ZlFGPI5BBBOo', // ~363s remaining
+  'iuCcWNHGIfA7DZshgdCG5YEJiel4qSMmNPeFU4R7', // ~373s remaining
+  'fQWgofoFFcVO9TXD351b6aAYDHedUcM2LnBrF0Gx', // ~368s remaining
+  'BfVGdb6AJiYAbFD2FNsokFDfC8eEdrDZEjAHeP6B', // ~332s remaining
+  '7iIcxBBivKYJI2Dwh8EecCteEr1LCf2c2fhwfBFk', // ~309s remaining
+  'Mcvgc3bcrXvdjCK7SeFvOLVJpdABdogswpiGwfhc', // ~305s remaining
+  'bVQPK30nOfHCtUfB7jjYO45U8mIJvZUVgrAGmeEu', // ~288s remaining
+  'HjgybeaHuss7IH0sB2EdshSlS3AS7cWXdt78w68O', // ~257s remaining
+  'E3ybUBUvDBHEFceM4QoUGxiS6vbnpL0Z87h24Xoi', // ~213s remaining
+  'dVpBkFScr1KElvbmUfcuDAENfGLUuBLb74DNr5vp', // ~140s remaining
+  'BSMCNOEbA5e4GOFOkfg9f5vYpOQR5cdUk9qPt9dV', // ~68s remaining
+  'UyqK9IVQJp6lBewpRcWEk8GjfBjnWLb8y3FZAWD5'  // 1s remaining (exhausted - fallback only)
 ];
 
 // ─── ElevenLabs API Keys (2 keys) ─────────────────────────────────────

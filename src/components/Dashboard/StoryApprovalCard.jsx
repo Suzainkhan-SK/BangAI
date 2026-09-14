@@ -53,6 +53,7 @@ import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS, resolveSubtitleCon
 import { MUSIC_TRACKS, MUSIC_MOODS, DEFAULT_MUSIC_ID, resolveMusicId, getMusicTrackById, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
 import { useBreakpoint } from '../../hooks/useMediaQuery';
 import { ensureCamelCaseSubtitles } from '../../lib/json2videoSubtitles';
+import { synthesizeVoicePreview, createPrimedAudio, playPrimedAudio } from '../../lib/voicePreview';
 
 // Canonical Preset Definitions for Story Brief (Stage 1)
 const STORY_PRESETS = [
@@ -643,42 +644,50 @@ export default function StoryApprovalCard({
       const audioSrc = sceneAudioMap[cacheKey];
       const audio = new Audio(audioSrc);
       audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
-      audio.crossOrigin = 'anonymous';
       audioPlayerRef.current = audio;
       setIsPitchPlaying(true);
       audio.onended = () => setIsPitchPlaying(false);
-      audio.onerror = () => setIsPitchPlaying(false);
-      audio.play().catch(() => setIsPitchPlaying(false));
+      audio.onerror = (e) => {
+        console.warn('Cached pitch audio playback error:', e);
+        setIsPitchPlaying(false);
+      };
+      audio.play().catch((err) => {
+        console.warn('Playback prevented:', err);
+        setIsPitchPlaying(false);
+      });
       return;
     }
 
+    // Prime the audio player during the user click gesture to guarantee playback
+    const primedAudio = createPrimedAudio();
+    audioPlayerRef.current = primedAudio;
     setIsGeneratingPitch(true);
     try {
-      const res = await fetch('/.netlify/functions/preview-voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
-          text: pitchText,
-          speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
-          provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
-        })
+      const voiceSpeedNum = (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })();
+      const audioSrc = await synthesizeVoicePreview({
+        voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
+        text: pitchText,
+        speed: voiceSpeedNum,
+        provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
       });
-      const data = await res.json();
-      if (data.success && (data.audio || data.audioUrl)) {
-        const audioSrc = data.audioUrl || `data:${data.mimeType || 'audio/mpeg'};base64,${data.audio}`;
+
+      if (audioSrc) {
         setSceneAudioMap(prev => ({ ...prev, [cacheKey]: audioSrc }));
-        const audio = new Audio(audioSrc);
-        audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
-        audio.crossOrigin = 'anonymous';
-        audioPlayerRef.current = audio;
+        playPrimedAudio(primedAudio, audioSrc, {
+          volume: voiceVolume,
+          onEnded: () => setIsPitchPlaying(false),
+          onError: (e) => {
+            console.warn('Pitch audition playback error:', e);
+            setIsPitchPlaying(false);
+          }
+        });
         setIsPitchPlaying(true);
-        audio.onended = () => setIsPitchPlaying(false);
-        audio.onerror = () => setIsPitchPlaying(false);
-        audio.play().catch(() => setIsPitchPlaying(false));
+      } else {
+        primedAudio.pause();
       }
     } catch (err) {
       console.warn('Pitch audition error:', err);
+      primedAudio.pause();
     } finally {
       setIsGeneratingPitch(false);
     }
@@ -704,10 +713,12 @@ export default function StoryApprovalCard({
     // Stop current audio if playing something else
     if (audioPlayerRef.current) audioPlayerRef.current.pause();
 
-    const startAudioPlayback = (audioSrc) => {
-      const audio = new Audio(audioSrc);
+    const startAudioPlayback = (audioSrc, existingAudio = null) => {
+      const audio = existingAudio || new Audio();
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = audioSrc;
       audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
-      audio.crossOrigin = 'anonymous';
       audioPlayerRef.current = audio;
       setActivePlayingIndex(sceneIndex);
       setIsAudioPaused(false);
@@ -726,12 +737,14 @@ export default function StoryApprovalCard({
         setSceneCurrentTime(prev => ({ ...prev, [sceneIndex]: 0 }));
       };
 
-      audio.onerror = () => {
+      audio.onerror = (e) => {
+        console.warn('Scene playback error:', e);
         setActivePlayingIndex(null);
         setIsAudioPaused(false);
       };
 
-      audio.play().catch(() => {
+      audio.play().catch((err) => {
+        console.warn('Scene playback prevented:', err);
         setActivePlayingIndex(null);
         setIsAudioPaused(false);
       });
@@ -745,28 +758,30 @@ export default function StoryApprovalCard({
       return;
     }
 
-    // Synthesize via Dedicated Provider (ElevenLabs Native or JSON2Video Premium)
+    // Prime the audio player during the user click gesture
+    const primedAudio = createPrimedAudio();
+    audioPlayerRef.current = primedAudio;
+
+    // Synthesize via Dedicated Provider (ElevenLabs Native or JSON2Video Premium with polling)
     setGeneratingSceneIndex(sceneIndex);
     try {
-      const res = await fetch('/.netlify/functions/preview-voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
-          text: sceneText,
-          speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
-          provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
-        })
+      const voiceSpeedNum = (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })();
+      const audioSrc = await synthesizeVoicePreview({
+        voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
+        text: sceneText,
+        speed: voiceSpeedNum,
+        provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
       });
 
-      const data = await res.json();
-      if (data.success && (data.audio || data.audioUrl)) {
-        const audioSrc = data.audioUrl || `data:${data.mimeType || 'audio/mpeg'};base64,${data.audio}`;
+      if (audioSrc) {
         setSceneAudioMap(prev => ({ ...prev, [cacheKey]: audioSrc }));
-        startAudioPlayback(audioSrc);
+        startAudioPlayback(audioSrc, primedAudio);
+      } else {
+        primedAudio.pause();
       }
     } catch (err) {
       console.warn('Scene TTS audition error:', err.message);
+      primedAudio.pause();
     } finally {
       setGeneratingSceneIndex(null);
     }
@@ -813,19 +828,14 @@ export default function StoryApprovalCard({
       if (!audioSrc) {
         setGeneratingSceneIndex(i);
         try {
-          const res = await fetch('/.netlify/functions/preview-voice', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
-              text: text,
-              speed: (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
-              provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
-            })
+          const voiceSpeedNum = (function() { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })();
+          audioSrc = await synthesizeVoicePreview({
+            voiceId: chosenVoice.elevenLabsId || chosenVoice.id,
+            text: text,
+            speed: voiceSpeedNum,
+            provider: chosenVoice.source === 'json2video' ? 'json2video' : 'elevenlabs'
           });
-          const data = await res.json();
-          if (data.success && (data.audio || data.audioUrl)) {
-            audioSrc = data.audioUrl || `data:${data.mimeType || 'audio/mpeg'};base64,${data.audio}`;
+          if (audioSrc) {
             setSceneAudioMap(prev => ({ ...prev, [cacheKey]: audioSrc }));
           }
         } catch (e) {
@@ -840,15 +850,20 @@ export default function StoryApprovalCard({
           if (audioPlayerRef.current) audioPlayerRef.current.pause();
           const audio = new Audio(audioSrc);
           audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
-          audio.crossOrigin = 'anonymous';
           audioPlayerRef.current = audio;
           
           audio.ontimeupdate = () => {
             setSceneCurrentTime(prev => ({ ...prev, [i]: audio.currentTime }));
           };
           audio.onended = () => resolve();
-          audio.onerror = () => resolve();
-          audio.play().catch(() => resolve());
+          audio.onerror = (e) => {
+            console.warn('Playback error for scene ' + (i + 1), e);
+            resolve();
+          };
+          audio.play().catch((err) => {
+            console.warn('Play prevented for scene ' + (i + 1), err);
+            resolve();
+          });
         });
       }
     }

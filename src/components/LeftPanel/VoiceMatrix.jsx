@@ -26,6 +26,7 @@ import {
   getVoiceById,
   loadJson2VideoVoices
 } from '../../data/voices';
+import { synthesizeVoicePreview } from '../../lib/voicePreview';
 
 export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed = 1.10, onVoiceSpeedChange }) {
   // Provider: 'all' | 'elevenlabs' | 'json2video'
@@ -164,23 +165,16 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
     setGeneratingVoiceId(voice.id);
 
     try {
-      const res = await fetch('/.netlify/functions/preview-voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          voiceId: voice.elevenLabsId || voice.id,
-          text: textToSpeak,
-          speed: speed,
-          provider: voice.source === 'json2video' ? 'json2video' : 'elevenlabs'
-        })
+      const audioSrc = await synthesizeVoicePreview({
+        voiceId: voice.elevenLabsId || voice.id,
+        text: textToSpeak,
+        speed: speed,
+        provider: voice.source === 'json2video' ? 'json2video' : 'elevenlabs'
       });
 
-      const data = await res.json();
-
-      if (data.success && (data.audio || data.audioUrl)) {
+      if (audioSrc) {
         if (audioRef.current) audioRef.current.pause();
 
-        const audioSrc = data.audioUrl || `data:${data.mimeType || 'audio/mpeg'};base64,${data.audio}`;
         const audio = new Audio(audioSrc);
         audioRef.current = audio;
         setPlayingVoiceId(voice.id);
@@ -195,12 +189,11 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
           audioRef.current = null;
         };
 
-        audio.onerror = () => {
+        audio.onerror = (e) => {
+          console.warn('Voice preview error:', e);
           setPlayingVoiceId(null);
           audioRef.current = null;
         };
-      } else {
-        console.error('TTS generation failed:', data.error);
       }
     } catch (err) {
       console.error('TTS preview error:', err);
