@@ -6,7 +6,6 @@
 
 [functions]
   node_bundler = "esbuild"
-  timeout = 26
 
 # Ensure Netlify Functions are ALWAYS executed directly
 [[redirects]]
