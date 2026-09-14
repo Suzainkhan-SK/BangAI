@@ -631,34 +631,31 @@ export default function StoryApprovalCard({
     if (audioPlayerRef.current) audioPlayerRef.current.pause();
 
     const pitchText = (
-      (story.viralHook ? story.viralHook + '. ' : '') +
-      (story.storyBrief || story.storySummary || story.suggestedTitle || '')
-    ).trim().substring(0, 480);
-
-    if (!pitchText) return;
+      (story.viralHook || story.hook ? (story.viralHook || story.hook) + '. ' : '') +
+      (story.storyBrief || story.brief || story.storySummary || story.corePlot || story.suggestedTitle || story.title || story.topic || '')
+    ).trim().substring(0, 480) || 
+    (effectiveScenes?.[0]?.voiceoverText ? String(effectiveScenes[0].voiceoverText).substring(0, 480) : '') ||
+    'Experience the future of viral AI short-form content creation.';
 
     const chosenVoice = selectedVoiceObj;
     const cacheKey = `pitch_${chosenVoice.elevenLabsId || chosenVoice.id}_${voiceSpeed}_${pitchText.substring(0, 40)}`;
 
     if (sceneAudioMap[cacheKey]) {
-      const audioSrc = sceneAudioMap[cacheKey];
-      const audio = new Audio(audioSrc);
-      audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
+      const audio = audioPlayerRef.current || createPrimedAudio();
       audioPlayerRef.current = audio;
       setIsPitchPlaying(true);
-      audio.onended = () => setIsPitchPlaying(false);
-      audio.onerror = (e) => {
-        console.warn('Cached pitch audio playback error:', e);
-        setIsPitchPlaying(false);
-      };
-      audio.play().catch((err) => {
-        console.warn('Playback prevented:', err);
-        setIsPitchPlaying(false);
+      playPrimedAudio(audio, sceneAudioMap[cacheKey], {
+        volume: voiceVolume,
+        onEnded: () => setIsPitchPlaying(false),
+        onError: (e) => {
+          console.warn('Cached pitch audio playback error:', e);
+          setIsPitchPlaying(false);
+        }
       });
       return;
     }
 
-    // Prime the audio player during the user click gesture to guarantee playback
+    // Prime the audio player synchronously during the user click gesture to guarantee playback
     const primedAudio = createPrimedAudio();
     audioPlayerRef.current = primedAudio;
     setIsGeneratingPitch(true);
@@ -673,6 +670,7 @@ export default function StoryApprovalCard({
 
       if (audioSrc) {
         setSceneAudioMap(prev => ({ ...prev, [cacheKey]: audioSrc }));
+        setIsPitchPlaying(true);
         playPrimedAudio(primedAudio, audioSrc, {
           volume: voiceVolume,
           onEnded: () => setIsPitchPlaying(false),
@@ -681,13 +679,14 @@ export default function StoryApprovalCard({
             setIsPitchPlaying(false);
           }
         });
-        setIsPitchPlaying(true);
       } else {
         primedAudio.pause();
+        setIsPitchPlaying(false);
       }
     } catch (err) {
       console.warn('Pitch audition error:', err);
       primedAudio.pause();
+      setIsPitchPlaying(false);
     } finally {
       setIsGeneratingPitch(false);
     }
@@ -701,7 +700,7 @@ export default function StoryApprovalCard({
     // If this scene is already playing, toggle pause/play
     if (activePlayingIndex === sceneIndex && audioPlayerRef.current) {
       if (audioPlayerRef.current.paused) {
-        audioPlayerRef.current.play();
+        audioPlayerRef.current.play().catch(() => {});
         setIsAudioPaused(false);
       } else {
         audioPlayerRef.current.pause();
@@ -714,11 +713,7 @@ export default function StoryApprovalCard({
     if (audioPlayerRef.current) audioPlayerRef.current.pause();
 
     const startAudioPlayback = (audioSrc, existingAudio = null) => {
-      const audio = existingAudio || new Audio();
-      audio.pause();
-      audio.currentTime = 0;
-      audio.src = audioSrc;
-      audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
+      const audio = existingAudio || createPrimedAudio();
       audioPlayerRef.current = audio;
       setActivePlayingIndex(sceneIndex);
       setIsAudioPaused(false);
@@ -727,26 +722,21 @@ export default function StoryApprovalCard({
         setSceneDuration(prev => ({ ...prev, [sceneIndex]: audio.duration }));
       };
 
-      audio.ontimeupdate = () => {
-        setSceneCurrentTime(prev => ({ ...prev, [sceneIndex]: audio.currentTime }));
-      };
-
-      audio.onended = () => {
-        setActivePlayingIndex(null);
-        setIsAudioPaused(false);
-        setSceneCurrentTime(prev => ({ ...prev, [sceneIndex]: 0 }));
-      };
-
-      audio.onerror = (e) => {
-        console.warn('Scene playback error:', e);
-        setActivePlayingIndex(null);
-        setIsAudioPaused(false);
-      };
-
-      audio.play().catch((err) => {
-        console.warn('Scene playback prevented:', err);
-        setActivePlayingIndex(null);
-        setIsAudioPaused(false);
+      playPrimedAudio(audio, audioSrc, {
+        volume: voiceVolume,
+        onTimeUpdate: () => {
+          setSceneCurrentTime(prev => ({ ...prev, [sceneIndex]: audio.currentTime }));
+        },
+        onEnded: () => {
+          setActivePlayingIndex(null);
+          setIsAudioPaused(false);
+          setSceneCurrentTime(prev => ({ ...prev, [sceneIndex]: 0 }));
+        },
+        onError: (err) => {
+          console.warn('Scene playback error:', err);
+          setActivePlayingIndex(null);
+          setIsAudioPaused(false);
+        }
       });
     };
 
@@ -754,11 +744,11 @@ export default function StoryApprovalCard({
     if (sceneAudioMap[cacheKey]) {
       const cached = sceneAudioMap[cacheKey];
       const audioSrc = typeof cached === 'string' && (cached.startsWith('http') || cached.startsWith('data:')) ? cached : `data:audio/mpeg;base64,${cached}`;
-      startAudioPlayback(audioSrc);
+      startAudioPlayback(audioSrc, audioPlayerRef.current || createPrimedAudio());
       return;
     }
 
-    // Prime the audio player during the user click gesture
+    // Prime the audio player synchronously during the user click gesture
     const primedAudio = createPrimedAudio();
     audioPlayerRef.current = primedAudio;
 
@@ -817,6 +807,8 @@ export default function StoryApprovalCard({
 
     setIsPlayingAllScenes(true);
     const chosenVoice = selectedVoiceObj;
+    const masterAudio = createPrimedAudio();
+    audioPlayerRef.current = masterAudio;
 
     for (let i = 0; i < scenesToAudition.length; i++) {
       setAllScenesProgress(i + 1);
@@ -847,27 +839,20 @@ export default function StoryApprovalCard({
 
       if (audioSrc) {
         await new Promise((resolve) => {
-          if (audioPlayerRef.current) audioPlayerRef.current.pause();
-          const audio = new Audio(audioSrc);
-          audio.volume = Math.max(0, Math.min(1, Number(voiceVolume) || 1.0));
-          audioPlayerRef.current = audio;
-          
-          audio.ontimeupdate = () => {
-            setSceneCurrentTime(prev => ({ ...prev, [i]: audio.currentTime }));
-          };
-          audio.onended = () => resolve();
-          audio.onerror = (e) => {
-            console.warn('Playback error for scene ' + (i + 1), e);
-            resolve();
-          };
-          audio.play().catch((err) => {
-            console.warn('Play prevented for scene ' + (i + 1), err);
-            resolve();
+          playPrimedAudio(masterAudio, audioSrc, {
+            volume: voiceVolume,
+            onTimeUpdate: () => {
+              setSceneCurrentTime(prev => ({ ...prev, [i]: masterAudio.currentTime }));
+            },
+            onEnded: () => resolve(),
+            onError: (e) => {
+              console.warn('Playback error for scene ' + (i + 1), e);
+              resolve();
+            }
           });
         });
       }
     }
-
     setIsPlayingAllScenes(false);
     setActivePlayingIndex(null);
     setAllScenesProgress(0);

@@ -45,7 +45,7 @@ import { SUBTITLE_STYLES, SUBTITLE_FONTS, SUBTITLE_POSITIONS } from '../../data/
 import { MUSIC_TRACKS as STATIC_MUSIC, MUSIC_MOODS, getMusicTrackById, resolveMusicId, PLAYABLE_TRACK_COUNT } from '../../data/musicTracks';
 import { audioEngine } from '../../audio/audioEngine';
 import { useBreakpoint } from '../../hooks/useMediaQuery';
-import { synthesizeVoicePreview } from '../../lib/voicePreview';
+import { synthesizeVoicePreview, createPrimedAudio, playPrimedAudio } from '../../lib/voicePreview';
 
 // ─── DURATION TARGETS ─────────────────────────────────────────────────
 const DURATION_TARGETS = [
@@ -323,18 +323,22 @@ export default function StudioLab({
       if (voiceAudioRef.current) voiceAudioRef.current.pause();
       const cached = voiceAudioCache[cacheKey];
       const audioSrc = typeof cached === 'string' && (cached.startsWith('http') || cached.startsWith('data:')) ? cached : `data:${cached.mimeType || 'audio/mpeg'};base64,${cached.audio || cached}`;
-      const audio = new Audio(audioSrc);
+      const audio = voiceAudioRef.current || createPrimedAudio();
       voiceAudioRef.current = audio;
       setPlayingVoiceId(voice.id);
-      audio.play().catch(() => setPlayingVoiceId(null));
       audio.onloadedmetadata = () => {
         setLastAudioDuration({ voiceId: voice.id, duration: audio.duration });
       };
-      audio.onended = () => setPlayingVoiceId(null);
-      audio.onerror = () => setPlayingVoiceId(null);
+      playPrimedAudio(audio, audioSrc, {
+        onEnded: () => setPlayingVoiceId(null),
+        onError: () => setPlayingVoiceId(null)
+      });
       return;
     }
 
+    // Prime audio synchronously during click
+    const primedAudio = createPrimedAudio();
+    voiceAudioRef.current = primedAudio;
     setGeneratingVoiceId(voice.id);
 
     try {
@@ -347,25 +351,25 @@ export default function StudioLab({
 
       if (audioSrc) {
         setVoiceAudioCache(prev => ({ ...prev, [cacheKey]: audioSrc }));
-        if (voiceAudioRef.current) voiceAudioRef.current.pause();
-        const audio = new Audio(audioSrc);
-        voiceAudioRef.current = audio;
         setPlayingVoiceId(voice.id);
-        audio.play().catch((err) => {
-          console.warn('Playback prevented:', err);
-          setPlayingVoiceId(null);
+        primedAudio.onloadedmetadata = () => {
+          setLastAudioDuration({ voiceId: voice.id, duration: primedAudio.duration });
+        };
+        playPrimedAudio(primedAudio, audioSrc, {
+          onEnded: () => setPlayingVoiceId(null),
+          onError: (e) => {
+            console.warn('Playback error:', e);
+            setPlayingVoiceId(null);
+          }
         });
-        audio.onloadedmetadata = () => {
-          setLastAudioDuration({ voiceId: voice.id, duration: audio.duration });
-        };
-        audio.onended = () => setPlayingVoiceId(null);
-        audio.onerror = (e) => {
-          console.warn('Playback error:', e);
-          setPlayingVoiceId(null);
-        };
+      } else {
+        primedAudio.pause();
+        setPlayingVoiceId(null);
       }
     } catch (err) {
       console.error('TTS error:', err);
+      primedAudio.pause();
+      setPlayingVoiceId(null);
     } finally {
       setGeneratingVoiceId(null);
     }

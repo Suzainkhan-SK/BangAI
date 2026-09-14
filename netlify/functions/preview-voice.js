@@ -104,6 +104,15 @@ export const handler = async (event) => {
       const statusData = await statusRes.json();
 
       if (statusData.movie?.status === 'done' && statusData.movie?.url) {
+        let base64Audio = null;
+        try {
+          const mediaRes = await fetch(statusData.movie.url);
+          if (mediaRes.ok) {
+            const arrayBuffer = await mediaRes.arrayBuffer();
+            base64Audio = Buffer.from(arrayBuffer).toString('base64');
+          }
+        } catch (e) {}
+
         return {
           statusCode: 200,
           headers,
@@ -111,6 +120,8 @@ export const handler = async (event) => {
             success: true,
             status: 'done',
             audioUrl: statusData.movie.url,
+            audio: base64Audio,
+            mimeType: 'video/mp4',
             duration: statusData.movie.duration,
             project: projectId
           })
@@ -201,12 +212,7 @@ export const handler = async (event) => {
           }
 
           const arrayBuffer = await res.arrayBuffer();
-          const uint8Array = new Uint8Array(arrayBuffer);
-          let binary = '';
-          for (let i = 0; i < uint8Array.length; i++) {
-            binary += String.fromCharCode(uint8Array[i]);
-          }
-          return btoa(binary);
+          return Buffer.from(arrayBuffer).toString('base64');
         }, 2);
 
         return {
@@ -274,9 +280,9 @@ export const handler = async (event) => {
         const start = Date.now();
         let movieUrl = null;
 
-        // Server-side short poll: max 4.5 seconds (safely under Netlify 10s execution limit)
-        while (Date.now() - start < 4500) {
-          await new Promise(r => setTimeout(r, 1200));
+        // Server-side short poll: max 2.0 seconds (safely under Netlify 10s execution limit)
+        while (Date.now() - start < 2000) {
+          await new Promise(r => setTimeout(r, 1000));
           const statusRes = await fetch(`https://api.json2video.com/v2/movies?project=${projectId}`, {
             headers: { 'x-api-key': apiKey }
           });
@@ -292,7 +298,7 @@ export const handler = async (event) => {
         }
 
         if (!movieUrl) {
-          // If not finished in 4.5s, return project for client polling
+          // If not finished in 2.0s, return project for client polling
           return {
             status: 'rendering',
             project: projectId,
@@ -301,14 +307,14 @@ export const handler = async (event) => {
         }
 
         // Fetch rendered media to encode base64
-        const mediaRes = await fetch(movieUrl);
-        const arrayBuffer = await mediaRes.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        let binary = '';
-        for (let i = 0; i < uint8Array.length; i++) {
-          binary += String.fromCharCode(uint8Array[i]);
-        }
-        const base64Media = btoa(binary);
+        let base64Media = null;
+        try {
+          const mediaRes = await fetch(movieUrl);
+          if (mediaRes.ok) {
+            const arrayBuffer = await mediaRes.arrayBuffer();
+            base64Media = Buffer.from(arrayBuffer).toString('base64');
+          }
+        } catch (e) {}
 
         return {
           status: 'done',

@@ -26,7 +26,7 @@ import {
   getVoiceById,
   loadJson2VideoVoices
 } from '../../data/voices';
-import { synthesizeVoicePreview } from '../../lib/voicePreview';
+import { synthesizeVoicePreview, createPrimedAudio, playPrimedAudio } from '../../lib/voicePreview';
 
 export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed = 1.10, onVoiceSpeedChange }) {
   // Provider: 'all' | 'elevenlabs' | 'json2video'
@@ -134,34 +134,34 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
     }
 
     if (voice.previewUrl) {
-      const audio = new Audio(voice.previewUrl);
+      const audio = audioRef.current || createPrimedAudio();
       audioRef.current = audio;
       setPlayingVoiceId(voice.id);
 
-      audio.play().catch(err => {
-        console.warn('Audio play failed:', err);
-        setPlayingVoiceId(null);
+      playPrimedAudio(audio, voice.previewUrl, {
+        onEnded: () => {
+          setPlayingVoiceId(null);
+          audioRef.current = null;
+        },
+        onError: () => {
+          setPlayingVoiceId(null);
+          audioRef.current = null;
+        }
       });
-
-      audio.onended = () => {
-        setPlayingVoiceId(null);
-        audioRef.current = null;
-      };
-
-      audio.onerror = () => {
-        setPlayingVoiceId(null);
-        audioRef.current = null;
-      };
     }
   };
 
-  // Generate real TTS preview via ElevenLabs API
+  // Generate real TTS preview via ElevenLabs / JSON2Video API
   const handleGeneratePreview = async (e, voice) => {
     e.stopPropagation();
 
     if (generatingVoiceId) return;
 
     const textToSpeak = customText.trim() || voice.sampleText || voice.description || 'Welcome to Bang AI Studio with ElevenLabs synthesis.';
+    
+    // Prime audio synchronously during click gesture
+    const primedAudio = createPrimedAudio();
+    audioRef.current = primedAudio;
     setGeneratingVoiceId(voice.id);
 
     try {
@@ -173,30 +173,26 @@ export default function VoiceMatrix({ selectedVoiceId, onSelectVoice, voiceSpeed
       });
 
       if (audioSrc) {
-        if (audioRef.current) audioRef.current.pause();
-
-        const audio = new Audio(audioSrc);
-        audioRef.current = audio;
         setPlayingVoiceId(voice.id);
-
-        audio.play().catch(err => {
-          console.warn('TTS audio play failed:', err);
-          setPlayingVoiceId(null);
+        playPrimedAudio(primedAudio, audioSrc, {
+          onEnded: () => {
+            setPlayingVoiceId(null);
+            audioRef.current = null;
+          },
+          onError: (err) => {
+            console.warn('Voice preview error:', err);
+            setPlayingVoiceId(null);
+            audioRef.current = null;
+          }
         });
-
-        audio.onended = () => {
-          setPlayingVoiceId(null);
-          audioRef.current = null;
-        };
-
-        audio.onerror = (e) => {
-          console.warn('Voice preview error:', e);
-          setPlayingVoiceId(null);
-          audioRef.current = null;
-        };
+      } else {
+        primedAudio.pause();
+        setPlayingVoiceId(null);
       }
     } catch (err) {
       console.error('TTS preview error:', err);
+      primedAudio.pause();
+      setPlayingVoiceId(null);
     } finally {
       setGeneratingVoiceId(null);
     }
