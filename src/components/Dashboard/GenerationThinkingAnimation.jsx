@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles, Brain, Film, CheckCircle2, Loader2, Zap,
   Clock, Radio, Check, Cpu, ShieldCheck, Video, Volume2,
-  Layers, Wand2, Clapperboard, Mic2, Package
+  Layers, Wand2, Clapperboard, Mic2, Package, Square
 } from 'lucide-react';
 
 // ── Inline animated styles injected once ─────────────────────────────
@@ -209,28 +209,40 @@ function StepProgressBar({ color, duration }) {
 
 // ── Main Component ────────────────────────────────────────────────────
 export default function GenerationThinkingAnimation({
-  prompt = '', stage = '', isSceneStage = false, isRenderingVideo = false
+  prompt = '',
+  stage = '',
+  isSceneStage = false,
+  isRenderingVideo = false,
+  steps: customSteps = null,
+  stepDuration: customStepDuration = null,
+  title: customTitle = null,
+  subtitle: customSubtitle = null,
+  badgeText: customBadgeText = null,
+  model: customModel = null,
+  onCancel = null,
+  isCancelling = false,
+  extraActions = null
 }) {
   const [elapsed, setElapsed] = useState(0);
   const [activeStep, setActiveStep] = useState(0);
   const startRef = useRef(Date.now());
 
-  const steps = isRenderingVideo ? STAGE3 : isSceneStage ? STAGE2 : STAGE1;
-  const stepDuration = isRenderingVideo ? 22000 : 4000;
+  const steps = customSteps || (isRenderingVideo ? STAGE3 : isSceneStage ? STAGE2 : STAGE1);
+  const stepDuration = customStepDuration || (isRenderingVideo ? 22000 : customSteps ? 5500 : 4000);
 
-  const title = isRenderingVideo
+  const title = customTitle || (isRenderingVideo
     ? 'Video Rendering Pipeline'
     : isSceneStage
     ? 'Screenplay Engine — 5 Scene Generation'
-    : 'Autonomous AI Video Pipeline';
+    : 'Autonomous AI Video Pipeline');
 
-  const subtitle = isRenderingVideo
+  const subtitle = customSubtitle || (isRenderingVideo
     ? '5 parallel scene renders + ElevenLabs voice + final MP4 assembly'
     : isSceneStage
     ? 'Writing production-grade scene prompts, VO & quality audit'
-    : 'Claude 4.6 + n8n Cloud generating your viral short';
+    : 'Claude 4.6 + n8n Cloud generating your viral short');
 
-  const accentColor = isRenderingVideo ? '#ec4899' : isSceneStage ? '#8b5cf6' : '#6366f1';
+  const accentColor = customSteps ? '#6366f1' : (isRenderingVideo ? '#ec4899' : isSceneStage ? '#8b5cf6' : '#6366f1');
   const gradColors = isRenderingVideo
     ? '#ec4899, #8b5cf6, #38bdf8, #10b981'
     : isSceneStage
@@ -313,7 +325,7 @@ export default function GenerationThinkingAnimation({
                     textTransform: 'uppercase', flexShrink: 0
                   }}>
                     <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: accentColor, boxShadow: `0 0 6px ${accentColor}`, animation: 'pulseRing 1.2s ease-out infinite' }} />
-                    {isRenderingVideo ? 'Rendering' : 'Live n8n'}
+                    {customBadgeText || (isRenderingVideo ? 'Rendering' : 'Live n8n')}
                   </span>
                 </div>
                 <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
@@ -322,16 +334,65 @@ export default function GenerationThinkingAnimation({
               </div>
             </div>
 
-            {/* Timer */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0,
-              background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-              borderRadius: '99px', padding: '6px 14px'
-            }}>
-              <Clock size={13} color="var(--text-muted)" />
-              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-cyan)', fontFamily: 'monospace' }}>
-                {fmt(elapsed)}
-              </span>
+            {/* Timer and actions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {extraActions}
+
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0,
+                background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                borderRadius: '99px', padding: '6px 14px'
+              }}>
+                <Clock size={13} color="var(--text-muted)" />
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-cyan)', fontFamily: 'monospace' }}>
+                  {fmt(elapsed)}
+                </span>
+              </div>
+
+              {onCancel && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  disabled={isCancelling}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1.5px solid rgba(239, 68, 68, 0.45)',
+                    color: '#ef4444',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    padding: '6px 14px',
+                    borderRadius: '99px',
+                    cursor: isCancelling ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                    boxShadow: '0 0 14px rgba(239, 68, 68, 0.15)'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.22)';
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.75)';
+                    e.currentTarget.style.boxShadow = '0 0 20px rgba(239, 68, 68, 0.35)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.45)';
+                    e.currentTarget.style.boxShadow = '0 0 14px rgba(239, 68, 68, 0.15)';
+                  }}
+                >
+                  {isCancelling ? (
+                    <>
+                      <Loader2 size={12} className="spin-animation" />
+                      <span>Cancelling...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Square size={10} fill="#ef4444" />
+                      <span>Cancel</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
@@ -483,10 +544,10 @@ export default function GenerationThinkingAnimation({
           background: 'rgba(0,0,0,0.15)', gap: '12px', flexWrap: 'wrap'
         }}>
           {[
-            { label: 'Pipeline', value: 'n8n Cloud' },
-            { label: 'Model', value: 'Claude 4.6' },
+            { label: 'Pipeline', value: customBadgeText ? 'Template Engine' : 'n8n Cloud' },
+            { label: 'Model', value: customModel || 'Claude 4.6 / Gemini' },
             { label: 'Step', value: `${Math.min(activeStep + 1, steps.length)} / ${steps.length}` },
-            { label: 'Status', value: 'Executing', live: true },
+            { label: 'Status', value: isCancelling ? 'Cancelling' : 'Executing', live: !isCancelling },
           ].map(({ label, value, live }) => (
             <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '70px' }}>
               <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>

@@ -1744,6 +1744,7 @@ export default function DashboardApp({
               stage={generationStage}
               isSceneStage={activeThread?.status === 'GENERATING_SCENES'}
               isRenderingVideo={activeThread?.status === 'RENDERING_VIDEO'}
+              onCancel={handleTerminateExecution}
             />
           )}
 
