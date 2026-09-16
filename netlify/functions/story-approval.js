@@ -276,6 +276,9 @@ export const handler = async (event, context) => {
       } else if (data.status === 'RENDER_FAILED' || data.status === 'ERROR' || data.status === 'FAILED') {
         status = 'RENDER_FAILED';
         messageContent = `❌ Video rendering error: ${data.errorMessage || 'Failed in media engine'}`;
+      } else if (['generating_story', 'GENERATING', 'started'].includes(data.status)) {
+        status = 'GENERATING';
+        messageContent = data.message || 'Autonomous video pipeline started on n8n Cloud...';
       }
 
       const updateDoc = {
