@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Zap, CheckCircle2, AlertCircle, Loader2,
-  ChevronDown, Mic, Type
+  ChevronDown, ChevronRight, Mic, Type, Play
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 import { audioEngine } from '../audio/audioEngine';
@@ -286,7 +286,7 @@ export default function TemplatesPage({
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     {[
                       { label: 'AI Brain', value: 'Gemini 2.5 Flash' },
-                      { label: 'Voice',   value: `${activeVoiceObj.name}${activeVoiceObj.flag ? ' ' + activeVoiceObj.flag.split(' ')[0] : ''}` },
+                      { label: 'Voice',   value: `${activeVoiceObj?.name || 'Adam'}${activeVoiceObj?.flag ? ' ' + activeVoiceObj.flag.split(' ')[0] : ''}` },
                       { label: 'Speed',   value: `${voiceSpeed.toFixed(2)}x` }
                     ].map((s, i) => (
                       <div key={i} style={{

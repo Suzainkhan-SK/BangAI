@@ -12,6 +12,8 @@ export const ROUTES = [
   { path: 'studio',                view: 'studio',           private: true, redirect: 'studio/voices' },
   { path: 'studio/voices',         view: 'studio-voices',    private: true, tab: 'voices' },
   { path: 'studio/subtitles',      view: 'studio-subtitles', private: true, tab: 'subtitles' },
+  { path: 'studio/music',          view: 'studio-music',     private: true, tab: 'music' },
+  { path: 'music',                 view: 'studio-music',     private: true, tab: 'music' },
   { path: 'templates',             view: 'templates',        private: false },
   { path: 'profile',               view: 'profile',          private: true  },
   { path: 'settings',              view: 'settings',         private: true  }
