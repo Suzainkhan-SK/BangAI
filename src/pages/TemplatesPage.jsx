@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Zap, Clock, Film, CheckCircle2,
-  AlertCircle, ArrowRight, Loader2, Sparkles,
-  Layers, ChevronRight, Globe
+  Zap, CheckCircle2, AlertCircle, ArrowRight, Loader2,
+  ChevronRight, Play
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 import { audioEngine } from '../audio/audioEngine';
+import { getAuthToken } from '../utils/authClient';
 
 const YouTubeIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
@@ -26,66 +26,66 @@ export default function TemplatesPage({
   const [successInfo, setSuccessInfo] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
 
-  // Resolve user's connected YouTube channels
-  const youtubeChannels = user?.youtubeChannels || [];
-  const defaultChannel = youtubeChannels.find(c => c.isDefault) || youtubeChannels[0] || null;
-  const [selectedChannelId, setSelectedChannelId] = useState(defaultChannel?.channelId || '');
+  // Fetch YouTube channels from the same API as ProfilePage
+  const [channels, setChannels] = useState([]);
+  const [loadingChannels, setLoadingChannels] = useState(true);
+  const [selectedChannelId, setSelectedChannelId] = useState('');
 
   useEffect(() => {
-    if (defaultChannel?.channelId && !selectedChannelId) {
-      setSelectedChannelId(defaultChannel.channelId);
-    }
-  }, [defaultChannel, selectedChannelId]);
+    const fetchChannels = async () => {
+      if (!user) { setLoadingChannels(false); return; }
+      try {
+        const token = getAuthToken();
+        const res = await fetch('/.netlify/functions/google-oauth?action=channels', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data && Array.isArray(data.channels)) {
+          setChannels(data.channels);
+          const def = data.channels.find(c => c.isDefault) || data.channels[0];
+          if (def?.channelId) setSelectedChannelId(def.channelId);
+        }
+      } catch (err) {
+        console.error('[TemplatesPage] Error loading channels:', err);
+      } finally {
+        setLoadingChannels(false);
+      }
+    };
+    fetchChannels();
+  }, [user]);
+
+  const selectedChannel = channels.find(c => c.channelId === selectedChannelId) || channels[0] || null;
 
   const handleLaunchTemplate = async (templateId) => {
     audioEngine.playSfx('click');
-    if (!user) {
-      if (typeof onNavigate === 'function') {
-        onNavigate('login');
-      }
-      return;
-    }
+    if (!user) { if (typeof onNavigate === 'function') onNavigate('login'); return; }
     setLaunchingId(templateId);
     setErrorMsg(null);
     setSuccessInfo(null);
 
     try {
-      const token = localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+      const token = getAuthToken() || '';
       const res = await fetch('/.netlify/functions/generate-template', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: JSON.stringify({
-          templateId,
-          selectedChannelId: selectedChannelId || undefined,
-          token
-        })
+        headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
+        body: JSON.stringify({ templateId, selectedChannelId: selectedChannelId || undefined, token })
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to dispatch template workflow');
-      }
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to dispatch template workflow');
 
       audioEngine.playSfx('success');
       setSuccessInfo({
-        message: 'Generation pipeline dispatched successfully!',
+        message: 'Generation pipeline dispatched!',
         threadId: data.threadId,
         autoUploadToYouTube: data.autoUploadToYouTube,
         channelTitle: data.channelTitle
       });
 
-      // Redirect to live thread dashboard after 1.2 seconds so user can watch progress
       setTimeout(() => {
-        if (data.threadId && typeof onNavigate === 'function') {
-          onNavigate(`dashboard/t/${data.threadId}`);
-        } else if (typeof onNavigate === 'function') {
-          onNavigate('dashboard');
-        }
+        if (data.threadId && typeof onNavigate === 'function') onNavigate(`dashboard/t/${data.threadId}`);
+        else if (typeof onNavigate === 'function') onNavigate('dashboard');
       }, 1200);
-
     } catch (err) {
       console.error('[TemplatesPage] Launch error:', err);
       audioEngine.playSfx('error');
@@ -103,134 +103,69 @@ export default function TemplatesPage({
     { id: 'scifi', label: 'Space & Tech' }
   ];
 
-  const UPCOMING_TEMPLATES = [
-    {
-      id: 'ancient-history',
-      category: 'history',
-      categoryLabel: 'History & Lore',
-      title: 'Ancient History & Lost Civilizations',
-      desc: 'Deep-dives into forgotten dynasties, ancient archeology, and lost wonders scripted with historical authenticity.',
-      duration: '75s',
-      scenes: '5 Scenes',
-      voice: 'Narrator Marcus'
-    },
-    {
-      id: 'dark-psychology',
-      category: 'psychology',
-      categoryLabel: 'Dark Psychology',
-      title: 'Dark Psychology & Human Behavior',
-      desc: 'High-hook behavioral insights, persuasion breakdowns, and body language analysis engineered for viral retention.',
-      duration: '60s',
-      scenes: '4 Scenes',
-      voice: 'Narrator Josh'
-    },
-    {
-      id: 'cosmic-space',
-      category: 'scifi',
-      categoryLabel: 'Space & Tech',
-      title: 'Deep Space & Cosmic Wonders',
-      desc: 'Astrophysics anomalies, black holes, and planetary mysteries backed by photorealistic sci-fi AI generation.',
-      duration: '75s',
-      scenes: '5 Scenes',
-      voice: 'Narrator Rachel'
-    },
-    {
-      id: 'mythical-heists',
-      category: 'mysteries',
-      categoryLabel: 'World Mysteries',
-      title: 'Legendary Heists & Unsolved Enigmas',
-      desc: 'Step-by-step thriller breakdowns of impossible robberies and historical treasure enigmas.',
-      duration: '75s',
-      scenes: '5 Scenes',
-      voice: 'Narrator Adam'
-    }
+  const UPCOMING = [
+    { id: 'ancient-history', category: 'history', label: 'History & Lore', title: 'Ancient History & Lost Civilizations', desc: 'Deep-dives into forgotten dynasties and lost wonders.', duration: '75s', scenes: '5 Scenes' },
+    { id: 'dark-psychology', category: 'psychology', label: 'Dark Psychology', title: 'Dark Psychology & Human Behavior', desc: 'Behavioral insights and persuasion breakdowns.', duration: '60s', scenes: '4 Scenes' },
+    { id: 'cosmic-space', category: 'scifi', label: 'Space & Tech', title: 'Deep Space & Cosmic Wonders', desc: 'Astrophysics anomalies and planetary mysteries.', duration: '75s', scenes: '5 Scenes' },
+    { id: 'mythical-heists', category: 'mysteries', label: 'World Mysteries', title: 'Legendary Heists & Unsolved Enigmas', desc: 'Thriller breakdowns of impossible robberies.', duration: '75s', scenes: '5 Scenes' }
   ];
 
-  const filteredUpcoming = activeCategory === 'all'
-    ? UPCOMING_TEMPLATES
-    : UPCOMING_TEMPLATES.filter(t => t.category === activeCategory);
+  const filteredUpcoming = activeCategory === 'all' ? UPCOMING : UPCOMING.filter(t => t.category === activeCategory);
 
   return (
-    <AppShell
-      user={user}
-      currentRoutePath={currentRoutePath}
-      onNavigate={onNavigate}
-      collapsed={collapsed}
-      onToggleCollapse={onToggleCollapse}
-    >
+    <AppShell user={user} currentRoutePath={currentRoutePath} onNavigate={onNavigate} collapsed={collapsed} onToggleCollapse={onToggleCollapse}>
       <div style={{
-        flex: 1,
-        width: '100%',
-        minHeight: '100%',
-        backgroundColor: 'var(--bg-app)',
-        color: 'var(--text-primary)',
-        padding: '36px 32px 80px 32px',
-        overflowY: 'auto'
+        flex: 1, width: '100%', minHeight: '100%',
+        backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)',
+        padding: '36px 32px 80px 32px', overflowY: 'auto'
       }}>
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           
           {/* ── Header ── */}
-          <div style={{ marginBottom: '28px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <div style={{ marginBottom: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '5px',
-                padding: '3px 9px', borderRadius: '99px',
+                padding: '3px 10px', borderRadius: '99px',
                 background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
                 fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)'
               }}>
-                <Zap size={12} color="var(--accent-primary)" />
+                <Zap size={11} color="var(--accent-primary, #6366f1)" />
                 Autonomous Workflows
               </span>
               <span style={{
-                fontSize: '11.5px', fontWeight: 600, color: '#10b981',
+                fontSize: '11px', fontWeight: 600, color: '#10b981',
                 display: 'inline-flex', alignItems: 'center', gap: '5px'
               }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
                 n8n Cloud Connected
               </span>
             </div>
 
             <h1 className="font-display" style={{
-              fontSize: 'clamp(24px, 3.5vw, 30px)',
-              fontWeight: 800,
-              color: 'var(--text-primary)',
-              letterSpacing: '-0.025em',
-              margin: '0 0 6px 0'
+              fontSize: 'clamp(24px, 3.5vw, 32px)', fontWeight: 800,
+              color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: '0 0 6px 0'
             }}>
               Pre-Built Video Templates
             </h1>
-            <p style={{
-              fontSize: '14px',
-              color: 'var(--text-secondary)',
-              margin: 0,
-              lineHeight: 1.5,
-              maxWidth: '640px'
-            }}>
-              Production-ready video templates. Tap once to research, script, narrate, generate 5 cinematic scenes, and upload directly to your YouTube channel.
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55, maxWidth: '620px' }}>
+              Tap once to autonomously research, script, narrate, render 5 cinematic scenes, and upload directly to your YouTube channel.
             </p>
 
-            {/* Category Filter Tabs */}
+            {/* Category Tabs */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '20px', flexWrap: 'wrap' }}>
               {CATEGORIES.map(cat => {
                 const active = activeCategory === cat.id;
                 return (
-                  <button
-                    key={cat.id}
-                    onClick={() => { audioEngine.playSfx('click'); setActiveCategory(cat.id); }}
+                  <button key={cat.id} onClick={() => { audioEngine.playSfx('click'); setActiveCategory(cat.id); }}
                     style={{
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
+                      padding: '6px 14px', borderRadius: '8px', cursor: 'pointer',
                       border: `1px solid ${active ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
                       background: active ? 'var(--text-primary)' : 'var(--bg-card)',
                       color: active ? 'var(--bg-app)' : 'var(--text-secondary)',
-                      fontSize: '12.5px',
-                      fontWeight: active ? 700 : 500,
-                      transition: 'all 0.15s ease'
+                      fontSize: '12.5px', fontWeight: active ? 700 : 500, transition: 'all 0.15s ease'
                     }}
-                  >
-                    {cat.label}
-                  </button>
+                  >{cat.label}</button>
                 );
               })}
             </div>
@@ -239,374 +174,293 @@ export default function TemplatesPage({
           {/* ── Alerts ── */}
           {errorMsg && (
             <div style={{
-              marginBottom: '20px',
-              padding: '12px 16px',
-              borderRadius: '10px',
-              background: 'rgba(239, 68, 68, 0.08)',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
-              color: '#ef4444',
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
+              marginBottom: '20px', padding: '12px 16px', borderRadius: '10px',
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+              color: '#ef4444', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px'
             }}>
-              <AlertCircle size={16} />
-              <span>{errorMsg}</span>
+              <AlertCircle size={16} /><span>{errorMsg}</span>
             </div>
           )}
-
           {successInfo && (
             <div style={{
-              marginBottom: '20px',
-              padding: '12px 16px',
-              borderRadius: '10px',
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              color: '#10b981',
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
+              marginBottom: '20px', padding: '12px 16px', borderRadius: '10px',
+              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+              color: '#10b981', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px'
             }}>
-              <CheckCircle2 size={16} />
-              <span>{successInfo.message} Loading generation tracker in dashboard...</span>
+              <CheckCircle2 size={16} /><span>{successInfo.message} Opening dashboard...</span>
             </div>
           )}
 
-          {/* ── YouTube Destination Channel Bar ── */}
-          <div className="saas-card" style={{
-            padding: '14px 18px',
-            borderRadius: '12px',
-            marginBottom: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <YouTubeIcon size={18} />
-              <div>
-                <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Upload Target
-                </span>
-                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginLeft: '8px' }}>
-                  {youtubeChannels.length > 0 ? 'Videos auto-publish here' : 'No channel linked (saves to dashboard)'}
-                </span>
-              </div>
-            </div>
-
-            {youtubeChannels.length > 0 ? (
-              <select
-                value={selectedChannelId}
-                onChange={(e) => setSelectedChannelId(e.target.value)}
-                style={{
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-medium)',
-                  borderRadius: '8px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer',
-                  outline: 'none'
-                }}
-              >
-                {youtubeChannels.map(c => (
-                  <option key={c.channelId} value={c.channelId}>
-                    {c.channelTitle || c.title || 'Connected YouTube Channel'} {c.isDefault ? '(Default)' : ''}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <button
-                type="button"
-                onClick={() => { audioEngine.playSfx('click'); if (typeof onNavigate === 'function') onNavigate('profile'); }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  fontSize: '12px',
-                  color: 'var(--accent-primary)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <span>Connect YouTube in Profile</span>
-                <ChevronRight size={13} />
-              </button>
-            )}
-          </div>
-
-          {/* ── Active Template Card ── */}
+          {/* ═══════ FEATURED TEMPLATE: Hero Layout with Phone Canvas ═══════ */}
           {(activeCategory === 'all' || activeCategory === 'mysteries') && (
             <div className="saas-card" style={{
-              padding: '24px',
-              borderRadius: '16px',
-              marginBottom: '32px'
+              padding: '0', borderRadius: '20px', marginBottom: '36px', overflow: 'hidden'
             }}>
-              {/* Card Meta Badges */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                <span style={{
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  border: '1px solid rgba(16, 185, 129, 0.25)',
-                  color: '#10b981',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: '99px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}>
-                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
-                  Ready to Launch
-                </span>
-                <span style={{
-                  background: 'var(--bg-pill)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-secondary)',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: '99px'
-                }}>
-                  75s Duration • 5 Scenes
-                </span>
-                <span style={{
-                  background: 'var(--bg-pill)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-muted)',
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  padding: '2px 8px',
-                  borderRadius: '99px'
-                }}>
-                  Autonomous 1-Click
-                </span>
-              </div>
-
-              {/* Title & Description */}
-              <h2 className="font-display" style={{
-                fontSize: '20px',
-                fontWeight: 700,
-                color: 'var(--text-primary)',
-                margin: '0 0 6px 0'
-              }}>
-                World Mysteries & Paranormal
-              </h2>
-
-              <p style={{
-                fontSize: '13.5px',
-                color: 'var(--text-secondary)',
-                lineHeight: 1.55,
-                margin: '0 0 20px 0',
-                maxWidth: '820px'
-              }}>
-                Autonomous viral Shorts engine. Researches unrepeated paranormal mysteries, scripts 5 cinematic scenes, synthesizes deep narration, renders multi-scene video, and uploads directly to YouTube without asking for manual reviews.
-              </p>
-
-              {/* Minimalist Specs Row */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '12px',
-                marginBottom: '22px'
+                gridTemplateColumns: 'minmax(0, 1fr) 280px',
+                minHeight: '420px'
               }}>
-                <div style={{
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '10px',
-                  padding: '10px 14px'
-                }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '2px' }}>
-                    TOPIC BRAIN
-                  </div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Gemini 2.5 Flash + Deduplication
-                  </div>
-                </div>
-
-                <div style={{
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '10px',
-                  padding: '10px 14px'
-                }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '2px' }}>
-                    NARRATION VOICE
-                  </div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Adam (Deep Suspense · ElevenLabs)
-                  </div>
-                </div>
-
-                <div style={{
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '10px',
-                  padding: '10px 14px'
-                }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '2px' }}>
-                    RENDER PIPELINE
-                  </div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    5 Direct Scenes (Parallel JSON2Video)
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Bar */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '14px',
-                paddingTop: '16px',
-                borderTop: '1px solid var(--border-subtle)'
-              }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Cost: 1 Generation Credit • Zero manual edits required
-                </div>
-
-                <button
-                  disabled={launchingId === 'world-mysteries'}
-                  onClick={() => handleLaunchTemplate('world-mysteries')}
-                  className="btn-glow"
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    cursor: launchingId === 'world-mysteries' ? 'not-allowed' : 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    color: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '7px'
-                  }}
-                >
-                  {launchingId === 'world-mysteries' ? (
-                    <>
-                      <Loader2 size={15} className="animate-spin" />
-                      <span>Dispatching Pipeline...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap size={14} fill="#ffffff" />
-                      <span>1-Click Generate & Upload</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Upcoming Templates Section ── */}
-          <div>
-            <div style={{ marginBottom: '16px' }}>
-              <h3 className="font-display" style={{
-                fontSize: '16px',
-                fontWeight: 700,
-                color: 'var(--text-primary)',
-                margin: '0 0 2px 0'
-              }}>
-                More Templates
-              </h3>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-                Additional pre-built autonomous niches scheduled for release.
-              </p>
-            </div>
-
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
-              gap: '16px'
-            }}>
-              {filteredUpcoming.map(tpl => (
-                <div
-                  key={tpl.id}
-                  className="saas-card"
-                  style={{
-                    padding: '20px',
-                    borderRadius: '14px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between'
-                  }}
-                >
+                {/* Left: Content */}
+                <div style={{ padding: '32px 32px 28px 32px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    {/* Status Badges */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
                       <span style={{
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        color: 'var(--text-muted)',
-                        background: 'var(--bg-pill)',
-                        border: '1px solid var(--border-subtle)',
-                        padding: '2px 8px',
-                        borderRadius: '6px'
+                        background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)',
+                        color: '#10b981', fontSize: '11px', fontWeight: 700, padding: '3px 10px',
+                        borderRadius: '99px', display: 'inline-flex', alignItems: 'center', gap: '5px'
                       }}>
-                        {tpl.categoryLabel}
+                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
+                        Ready to Launch
                       </span>
                       <span style={{
-                        fontSize: '10.5px',
-                        fontWeight: 600,
-                        color: 'var(--text-muted)',
-                        background: 'var(--bg-input)',
-                        padding: '2px 8px',
-                        borderRadius: '99px'
+                        background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '99px'
                       }}>
-                        Coming Soon
+                        75s • 5 Scenes • Autonomous
                       </span>
                     </div>
 
-                    <h4 style={{
-                      fontSize: '15px',
-                      fontWeight: 700,
-                      color: 'var(--text-primary)',
-                      margin: '0 0 6px 0'
+                    {/* Title */}
+                    <h2 className="font-display" style={{
+                      fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)',
+                      margin: '0 0 10px 0', letterSpacing: '-0.02em'
                     }}>
-                      {tpl.title}
-                    </h4>
+                      World Mysteries & Paranormal
+                    </h2>
 
+                    {/* Description */}
                     <p style={{
-                      fontSize: '12.5px',
-                      color: 'var(--text-secondary)',
-                      lineHeight: 1.5,
-                      margin: '0 0 16px 0'
+                      fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6,
+                      margin: '0 0 20px 0', maxWidth: '520px'
                     }}>
-                      {tpl.desc}
+                      Autonomous viral Shorts engine. Self-researches unrepeated paranormal mysteries, scripts 5 cinematic scenes with deep narration, renders photorealistic AI video, and uploads directly to YouTube — zero manual review.
                     </p>
+
+                    {/* Specs Row */}
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                      {[
+                        { label: 'AI Brain', value: 'Gemini 2.5 Flash' },
+                        { label: 'Voice', value: 'Adam (ElevenLabs)' },
+                        { label: 'Pipeline', value: '5 Parallel Scenes' }
+                      ].map((spec, i) => (
+                        <div key={i} style={{
+                          background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                          borderRadius: '10px', padding: '8px 14px', flex: '1 1 140px'
+                        }}>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+                            {spec.label}
+                          </div>
+                          <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {spec.value}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
+                  {/* YouTube Destination + Launch */}
                   <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    paddingTop: '12px',
-                    borderTop: '1px solid var(--border-subtle)'
+                    borderTop: '1px solid var(--border-subtle)', paddingTop: '18px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    flexWrap: 'wrap', gap: '14px'
                   }}>
-                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                      {tpl.duration} • {tpl.scenes}
-                    </span>
+                    {/* YouTube Channel Selector */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <YouTubeIcon size={18} />
+                      {loadingChannels ? (
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Loading channels...</span>
+                      ) : channels.length > 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {selectedChannel?.thumbnail && (
+                            <img src={selectedChannel.thumbnail} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-subtle)' }} />
+                          )}
+                          {channels.length > 1 ? (
+                            <select
+                              value={selectedChannelId}
+                              onChange={(e) => setSelectedChannelId(e.target.value)}
+                              style={{
+                                background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
+                                borderRadius: '8px', padding: '5px 10px', fontSize: '12px',
+                                color: 'var(--text-primary)', cursor: 'pointer', outline: 'none'
+                              }}
+                            >
+                              {channels.map(c => (
+                                <option key={c.channelId} value={c.channelId}>
+                                  {c.title || c.channelTitle || 'YouTube Channel'} {c.isDefault ? '(Default)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div>
+                              <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                {selectedChannel?.title || selectedChannel?.channelTitle || 'YouTube Channel'}
+                              </span>
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>
+                                Auto-upload enabled
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => { audioEngine.playSfx('click'); if (typeof onNavigate === 'function') onNavigate('profile'); }}
+                          style={{
+                            background: 'none', border: 'none', padding: 0, fontSize: '12px',
+                            color: 'var(--accent-primary, #6366f1)', fontWeight: 600, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '4px'
+                          }}
+                        >
+                          Connect YouTube in Profile <ChevronRight size={13} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Launch Button */}
                     <button
-                      disabled
+                      disabled={launchingId === 'world-mysteries'}
+                      onClick={() => handleLaunchTemplate('world-mysteries')}
+                      className="btn-glow"
                       style={{
-                        padding: '5px 12px',
-                        borderRadius: '6px',
-                        background: 'var(--bg-input)',
-                        border: '1px solid var(--border-subtle)',
-                        color: 'var(--text-muted)',
-                        fontSize: '11.5px',
-                        fontWeight: 600,
-                        cursor: 'not-allowed'
+                        padding: '10px 22px', borderRadius: '10px', border: 'none',
+                        cursor: launchingId === 'world-mysteries' ? 'not-allowed' : 'pointer',
+                        fontSize: '13px', fontWeight: 700, color: '#ffffff',
+                        display: 'flex', alignItems: 'center', gap: '7px'
                       }}
                     >
-                      Queued
+                      {launchingId === 'world-mysteries' ? (
+                        <><Loader2 size={15} className="animate-spin" /><span>Dispatching...</span></>
+                      ) : (
+                        <><Zap size={14} fill="#ffffff" /><span>1-Click Generate & Upload</span></>
+                      )}
                     </button>
+                  </div>
+                </div>
+
+                {/* Right: Phone Canvas Demo */}
+                <div style={{
+                  background: 'linear-gradient(180deg, rgba(99,102,241,0.06) 0%, rgba(139,92,246,0.04) 100%)',
+                  borderLeft: '1px solid var(--border-subtle)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '24px 20px', position: 'relative', overflow: 'hidden'
+                }}>
+                  {/* Subtle gradient orb behind phone */}
+                  <div style={{
+                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                    width: '200px', height: '200px', borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)',
+                    pointerEvents: 'none', filter: 'blur(30px)'
+                  }} />
+
+                  {/* Phone Frame */}
+                  <div style={{
+                    width: '170px', height: '340px', borderRadius: '28px',
+                    border: '3px solid var(--border-medium)',
+                    background: '#000', overflow: 'hidden', position: 'relative',
+                    boxShadow: '0 20px 50px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.06)',
+                    transform: 'perspective(800px) rotateY(-4deg)',
+                    transition: 'transform 0.3s ease'
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'perspective(800px) rotateY(0deg) scale(1.02)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'perspective(800px) rotateY(-4deg)'}
+                  >
+                    {/* Notch */}
+                    <div style={{
+                      position: 'absolute', top: '6px', left: '50%', transform: 'translateX(-50%)',
+                      width: '60px', height: '18px', borderRadius: '10px',
+                      background: '#111', zIndex: 3
+                    }} />
+
+                    {/* Demo Image */}
+                    <img
+                      src="/template-demo-phone.jpg"
+                      alt="World Mysteries demo — YouTube Shorts"
+                      style={{
+                        width: '100%', height: '100%', objectFit: 'cover',
+                        borderRadius: '25px'
+                      }}
+                    />
+
+                    {/* Play overlay */}
+                    <div style={{
+                      position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                      width: '36px', height: '36px', borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      opacity: 0.8, transition: 'opacity 0.2s'
+                    }}>
+                      <Play size={16} fill="#fff" color="#fff" style={{ marginLeft: '2px' }} />
+                    </div>
+
+                    {/* Bottom bar mock */}
+                    <div style={{
+                      position: 'absolute', bottom: '0', left: '0', right: '0',
+                      padding: '10px 10px 14px', background: 'linear-gradient(transparent, rgba(0,0,0,0.85))'
+                    }}>
+                      <div style={{ fontSize: '8px', fontWeight: 700, color: '#fff', marginBottom: '3px', lineHeight: 1.3 }}>
+                        The Bermuda Triangle's Darkest Secret
+                      </div>
+                      <div style={{ fontSize: '7px', color: 'rgba(255,255,255,0.6)' }}>
+                        128K likes • 1.2M views
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Label under phone */}
+                  <div style={{
+                    position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)',
+                    fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)',
+                    textAlign: 'center', whiteSpace: 'nowrap'
+                  }}>
+                    Example Output
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Upcoming Templates ── */}
+          <div>
+            <div style={{ marginBottom: '16px' }}>
+              <h3 className="font-display" style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px 0' }}>
+                More Templates
+              </h3>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
+                Additional autonomous niches scheduled for release.
+              </p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '14px' }}>
+              {filteredUpcoming.map(tpl => (
+                <div key={tpl.id} className="saas-card" style={{
+                  padding: '18px', borderRadius: '14px',
+                  display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{
+                        fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)',
+                        background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
+                        padding: '2px 8px', borderRadius: '6px'
+                      }}>{tpl.label}</span>
+                      <span style={{
+                        fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)',
+                        background: 'var(--bg-input)', padding: '2px 8px', borderRadius: '99px'
+                      }}>Coming Soon</span>
+                    </div>
+                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 5px 0' }}>{tpl.title}</h4>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 14px 0' }}>{tpl.desc}</p>
+                  </div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    paddingTop: '10px', borderTop: '1px solid var(--border-subtle)'
+                  }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tpl.duration} • {tpl.scenes}</span>
+                    <button disabled style={{
+                      padding: '4px 10px', borderRadius: '6px', background: 'var(--bg-input)',
+                      border: '1px solid var(--border-subtle)', color: 'var(--text-muted)',
+                      fontSize: '11px', fontWeight: 600, cursor: 'not-allowed'
+                    }}>Queued</button>
                   </div>
                 </div>
               ))}
