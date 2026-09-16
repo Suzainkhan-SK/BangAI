@@ -141,7 +141,7 @@ export const handler = async (event) => {
           messages: [
             {
               role: 'system',
-              content: `1-Click Autonomous Generation started for template: World Mysteries & Paranormal [75s]. Auto-uploading to YouTube channel: ${userYouTubeChannelTitle || 'Default'}.`,
+              content: `1-Click Autonomous Generation started for template: World Mysteries & Paranormal [75s].${(payload.prompt || '').trim() ? ` Custom topic: "${payload.prompt.trim()}".` : ' Auto-selecting topic.'} Auto-uploading to YouTube channel: ${userYouTubeChannelTitle || 'Default'}.`,
               timestamp: new Date().toISOString()
             }
           ]
@@ -154,7 +154,7 @@ export const handler = async (event) => {
     const postData = JSON.stringify({
       templateId,
       templateName: 'World Mysteries & Paranormal [5 Direct Video Scenes - 75s]',
-      prompt: (payload.prompt || '').trim(), // optional custom topic if provided in future
+      prompt: (payload.prompt || '').trim(), // optional custom topic — blank means auto-generate
       callbackUrl,
       threadId,
       sessionId,
@@ -170,8 +170,10 @@ export const handler = async (event) => {
       userSheetAccessToken,
       userSpreadsheetId,
       userSheetName,
-      // Voice & Visual Settings
+      // Voice & Visual Settings (optional — workflow uses defaults if blank)
       voiceId: payload.voiceId || 'adam',
+      elevenLabsVoiceId: payload.elevenLabsVoiceId || '',
+      voiceSpeed: payload.voiceSpeed || 1.20,
       visualStyle: payload.visualStyle || 'Dark Cinematic Mystery',
       language: payload.language || 'English',
       timestamp: new Date().toISOString()

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Zap, CheckCircle2, AlertCircle, ArrowRight, Loader2,
-  ChevronRight, Play
+  Zap, CheckCircle2, AlertCircle, Loader2,
+  ChevronRight, Play, Mic, Type
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 import { audioEngine } from '../audio/audioEngine';
@@ -25,6 +25,24 @@ export default function TemplatesPage({
   const [errorMsg, setErrorMsg] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
+
+  // Optional customization fields
+  const [customTopic, setCustomTopic] = useState('');
+  const [selectedVoice, setSelectedVoice] = useState('default');
+  const [voiceSpeed, setVoiceSpeed] = useState(1.20);
+
+  const VOICE_OPTIONS = [
+    { id: 'default', label: 'Default (Adam)', elevenLabsId: 'pNInz6obpgDQGcFmaJgB' },
+    { id: 'rachel', label: 'Rachel — Calm, Narrative', elevenLabsId: '21m00Tcm4TlvDq8ikWAM' },
+    { id: 'domi', label: 'Domi — Bold, Confident', elevenLabsId: 'AZnzlk1XvdvUeBnXmlld' },
+    { id: 'bella', label: 'Bella — Soft, Warm', elevenLabsId: 'EXAVITQu4vr4xnSDxMaL' },
+    { id: 'antoni', label: 'Antoni — Friendly, Storyteller', elevenLabsId: 'ErXwobaYiN019PkySvjV' },
+    { id: 'elli', label: 'Elli — Young, Feminine', elevenLabsId: 'MF3mGyEYCl7XYWbV9V6O' },
+    { id: 'josh', label: 'Josh — Deep, Authoritative', elevenLabsId: 'TxGEqnHWrfWFTfGW9XjX' },
+    { id: 'arnold', label: 'Arnold — Crisp, Dramatic', elevenLabsId: 'VR6AewLTigWG4xSOukaG' },
+    { id: 'sam', label: 'Sam — Raspy, Engaging', elevenLabsId: 'yoZ06aMxZJJ28mfd3POQ' },
+    { id: 'clyde', label: 'Clyde — Dark, Mysterious', elevenLabsId: '2EiwWnXFnvU5JabPnv8n' },
+  ];
 
   // Fetch YouTube channels from the same API as ProfilePage
   const [channels, setChannels] = useState([]);
@@ -65,10 +83,20 @@ export default function TemplatesPage({
 
     try {
       const token = getAuthToken() || '';
+      const voiceOption = VOICE_OPTIONS.find(v => v.id === selectedVoice) || VOICE_OPTIONS[0];
       const res = await fetch('/.netlify/functions/generate-template', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
-        body: JSON.stringify({ templateId, selectedChannelId: selectedChannelId || undefined, token })
+        body: JSON.stringify({
+          templateId,
+          selectedChannelId: selectedChannelId || undefined,
+          token,
+          // Optional customization
+          prompt: customTopic.trim() || undefined,
+          voiceId: selectedVoice !== 'default' ? selectedVoice : undefined,
+          elevenLabsVoiceId: selectedVoice !== 'default' ? voiceOption.elevenLabsId : undefined,
+          voiceSpeed: voiceSpeed !== 1.20 ? voiceSpeed : undefined
+        })
       });
 
       const data = await res.json();
@@ -242,7 +270,7 @@ export default function TemplatesPage({
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
                       {[
                         { label: 'AI Brain', value: 'Gemini 2.5 Flash' },
-                        { label: 'Voice', value: 'Adam (ElevenLabs)' },
+                        { label: 'Voice', value: (VOICE_OPTIONS.find(v => v.id === selectedVoice) || VOICE_OPTIONS[0]).label.split('—')[0].trim() },
                         { label: 'Pipeline', value: '5 Parallel Scenes' }
                       ].map((spec, i) => (
                         <div key={i} style={{
@@ -257,6 +285,78 @@ export default function TemplatesPage({
                           </div>
                         </div>
                       ))}
+                    </div>
+
+                    {/* ── Optional Customization ── */}
+                    <div style={{
+                      background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                      borderRadius: '12px', padding: '14px 16px', marginBottom: '20px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Customize (Optional)
+                        </span>
+                        <span style={{
+                          fontSize: '9px', fontWeight: 600, color: 'var(--text-muted)',
+                          background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
+                          padding: '1px 6px', borderRadius: '4px'
+                        }}>Leave blank for auto</span>
+                      </div>
+
+                      {/* Topic Input */}
+                      <div style={{ marginBottom: '10px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}>
+                          <Type size={11} /> Topic
+                        </label>
+                        <input
+                          type="text"
+                          value={customTopic}
+                          onChange={e => setCustomTopic(e.target.value)}
+                          placeholder="e.g. The Bermuda Triangle, Area 51 secrets..."
+                          style={{
+                            width: '100%', padding: '8px 12px', borderRadius: '8px',
+                            border: '1px solid var(--border-medium)', background: 'var(--bg-card)',
+                            color: 'var(--text-primary)', fontSize: '12.5px', outline: 'none',
+                            boxSizing: 'border-box', transition: 'border-color 0.15s'
+                          }}
+                          onFocus={e => e.target.style.borderColor = 'var(--accent-primary, #6366f1)'}
+                          onBlur={e => e.target.style.borderColor = 'var(--border-medium)'}
+                        />
+                      </div>
+
+                      {/* Voice & Speed Row */}
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '2 1 180px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}>
+                            <Mic size={11} /> Voice
+                          </label>
+                          <select
+                            value={selectedVoice}
+                            onChange={e => { audioEngine.playSfx('click'); setSelectedVoice(e.target.value); }}
+                            style={{
+                              width: '100%', padding: '8px 10px', borderRadius: '8px',
+                              border: '1px solid var(--border-medium)', background: 'var(--bg-card)',
+                              color: 'var(--text-primary)', fontSize: '12px', outline: 'none',
+                              cursor: 'pointer', boxSizing: 'border-box'
+                            }}
+                          >
+                            {VOICE_OPTIONS.map(v => (
+                              <option key={v.id} value={v.id}>{v.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div style={{ flex: '1 1 100px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '5px', display: 'block' }}>
+                            Speed: {voiceSpeed.toFixed(2)}x
+                          </label>
+                          <input
+                            type="range" min="0.7" max="1.8" step="0.05"
+                            value={voiceSpeed}
+                            onChange={e => setVoiceSpeed(parseFloat(e.target.value))}
+                            style={{ width: '100%', accentColor: 'var(--accent-primary, #6366f1)', cursor: 'pointer' }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
