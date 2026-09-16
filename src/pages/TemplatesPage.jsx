@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Sparkles, Zap, Flame, Clock, Film, CheckCircle2,
-  AlertCircle, ArrowRight, Loader2, Play, Volume2, ShieldCheck,
-  Layers, ChevronRight, Eye, RefreshCw
+  Zap, Clock, Film, CheckCircle2,
+  AlertCircle, ArrowRight, Loader2, Sparkles,
+  Layers, ChevronRight, Globe
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 import { audioEngine } from '../audio/audioEngine';
 
-const YouTubeIcon = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+const YouTubeIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
     <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z" fill="#ef4444" />
     <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="#ffffff" />
   </svg>
@@ -71,7 +71,7 @@ export default function TemplatesPage({
 
       audioEngine.playSfx('success');
       setSuccessInfo({
-        message: 'Pipeline started successfully!',
+        message: 'Generation pipeline dispatched successfully!',
         threadId: data.threadId,
         autoUploadToYouTube: data.autoUploadToYouTube,
         channelTitle: data.channelTitle
@@ -96,12 +96,59 @@ export default function TemplatesPage({
   };
 
   const CATEGORIES = [
-    { id: 'all', label: 'All Templates' },
+    { id: 'all', label: 'All' },
     { id: 'mysteries', label: 'World Mysteries' },
     { id: 'history', label: 'History & Lore' },
     { id: 'psychology', label: 'Dark Psychology' },
     { id: 'scifi', label: 'Space & Tech' }
   ];
+
+  const UPCOMING_TEMPLATES = [
+    {
+      id: 'ancient-history',
+      category: 'history',
+      categoryLabel: 'History & Lore',
+      title: 'Ancient History & Lost Civilizations',
+      desc: 'Deep-dives into forgotten dynasties, ancient archeology, and lost wonders scripted with historical authenticity.',
+      duration: '75s',
+      scenes: '5 Scenes',
+      voice: 'Narrator Marcus'
+    },
+    {
+      id: 'dark-psychology',
+      category: 'psychology',
+      categoryLabel: 'Dark Psychology',
+      title: 'Dark Psychology & Human Behavior',
+      desc: 'High-hook behavioral insights, persuasion breakdowns, and body language analysis engineered for viral retention.',
+      duration: '60s',
+      scenes: '4 Scenes',
+      voice: 'Narrator Josh'
+    },
+    {
+      id: 'cosmic-space',
+      category: 'scifi',
+      categoryLabel: 'Space & Tech',
+      title: 'Deep Space & Cosmic Wonders',
+      desc: 'Astrophysics anomalies, black holes, and planetary mysteries backed by photorealistic sci-fi AI generation.',
+      duration: '75s',
+      scenes: '5 Scenes',
+      voice: 'Narrator Rachel'
+    },
+    {
+      id: 'mythical-heists',
+      category: 'mysteries',
+      categoryLabel: 'World Mysteries',
+      title: 'Legendary Heists & Unsolved Enigmas',
+      desc: 'Step-by-step thriller breakdowns of impossible robberies and historical treasure enigmas.',
+      duration: '75s',
+      scenes: '5 Scenes',
+      voice: 'Narrator Adam'
+    }
+  ];
+
+  const filteredUpcoming = activeCategory === 'all'
+    ? UPCOMING_TEMPLATES
+    : UPCOMING_TEMPLATES.filter(t => t.category === activeCategory);
 
   return (
     <AppShell
@@ -115,486 +162,458 @@ export default function TemplatesPage({
         flex: 1,
         width: '100%',
         minHeight: '100%',
-        background: 'radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.08) 0%, transparent 70%), var(--bg-main, #0b0f19)',
-        color: 'var(--text-primary, #f8fafc)',
-        padding: '36px 32px 64px 32px',
-        overflowY: 'auto',
-        fontFamily: 'Inter, sans-serif'
+        backgroundColor: 'var(--bg-app)',
+        color: 'var(--text-primary)',
+        padding: '36px 32px 80px 32px',
+        overflowY: 'auto'
       }}>
-        {/* Header Title & Subtitle */}
-        <div style={{ maxWidth: '1180px', margin: '0 auto 36px auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              padding: '4px 12px', borderRadius: '99px',
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15))',
-              border: '1px solid rgba(99,102,241,0.35)',
-              fontSize: '11px', fontWeight: 800, color: '#a5b4fc',
-              letterSpacing: '0.08em', textTransform: 'uppercase'
-            }}>
-              <Zap size={12} fill="#6366f1" color="#6366f1" />
-              1-Click Autonomous Workflows
-            </span>
-            <span style={{
-              fontSize: '11px', fontWeight: 700, color: '#10b981',
-              display: 'inline-flex', alignItems: 'center', gap: '4px'
-            }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-              Live n8n Cloud Connected
-            </span>
-          </div>
-
-          <h1 style={{
-            fontSize: '34px', fontWeight: 900, fontFamily: 'Space Grotesk, sans-serif',
-            letterSpacing: '-0.03em', lineHeight: 1.2, margin: '0 0 10px 0',
-            background: 'linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
-          }}>
-            Pre-Built Shorts Templates
-          </h1>
-          <p style={{
-            fontSize: '15px', color: 'var(--text-secondary, #94a3b8)', margin: 0,
-            maxWidth: '680px', lineHeight: 1.6
-          }}>
-            Fully automated, production-ready video engines. Tap one button to research, script, narrate, generate 5 cinematic scenes, and upload directly to your YouTube channel with zero manual review needed.
-          </p>
-
-          {/* Category Filter Pills */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
-            {CATEGORIES.map(cat => {
-              const active = activeCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => { audioEngine.playSfx('click'); setActiveCategory(cat.id); }}
-                  style={{
-                    padding: '7px 16px', borderRadius: '99px', cursor: 'pointer',
-                    background: active ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(255,255,255,0.04)',
-                    color: active ? '#ffffff' : 'var(--text-muted, #64748b)',
-                    fontSize: '13px', fontWeight: active ? 700 : 500,
-                    border: `1px solid ${active ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.06)'}`,
-                    transition: 'all 0.15s ease',
-                    boxShadow: active ? '0 4px 14px rgba(99,102,241,0.35)' : 'none'
-                  }}
-                >
-                  {cat.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Global Notifications */}
-        {errorMsg && (
-          <div style={{
-            maxWidth: '1180px', margin: '0 auto 24px auto',
-            padding: '14px 18px', borderRadius: '14px',
-            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-            color: '#f87171', fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '10px'
-          }}>
-            <AlertCircle size={18} color="#ef4444" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        {successInfo && (
-          <div style={{
-            maxWidth: '1180px', margin: '0 auto 24px auto',
-            padding: '14px 18px', borderRadius: '14px',
-            background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)',
-            color: '#34d399', fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '10px'
-          }}>
-            <CheckCircle2 size={18} color="#10b981" />
-            <span>{successInfo.message} Opening live tracker in dashboard...</span>
-          </div>
-        )}
-
-        {/* Templates Display Grid */}
-        <div style={{ maxWidth: '1180px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           
-          {/* ═════════ ACTIVE HERO TEMPLATE: World Mysteries & Paranormal ═════════ */}
-          {(activeCategory === 'all' || activeCategory === 'mysteries') && (
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(26,20,48,0.85) 0%, rgba(15,23,42,0.92) 100%)',
-              border: '1px solid rgba(139,92,246,0.3)',
-              borderRadius: '24px',
-              padding: '32px',
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.45), 0 0 40px rgba(99,102,241,0.12)',
-              backdropFilter: 'blur(20px)'
+          {/* ── Header ── */}
+          <div style={{ marginBottom: '28px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                padding: '3px 9px', borderRadius: '99px',
+                background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
+                fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)'
+              }}>
+                <Zap size={12} color="var(--accent-primary)" />
+                Autonomous Workflows
+              </span>
+              <span style={{
+                fontSize: '11.5px', fontWeight: 600, color: '#10b981',
+                display: 'inline-flex', alignItems: 'center', gap: '5px'
+              }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                n8n Cloud Connected
+              </span>
+            </div>
+
+            <h1 className="font-display" style={{
+              fontSize: 'clamp(24px, 3.5vw, 30px)',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.025em',
+              margin: '0 0 6px 0'
             }}>
-              {/* Decorative Accent Glow */}
-              <div style={{
-                position: 'absolute', top: '-60px', right: '-60px', width: '240px', height: '240px',
-                borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.25) 0%, transparent 70%)',
-                pointerEvents: 'none'
-              }} />
+              Pre-Built Video Templates
+            </h1>
+            <p style={{
+              fontSize: '14px',
+              color: 'var(--text-secondary)',
+              margin: 0,
+              lineHeight: 1.5,
+              maxWidth: '640px'
+            }}>
+              Production-ready video templates. Tap once to research, script, narrate, generate 5 cinematic scenes, and upload directly to your YouTube channel.
+            </p>
 
-              <div style={{ display: 'flex', flexDirection: 'row', gap: '32px', flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
-                
-                {/* Left Column: Visual Identity & Badges */}
-                <div style={{
-                  flex: '1 1 540px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
-                }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                      <span style={{
-                        background: 'linear-gradient(135deg, #10b981, #059669)',
-                        color: '#fff', fontSize: '11px', fontWeight: 800, padding: '4px 10px',
-                        borderRadius: '99px', display: 'inline-flex', alignItems: 'center', gap: '4px',
-                        letterSpacing: '0.04em', textTransform: 'uppercase'
-                      }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff' }} />
-                        Ready to Launch
-                      </span>
-                      <span style={{
-                        background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)',
-                        color: '#c084fc', fontSize: '11px', fontWeight: 700, padding: '4px 10px',
-                        borderRadius: '99px'
-                      }}>
-                        75s Duration • 5 Cinematic Scenes
-                      </span>
-                      <span style={{
-                        background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)',
-                        color: '#38bdf8', fontSize: '11px', fontWeight: 700, padding: '4px 10px',
-                        borderRadius: '99px'
-                      }}>
-                        Autonomous 1-Click
-                      </span>
-                    </div>
-
-                    <h2 style={{
-                      fontSize: '26px', fontWeight: 800, fontFamily: 'Space Grotesk, sans-serif',
-                      color: '#ffffff', margin: '0 0 12px 0', letterSpacing: '-0.02em'
-                    }}>
-                      World Mysteries & Paranormal
-                    </h2>
-
-                    <p style={{
-                      fontSize: '14.5px', color: '#94a3b8', lineHeight: 1.6, margin: '0 0 24px 0'
-                    }}>
-                      Uncover unexplained phenomena, historical enigmas, extraterrestrial sightings, and chilling paranormal lore. Engineered with high-retention hooks, dark ambient music, and photorealistic AI footage tuned for viral YouTube Shorts and Instagram Reels.
-                    </p>
-
-                    {/* Features Matrix Grid */}
-                    <div style={{
-                      display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                      gap: '12px', marginBottom: '24px'
-                    }}>
-                      <div style={{
-                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                        borderRadius: '14px', padding: '12px 14px'
-                      }}>
-                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
-                          Topic Brain
-                        </div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>
-                          Self-Ideating AI
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                          Checks de-dup DB
-                        </div>
-                      </div>
-
-                      <div style={{
-                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                        borderRadius: '14px', padding: '12px 14px'
-                      }}>
-                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
-                          Narration Voice
-                        </div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>
-                          Deep Suspense
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                          Adam (ElevenLabs/TTS)
-                        </div>
-                      </div>
-
-                      <div style={{
-                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                        borderRadius: '14px', padding: '12px 14px'
-                      }}>
-                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
-                          Scene Pipeline
-                        </div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>
-                          5 Direct Scenes
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                          Parallel JSON2Video
-                        </div>
-                      </div>
-
-                      <div style={{
-                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                        borderRadius: '14px', padding: '12px 14px'
-                      }}>
-                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
-                          Upload Target
-                        </div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#10b981' }}>
-                          Direct YouTube
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                          OOM-Safe Stream
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* YouTube Destination & Channel Selector */}
-                  <div style={{
-                    padding: '16px', borderRadius: '16px',
-                    background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{
-                        width: '36px', height: '36px', borderRadius: '10px',
-                        background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                      }}>
-                        <YouTubeIcon size={20} />
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 800, color: '#e2e8f0' }}>
-                          Target YouTube Channel
-                        </div>
-                        <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>
-                          {youtubeChannels.length > 0 ? (
-                            <span>Auto-uploading to: <strong>{youtubeChannels.find(c => c.channelId === selectedChannelId)?.channelTitle || defaultChannel?.channelTitle || 'Connected Channel'}</strong></span>
-                          ) : (
-                            <span style={{ color: '#f59e0b' }}>No YouTube channel connected — video will be generated for download/stream.</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {youtubeChannels.length > 1 && (
-                      <select
-                        value={selectedChannelId}
-                        onChange={(e) => setSelectedChannelId(e.target.value)}
-                        style={{
-                          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
-                          borderRadius: '8px', color: '#fff', padding: '6px 10px', fontSize: '12px',
-                          outline: 'none', cursor: 'pointer'
-                        }}
-                      >
-                        {youtubeChannels.map(ch => (
-                          <option key={ch.channelId} value={ch.channelId} style={{ background: '#0f172a', color: '#fff' }}>
-                            {ch.channelTitle}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                </div>
-
-                {/* Right Column: 1-Click Launch Button & Preview Box */}
-                <div style={{
-                  flex: '1 1 340px', minWidth: '280px',
-                  display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                  background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '20px', padding: '28px', textAlign: 'center'
-                }}>
-                  <div style={{
-                    width: '64px', height: '64px', borderRadius: '18px', margin: '0 auto 18px auto',
-                    background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 8px 24px rgba(99,102,241,0.4)'
-                  }}>
-                    <Flame size={32} color="#ffffff" />
-                  </div>
-
-                  <h3 style={{
-                    fontSize: '18px', fontWeight: 800, color: '#ffffff', margin: '0 0 8px 0',
-                    fontFamily: 'Space Grotesk, sans-serif'
-                  }}>
-                    Ready to Generate?
-                  </h3>
-                  <p style={{ fontSize: '12.5px', color: '#94a3b8', margin: '0 0 24px 0', lineHeight: 1.5 }}>
-                    Zero manual editing required. The AI engine handles the entire 75-second multi-scene production autonomously.
-                  </p>
-
+            {/* Category Filter Tabs */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '20px', flexWrap: 'wrap' }}>
+              {CATEGORIES.map(cat => {
+                const active = activeCategory === cat.id;
+                return (
                   <button
-                    disabled={launchingId === 'world-mysteries'}
-                    onClick={() => handleLaunchTemplate('world-mysteries')}
+                    key={cat.id}
+                    onClick={() => { audioEngine.playSfx('click'); setActiveCategory(cat.id); }}
                     style={{
-                      width: '100%',
-                      padding: '16px 20px',
-                      borderRadius: '16px',
-                      border: 'none',
-                      cursor: launchingId === 'world-mysteries' ? 'not-allowed' : 'pointer',
-                      background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
-                      color: '#ffffff',
-                      fontSize: '15px',
-                      fontWeight: 800,
-                      fontFamily: 'Space Grotesk, sans-serif',
-                      letterSpacing: '0.01em',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '10px',
-                      boxShadow: '0 8px 28px rgba(99,102,241,0.5), inset 0 1px 1px rgba(255,255,255,0.4)',
-                      transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                      transform: launchingId === 'world-mysteries' ? 'scale(0.98)' : 'scale(1)'
-                    }}
-                    onMouseEnter={e => {
-                      if (launchingId !== 'world-mysteries') {
-                        e.currentTarget.style.boxShadow = '0 12px 36px rgba(99,102,241,0.7), inset 0 1px 1px rgba(255,255,255,0.6)';
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if (launchingId !== 'world-mysteries') {
-                        e.currentTarget.style.boxShadow = '0 8px 28px rgba(99,102,241,0.5), inset 0 1px 1px rgba(255,255,255,0.4)';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      border: `1px solid ${active ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
+                      background: active ? 'var(--text-primary)' : 'var(--bg-card)',
+                      color: active ? 'var(--bg-app)' : 'var(--text-secondary)',
+                      fontSize: '12.5px',
+                      fontWeight: active ? 700 : 500,
+                      transition: 'all 0.15s ease'
                     }}
                   >
-                    {launchingId === 'world-mysteries' ? (
-                      <>
-                        <Loader2 size={20} className="animate-spin" />
-                        <span>Launching Pipeline...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Zap size={18} fill="#ffffff" />
-                        <span>⚡ 1-Click Generate & Auto-Upload</span>
-                      </>
-                    )}
+                    {cat.label}
                   </button>
+                );
+              })}
+            </div>
+          </div>
 
-                  <div style={{
-                    marginTop: '16px', fontSize: '11px', color: '#64748b',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                  }}>
-                    <ShieldCheck size={13} color="#10b981" />
-                    <span>Cost: 1 Generation Credit • De-Duplicated Content</span>
+          {/* ── Alerts ── */}
+          {errorMsg && (
+            <div style={{
+              marginBottom: '20px',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              color: '#ef4444',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <AlertCircle size={16} />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {successInfo && (
+            <div style={{
+              marginBottom: '20px',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              color: '#10b981',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <CheckCircle2 size={16} />
+              <span>{successInfo.message} Loading generation tracker in dashboard...</span>
+            </div>
+          )}
+
+          {/* ── YouTube Destination Channel Bar ── */}
+          <div className="saas-card" style={{
+            padding: '14px 18px',
+            borderRadius: '12px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <YouTubeIcon size={18} />
+              <div>
+                <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Upload Target
+                </span>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                  {youtubeChannels.length > 0 ? 'Videos auto-publish here' : 'No channel linked (saves to dashboard)'}
+                </span>
+              </div>
+            </div>
+
+            {youtubeChannels.length > 0 ? (
+              <select
+                value={selectedChannelId}
+                onChange={(e) => setSelectedChannelId(e.target.value)}
+                style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-medium)',
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+              >
+                {youtubeChannels.map(c => (
+                  <option key={c.channelId} value={c.channelId}>
+                    {c.channelTitle || c.title || 'Connected YouTube Channel'} {c.isDefault ? '(Default)' : ''}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { audioEngine.playSfx('click'); if (typeof onNavigate === 'function') onNavigate('profile'); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  fontSize: '12px',
+                  color: 'var(--accent-primary)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <span>Connect YouTube in Profile</span>
+                <ChevronRight size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* ── Active Template Card ── */}
+          {(activeCategory === 'all' || activeCategory === 'mysteries') && (
+            <div className="saas-card" style={{
+              padding: '24px',
+              borderRadius: '16px',
+              marginBottom: '32px'
+            }}>
+              {/* Card Meta Badges */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <span style={{
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  color: '#10b981',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '99px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}>
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
+                  Ready to Launch
+                </span>
+                <span style={{
+                  background: 'var(--bg-pill)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: '99px'
+                }}>
+                  75s Duration • 5 Scenes
+                </span>
+                <span style={{
+                  background: 'var(--bg-pill)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  padding: '2px 8px',
+                  borderRadius: '99px'
+                }}>
+                  Autonomous 1-Click
+                </span>
+              </div>
+
+              {/* Title & Description */}
+              <h2 className="font-display" style={{
+                fontSize: '20px',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                margin: '0 0 6px 0'
+              }}>
+                World Mysteries & Paranormal
+              </h2>
+
+              <p style={{
+                fontSize: '13.5px',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.55,
+                margin: '0 0 20px 0',
+                maxWidth: '820px'
+              }}>
+                Autonomous viral Shorts engine. Researches unrepeated paranormal mysteries, scripts 5 cinematic scenes, synthesizes deep narration, renders multi-scene video, and uploads directly to YouTube without asking for manual reviews.
+              </p>
+
+              {/* Minimalist Specs Row */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '12px',
+                marginBottom: '22px'
+              }}>
+                <div style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '10px',
+                  padding: '10px 14px'
+                }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '2px' }}>
+                    TOPIC BRAIN
+                  </div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Gemini 2.5 Flash + Deduplication
                   </div>
                 </div>
 
+                <div style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '10px',
+                  padding: '10px 14px'
+                }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '2px' }}>
+                    NARRATION VOICE
+                  </div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Adam (Deep Suspense · ElevenLabs)
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '10px',
+                  padding: '10px 14px'
+                }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '2px' }}>
+                    RENDER PIPELINE
+                  </div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    5 Direct Scenes (Parallel JSON2Video)
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Bar */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '14px',
+                paddingTop: '16px',
+                borderTop: '1px solid var(--border-subtle)'
+              }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Cost: 1 Generation Credit • Zero manual edits required
+                </div>
+
+                <button
+                  disabled={launchingId === 'world-mysteries'}
+                  onClick={() => handleLaunchTemplate('world-mysteries')}
+                  className="btn-glow"
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    cursor: launchingId === 'world-mysteries' ? 'not-allowed' : 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px'
+                  }}
+                >
+                  {launchingId === 'world-mysteries' ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>Dispatching Pipeline...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={14} fill="#ffffff" />
+                      <span>1-Click Generate & Upload</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}
 
-          {/* ═════════ COMING SOON TEMPLATES SECTION (Scalability) ═════════ */}
-          <div style={{ marginTop: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h3 style={{
-                fontSize: '18px', fontWeight: 800, fontFamily: 'Space Grotesk, sans-serif',
-                color: '#ffffff', margin: 0
+          {/* ── Upcoming Templates Section ── */}
+          <div>
+            <div style={{ marginBottom: '16px' }}>
+              <h3 className="font-display" style={{
+                fontSize: '16px',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                margin: '0 0 2px 0'
               }}>
-                More Templates Coming Soon
+                More Templates
               </h3>
-              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
-                Next workflows being connected to BangAI
-              </span>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
+                Additional pre-built autonomous niches scheduled for release.
+              </p>
             </div>
 
             <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))',
-              gap: '18px'
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
+              gap: '16px'
             }}>
-              {/* Coming Soon Card 1: Islamic Stories */}
-              <div style={{
-                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '18px', padding: '22px', position: 'relative', overflow: 'hidden'
-              }}>
-                <div style={{
-                  display: 'inline-block', fontSize: '10px', fontWeight: 800,
-                  background: 'rgba(255,255,255,0.08)', color: '#94a3b8',
-                  padding: '3px 8px', borderRadius: '99px', textTransform: 'uppercase', marginBottom: '12px'
-                }}>
-                  Coming Soon
-                </div>
-                <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#f1f5f9', margin: '0 0 6px 0' }}>
-                  Islamic Historical & Wisdom [75s]
-                </h4>
-                <p style={{ fontSize: '12.5px', color: '#64748b', lineHeight: 1.5, margin: '0 0 16px 0' }}>
-                  Inspirational historical moments, golden age science, and prophetic stories formatted with serene, respectful visuals and voiceover.
-                </p>
-                <div style={{ fontSize: '11px', color: '#a5b4fc', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>75s • 5 Direct Scenes</span>
-                </div>
-              </div>
+              {filteredUpcoming.map(tpl => (
+                <div
+                  key={tpl.id}
+                  className="saas-card"
+                  style={{
+                    padding: '20px',
+                    borderRadius: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: 'var(--text-muted)',
+                        background: 'var(--bg-pill)',
+                        border: '1px solid var(--border-subtle)',
+                        padding: '2px 8px',
+                        borderRadius: '6px'
+                      }}>
+                        {tpl.categoryLabel}
+                      </span>
+                      <span style={{
+                        fontSize: '10.5px',
+                        fontWeight: 600,
+                        color: 'var(--text-muted)',
+                        background: 'var(--bg-input)',
+                        padding: '2px 8px',
+                        borderRadius: '99px'
+                      }}>
+                        Coming Soon
+                      </span>
+                    </div>
 
-              {/* Coming Soon Card 2: Dark Psychology */}
-              <div style={{
-                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '18px', padding: '22px', position: 'relative', overflow: 'hidden'
-              }}>
-                <div style={{
-                  display: 'inline-block', fontSize: '10px', fontWeight: 800,
-                  background: 'rgba(255,255,255,0.08)', color: '#94a3b8',
-                  padding: '3px 8px', borderRadius: '99px', textTransform: 'uppercase', marginBottom: '12px'
-                }}>
-                  Coming Soon
-                </div>
-                <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#f1f5f9', margin: '0 0 6px 0' }}>
-                  Dark Psychology & Secrets [75s]
-                </h4>
-                <p style={{ fontSize: '12.5px', color: '#64748b', lineHeight: 1.5, margin: '0 0 16px 0' }}>
-                  Behavioral phenomena, subconscious manipulation defenses, and intriguing human nature hooks that guarantee retention.
-                </p>
-                <div style={{ fontSize: '11px', color: '#a5b4fc', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>75s • 5 Direct Scenes</span>
-                </div>
-              </div>
+                    <h4 style={{
+                      fontSize: '15px',
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      margin: '0 0 6px 0'
+                    }}>
+                      {tpl.title}
+                    </h4>
 
-              {/* Coming Soon Card 3: Sci-Fi & Cosmic Horizons */}
-              <div style={{
-                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '18px', padding: '22px', position: 'relative', overflow: 'hidden'
-              }}>
-                <div style={{
-                  display: 'inline-block', fontSize: '10px', fontWeight: 800,
-                  background: 'rgba(255,255,255,0.08)', color: '#94a3b8',
-                  padding: '3px 8px', borderRadius: '99px', textTransform: 'uppercase', marginBottom: '12px'
-                }}>
-                  Coming Soon
-                </div>
-                <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#f1f5f9', margin: '0 0 6px 0' }}>
-                  Cosmic Horrors & Space [75s]
-                </h4>
-                <p style={{ fontSize: '12.5px', color: '#64748b', lineHeight: 1.5, margin: '0 0 16px 0' }}>
-                  Deep space mysteries, rogue black holes, James Webb discoveries, and the terrifying scale of the observable universe.
-                </p>
-                <div style={{ fontSize: '11px', color: '#a5b4fc', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>75s • 5 Direct Scenes</span>
-                </div>
-              </div>
+                    <p style={{
+                      fontSize: '12.5px',
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.5,
+                      margin: '0 0 16px 0'
+                    }}>
+                      {tpl.desc}
+                    </p>
+                  </div>
 
-              {/* Coming Soon Card 4: AI & Future Tech */}
-              <div style={{
-                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '18px', padding: '22px', position: 'relative', overflow: 'hidden'
-              }}>
-                <div style={{
-                  display: 'inline-block', fontSize: '10px', fontWeight: 800,
-                  background: 'rgba(255,255,255,0.08)', color: '#94a3b8',
-                  padding: '3px 8px', borderRadius: '99px', textTransform: 'uppercase', marginBottom: '12px'
-                }}>
-                  Coming Soon
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingTop: '12px',
+                    borderTop: '1px solid var(--border-subtle)'
+                  }}>
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                      {tpl.duration} • {tpl.scenes}
+                    </span>
+                    <button
+                      disabled
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        background: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-muted)',
+                        fontSize: '11.5px',
+                        fontWeight: 600,
+                        cursor: 'not-allowed'
+                      }}
+                    >
+                      Queued
+                    </button>
+                  </div>
                 </div>
-                <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#f1f5f9', margin: '0 0 6px 0' }}>
-                  AI Frontiers & Future Tech [75s]
-                </h4>
-                <p style={{ fontSize: '12.5px', color: '#64748b', lineHeight: 1.5, margin: '0 0 16px 0' }}>
-                  Autonomous robotic evolutions, brain-computer interfaces, quantum leaps, and the future of synthetic intelligence.
-                </p>
-                <div style={{ fontSize: '11px', color: '#a5b4fc', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>75s • 5 Direct Scenes</span>
-                </div>
-              </div>
-
+              ))}
             </div>
           </div>
 
         </div>
-
       </div>
     </AppShell>
   );

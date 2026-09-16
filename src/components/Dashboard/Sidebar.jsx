@@ -442,26 +442,21 @@ export default function Sidebar({
           <button
             type="button"
             onClick={() => navigateTo('templates')}
-            aria-label="1-Click Templates"
+            aria-label="Templates"
             aria-current={isItemActive('templates') ? 'page' : undefined}
             style={{
               width: '100%', padding: '7px 10px',
-              background: isItemActive('templates') ? 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.15))' : 'transparent',
-              border: `1px solid ${isItemActive('templates') ? 'rgba(99,102,241,0.5)' : 'transparent'}`,
+              background: isItemActive('templates') ? 'rgba(99,102,241,0.15)' : 'transparent',
+              border: `1px solid ${isItemActive('templates') ? 'rgba(99,102,241,0.4)' : 'transparent'}`,
               borderRadius: '8px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              color: isItemActive('templates') ? '#a5b4fc' : 'var(--text-secondary)',
+              display: 'flex', alignItems: 'center', gap: '8px',
+              color: isItemActive('templates') ? 'var(--text-primary)' : 'var(--text-secondary)',
               fontSize: '12.5px', fontWeight: isItemActive('templates') ? 700 : 500,
               transition: 'all 0.12s ease'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Zap size={14} color={isItemActive('templates') ? '#a5b4fc' : '#6366f1'} />
-              <span>Templates</span>
-            </div>
-            <span style={{ fontSize: '8.5px', fontWeight: 800, background: 'linear-gradient(135deg, #10b981, #06b6d4)', color: '#fff', padding: '1px 5px', borderRadius: '4px' }}>
-              1-CLICK
-            </span>
+            <Zap size={14} color={isItemActive('templates') ? '#818cf8' : 'var(--text-muted)'} />
+            <span>Templates</span>
           </button>
         </div>
 

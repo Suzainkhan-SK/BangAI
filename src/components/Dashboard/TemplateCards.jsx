@@ -152,43 +152,31 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
       </div>
 
       {/* ═══════ FEATURED 1-CLICK AUTONOMOUS TEMPLATE HERO CARD ═══════ */}
-      <div style={{
+      <div className="saas-card" style={{
         width: '100%',
-        background: 'linear-gradient(135deg, rgba(30, 20, 56, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%)',
-        border: '1px solid rgba(139, 92, 246, 0.35)',
-        borderRadius: '20px',
-        padding: '24px 28px',
+        padding: '20px 24px',
         textAlign: 'left',
         position: 'relative',
-        overflow: 'hidden',
-        boxShadow: '0 16px 40px rgba(0,0,0,0.4), 0 0 30px rgba(99,102,241,0.15)',
-        backdropFilter: 'blur(16px)'
+        borderRadius: '16px'
       }}>
-        {/* Subtle decorative glow */}
-        <div style={{
-          position: 'absolute', top: '-40px', right: '-40px', width: '180px', height: '180px',
-          borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.3) 0%, transparent 70%)',
-          pointerEvents: 'none'
-        }} />
-
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexWrap: 'wrap', gap: '16px', position: 'relative', zIndex: 1
+          flexWrap: 'wrap', gap: '16px'
         }}>
           <div style={{ flex: '1 1 400px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <span style={{
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                color: '#fff', fontSize: '10.5px', fontWeight: 800, padding: '3px 9px',
-                borderRadius: '99px', display: 'inline-flex', alignItems: 'center', gap: '4px',
-                letterSpacing: '0.04em', textTransform: 'uppercase'
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                color: '#10b981', fontSize: '11px', fontWeight: 700, padding: '2px 8px',
+                borderRadius: '99px', display: 'inline-flex', alignItems: 'center', gap: '5px'
               }}>
-                <Zap size={11} fill="#fff" />
-                Featured 1-Click Template
+                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
+                1-Click Autonomous
               </span>
               <span style={{
-                background: 'rgba(139,92,246,0.18)', border: '1px solid rgba(139,92,246,0.3)',
-                color: '#c084fc', fontSize: '10.5px', fontWeight: 700, padding: '3px 9px',
+                background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
+                color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, padding: '2px 8px',
                 borderRadius: '99px'
               }}>
                 75s • 5 Scenes • Auto-Upload
@@ -196,21 +184,21 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
             </div>
 
             <h3 style={{
-              fontSize: '20px', fontWeight: 800, color: '#ffffff',
-              margin: '0 0 6px 0', fontFamily: 'Space Grotesk, sans-serif'
+              fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)',
+              margin: '0 0 5px 0', fontFamily: 'Space Grotesk, sans-serif'
             }}>
               World Mysteries & Paranormal
             </h3>
 
             <p style={{
-              fontSize: '13px', color: '#94a3b8', lineHeight: 1.55, margin: 0
+              fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0
             }}>
-              Runs the complete 75-second automated video pipeline. Researches unrepeated paranormal topics, scripts 5 scenes, generates cinematic video, and auto-uploads directly to your connected YouTube channel without asking for reviews.
+              Uncover unexplained phenomena. Self-scripts 5 scenes, renders cinematic visuals, and uploads directly to YouTube without manual review.
             </p>
 
             {launchError && (
               <div style={{
-                marginTop: '10px', fontSize: '12px', color: '#f87171',
+                marginTop: '10px', fontSize: '12px', color: '#ef4444',
                 display: 'flex', alignItems: 'center', gap: '6px'
               }}>
                 <AlertCircle size={14} color="#ef4444" />
@@ -220,65 +208,58 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0, minWidth: '220px' }}>
-            <button
-              disabled={launching}
-              onClick={() => handle1ClickLaunch('world-mysteries')}
-              style={{
-                padding: '13px 20px',
-                borderRadius: '12px',
-                border: 'none',
-                cursor: launching ? 'not-allowed' : 'pointer',
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
-                color: '#ffffff',
-                fontSize: '13.5px',
-                fontWeight: 800,
-                fontFamily: 'Space Grotesk, sans-serif',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 6px 20px rgba(99,102,241,0.45)',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              {launching ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  <span>Launching Pipeline...</span>
-                </>
-              ) : (
-                <>
-                  <Zap size={16} fill="#ffffff" />
-                  <span>⚡ 1-Click Generate</span>
-                </>
-              )}
-            </button>
-
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
             {typeof onNavigate === 'function' && (
               <button
                 type="button"
                 onClick={() => { audioEngine.playSfx('click'); onNavigate('templates'); }}
+                className="btn-outline"
                 style={{
-                  padding: '8px 14px',
+                  padding: '9px 14px',
                   borderRadius: '10px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#c084fc',
-                  fontSize: '12px',
-                  fontWeight: 700,
+                  fontSize: '12.5px',
+                  fontWeight: 600,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
                   gap: '6px',
-                  transition: 'all 0.15s ease'
+                  color: 'var(--text-secondary)'
                 }}
               >
-                <span>Browse All Templates</span>
+                <span>Browse All</span>
                 <ArrowRight size={13} />
               </button>
             )}
+
+            <button
+              disabled={launching}
+              onClick={() => handle1ClickLaunch('world-mysteries')}
+              className="btn-glow"
+              style={{
+                padding: '9px 18px',
+                borderRadius: '10px',
+                border: 'none',
+                cursor: launching ? 'not-allowed' : 'pointer',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                color: '#ffffff'
+              }}
+            >
+              {launching ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>Launching...</span>
+                </>
+              ) : (
+                <>
+                  <Zap size={14} fill="#ffffff" />
+                  <span>1-Click Generate</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
