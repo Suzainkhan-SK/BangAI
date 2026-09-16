@@ -6,7 +6,7 @@ import ResultThreadCard from './ResultThreadCard';
 import StoryApprovalCard from './StoryApprovalCard';
 import GenerationThinkingAnimation from './GenerationThinkingAnimation';
 import { PRESETS } from '../../data/presets';
-import { VOICES } from '../../data/voices';
+import { VOICES, getVoiceById } from '../../data/voices';
 import { VISUAL_STYLES } from '../../data/visualStyles';
 import { MUSIC_TRACKS, DEFAULT_MUSIC_ID, resolveMusicId, getMusicTrackById } from '../../data/musicTracks';
 import { SUBTITLE_STYLES } from '../../data/subtitleStyles';
@@ -101,7 +101,13 @@ export default function DashboardApp({
 
   const { settings: videoSettings, updateSettings: updateVideoSettings } = useVideoSettings();
   const voiceId = videoSettings.voiceId;
-  const setVoiceId = (v) => updateVideoSettings({ voiceId: v });
+  const setVoiceId = (v) => {
+    const chosen = getVoiceById(v) || VOICES.find(voice => voice.id === v || voice.elevenLabsId === v);
+    updateVideoSettings({
+      voiceId: chosen?.id || v,
+      elevenLabsVoiceId: chosen?.elevenLabsId || (chosen?.source === 'elevenlabs' ? chosen.id : 'pNInz6obpgDQGcFmaJgB')
+    });
+  };
   const voiceSpeed = videoSettings.voiceSpeed;
   const setVoiceSpeed = (s) => updateVideoSettings({ voiceSpeed: s });
   const styleId = videoSettings.styleId;

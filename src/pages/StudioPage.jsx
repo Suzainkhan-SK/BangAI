@@ -3,6 +3,8 @@ import StudioLab from '../components/Studio/StudioLab';
 import AppShell from '../components/Layout/AppShell';
 import { useVideoSettings } from '../state/videoSettings';
 
+import { getVoiceById, getAllVoices } from '../data/voices';
+
 export default function StudioPage({
   tab = 'voices',
   user,
@@ -45,7 +47,13 @@ export default function StudioPage({
           initialTab={tab}
           onTabChange={handleTabChange}
           selectedVoiceId={settings.voiceId}
-          onSelectVoice={(voiceId) => updateSettings({ voiceId })}
+          onSelectVoice={(voiceId, elVoiceId) => {
+            const chosen = getVoiceById(voiceId) || getAllVoices().find(v => v.id === voiceId || v.elevenLabsId === voiceId);
+            updateSettings({
+              voiceId: chosen?.id || voiceId,
+              elevenLabsVoiceId: elVoiceId || chosen?.elevenLabsId || (chosen?.source === 'elevenlabs' ? chosen.id : 'pNInz6obpgDQGcFmaJgB')
+            });
+          }}
           voiceSpeed={settings.voiceSpeed}
           onVoiceSpeedChange={(voiceSpeed) => updateSettings({ voiceSpeed })}
           subtitleSettings={settings.subtitleSettings}

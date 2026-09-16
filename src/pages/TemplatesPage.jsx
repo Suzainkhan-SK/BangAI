@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Zap, CheckCircle2, AlertCircle, Loader2,
-  ChevronRight, Play, Mic, Type, Search, X
+  ChevronDown, Mic, Type
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 import { audioEngine } from '../audio/audioEngine';
 import { getAuthToken } from '../utils/authClient';
-import { VOICES, loadJson2VideoVoices, getAllVoices } from '../data/voices';
+import { VOICES, getVoiceById } from '../data/voices';
+import { useVideoSettings } from '../state/videoSettings';
+import { useVoiceCatalog } from '../hooks/useVoiceCatalog';
 
 const YouTubeIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
@@ -21,193 +23,6 @@ const SPEED_MAX  = 1.50;
 const SPEED_DEF  = 1.10;
 const SPEED_STEP = 0.05;
 
-const DEFAULT_VOICE = VOICES[0]; // Adam
-
-// ─── Compact Searchable Voice Picker ─────────────────────────────────────────
-function VoicePicker({ selectedVoice, onSelect, allVoices, loadingVoices }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [visible, setVisible] = useState(60);
-  const listRef = useRef(null);
-  const inputRef = useRef(null);
-
-  const filtered = query.trim()
-    ? allVoices.filter(v => {
-        const q = query.toLowerCase();
-        return (
-          (v.name && v.name.toLowerCase().includes(q)) ||
-          (v.tag && v.tag.toLowerCase().includes(q)) ||
-          (v.accent && v.accent.toLowerCase().includes(q)) ||
-          (v.language && v.language.toLowerCase().includes(q)) ||
-          (v.id && v.id.toLowerCase().includes(q))
-        );
-      }).slice(0, 80)
-    : allVoices.slice(0, visible);
-
-  const handleOpen = () => {
-    setOpen(true);
-    setQuery('');
-    setVisible(60);
-    setTimeout(() => inputRef.current?.focus(), 50);
-  };
-
-  const handlePick = (v) => {
-    onSelect(v);
-    setOpen(false);
-    setQuery('');
-    audioEngine.playSfx('click');
-  };
-
-  // Infinite scroll in dropdown
-  const handleScroll = () => {
-    if (!listRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = listRef.current;
-    if (scrollHeight - scrollTop - clientHeight < 100) {
-      setVisible(prev => prev + 40);
-    }
-  };
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e) => {
-      if (!e.target.closest('[data-voice-picker]')) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  return (
-    <div data-voice-picker style={{ position: 'relative' }}>
-      {/* Trigger button */}
-      <button
-        type="button"
-        onClick={handleOpen}
-        style={{
-          width: '100%', padding: '8px 12px', borderRadius: '8px',
-          border: '1px solid var(--border-medium)', background: 'var(--bg-card)',
-          color: 'var(--text-primary)', fontSize: '12.5px', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: '8px', outline: 'none', textAlign: 'left',
-          transition: 'border-color 0.15s'
-        }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-primary, #6366f1)'}
-        onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-medium)'}
-      >
-        <span style={{ display: 'flex', alignItems: 'center', gap: '7px', overflow: 'hidden' }}>
-          <span style={{ fontSize: '13px' }}>{selectedVoice.flag?.split(' ')[0] || '🎙️'}</span>
-          <span style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {selectedVoice.name}
-          </span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-            {selectedVoice.tag || ''}
-          </span>
-        </span>
-        <ChevronRight size={13} color="var(--text-muted)" style={{ flexShrink: 0, transform: open ? 'rotate(90deg)' : 'none', transition: '0.15s' }} />
-      </button>
-
-      {/* Dropdown */}
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
-          background: 'var(--bg-card)', border: '1px solid var(--border-medium)',
-          borderRadius: '12px', zIndex: 200,
-          boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          maxHeight: '340px'
-        }}>
-          {/* Search */}
-          <div style={{
-            padding: '8px', borderBottom: '1px solid var(--border-subtle)',
-            display: 'flex', alignItems: 'center', gap: '6px'
-          }}>
-            <Search size={13} color="var(--text-muted)" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={e => { setQuery(e.target.value); setVisible(60); }}
-              placeholder={`Search ${allVoices.length.toLocaleString()} voices…`}
-              style={{
-                flex: 1, background: 'none', border: 'none', outline: 'none',
-                fontSize: '12.5px', color: 'var(--text-primary)'
-              }}
-            />
-            {query && (
-              <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}>
-                <X size={12} color="var(--text-muted)" />
-              </button>
-            )}
-            {loadingVoices && <Loader2 size={12} className="animate-spin" color="var(--text-muted)" />}
-          </div>
-
-          {/* Count */}
-          <div style={{ padding: '4px 10px', fontSize: '10px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-            {query ? `${filtered.length} results` : `${allVoices.length.toLocaleString()} voices total`}
-          </div>
-
-          {/* Voice list */}
-          <div
-            ref={listRef}
-            onScroll={handleScroll}
-            style={{ overflowY: 'auto', flex: 1 }}
-          >
-            {filtered.length === 0 ? (
-              <div style={{ padding: '16px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-                No voices match "{query}"
-              </div>
-            ) : filtered.map(v => {
-              const isSelected = v.id === selectedVoice.id && v.elevenLabsId === selectedVoice.elevenLabsId;
-              return (
-                <button
-                  key={`${v.id}-${v.elevenLabsId}`}
-                  type="button"
-                  onClick={() => handlePick(v)}
-                  style={{
-                    width: '100%', padding: '7px 10px',
-                    background: isSelected ? 'var(--bg-input)' : 'none',
-                    border: 'none', cursor: 'pointer', textAlign: 'left',
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    transition: 'background 0.1s'
-                  }}
-                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--bg-pill)'; }}
-                  onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'none'; }}
-                >
-                  <span style={{ fontSize: '13px', flexShrink: 0 }}>
-                    {v.flag?.split(' ')[0] || '🎙️'}
-                  </span>
-                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      {v.name}
-                      {v.badge && <span style={{ fontSize: '10px' }}>{v.badge.split(' ')[0]}</span>}
-                      {isSelected && <CheckCircle2 size={11} color="#10b981" />}
-                    </div>
-                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {v.tag || v.description || ''}{v.language && v.language !== 'English' ? ` · ${v.language}` : ''}
-                    </div>
-                  </div>
-                  {v.source === 'json2video' && (
-                    <span style={{
-                      fontSize: '9px', fontWeight: 700, color: 'var(--accent-primary, #6366f1)',
-                      background: 'rgba(99,102,241,0.1)', padding: '1px 5px', borderRadius: '4px', flexShrink: 0
-                    }}>PRO</span>
-                  )}
-                </button>
-              );
-            })}
-            {!query && visible < allVoices.length && (
-              <div style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
-                Scroll for more · {allVoices.length - visible} remaining
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TemplatesPage({
   user,
@@ -221,23 +36,47 @@ export default function TemplatesPage({
   const [successInfo, setSuccessInfo] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
 
+  // Connect to shared video settings so selected voice/speed from StudioLab applies here!
+  const { settings: videoSettings, updateSettings: updateVideoSettings } = useVideoSettings();
+  useVoiceCatalog(); // Preload full catalog in background so custom studio voices resolve metadata
+
   // ── Optional customization ──
-  const [customTopic, setCustomTopic]     = useState('');
-  const [selectedVoice, setSelectedVoice] = useState(DEFAULT_VOICE);
-  const [voiceSpeed, setVoiceSpeed]       = useState(SPEED_DEF);
+  const [customTopic, setCustomTopic] = useState('');
 
-  // All voices: 23 native + 9,650 JSON2Video (lazy loaded)
-  const [allVoices, setAllVoices]       = useState(() => getAllVoices());
-  const [loadingVoices, setLoadingVoices] = useState(false);
+  const voiceId = videoSettings?.voiceId || 'adam';
+  const voiceSpeed = typeof videoSettings?.voiceSpeed === 'number'
+    ? Math.max(SPEED_MIN, Math.min(SPEED_MAX, videoSettings.voiceSpeed))
+    : SPEED_DEF;
 
-  useEffect(() => {
-    // Lazy-load JSON2Video voices in background
-    setLoadingVoices(true);
-    loadJson2VideoVoices().then(() => {
-      setAllVoices(getAllVoices());
-      setLoadingVoices(false);
-    }).catch(() => setLoadingVoices(false));
-  }, []);
+  // Active voice object resolution (matches StudioLab and CanvasPromptBar)
+  const activeVoiceObj = getVoiceById(voiceId) || VOICES.find(v => v.id === voiceId || v.elevenLabsId === voiceId) || VOICES[0];
+  const isCustomVoice = !VOICES.some(v => v.id === voiceId || v.elevenLabsId === voiceId);
+
+  const handleVoiceChange = (newVal) => {
+    if (newVal === '__open_studio__') {
+      audioEngine.playSfx('click');
+      if (typeof onNavigate === 'function') onNavigate('studio/voices');
+      else window.location.hash = '#/studio/voices';
+      return;
+    }
+    audioEngine.playSfx('click');
+    const matched = getVoiceById(newVal) || VOICES.find(v => v.id === newVal || v.elevenLabsId === newVal);
+    const chosenId = matched?.id || newVal;
+    const chosenElId = matched?.elevenLabsId || (matched?.source === 'elevenlabs' ? matched.id : 'pNInz6obpgDQGcFmaJgB');
+    if (typeof updateVideoSettings === 'function') {
+      updateVideoSettings({
+        voiceId: chosenId,
+        elevenLabsVoiceId: chosenElId
+      });
+    }
+  };
+
+  const handleSpeedChange = (newVal) => {
+    const clamped = Math.max(SPEED_MIN, Math.min(SPEED_MAX, Number(newVal) || SPEED_DEF));
+    if (typeof updateVideoSettings === 'function') {
+      updateVideoSettings({ voiceSpeed: clamped });
+    }
+  };
 
   // ── YouTube channels (same as ProfilePage) ──
   const [channels, setChannels]             = useState([]);
@@ -280,7 +119,7 @@ export default function TemplatesPage({
     try {
       const token = getAuthToken() || '';
       // Always resolve the ElevenLabs ID — workflow uses this directly in Submit Job
-      const elevenLabsVoiceId = selectedVoice.elevenLabsId || 'pNInz6obpgDQGcFmaJgB';
+      const elevenLabsVoiceId = activeVoiceObj?.elevenLabsId || videoSettings?.elevenLabsVoiceId || 'pNInz6obpgDQGcFmaJgB';
       // Clamp to exact StudioLab range
       const clampedSpeed = Math.max(SPEED_MIN, Math.min(SPEED_MAX, voiceSpeed));
 
@@ -292,7 +131,7 @@ export default function TemplatesPage({
           selectedChannelId: selectedChannelId || undefined,
           token,
           prompt:           customTopic.trim() || '',
-          voiceId:          selectedVoice.id,
+          voiceId:          activeVoiceObj?.id || voiceId,
           elevenLabsVoiceId,
           voiceSpeed:       clampedSpeed
         })
@@ -447,7 +286,7 @@ export default function TemplatesPage({
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     {[
                       { label: 'AI Brain', value: 'Gemini 2.5 Flash' },
-                      { label: 'Voice',   value: `${selectedVoice.name}${selectedVoice.flag ? ' ' + selectedVoice.flag.split(' ')[0] : ''}` },
+                      { label: 'Voice',   value: `${activeVoiceObj.name}${activeVoiceObj.flag ? ' ' + activeVoiceObj.flag.split(' ')[0] : ''}` },
                       { label: 'Speed',   value: `${voiceSpeed.toFixed(2)}x` }
                     ].map((s, i) => (
                       <div key={i} style={{
@@ -504,25 +343,72 @@ export default function TemplatesPage({
 
                     {/* Voice + Speed */}
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                      {/* Searchable voice picker — all 9,673 voices */}
+                      {/* Voice selector — same as regular video prompt box */}
                       <div style={{ flex: '2 1 200px' }}>
                         <label style={{
                           fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)',
-                          display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px'
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px'
                         }}>
-                          <Mic size={11} />
-                          Voice
-                          <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 400 }}>
-                            ({allVoices.length.toLocaleString()} available)
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Mic size={11} />
+                            Voice
                           </span>
-                          {loadingVoices && <Loader2 size={10} className="animate-spin" color="var(--text-muted)" />}
+                          {isCustomVoice && (
+                            <span style={{
+                              fontSize: '9.5px', fontWeight: 700, color: '#f59e0b',
+                              background: 'rgba(245,158,11,0.12)', padding: '1px 6px', borderRadius: '4px'
+                            }}>
+                              💎 Studio Selected
+                            </span>
+                          )}
                         </label>
-                        <VoicePicker
-                          selectedVoice={selectedVoice}
-                          onSelect={setSelectedVoice}
-                          allVoices={allVoices}
-                          loadingVoices={loadingVoices}
-                        />
+                        <div style={{ position: 'relative', width: '100%' }}>
+                          <select
+                            value={activeVoiceObj?.id || voiceId}
+                            aria-label="Narration voice"
+                            onChange={(e) => handleVoiceChange(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '8px 32px 8px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--border-medium)',
+                              background: 'var(--bg-card)',
+                              color: 'var(--text-primary)',
+                              fontSize: '12.5px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              outline: 'none',
+                              appearance: 'none',
+                              textOverflow: 'ellipsis',
+                              transition: 'border-color 0.15s'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary, #6366f1)'}
+                            onBlur={(e) => e.target.style.borderColor = 'var(--border-medium)'}
+                          >
+                            {/* If selected voice is from 9,650 JSON2Video library (e.g. from Studio), display it prominently */}
+                            {isCustomVoice && activeVoiceObj && (
+                              <option value={activeVoiceObj.id}>
+                                💎 {activeVoiceObj.name} ({activeVoiceObj.flag || activeVoiceObj.language || 'Premium'})
+                              </option>
+                            )}
+                            <optgroup label="⚡ Native ElevenLabs Voices">
+                              {VOICES.map((v) => (
+                                <option key={v.id} value={v.id}>
+                                  🎙️ {v.name} ({v.flag || v.gender || 'Universal'})
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="🌐 Full Voice Library">
+                              <option value="__open_studio__">🌐 Browse 9,650+ Voices in Studio...</option>
+                            </optgroup>
+                          </select>
+                          <div style={{
+                            position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                            pointerEvents: 'none', display: 'flex', alignItems: 'center', color: 'var(--text-muted)'
+                          }}>
+                            <ChevronDown size={14} />
+                          </div>
+                        </div>
                       </div>
 
                       {/* Speed slider — exact StudioLab range 1.10–1.50 */}
@@ -542,7 +428,7 @@ export default function TemplatesPage({
                           type="range"
                           min={SPEED_MIN} max={SPEED_MAX} step={SPEED_STEP}
                           value={voiceSpeed}
-                          onChange={e => setVoiceSpeed(parseFloat(e.target.value))}
+                          onChange={e => handleSpeedChange(parseFloat(e.target.value))}
                           style={{ width: '100%', accentColor: 'var(--accent-primary, #6366f1)', cursor: 'pointer' }}
                         />
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>

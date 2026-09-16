@@ -554,7 +554,7 @@ export default function StudioLab({
       const chosenVoice = voices.find(v => v.id === selectedVoiceId || v.elevenLabsId === selectedVoiceId) || getVoiceById(selectedVoiceId) || STATIC_VOICES[0];
       const chosenMusic = musicTracks.find(m => m.id === selectedMusicId) || getMusicTrackById(selectedMusicId);
       onApplySettingsToVideo({
-        voiceId: selectedVoiceId,
+        voiceId: chosenVoice?.id || selectedVoiceId,
         elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
         voiceSpeed: currentVoiceSpeed,
         subtitleSettings: currentSubtitleSettings,
@@ -1001,7 +1001,9 @@ export default function StudioLab({
 
                 return (
                   <div key={voice.id}
-                    onClick={() => onSelectVoice(voice.elevenLabsId || voice.id)}
+                    onClick={() => {
+                      if (typeof onSelectVoice === 'function') onSelectVoice(voice.id, voice.elevenLabsId);
+                    }}
                     style={{
                       background: isSelected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
                       border: `1.5px solid ${isSelected ? cardColor : 'var(--border-subtle)'}`,

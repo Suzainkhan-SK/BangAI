@@ -889,7 +889,7 @@ export default function CanvasPromptBar(props) {
             {/* 1. Voice Selector Pill */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <select
-                value={currentVoiceId}
+                value={activeVoiceObj?.id || currentVoiceId}
                 aria-label="Narration voice"
                 onChange={(e) => {
                   if (e.target.value === '__open_studio__') {
