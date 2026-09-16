@@ -62,6 +62,7 @@ export default function Navbar({
   const NAV_LINKS = user
     ? [
         { label: 'Dashboard', view: 'dashboard' },
+        { label: 'Templates', view: 'templates', badge: '1-Click' },
         { label: 'Studio', view: 'studio/voices' },
         { label: 'Profile', view: 'profile' },
         { label: 'Settings', view: 'settings' },
@@ -70,27 +71,38 @@ export default function Navbar({
       ]
     : [
         { label: 'Home', view: 'landing' },
+        { label: 'Templates', view: 'templates', badge: '1-Click' },
         { label: 'Features', view: 'landing', anchor: '#features' },
         { label: 'Showcase', view: 'landing', anchor: '#showcase' },
         { label: 'Pricing', view: 'pricing' },
         { label: 'API', view: 'api' },
       ];
 
-  const NavPill = ({ label, view, anchor }) => {
+  const NavPill = ({ label, view, anchor, badge }) => {
     const isPathMatch = view && (currentView === view || currentView.startsWith(view.split('/')[0] + '/'));
     const active = !anchor && (currentView === view || isPathMatch);
     return (
       <button onClick={() => go(view, anchor)} style={{
-        padding: '6px 15px', borderRadius: '99px', border: 'none', cursor: 'pointer',
+        padding: '6px 14px', borderRadius: '99px', border: 'none', cursor: 'pointer',
         background: active ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'transparent',
         color: active ? '#fff' : 'var(--text-secondary)',
         fontSize: '13px', fontWeight: active ? 700 : 500,
         transition: 'all 0.15s ease', fontFamily: 'Space Grotesk, sans-serif',
-        boxShadow: active ? '0 2px 12px rgba(99,102,241,0.4)' : 'none'
+        boxShadow: active ? '0 2px 12px rgba(99,102,241,0.4)' : 'none',
+        display: 'inline-flex', alignItems: 'center', gap: '6px'
       }}
         onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-primary)'; }}
         onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'var(--text-secondary)'; }}>
-        {label}
+        <span>{label}</span>
+        {badge && (
+          <span style={{
+            fontSize: '9px', fontWeight: 800, padding: '1px 6px', borderRadius: '99px',
+            background: active ? 'rgba(255,255,255,0.25)' : 'linear-gradient(135deg, #10b981, #06b6d4)',
+            color: '#fff', letterSpacing: '0.04em', textTransform: 'uppercase'
+          }}>
+            {badge}
+          </span>
+        )}
       </button>
     );
   };
@@ -197,7 +209,7 @@ export default function Navbar({
             maxWidth: '100%', overflowX: 'auto', scrollbarWidth: 'none'
           }}>
             {NAV_LINKS.map(link => (
-              <NavPill key={`${link.view}-${link.label}`} label={link.label} view={link.view} anchor={link.anchor} />
+              <NavPill key={`${link.view}-${link.label}`} label={link.label} view={link.view} anchor={link.anchor} badge={link.badge} />
             ))}
           </div>
         )}

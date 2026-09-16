@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardApp from './components/Dashboard/DashboardApp';
 import StudioPage from './pages/StudioPage';
+import TemplatesPage from './pages/TemplatesPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import ApiDocsPage from './pages/ApiDocsPage';
@@ -344,6 +345,16 @@ function AppContent() {
               onNavigateToLanding={() => handleNavigate('')}
             />
           )
+        )}
+
+        {currentView === 'templates' && (
+          <TemplatesPage
+            user={user}
+            currentRoutePath={currentRoutePath}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onNavigate={handleNavigate}
+          />
         )}
 
         {currentView === 'profile' && (

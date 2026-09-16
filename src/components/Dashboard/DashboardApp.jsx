@@ -2056,6 +2056,8 @@ export default function DashboardApp({
             <TemplateCards
               onSelectTemplate={handleSelectTemplate}
               onSelectPreset={handleSelectShort}
+              onNavigate={onNavigate}
+              user={user}
             />
           )}
 
