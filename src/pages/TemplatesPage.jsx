@@ -150,10 +150,46 @@ export default function TemplatesPage({
             setIsGenerating(false);
             setLaunchingId(null);
             audioEngine.playSfx('boom');
+            const vUrl = data.videoUrl || data.story?.videoUrl || '';
+            const ytUrl = data.youtubeUrl || data.story?.youtubeUrl || (data.videoId ? `https://youtube.com/shorts/${data.videoId}` : '');
+            const vidTitle = data.title || data.story?.title || customTopic.trim() || 'World Mysteries & Paranormal';
+
+            // Sync directly to localStorage so Dashboard reflects COMPLETED status with real videoUrl and youtubeUrl
+            try {
+              const stored = JSON.parse(localStorage.getItem('shortsai_all_threads') || '[]');
+              const updated = stored.map(t => {
+                if ((t.threadId || t.id) === generatingThreadId) {
+                  return {
+                    ...t,
+                    status: 'COMPLETED',
+                    videoUrl: vUrl,
+                    youtubeUrl: ytUrl,
+                    videoId: data.videoId || data.story?.videoId,
+                    title: vidTitle,
+                    scenes: data.scenes || data.story?.scenes || t.scenes,
+                    messages: [
+                      ...(t.messages || []),
+                      {
+                        role: 'assistant',
+                        content: ytUrl ? `🎉 **Video Uploaded to YouTube!**\n\n📺 ${ytUrl}` : `🎉 **Video Render Complete!**`
+                      }
+                    ]
+                  };
+                }
+                return t;
+              });
+              localStorage.setItem('shortsai_all_threads', JSON.stringify(updated));
+            } catch (e) {
+              console.warn('[TemplatesPage] localStorage update error:', e);
+            }
+
             setSuccessInfo({
-              message: '🎉 75s Video produced and published successfully!',
+              message: ytUrl ? '🎉 75s Video produced and uploaded to YouTube Shorts!' : '🎉 75s Video produced and rendered successfully!',
               threadId: generatingThreadId,
-              videoUrl: data.videoUrl || data.story?.videoUrl
+              videoUrl: vUrl,
+              youtubeUrl: ytUrl,
+              videoId: data.videoId || data.story?.videoId,
+              title: vidTitle
             });
             return;
           }
@@ -490,31 +526,65 @@ export default function TemplatesPage({
           )}
           {successInfo && (
             <div style={{
-              marginBottom: '20px', padding: '12px 16px', borderRadius: '10px',
+              marginBottom: '20px', padding: '14px 18px', borderRadius: '12px',
               background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
               color: '#10b981', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CheckCircle2 size={16} /><span>{successInfo.message}</span>
+                <CheckCircle2 size={16} />
+                <span style={{ fontWeight: 600 }}>{successInfo.message}</span>
               </div>
-              {successInfo.threadId && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    audioEngine.playSfx('click');
-                    if (typeof onNavigate === 'function') onNavigate(`dashboard/t/${successInfo.threadId}`);
-                    else if (typeof onNavigate === 'function') onNavigate('dashboard');
-                  }}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '5px',
-                    background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)',
-                    color: '#10b981', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer'
-                  }}
-                >
-                  <span>Open in Dashboard</span>
-                  <ExternalLink size={12} />
-                </button>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {successInfo.youtubeUrl && (
+                  <a
+                    href={successInfo.youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+                      color: '#ef4444', padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, textDecoration: 'none'
+                    }}
+                  >
+                    <YouTubeIcon size={14} />
+                    <span>Watch Short</span>
+                    <ExternalLink size={12} />
+                  </a>
+                )}
+                {successInfo.videoUrl && (
+                  <a
+                    href={successInfo.videoUrl}
+                    download="viral-short-75s.mp4"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)',
+                      color: '#10b981', padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, textDecoration: 'none'
+                    }}
+                  >
+                    <span>Download MP4</span>
+                  </a>
+                )}
+                {successInfo.threadId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      audioEngine.playSfx('click');
+                      if (typeof onNavigate === 'function') onNavigate(`dashboard/t/${successInfo.threadId}`);
+                      else if (typeof onNavigate === 'function') onNavigate('dashboard');
+                    }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      background: 'var(--accent-primary, #6366f1)', border: 'none',
+                      color: '#ffffff', padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer'
+                    }}
+                  >
+                    <span>Open in Studio</span>
+                    <ExternalLink size={12} />
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
@@ -957,34 +1027,57 @@ export default function TemplatesPage({
                         </button>
                       </div>
                     )}
-                    <img
-                      src="/template-demo-phone.jpg"
-                      alt="World Mysteries demo"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '25px' }}
-                    />
-                    <div style={{
-                      position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-                      width: '34px', height: '34px', borderRadius: '50%',
-                      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.8
-                    }}>
-                      <Play size={14} fill="#fff" color="#fff" style={{ marginLeft: '2px' }} />
-                    </div>
-                    <div style={{
-                      position: 'absolute', bottom: 0, left: 0, right: 0,
-                      padding: '8px 8px 12px',
-                      background: 'linear-gradient(transparent, rgba(0,0,0,0.88))'
-                    }}>
-                      <div style={{ fontSize: '7.5px', fontWeight: 700, color: '#fff', marginBottom: '2px', lineHeight: 1.3 }}>
-                        The Bermuda Triangle's Darkest Secret
-                      </div>
-                      <div style={{ fontSize: '6.5px', color: 'rgba(255,255,255,0.6)' }}>128K likes · 1.2M views</div>
-                    </div>
+                    {successInfo?.videoUrl ? (
+                      <video
+                        src={successInfo.videoUrl}
+                        controls
+                        autoPlay
+                        loop
+                        playsInline
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '25px', display: 'block' }}
+                      />
+                    ) : (
+                      <>
+                        <img
+                          src="/template-demo-phone.jpg"
+                          alt="World Mysteries demo"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '25px' }}
+                        />
+                        <div style={{
+                          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+                          width: '34px', height: '34px', borderRadius: '50%',
+                          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.8
+                        }}>
+                          <Play size={14} fill="#fff" color="#fff" style={{ marginLeft: '2px' }} />
+                        </div>
+                        <div style={{
+                          position: 'absolute', bottom: 0, left: 0, right: 0,
+                          padding: '8px 8px 12px',
+                          background: 'linear-gradient(transparent, rgba(0,0,0,0.88))'
+                        }}>
+                          <div style={{ fontSize: '7.5px', fontWeight: 700, color: '#fff', marginBottom: '2px', lineHeight: 1.3 }}>
+                            The Bermuda Triangle's Darkest Secret
+                          </div>
+                          <div style={{ fontSize: '6.5px', color: 'rgba(255,255,255,0.6)' }}>128K likes · 1.2M views</div>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div style={{
                     position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)',
-                    fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap'
-                  }}>Example Output</div>
+                    fontSize: '10px', fontWeight: 600, color: successInfo?.videoUrl ? '#10b981' : 'var(--text-muted)', whiteSpace: 'nowrap',
+                    display: 'flex', alignItems: 'center', gap: '4px'
+                  }}>
+                    {successInfo?.videoUrl ? (
+                      <>
+                        <CheckCircle2 size={11} color="#10b981" />
+                        <span>Ready & Rendered (75s)</span>
+                      </>
+                    ) : (
+                      'Example Output'
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
