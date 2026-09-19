@@ -125,20 +125,22 @@ export const handler = async (event, context) => {
 
       // 3. Execution stall detection — n8n can timeout/crash silently
       //    Adaptive per-status timeouts:
-      //    - GENERATING: 15 minutes
-      //    - GENERATING_SCENES: 15 minutes
+      //    - GENERATING: 60 minutes (1 hour)
+      //    - GENERATING_SCENES: 60 minutes (1 hour)
+      //    - started: 60 minutes (1 hour)
       //    - RENDERING_VIDEO: 90 minutes (covers long renders + buffers)
-      const ACTIVE_GEN_STATUSES = ['GENERATING', 'GENERATING_SCENES', 'RENDERING_VIDEO'];
+      const ACTIVE_GEN_STATUSES = ['started', 'GENERATING', 'GENERATING_SCENES', 'RENDERING_VIDEO'];
       const STALL_TIMEOUTS_MS = {
-        GENERATING: 15 * 60 * 1000,
-        GENERATING_SCENES: 15 * 60 * 1000,
+        started: 60 * 60 * 1000,
+        GENERATING: 60 * 60 * 1000,
+        GENERATING_SCENES: 60 * 60 * 1000,
         RENDERING_VIDEO: 90 * 60 * 1000
       };
 
       if (latest && ACTIVE_GEN_STATUSES.includes(latest.status)) {
         const lastUpdate = latest.updatedAt ? new Date(latest.updatedAt).getTime() : 0;
         const timeSinceUpdate = Date.now() - lastUpdate;
-        const stallTimeout = STALL_TIMEOUTS_MS[latest.status] || (15 * 60 * 1000);
+        const stallTimeout = STALL_TIMEOUTS_MS[latest.status] || (60 * 60 * 1000);
 
         if (lastUpdate > 0 && timeSinceUpdate > stallTimeout) {
           // Mark as execution timeout
