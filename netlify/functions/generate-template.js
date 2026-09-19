@@ -7,7 +7,7 @@ import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 
 // Webhook endpoint for the new World Mysteries & Paranormal template workflow
 const TEMPLATE_WEBHOOKS = {
-  'world-mysteries': 'https://cmpunktg24.app.n8n.cloud/webhook/template-world-mysteries'
+  'world-mysteries': 'https://cmpunktg25.app.n8n.cloud/webhook/template-world-mysteries'
 };
 
 export const handler = async (event) => {
