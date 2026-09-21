@@ -30,22 +30,16 @@ export default function SceneCard({
   const videoSettingsCtx = typeof useVideoSettings === 'function' ? useVideoSettings() : null;
   const currentLanguage = language || videoSettingsCtx?.settings?.language || 'English';
 
-  const getLanguageBudget = (lang) => {
-    const l = String(lang || '').toLowerCase();
-    if (l.includes('hindi') && !l.includes('hinglish'))
-      return { target: 220, optMin: 207, optMax: 233, wMin: 32, wMax: 36 };
-    if (l.includes('hinglish'))
-      return { target: 228, optMin: 214, optMax: 242, wMin: 35, wMax: 39 };
-    return { target: 235, optMin: 221, optMax: 249, wMin: 37, wMax: 42 };
+  const getLanguageBudget = () => {
+    return { target: 265, optMin: 260, optMax: 270 };
   };
 
   const budget = getLanguageBudget(currentLanguage);
   const charCount = scene.voiceoverText?.length || 0;
-  const wordCount = (scene.voiceoverText || '').trim().split(/\s+/).filter(Boolean).length;
   const isCharPerfect = charCount >= budget.optMin && charCount <= budget.optMax;
-  const isWordPerfect = wordCount >= budget.wMin && wordCount <= budget.wMax;
-  const isBothPerfect = isCharPerfect && isWordPerfect;
-  const isOnePerfect = (isCharPerfect && !isWordPerfect) || (!isCharPerfect && isWordPerfect);
+  const isCharAcceptable = charCount >= 245 && charCount <= 285;
+  const isBothPerfect = isCharPerfect;
+  const isOnePerfect = !isCharPerfect && isCharAcceptable;
 
   const handlePlayVoiceover = (e) => {
     e.stopPropagation();
@@ -150,7 +144,7 @@ export default function SceneCard({
             gap: '4px'
           }}>
             {isBothPerfect ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
-            {charCount} / {budget.target} chars · {wordCount} / {budget.wMin}–{budget.wMax} words
+            {charCount} / {budget.target} chars ({budget.optMin}–{budget.optMax})
           </span>
 
           {/* Play Voiceover button */}
@@ -200,7 +194,7 @@ export default function SceneCard({
           {/* Voiceover Text Input */}
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>
-              <span>🎙️ Narration / Voiceover ({budget.optMin}–{budget.optMax} chars · {budget.wMin}–{budget.wMax} words recommended for {scene.duration || 15}s at 1.10x):</span>
+              <span>🎙️ Narration / Voiceover ({budget.optMin}–{budget.optMax} chars recommended for {scene.duration || 15}s at 1.10x):</span>
               <span style={{ color: isBothPerfect ? '#34d399' : (isOnePerfect ? '#fbbf24' : '#f87171') }}>
                 {budget.target - charCount >= 0 ? `${budget.target - charCount} chars remaining` : `${charCount - budget.target} chars over`}
               </span>

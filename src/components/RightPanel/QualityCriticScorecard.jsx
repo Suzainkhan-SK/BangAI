@@ -6,11 +6,8 @@ export default function QualityCriticScorecard({ score = 96, scenes = [], langua
   const videoSettingsCtx = typeof useVideoSettings === 'function' ? useVideoSettings() : null;
   const currentLanguage = language || videoSettingsCtx?.settings?.language || 'English';
 
-  const getLanguageCharBand = (lang) => {
-    const l = String(lang || '').toLowerCase();
-    if (l.includes('hindi') && !l.includes('hinglish')) return { min: 207, max: 233 };
-    if (l.includes('hinglish')) return { min: 214, max: 242 };
-    return { min: 221, max: 249 };
+  const getLanguageCharBand = () => {
+    return { min: 260, max: 270 };
   };
   const band = getLanguageCharBand(currentLanguage);
 

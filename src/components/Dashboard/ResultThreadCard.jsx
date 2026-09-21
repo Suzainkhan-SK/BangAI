@@ -162,11 +162,8 @@ export default function ResultThreadCard({
       return m ? m[1].toUpperCase() : null;
     })();
 
-    const getLanguageCharBand = (lang) => {
-      const l = String(lang || '').toLowerCase();
-      if (l.includes('hindi') && !l.includes('hinglish')) return { min: 207, max: 233, target: 220 };
-      if (l.includes('hinglish')) return { min: 214, max: 242, target: 228 };
-      return { min: 221, max: 249, target: 235 };
+    const getLanguageCharBand = () => {
+      return { min: 260, max: 270, target: 265 };
     };
     const langBand = getLanguageCharBand(resolved.language);
 
@@ -207,7 +204,7 @@ export default function ResultThreadCard({
     const { charCounts, sceneCount, inRange, langBand } = stats;
 
     rows.push({
-      label: `Speech timing per scene (${langBand?.min || 221}–${langBand?.max || 249} chars ≈ 15s)`,
+      label: `Speech timing per scene (${langBand?.min || 260}–${langBand?.max || 270} chars ≈ 15s)`,
       detail: sceneCount
         ? `${inRange}/${sceneCount} scenes in range · ${charCounts.length ? `${Math.min(...charCounts)}–${Math.max(...charCounts)}` : '0'} chars`
         : 'No scenes reported in this thread',

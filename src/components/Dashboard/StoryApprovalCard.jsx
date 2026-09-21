@@ -136,7 +136,7 @@ const SCREENPLAY_PRESETS = [
     label: 'Fix Voiceover Length Only',
     mode: 'length_fix',
     icon: '📏',
-    canonicalPrompt: 'Strictly adjust the voiceoverText length across all 5 scenes to hit the calibrated target per scene (English 221-249 chars / 37-42 words, Hinglish 214-242 chars / 35-39 words, Hindi 207-233 chars / 32-36 words).'
+    canonicalPrompt: 'Strictly adjust the voiceoverText length across all 5 scenes to hit exactly 260 to 270 characters per scene across all scenes.'
   },
   {
     id: 'cinematic_visuals',
@@ -157,7 +157,7 @@ const SCREENPLAY_PRESETS = [
     label: 'Full Polish (All 5 Scenes)',
     mode: 'full_screenplay',
     icon: '✨',
-    canonicalPrompt: 'Perform a comprehensive polish of all 5 scenes: calibrated voiceover text (English 221-249 chars, Hinglish 214-242 chars, Hindi 207-233 chars) and ultra-detailed cinematic visual prompts.'
+    canonicalPrompt: 'Perform a comprehensive polish of all 5 scenes: calibrated voiceover text (strictly 260-270 characters per scene) and ultra-detailed cinematic visual prompts.'
   }
 ];
 
@@ -520,32 +520,26 @@ export default function StoryApprovalCard({
     return false;
   };
 
-  const getLanguageBudget = (lang) => {
-    const l = String(lang || '').toLowerCase();
-    if (l.includes('hindi') && !l.includes('hinglish'))
-      return { target: 220, optMin: 207, optMax: 233, wMin: 32, wMax: 36 };
-    if (l.includes('hinglish'))
-      return { target: 228, optMin: 214, optMax: 242, wMin: 35, wMax: 39 };
-    return { target: 235, optMin: 221, optMax: 249, wMin: 37, wMax: 42 };
+  const getLanguageBudget = () => {
+    return { target: 265, optMin: 260, optMax: 270 };
   };
 
   const budget = getLanguageBudget(threadLanguage);
   const targetCharBudget = budget.target;
 
-  // Character and word count color helper calibrated for language & 1.10x speech speed
-  const getCharCountBadgeStyle = (charCount, wordCount) => {
+  // Character count color helper calibrated for 260-270 characters per scene
+  const getCharCountBadgeStyle = (charCount) => {
     const isCharOpt = charCount >= budget.optMin && charCount <= budget.optMax;
-    const isWordOpt = wordCount !== undefined ? (wordCount >= budget.wMin && wordCount <= budget.wMax) : true;
-    const accMin = Math.round(budget.target * 0.88);
-    const accMax = Math.round(budget.target * 1.12);
+    const accMin = 245;
+    const accMax = 285;
     const isCharAcc = charCount >= accMin && charCount <= accMax;
 
-    if (isCharOpt && isWordOpt) {
+    if (isCharOpt) {
       return {
         color: '#10b981',
         background: 'rgba(16, 185, 129, 0.12)',
         borderColor: 'rgba(16, 185, 129, 0.35)',
-        status: `Optimal (${budget.optMin}–${budget.optMax} chars · ${budget.wMin}–${budget.wMax} w)`
+        status: `Optimal (${budget.optMin}–${budget.optMax} chars)`
       };
     } else if (isCharAcc) {
       return {
