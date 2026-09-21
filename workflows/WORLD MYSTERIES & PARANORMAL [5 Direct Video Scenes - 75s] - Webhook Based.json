@@ -6006,7 +6006,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Rotate Backup Strategy LLM Key — reads keys from Config: Strategy Backup LLM Master\nconst configNode = $('Config: Strategy Backup LLM Master').first().json || {};\nconst firstConfig = $('Config: Primary LLM Master').first().json || {};\nconst keys = configNode.keys || [];\n\nlet site = {};\ntry { site = $('Filter: My Chat Only').first().json || {}; } catch (e) { site = {}; }\n\nlet staticData = $getWorkflowStaticData('global');\nif (staticData.backupStrategyLlmIndex === undefined) {\n  staticData.backupStrategyLlmIndex = 0;\n}\n\nconst key = keys.length > 0 ? keys[staticData.backupStrategyLlmIndex % keys.length] : undefined;\n\nreturn [{\n  json: {\n    strategyApiKey: key,\n    blockedTitles: firstConfig.blockedTitles || 'None',\n    blockedPlots: firstConfig.blockedPlots || 'None',\n    recentCharacters: firstConfig.recentCharacters || 'None',\n    websiteVisualStyle: site.visualStyle || '',\n    websiteLanguage: site.language || ''\n  }\n}];"
+        "jsCode": "// Rotate Backup Strategy LLM Key — reads keys from Config: Strategy Backup LLM Master\nconst configNode = $('Config: Strategy Backup LLM Master').first().json || {};\nconst firstConfig = $('Config: Primary LLM Master').first().json || {};\nconst keys = configNode.keys || [];\n\nlet site = {};\ntry { site = $('Filter: My Chat Only').first().json || {}; } catch (e) { site = {}; }\n\nlet staticData = $getWorkflowStaticData('global');\nif (staticData.backupStrategyLlmIndex === undefined) {\n  staticData.backupStrategyLlmIndex = 0;\n}\n\nconst key = keys.length > 0 ? keys[staticData.backupStrategyLlmIndex % keys.length] : undefined;\n\nreturn [{\n  json: {\n    strategyApiKey: key,\n    strategyBackupApiKey: key,\n    usedKey: key,\n    blockedTitles: firstConfig.blockedTitles || 'None',\n    blockedPlots: firstConfig.blockedPlots || 'None',\n    recentCharacters: firstConfig.recentCharacters || 'None',\n    websiteVisualStyle: site.visualStyle || '',\n    websiteLanguage: site.language || ''\n  }\n}];"
       },
       "id": "25c48de0-d30c-4c76-8946-cd833147dc53",
       "name": "Rotate Backup Strategy LLM Key",
@@ -6034,7 +6034,7 @@
             },
             {
               "name": "x-rapidapi-key",
-              "value": "={{ $json.strategyBackupApiKey || $json.usedKey }}"
+              "value": "={{ $json.strategyApiKey || $json.strategyBackupApiKey || $json.usedKey }}"
             }
           ]
         },
