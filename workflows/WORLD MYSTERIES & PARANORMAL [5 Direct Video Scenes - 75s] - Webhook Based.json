@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-21T14:50:45.038Z",
+  "updatedAt": "2026-09-21T15:08:54.131Z",
   "createdAt": "2026-09-19T12:49:40.562Z",
   "id": "GJWu0H1tqk1fvOO3",
   "name": "WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s] - Webhook Based",
@@ -5214,7 +5214,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const keys = $('Config: Primary LLM Master').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\n\nif (staticData.fruitPrimaryLlmIndex === undefined) {\n  staticData.fruitPrimaryLlmIndex = 0;\n}\n\nconst key = keys[staticData.fruitPrimaryLlmIndex % keys.length];\nconst inputData = $input.first().json;\n\nreturn {\n  json: {\n    ...inputData,\n    usedKey: key,\n    __primaryLlm: 1,\n    __index: staticData.fruitPrimaryLlmIndex\n  }\n};"
+        "jsCode": "// Rotate Primary LLM Key — safely reads keys & strategy story\nlet keys = [];\ntry {\n  const master = $('Config: Primary LLM Master').first().json;\n  if (master && master.keys && master.keys.length > 0) keys = master.keys;\n} catch(e) {}\n\nlet strategyData = {};\ntry { strategyData = $('Parse Strategy Output').first().json || {}; } catch(e) {}\n\nlet effectiveStory = { ...strategyData };\n\nlet staticData = $getWorkflowStaticData('global');\nif (staticData.fruitPrimaryLlmIndex === undefined) {\n  staticData.fruitPrimaryLlmIndex = 0;\n}\n\nconst key = keys.length > 0 ? keys[staticData.fruitPrimaryLlmIndex % keys.length] : undefined;\n\nreturn {\n  json: {\n    ...effectiveStory,\n    usedKey: key,\n    __primaryLlm: 1,\n    __index: staticData.fruitPrimaryLlmIndex\n  }\n};"
       },
       "id": "9711c94d-12de-4a47-95fd-75e7af30e51d",
       "name": "Rotate Primary LLM Key",
@@ -5277,7 +5277,7 @@
           "conditions": [
             {
               "id": "llm-error-403",
-              "leftValue": "={{ $json.error.status }}",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "403",
               "operator": {
                 "type": "string",
@@ -5286,7 +5286,7 @@
             },
             {
               "id": "llm-error-429",
-              "leftValue": "={{ $json.error.status }}",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "429",
               "operator": {
                 "type": "string",
@@ -5295,7 +5295,7 @@
             },
             {
               "id": "llm-error-401",
-              "leftValue": "={{ $json.error.status }}",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "401",
               "operator": {
                 "type": "string",
@@ -5304,11 +5304,21 @@
             },
             {
               "id": "llm-error-502",
-              "leftValue": "={{ $json.error.status }}",
-              "rightValue": 502,
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
+              "rightValue": "502",
               "operator": {
-                "type": "number",
+                "type": "string",
                 "operation": "equals"
+              }
+            },
+            {
+              "id": "llm-error-any",
+              "leftValue": "={{ $json.error ? \"ERROR\" : ($json.message ? \"ERROR\" : \"\") }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
               }
             }
           ],
@@ -5328,7 +5338,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Primary LLM Master').first().json.keys;\nconst totalKeys = keys.length;\nconst firstItem = $input.first();\n\nif (staticData.fruitPrimaryLlmAttempts === undefined) {\n  staticData.fruitPrimaryLlmAttempts = 0;\n}\n\nstaticData.fruitPrimaryLlmAttempts += 1;\n\nif (staticData.fruitPrimaryLlmAttempts > totalKeys) {\n  console.log(`All ${totalKeys} primary LLM API keys exhausted. Switching to Backup Provider.`);\n  staticData.fruitPrimaryLlmIndex = 0;\n  staticData.fruitPrimaryLlmAttempts = 0;\n  staticData.fruitUseBackupLlm = true;\n  return [];\n}\n\nstaticData.fruitPrimaryLlmIndex += 1;\nconsole.log(`Primary LLM Attempt ${staticData.fruitPrimaryLlmAttempts}/${totalKeys}: Rotating to key index ${staticData.fruitPrimaryLlmIndex}`);\n\nreturn [firstItem];"
+        "jsCode": "// Rotate Primary LLM On Failure — rotates keys & transitions to backup provider\nlet keys = [];\ntry {\n  const master = $('Config: Primary LLM Master').first().json;\n  if (master && master.keys && master.keys.length > 0) keys = master.keys;\n} catch(e) {}\n\nlet staticData = $getWorkflowStaticData('global');\nconst totalKeys = keys.length;\nconst firstItem = $input.first() || { json: {} };\n\nif (staticData.fruitPrimaryLlmAttempts === undefined) {\n  staticData.fruitPrimaryLlmAttempts = 0;\n}\n\nstaticData.fruitPrimaryLlmAttempts += 1;\n\nif (staticData.fruitPrimaryLlmAttempts >= totalKeys) {\n  console.log(`All ${totalKeys} primary LLM API keys exhausted. Switching to Backup Provider.`);\n  staticData.fruitPrimaryLlmIndex = 0;\n  staticData.fruitPrimaryLlmAttempts = 0;\n  staticData.fruitUseBackupLlm = true;\n  return [{\n    json: {\n      useBackupLlm: true,\n      failoverToBackup: true,\n      attemptsExhausted: true,\n      ...firstItem.json\n    }\n  }];\n}\n\nstaticData.fruitPrimaryLlmIndex = (staticData.fruitPrimaryLlmIndex || 0) + 1;\nconsole.log(`Primary LLM Attempt ${staticData.fruitPrimaryLlmAttempts}/${totalKeys}: Rotating to key index ${staticData.fruitPrimaryLlmIndex}`);\n\nreturn [{\n  json: {\n    useBackupLlm: false,\n    failoverToBackup: false,\n    attemptsExhausted: false,\n    ...firstItem.json\n  }\n}];"
       },
       "id": "f8beda6d-7fcb-4b2e-aad9-e326852b719c",
       "name": "Rotate Primary LLM On Failure",
@@ -5389,7 +5399,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const keys = $('Config: Backup LLM Master').first().json.keys;\nlet staticData = $getWorkflowStaticData('global');\n\nif (staticData.fruitBackupLlmIndex === undefined) {\n  staticData.fruitBackupLlmIndex = 0;\n}\n\nconst key = keys[staticData.fruitBackupLlmIndex % keys.length];\nconst inputData = $input.first().json;\n\nreturn {\n  json: {\n    ...inputData,\n    usedKey: key,\n    __backupLlm: 1,\n    __index: staticData.fruitBackupLlmIndex\n  }\n};"
+        "jsCode": "// Rotate Backup LLM Key — safely handles failover and passes story blueprint\nlet keys = [];\ntry {\n  const master = $('Config: Backup LLM Master').first().json;\n  if (master && master.keys && master.keys.length > 0) keys = master.keys;\n} catch(e) {}\n\nlet strategyData = {};\ntry { strategyData = $('Parse Strategy Output').first().json || {}; } catch(e) {}\n\nlet effectiveStory = { ...strategyData };\n\nlet staticData = $getWorkflowStaticData('global');\nif (staticData.fruitBackupLlmIndex === undefined) {\n  staticData.fruitBackupLlmIndex = 0;\n}\n\nconst key = keys.length > 0 ? keys[staticData.fruitBackupLlmIndex % keys.length] : undefined;\n\nreturn {\n  json: {\n    ...effectiveStory,\n    usedKey: key,\n    __backupLlm: 1,\n    __index: staticData.fruitBackupLlmIndex\n  }\n};"
       },
       "id": "565ce58a-1122-47e1-bbcc-49080e10ea9d",
       "name": "Rotate Backup LLM Key",
@@ -5448,7 +5458,7 @@
           "conditions": [
             {
               "id": "backup-llm-error-403",
-              "leftValue": "={{ $json.error.status }}",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "403",
               "operator": {
                 "type": "string",
@@ -5457,7 +5467,7 @@
             },
             {
               "id": "backup-llm-error-429",
-              "leftValue": "={{ $json.error.status }}",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "429",
               "operator": {
                 "type": "string",
@@ -5466,11 +5476,21 @@
             },
             {
               "id": "backup-llm-error-401",
-              "leftValue": "={{ $json.error.status }}",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "401",
               "operator": {
                 "type": "string",
                 "operation": "equals"
+              }
+            },
+            {
+              "id": "backup-llm-error-any",
+              "leftValue": "={{ $json.error ? \"ERROR\" : ($json.message ? \"ERROR\" : \"\") }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
               }
             }
           ],
@@ -5490,7 +5510,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Backup LLM Master').first().json.keys;\nconst totalKeys = keys.length;\nconst firstItem = $input.first();\n\nif (staticData.fruitBackupLlmAttempts === undefined) {\n  staticData.fruitBackupLlmAttempts = 0;\n}\n\nstaticData.fruitBackupLlmAttempts += 1;\n\nif (staticData.fruitBackupLlmAttempts > totalKeys) {\n  console.log(`All ${totalKeys} backup LLM API keys exhausted. Stopping workflow.`);\n  staticData.fruitBackupLlmIndex = 0;\n  staticData.fruitBackupLlmAttempts = 0;\n  staticData.fruitUseBackupLlm = false;\n  \n  throw new Error(`All backup LLM API keys (${totalKeys}) have been exhausted. Please add more API keys or try again later.`);\n}\n\nstaticData.fruitBackupLlmIndex += 1;\nconsole.log(`Backup LLM Attempt ${staticData.fruitBackupLlmAttempts}/${totalKeys}: Rotating to key index ${staticData.fruitBackupLlmIndex}`);\n\nreturn [firstItem];"
+        "jsCode": "// Rotate Backup LLM On Failure — safely rotates backup keys & stops when exhausted\nlet keys = [];\ntry {\n  const master = $('Config: Backup LLM Master').first().json;\n  if (master && master.keys && master.keys.length > 0) keys = master.keys;\n} catch(e) {}\n\nlet staticData = $getWorkflowStaticData('global');\nconst execId = String($execution.id || '');\nif (staticData.fruitBackupLlmExecId !== execId) {\n  staticData.fruitBackupLlmExecId = execId;\n  staticData.fruitBackupLlmAttempts = 0;\n}\nconst totalKeys = keys.length;\nconst firstItem = $input.first() || { json: {} };\n\nif (staticData.fruitBackupLlmAttempts === undefined) {\n  staticData.fruitBackupLlmAttempts = 0;\n}\n\nstaticData.fruitBackupLlmAttempts += 1;\n\nif (staticData.fruitBackupLlmAttempts > totalKeys) {\n  console.log(`All ${totalKeys} backup LLM API keys exhausted. Stopping workflow.`);\n  staticData.fruitBackupLlmIndex = 0;\n  staticData.fruitBackupLlmAttempts = 0;\n  staticData.fruitUseBackupLlm = false;\n  \n  throw new Error(`All backup LLM API keys (${totalKeys}) have been exhausted. Please add more API keys or try again later.`);\n}\n\nstaticData.fruitBackupLlmIndex = (staticData.fruitBackupLlmIndex || 0) + 1;\nconsole.log(`Backup LLM Attempt ${staticData.fruitBackupLlmAttempts}/${totalKeys}: Rotating to key index ${staticData.fruitBackupLlmIndex}`);\n\nreturn [firstItem];"
       },
       "id": "4e8d8ed2-770b-4d88-b566-4017a67d7763",
       "name": "Rotate Backup LLM On Failure",
@@ -5934,7 +5954,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Rotate Strategy LLM Key — reads keys & blocklist from Config: Primary LLM Master\nconst firstConfig = $('Config: Primary LLM Master').first().json || {};\nconst keys = firstConfig.keys || [];\nlet staticData = $getWorkflowStaticData('global');\n\nif (staticData.strategyLlmIndex === undefined) {\n  staticData.strategyLlmIndex = 7;\n}\n\nconst key = keys[staticData.strategyLlmIndex % keys.length];\nstaticData.strategyLlmIndex = (staticData.strategyLlmIndex + 1) % keys.length;\n\nreturn [{\n  json: {\n    strategyApiKey: key,\n    blockedTitles: firstConfig.blockedTitles || 'None',\n    blockedPlots: firstConfig.blockedPlots || 'None',\n    recentCharacters: firstConfig.recentCharacters || 'None'\n  }\n}];"
+        "jsCode": "// Rotate Strategy LLM Key v2 — keys + full repetition memory + novelty seed\nconst firstConfig = $('Config: Primary LLM Master').first().json || {};\nconst keys = firstConfig.keys || [];\n\nlet site = {};\ntry { site = $('Filter: My Chat Only').first().json || {}; } catch (e) { site = {}; }\n\nlet staticData = $getWorkflowStaticData('global');\nif (staticData.strategyLlmIndex === undefined) staticData.strategyLlmIndex = 7;\nconst key = keys.length > 0 ? keys[staticData.strategyLlmIndex % keys.length] : undefined;\nif (keys.length > 0) {\n  staticData.strategyLlmIndex = (staticData.strategyLlmIndex + 1) % keys.length;\n}\n\nreturn [{\n  json: {\n    strategyApiKey: key,\n    blockedTitles:    firstConfig.blockedTitles    || 'None',\n    blockedPlots:     firstConfig.blockedPlots     || 'None',\n    recentCharacters: firstConfig.recentCharacters || 'None',\n    websiteVisualStyle: site.visualStyle || '',\n    websiteLanguage:    site.language || '',\n    noveltySeed: Math.floor(Math.random() * 1000000)\n  }\n}];"
       },
       "id": "e6184ade-f1e7-4686-8060-0f33c6b53505",
       "name": "Rotate Strategy LLM Key",
@@ -5960,7 +5980,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Rotate Strategy LLM On Failure (Primary) — iterates through ALL primary keys\nlet staticData = $getWorkflowStaticData('global');\nconst keys = $('Config: Primary LLM Master').first().json.keys;\nconst totalKeys = keys.length;\n\nif (staticData.strategyPrimaryAttempts === undefined) {\n  staticData.strategyPrimaryAttempts = 0;\n}\nstaticData.strategyPrimaryAttempts += 1;\n\nif (staticData.strategyPrimaryAttempts > totalKeys) {\n  console.log(`[STRATEGY PRIMARY EXHAUSTED] All ${totalKeys} primary keys failed. Switching to Backup Strategy LLM (GPT-5.1).`);\n  staticData.strategyPrimaryAttempts = 0;\n  return [{ json: { failoverToBackup: true, attemptsExhausted: true } }];\n}\n\nconsole.log(`[STRATEGY PRIMARY ERROR] Attempt ${staticData.strategyPrimaryAttempts}/${totalKeys}: Rotating to key index ${staticData.strategyLlmIndex}`);\nreturn [{ json: { failoverToBackup: false, attemptsExhausted: false } }];"
+        "jsCode": "// Rotate Strategy LLM On Failure (Primary) — iterates through ALL primary keys\nlet staticData = $getWorkflowStaticData('global');\nconst keys = ($('Config: Primary LLM Master').first().json || {}).keys || [];\nconst totalKeys = keys.length;\n\nif (staticData.strategyPrimaryAttempts === undefined) {\n  staticData.strategyPrimaryAttempts = 0;\n}\nstaticData.strategyPrimaryAttempts += 1;\n\nif (staticData.strategyPrimaryAttempts >= totalKeys) {\n  console.log(`[STRATEGY PRIMARY EXHAUSTED] All ${totalKeys} primary keys failed. Switching to Backup Strategy LLM.`);\n  staticData.strategyPrimaryAttempts = 0;\n  return [{ json: { failoverToBackup: true, attemptsExhausted: true } }];\n}\n\nconsole.log(`[STRATEGY PRIMARY ERROR] Attempt ${staticData.strategyPrimaryAttempts}/${totalKeys}: Rotating to key index ${staticData.strategyLlmIndex}`);\nreturn [{ json: { failoverToBackup: false, attemptsExhausted: false } }];"
       },
       "id": "09776acd-3d6f-459c-bcbe-7d895fb248a2",
       "name": "Rotate Strategy LLM On Failure",
@@ -5986,7 +6006,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Rotate Backup Strategy LLM Key — reads keys & blocklist from Config: Primary LLM Master\nconst firstConfig = $('Config: Primary LLM Master').first().json || {};\nconst keys = firstConfig.keys || [];\nlet staticData = $getWorkflowStaticData('global');\n\nif (staticData.backupStrategyLlmIndex === undefined) {\n  staticData.backupStrategyLlmIndex = 12;\n}\n\nconst key = keys[staticData.backupStrategyLlmIndex % keys.length];\nstaticData.backupStrategyLlmIndex = (staticData.backupStrategyLlmIndex + 1) % keys.length;\n\nreturn [{\n  json: {\n    strategyApiKey: key,\n    blockedTitles: firstConfig.blockedTitles || 'None',\n    blockedPlots: firstConfig.blockedPlots || 'None',\n    recentCharacters: firstConfig.recentCharacters || 'None'\n  }\n}];"
+        "jsCode": "// Rotate Backup Strategy LLM Key — reads keys from Config: Strategy Backup LLM Master\nconst configNode = $('Config: Strategy Backup LLM Master').first().json || {};\nconst firstConfig = $('Config: Primary LLM Master').first().json || {};\nconst keys = configNode.keys || [];\n\nlet site = {};\ntry { site = $('Filter: My Chat Only').first().json || {}; } catch (e) { site = {}; }\n\nlet staticData = $getWorkflowStaticData('global');\nif (staticData.backupStrategyLlmIndex === undefined) {\n  staticData.backupStrategyLlmIndex = 0;\n}\n\nconst key = keys.length > 0 ? keys[staticData.backupStrategyLlmIndex % keys.length] : undefined;\n\nreturn [{\n  json: {\n    strategyApiKey: key,\n    blockedTitles: firstConfig.blockedTitles || 'None',\n    blockedPlots: firstConfig.blockedPlots || 'None',\n    recentCharacters: firstConfig.recentCharacters || 'None',\n    websiteVisualStyle: site.visualStyle || '',\n    websiteLanguage: site.language || ''\n  }\n}];"
       },
       "id": "25c48de0-d30c-4c76-8946-cd833147dc53",
       "name": "Rotate Backup Strategy LLM Key",
@@ -6041,7 +6061,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Rotate Backup Strategy LLM Key on Failure — iterates through ALL backup keys\nconst configNode = $('Config: Strategy Backup LLM Master').first();\nconst keys = (configNode && configNode.json && configNode.json.keys) ? configNode.json.keys : [\n  \"433d5ca5afmsh6f5ba24b66bb8a6p167149jsn3f23249d853b\",\n  \"c000ff3ea0mshd743eaad4a39eb7p1f855ajsn6b303cb35381\",\n  \"1e48160e7fmshfe1987e9ded3b88p16e690jsn8fe102065918\",\n  \"523d71d7bbmsh8c5854f3f38e4dep1aadbbjsn712216c12405\"\n];\nconst totalKeys = keys.length;\nlet staticData = $getWorkflowStaticData('global');\n\nif (staticData.strategyBackupAttempts === undefined) {\n  staticData.strategyBackupAttempts = 0;\n}\nstaticData.strategyBackupAttempts += 1;\n\nif (staticData.strategyBackupAttempts > totalKeys) {\n  console.log(`[STRATEGY BACKUP EXHAUSTED] All ${totalKeys} backup keys failed. Using cached/static fallback brief.`);\n  staticData.strategyBackupAttempts = 0;\n  return [{ json: { backupExhausted: true } }];\n}\n\nconsole.log(`[STRATEGY BACKUP ERROR] Attempt ${staticData.strategyBackupAttempts}/${totalKeys}: Rotating to key index ${staticData.strategyBackupLlmIndex}`);\nreturn [{ json: { backupExhausted: false } }];"
+        "jsCode": "// Rotate Backup Strategy LLM Key on Failure — iterates through ALL backup keys\nlet staticData = $getWorkflowStaticData('global');\nconst execId = String($execution.id || '');\nif (staticData.strategyBackupExecId !== execId) {\n  staticData.strategyBackupExecId = execId;\n  staticData.strategyBackupAttempts = 0;\n}\nconst configNode = $('Config: Strategy Backup LLM Master').first().json || {};\nconst keys = configNode.keys || [];\nconst totalKeys = keys.length || 15;\n\nif (staticData.strategyBackupAttempts === undefined) {\n  staticData.strategyBackupAttempts = 0;\n}\nif (staticData.backupStrategyLlmIndex === undefined) {\n  staticData.backupStrategyLlmIndex = 0;\n}\n\nstaticData.strategyBackupAttempts += 1;\n\nif (staticData.strategyBackupAttempts > totalKeys) {\n  console.log(`[STRATEGY BACKUP EXHAUSTED] All ${totalKeys} backup keys failed. Moving to fallback brief.`);\n  staticData.strategyBackupAttempts = 0;\n  staticData.backupStrategyLlmIndex = 0;\n  return [{ json: { backupExhausted: true } }];\n}\n\nstaticData.backupStrategyLlmIndex = (staticData.backupStrategyLlmIndex + 1) % totalKeys;\nconsole.log(`[STRATEGY BACKUP RETRY] Attempt ${staticData.strategyBackupAttempts}/${totalKeys}: Rotating to key index ${staticData.backupStrategyLlmIndex}`);\nreturn [{ json: { backupExhausted: false } }];"
       },
       "id": "ecea2dbc-f94d-4ec9-8b06-8262d0d42f11",
       "name": "Rotate Backup Strategy LLM On Failure",
@@ -6084,7 +6104,7 @@
           "conditions": [
             {
               "id": "llm-error-403",
-              "leftValue": "={{ $json.error.status }}",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "403",
               "operator": {
                 "type": "string",
@@ -6093,7 +6113,7 @@
             },
             {
               "id": "llm-error-429",
-              "leftValue": "={{ $json.error.status }}",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "429",
               "operator": {
                 "type": "string",
@@ -6102,7 +6122,7 @@
             },
             {
               "id": "llm-error-401",
-              "leftValue": "={{ $json.error.status }}",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "401",
               "operator": {
                 "type": "string",
@@ -6111,11 +6131,21 @@
             },
             {
               "id": "llm-error-502",
-              "leftValue": "={{ $json.error.status }}",
-              "rightValue": 502,
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
+              "rightValue": "502",
               "operator": {
-                "type": "number",
+                "type": "string",
                 "operation": "equals"
+              }
+            },
+            {
+              "id": "strategy-error-any",
+              "leftValue": "={{ $json.error ? \"ERROR\" : ($json.message ? \"ERROR\" : \"\") }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
               }
             }
           ],
@@ -6144,20 +6174,20 @@
           },
           "conditions": [
             {
-              "id": "llm-error-403",
+              "id": "strat-failover-1",
               "leftValue": "={{ $json.failoverToBackup }}",
-              "rightValue": "false",
+              "rightValue": false,
               "operator": {
-                "type": "string",
+                "type": "boolean",
                 "operation": "equals"
               }
             },
             {
-              "id": "llm-error-429",
+              "id": "strat-failover-2",
               "leftValue": "={{ $json.attemptsExhausted }}",
-              "rightValue": "false",
+              "rightValue": false,
               "operator": {
-                "type": "string",
+                "type": "boolean",
                 "operation": "equals"
               }
             }
@@ -6180,24 +6210,15 @@
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
+            "caseSensitive": false,
             "leftValue": "",
             "typeValidation": "loose",
             "version": 3
           },
           "conditions": [
             {
-              "id": "backup-llm-error-403",
-              "leftValue": "={{ $json.error.status }}",
-              "rightValue": "403",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            },
-            {
-              "id": "backup-llm-error-429",
-              "leftValue": "={{ $json.error.status }}",
+              "id": "backup-llm-error-status-429",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "429",
               "operator": {
                 "type": "string",
@@ -6205,12 +6226,58 @@
               }
             },
             {
-              "id": "backup-llm-error-401",
-              "leftValue": "={{ $json.error.status }}",
+              "id": "backup-llm-error-status-403",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
+              "rightValue": "403",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "backup-llm-error-status-401",
+              "leftValue": "={{ $json.error?.status || $json.error?.statusCode || $json.statusCode || $json.status }}",
               "rightValue": "401",
               "operator": {
                 "type": "string",
                 "operation": "equals"
+              }
+            },
+            {
+              "id": "backup-llm-has-error-obj",
+              "leftValue": "={{ !!($json.error || $json.errorMessage || $json.errorDescription) }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "backup-llm-msg-429",
+              "leftValue": "={{ String($json.message || $json.error?.message || \"\") }}",
+              "rightValue": "429",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "backup-llm-msg-ratelimit",
+              "leftValue": "={{ String($json.message || $json.error?.message || \"\").toLowerCase() }}",
+              "rightValue": "rate",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "backup-strategy-error-any",
+              "leftValue": "={{ $json.error ? \"ERROR\" : ($json.message ? \"ERROR\" : \"\") }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
               }
             }
           ],
@@ -9310,14 +9377,14 @@
       "main": [
         [
           {
-            "node": "Rotate Backup Strategy LLM Key",
+            "node": "Parse Strategy Output",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Parse Strategy Output",
+            "node": "Rotate Backup Strategy LLM Key",
             "type": "main",
             "index": 0
           }
@@ -9484,51 +9551,22 @@
   },
   "staticData": {
     "global": {
-      "strategyLlmIndex": 9,
-      "strategyPrimaryAttempts": 1,
+      "strategyLlmIndex": null,
+      "strategyPrimaryAttempts": 0,
       "strategyRetryCount": 0,
       "lastSuccessfulStrategyBrief": {
-        "storyBrief": "28 अक्टूबर 1943 को, फिलाडेल्फिया नेवल शिपयार्ड में, अमेरिकी नौसेना का एक युद्धपोत, USS Eldridge, रहस्यमय तरीके से गायब हो गया। यह 'प्रोजेक्ट रेनबो' नाम के एक टॉप-सीक्रेट प्रयोग का हिस्सा था, जिसका मकसद जहाज को दुश्मन के रडार से अदृश्य बनाना था। गवाहों के अनुसार, Eldridge एक हरे रंग की धुंध में लिपट गया और फिर अचानक पूरी तरह से गायब हो गया। जहाज कुछ मिनटों बाद 200 मील दूर नॉरफोक, वर्जीनिया में फिर से प्रकट हुआ, और फिर वापस फिलाडेल्फिया लौट आया। लेकिन भयानक बात यह थी कि कई नाविक जहाज के धातु में धंस गए थ�� या मानसिक रूप से विक्षिप्त हो गए थे। इस घटना का दावा ��बसे पहले कार्ल मेरेटिस और अल्फ्रेड बिलेक ने किया था, जिन्होंने खुद को प्रयोग का हिस्सा बताया। बिलेक ने तो यहां तक कहा कि वे भविष्य में भी गए थे! नौसेना ने तुरंत सारी रिपोर्टों को सिरे से खारिज कर दिया। आज भी, US सरकार इस प्रयोग को एक मिथक बताती है। लेकिन इतने सारे चश्मदीद गवाहों और अविश्वसनीय दावों के साथ, क्या यह वाकई सिर्फ एक कहानी है, या फिर कुछ ऐसा हुआ था जिसे छुपाया गया?",
+        "storyBrief": "",
         "mainCharacterHint": "",
         "mainCharacter": "",
-        "era": "World War 2 Era 1943",
+        "era": "",
         "setting": "",
         "emotionalCore": "",
-        "viralAngle": "US Navy attempted to make a warship invisible, resulting in teleportation and horrific physical and mental effects on the crew, which the government denies.",
-        "suggestedTitle": "फिलाडेल्फिया एक्सपेरिमेंट: गायब जहाज, फंसे सैनिक! 😱 US Navy का खौफनाक सच?",
-        "suggestedTags": [
-          "mystery",
-          "unexplained",
-          "Philadelphia Experiment",
-          "USS Eldridge",
-          "US Navy",
-          "conspiracy",
-          "time travel",
-          "teleportation",
-          "World War 2",
-          "paranormal",
-          "government cover-up",
-          "true story",
-          "secrets",
-          "strange events",
-          "real mystery",
-          "Project Rainbow",
-          "Alfred Bielek",
-          "science fiction",
-          "historical mystery",
-          "Hindi",
-          "scary",
-          "shock",
-          "facts",
-          "invisible ship",
-          "dark secrets",
-          "military secrets",
-          "unsolved",
-          "America mystery"
-        ],
-        "viralHook": "अक्टूबर 1943 में, US Navy ने एक जहाज को गायब करने की कोशिश की। जो हुआ, वो दुनिया का सबसे बड़ा रहस्य बन गया।",
-        "youtubeDescriptionOpener": "1943 में, अमेरिकी नौसेना ने एक ऐसा प्रयोग किया जिसके नतीजे किसी हॉरर फिल्म से कम नहीं थे। USS Eldridge जहाज गायब हो गया और जब वापस आया, तो उस पर मौजूद नाविकों का भयानक हाल था। क्या था ये खौफनाक फिलाडेल्फिया एक्सपेरिमेंट?",
-        "allowedCategories": "STORY BRIEF: 28 अक्टूबर 1943 को, फिलाडेल्फिया नेवल शिपयार्ड में, अमेरिकी नौसेना का एक युद्धपोत, USS Eldridge, रहस्यमय तरीके से गायब हो गया। यह 'प्रोजेक्ट रेनबो' नाम के एक टॉप-सीक्रेट प्रयोग का हिस्सा था, जिसका मकसद जहाज को दुश्मन के रडार से अदृश्य बनाना था। गवाहों के अनुसार, Eldridge एक हरे रंग की धुंध में लिपट गया और फिर अचानक पूरी तरह से गायब हो गया। जहाज कुछ मिनटों बाद 200 मील दूर नॉरफोक, वर्जीनिया में फिर से प्रकट हुआ, और फिर वापस फिलाडेल्फिया लौट आया। लेकिन भयानक बात यह थी कि कई नाविक जहाज के धातु में धंस गए थे या मानसिक रूप से विक्षिप्त हो गए थे। इस घटना का दावा सबसे पहले कार्ल मेरेटिस और अल्फ्रेड बिलेक ने किया था, जिन्होंने खुद को प्रयोग का हिस्सा बताया। बिलेक ने तो यहां तक कहा कि वे भविष्य में भी गए थे! नौसेना ने तुरंत सारी रिपोर्टों को सिरे से खारिज कर दिया। आज भी, US सरकार इस प्रयोग को एक मिथक बताती है। लेकिन इतने सारे चश्मदीद गवाहों और अविश्वसनीय दावों के साथ, क्या यह वाकई सिर्फ एक कहानी है, या फिर कुछ ऐसा हुआ था जिसे छुपाया गया? | CHARACTER:  | ERA: World War 2 Era 1943 | SETTING:  | EMOTIONAL CORE:  | VIRAL ANGLE: US Navy attempted to make a warship invisible, resulting in teleportation and horrific physical and mental effects on the crew, which the government denies. | HOOK: अक्टूबर 1943 में, US Navy ने एक जहाज को गायब करने की कोशिश की। जो हुआ, वो दुनिया का सबसे बड़ा रहस्य बन गया।",
+        "viralAngle": "",
+        "suggestedTitle": "",
+        "suggestedTags": [],
+        "viralHook": "",
+        "youtubeDescriptionOpener": "",
+        "allowedCategories": "STORY BRIEF:  | CHARACTER:  | ERA:  | SETTING:  | EMOTIONAL CORE:  | VIRAL ANGLE:  | HOOK: ",
         "blockedTitles": "नबी ﷺ की सवारी बुर्राक़! 😱 मीराज की रात का अजूबा! #Shorts | शास्त्री जी के आखिरी 24 घंटे: ताशकंद का अनसुलझा रहस्य 💔 | भगत सिंह के आखिरी 24 घंटे: एक मुस्कान, जिसने देश को जगाया 💔🇮🇳 | Dyatlov Pass का खूनी रहस्य 😱 | 9 hikers की मौत, क्या हुआ था? | धरती की परिक्रमा कर रहा तेरह हज़ार साल पुराना Alien Satellite? 👽🤯 | Roswell UFO Crash: क्या 1947 में एलियंस धरती पर आए थे? 👽🛸 | Flight MH370: 239 लोग, 8 साल, कोई जवाब नहीं 😱 | Great Pyramid का सबसे बड़ा रहस्य खुला 2017 में! 😱 अंदर मिला एक विशाल 'खाली चैम्बर'",
         "blockedPlots": "भारत के प्रधानमंत्री लाल बहादुर शास्त्री ने 10 जनवरी 1966 को ताशकंद में शांति समझौते पर हस्ताक्षर किए। एक विजयी दिन के बाद, उन्होंने अपने परिवार से बात की और जश्न मनाया। लेकिन देर रात उनकी तबीयत बिगड़ने लगी, और आधी रात के बाद रहस्यमय परिस्थितियों में उनका निधन हो गया, जिससे भारत को गहरा सदमा लगा और आज भी उनकी मृत्यु एक अनसुलझी पहेली बनी हुई है। | 23 मार्च 1931 को लाहौर सेंट्रल जेल में भगत सिंह को बताया गया कि उनकी फांसी 11 घंटे पहले ही होगी। वे लेनिन की जीवनी पढ़ रहे थे और खबर सुनकर भी शांत रहे, किताब नहीं छोड़ी। उन्होंने अपने साथियों सुखदेव और राजगुरु के साथ देश के नाम अंतिम पत्र लिखे। फांसी के तख्ते की ओर बढ़ते हुए वे 'मेरा रंग दे बसंती चोला' गा रहे थे और 'इंकलाब जिंदाबाद' के नारे लगा रहे थे। बिना आँखें बांधे, उन्होंने देश के लिए शहादत दी, जिससे पूरा भारत स्तब्ध रह गया और यह बलिदान आजादी की लड़ाई का प्रतीक बन गया। | जनवरी 1959 में, 9 अनुभवी सोवियत हाइकर्स ने Ural पहाड़ों में एक कठिन अभियान शुरू किया। 2 फरवरी की रात को कुछ ऐसा भयानक हुआ जिसने उन्हें sub-zero तापमान में अपने टेंट को अंदर से काटकर नंगे पैर बर्फ में भागने पर मजबूर कर दिया। हफ्तों बाद, तलाश दल को उनके शव पहाड़ पर बिखरे मिले, जिन पर विचित्र चोटें थीं - कुचली हुई खोपड़ी, आंतरिक आघात और एक की जीभ गायब थी, साथ ही उच्च रेडिएशन के निशान भी मिले। व्यापक जांच के बावजूद, सोवियत अधिकारियों ने मामले को एक अज्ञात 'जबरदस्त प्राकृतिक शक्ति' के कारण बंद कर दिया, जिसे हाइकर्स झेल नहीं पाए। आज तक, Dyatlov Pass घटना का असली कारण इतिहास के सबसे भयावह और हैरान कर देने वाले रहस्यों में से एक बना हुआ है, जो हिमस्खलन और इन्फ्रासाउंड से लेकर गुप्त सैन्य परीक्षणों और क्रिप्टिड हमलों तक की थ्योरीज़ को हवा देता है। | The Black Knight Satellite is an alleged ancient, extraterrestrial object orbiting Earth. Its story begins in 1899 with Nikola Tesla's claims of receiving strange radio signals from space, followed by a Norwegian scientist recording unusual radio echoes in 1928. In 1960, both US and Soviet forces reportedly detected an unknown object in polar orbit, long before humans launched such satellites. Further 'evidence' emerged in 1998 during NASA's STS-88 mission, where photos from the Space Shuttle Endeavour showed an irregular object. Conspiracy theorists believe it's a 13,000-year-old alien sentinel monitoring humanity, with NASA covering up the truth. However, NASA and most scientists attribute these sightings to space debris or misinterpretations of natural phenomena, leaving the mystery unsolved. | In July 1947, near Roswell, New Mexico, a rancher found unusual debris on his land. The US Army Air Forces initially announced they had recovered a 'flying disc,' causing a global sensation. However, hours later, they retracted this statement, claiming it was merely a weather balloon, and swiftly suppressed further information. Decades later, alleged witnesses and former military personnel came forward, claiming they saw alien bodies and an advanced craft at the crash site and were threatened into silence. The US government has provided various, often contradictory, explanations over the years, none fully satisfying, leaving the Roswell incident as one of history's most enduring and unexplained alien mysteries and a prime example of alleged government cover-up. | On March 8, 2014, Malaysian Airlines Flight MH370, carrying 239 passengers and crew, departed Kuala Lumpur for Beijing. About an hour into the flight, over the South China Sea, the plane unexpectedly diverted from its route, turning west. The last communication with air traffic control was a casual 'Good night, Malaysian three seven zero.' Malaysian military radar tracked the plane for another hour, moving across the Malay Peninsula and into the Indian Ocean, with no distress signal. Inmarsat satellite data later indicated the aircraft continued flying south for several hours until it ran out of fuel. Despite one of the largest and most extensive search operations in aviation history, the plane's main wreckage and black box were never found. Small debris pieces have washed ashore, but they offer no definitive answers. Theories range from pilot suicide, hijacking, and technical failure to a catastrophic electrical fire. The disappearance remains one of modern aviation's greatest unsolved mysteries, leaving 239 families without closure. | 2017 में, वैज्ञानिकों ने Great Pyramid of Giza को स्कैन करते हुए एक विशाल, 30 मीटर लंबा और 8 मीटर ऊंचा खाली चैम्बर खोजा। यह 'ScanPyramids Big Void' Grand Gallery के ठीक ऊपर स्थित है और 4,500 सालों से अछूता है। म्यूऑन रेडियोग्राफी का उपयोग करके हुई इस खोज ने Egyptologists को हैरान कर दिया है, क्योंकि प्राचीन अभिलेखों में इसका कोई उल्लेख नहीं है। इसका असली मकसद अज्ञात है – क्या यह एक गुप्त गलियारा है, एक ceremonial space, या पिरामिड के वजन को कम करने के लिए बनाया गया एक relief chamber? वैज्ञानिक अब छोटे रोबोट्स भेजने की योजना बना रहे हैं ताकि इस अछूते रहस्य को खोला जा सके और प्राचीन मिस्र के निर्माण तकनीकों के बारे में नई जानकारी मिल सके। यह खोज आज भी दुनिया के सबसे प्रसिद्ध प्राचीन ढांचे के भीतर एक बड़ा अनसुलझा रहस्य बनी हुई है।",
         "recentCharacters": "Lal Bahadur Shastri, Bhagat Singh",
@@ -9540,8 +9578,8 @@
         "sceneCameraBlock": "Eye-level cinematographic tracking shot following the character in motion.",
         "descriptionDisclaimers": "\n\n📌 Disclaimer: This Story is brought to life using AI-generated visuals based on original storytelling. Each scene is crafted for this video only. This video is made with original hard work and script.\n\n📌 Disclaimer: Some contents are used for educational purposes under fair use. Copyright Disclaimer Under Section 107 of the Copyright Act 1976, allowance is made for \"fair use\" for purposes such as criticism, comment, news reporting, teaching, scholarship, and research. Non-profit, educational, or personal use tips the balance in favor of fair use."
       },
-      "fruitPrimaryLlmIndex": 4,
-      "fruitPrimaryLlmAttempts": 4,
+      "fruitPrimaryLlmIndex": 0,
+      "fruitPrimaryLlmAttempts": 0,
       "fruitLastLlmProvider": "primary",
       "fruitLastTopics": [
         "फिलाडेल्फिया एक्सपेरिमेंट: गायब जहाज, फंसे सैनिक! 😱 US Navy का खौफनाक सच?"
@@ -9790,7 +9828,7 @@
         "speaker": "",
         "duration": 15,
         "title": "फिलाडेल्फिया एक्सपेरिमेंट: गायब जहाज, फंसे सैनिक! 😱 US Navy का खौफनाक सच?",
-        "corePlot": "28 अक्टूबर 1943 को, अमेरिकी नौसेना का युद्धपोत USS Eldridge फिलाडेल्फिया नेवल शिपयार्ड में 'प्रोजेक्ट रेनबो' के तहत एक टॉप-सीक्रेट अदृश्यता प्रयोग के दौरान रहस्यमय तरीके से गायब हो गया। गवाहों के अनुसार, जहाज एक हरे धुंध में लिपटकर अदृश्य हो गया और कुछ मिनटों बाद 200 मील दूर नॉरफोक, वर्जीनिया में प्रकट हुआ, फिर वापस फिलाडेल्फिया लौट आया। इस घटना के भयानक परिणाम हुए: कई नाविक जहाज की धातु में धंस गए या मानसिक रूप से विक्षिप्त हो गए। कार्ल मेरेटिस और अल्फ्रेड बिलेक जैसे गवाहों ने इस experiment में अपनी भागीदारी का दावा क��या, बिलेक ने तो समय यात्रा का भी जिक्र किया। अमेरिकी नौसेना ने इन सभी दावों को लगातार खारिज किया है, इसे एक मिथक और विज्ञान कथा बताती है। यह घटना आज भी सरकार द्वारा कवर-अप का एक प्रमुख उदाहरण मानी जाती है और एक अनसुलझा रहस्य बनी हुई है।",
+        "corePlot": "28 अक्टूबर 1943 को, अमेरिकी नौसेना का युद्धपोत USS Eldridge फिलाडेल्फिया नेवल शिपयार्ड में 'प्रोजेक्ट रेनबो' के तहत एक टॉप-सीक्रेट अदृश्यता प्रयोग के दौरान रहस्यमय तरीके से गायब हो गया। गवाहों के अनुसार, जहाज एक हरे धुंध में लिपटकर अदृश्य हो गया और कुछ मिनटों बाद 200 मील दूर नॉरफोक, वर्जीनिया में प्रकट हुआ, फिर वापस फिलाडेल्फिया लौट आया। इस घटना के भयानक परिणाम हुए: कई नाविक जहाज की धातु में धंस गए या मानसिक रूप से विक्षिप्त हो गए। कार्ल मेरेटिस और अल्फ्रेड बिलेक जैसे गवाहों ने इस experiment में अपनी भागीदारी का दावा किया, बिलेक ने तो समय यात्रा का भी जिक्र किया। अमेरिकी नौसेना ने इन सभी दावों को लगातार खारिज किया है, इसे एक मिथक और विज्ञान कथा बताती है। यह घटना आज भी सरकार द्वारा कवर-अप का एक प्रमुख उदाहरण मानी जाती है और एक अनसुलझा रहस्य बनी हुई है।",
         "tags": [
           "mystery",
           "unexplained",
@@ -9826,7 +9864,10 @@
         "youtubeDescription": "28 अक्टूबर 1943 को एक युद्धपोत गायब हो गया। US Navy के एक टॉप-सीक्रेट एक्सपेरिमेंट, 'प्रोजेक्ट रेनबो' के दौरान, USS Eldridge जहाज को दुश्मन रडार से अदृश्य बनाने की कोशिश की गई। लेकिन जो हुआ, वो किसी ने सोचा भी नहीं था! 😱\n\nजहाज हरे धुंध में लिपटकर गायब हो गया, 200 मील दूर नॉरफोक में प्रकट हुआ, और फिर वापस फिलाडेल्फिया आ गया। पर crew का क्या हुआ? कई नाविक जहाज की धातु में धंस गए, कुछ मानसिक रूप से विक्षिप्त हो गए। गवाहों ने समय यात्रा तक का दावा किया! US सरकार आज भी इस घटना को एक मिथक बताती है। क्या यह सिर्फ एक कहानी है, या फिर कुछ ऐसा हुआ था जिसे छुपाया गया? यह रहस्य आज भी अनसुलझा है।\n\nआप क्या सोचते हैं इस खौफनाक एक्सपेरिमेंट के बारे में? कमेंट्स में बताएं!\n\nDisclaimer: This video explores historical accounts and theories surrounding the Philadelphia Experiment. The U.S. Navy officially denies the event. The content is for informational and entertainment purposes only and does not endorse unverified claims as absolute facts.\n\n#PhiladelphiaExperiment #USSEldridge #USNavy #Mystery #Unexplained #Conspiracy #TimeTravel #WorldWar2 #GovernmentCoverUp #ProjectRainbow #HindiMystery #Paranormal",
         "usedKey": "sk-live-bc4a502645e8449d98e6b1e738ca3646d7c68093036cb7a8"
       },
-      "fruitBackupVideoAttempts_1": 26
+      "fruitBackupVideoAttempts_1": 26,
+      "backupStrategyLlmIndex": null,
+      "strategyBackupAttempts": 1,
+      "fruitUseBackupLlm": true
     }
   },
   "meta": {
@@ -9836,17 +9877,17 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "4b1256f2-9b81-4d3d-97b7-3f88f958cfd7",
-  "activeVersionId": "93db71c0-9f0c-44a8-b7db-bac6012099c6",
-  "versionCounter": 234,
+  "versionId": "22a6e591-6485-4ae8-8526-66ee5258aa9f",
+  "activeVersionId": "4b1256f2-9b81-4d3d-97b7-3f88f958cfd7",
+  "versionCounter": 235,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],
   "parentFolder": null,
   "activeVersion": {
-    "updatedAt": "2026-09-21T14:47:26.000Z",
-    "createdAt": "2026-09-21T14:46:12.734Z",
-    "versionId": "93db71c0-9f0c-44a8-b7db-bac6012099c6",
+    "updatedAt": "2026-09-21T14:51:49.000Z",
+    "createdAt": "2026-09-21T14:50:45.043Z",
+    "versionId": "4b1256f2-9b81-4d3d-97b7-3f88f958cfd7",
     "workflowId": "GJWu0H1tqk1fvOO3",
     "nodes": [
       {
@@ -15030,7 +15071,7 @@
       },
       {
         "parameters": {
-          "jsCode": "// ==========================================================\n// CONFIG: PRIMARY LLM PROVIDER API KEYS & BLOCKLIST PROCESSOR\n// ==========================================================\n\nconst primaryLlmApiKeys = [\n    \"433d5ca5afmsh6f5ba24b66bb8a6p167149jsn3f23249d853b\",\n    \"c000ff3ea0mshd743eaad4a39eb7p1f855ajsn6b303cb35381\",\n    \"1e48160e7fmshfe1987e9ded3b88p16e690jsn8fe102065918\",\n    \"341670e677msh3d1555d62941208p1af732jsnaf90c385408c\",\n  \"523d71d7bbmsh8c5854f3f38e4dep1aadbbjsn712216c12405\",\n  \"89e676c1a8msh9edad37fea724f7p1c984djsn6dead39f1288\",\n  \"13bba6f9d5msh43be67f9c2783bap10233ejsn982a87d14dc5\",\n  \"305b028429msh1db3176b3254a35p1169aejsn772a12065497\",\n  \"9ca5da259cmsh3a660d7ab6ba7d0p1087e8jsnbd892cff89c6\",\n  \"1368f000e0msha6f2d86fee3d845p132daajsn2bf8c5dd920f\",\n  \"d9845def61mshdacdb4007309c6fp195954jsned03446505ef\",\n  \"6705f6c2aemsh5ebe51663051d47p11e343jsne4aeaa2a0469\",\n  \"fd4b480f62msh914725249be31b0p15b789jsn9e23a9bf2dbb\",\n  \"34d9f71051mshbz09cdba47ae257p15b690jsn6888e03c3b59\",\n  \"08085db5dcmsh4ab0f8c4a2ffba7p14c403jsna3ad47bd9b7c\",\n  \"74886c717bmsh9c3efd341f1c38ap138346jsn554d4efe16a6\",\n  \"d7b825a9f9msh3e0cf5117fc0463p1573b1jsnc08624151a8d\",\n  \"a69122327amsh011d464cbd5cc3ap1a0149jsn24a3001f96e6\",\n  \"28a8590227msh433a6e2d2767e72p1398d7jsndad0cd01a825\",\n  \"1c135d0e97msh801965027a8012bp1b9799jsnd5f63cb60f08\",\n  \"9c2be1f9d0msh463b7f9ffdf5e35p191d3djsna4d7d99e3029\",\n  \"9b4c2e70dfmsha02e0eb9a48802ap160f19jsn6963d913b753\",\n  \"c8423adb0bmsh210ef1fe692aab0p136836jsn85739f0e8560\",\n  \"b9cf30db25msh30c4a5ebb3891a0p1b276ejsn64bc71c36067\",\n  \"0603a8dd87msh2cd2a3aa7e3e23bp11fac4jsn747c62e86fb4\",\n  \"9d45f1a030msh02e966801dd9a49p1af4b0jsn28164501aad4\",\n  \"bccd2ddec3msh8ee7b03233bfbffp1d3ef5jsn70ac2cfad714\",\n  \"0128f6dca9mshd9a75d1921ca1a0p1f8bc4jsna171cb5c8e39\",\n  \"4d52aa3a62mshc6fe5ecac31f752p1ca190jsn1201e61c5fbe\",\n  \"9b6c00cd34msh48c26d1832306e0p14b20fjsneab8fc7ddb0a\",\n  \"48d3bd8fcamsh6254cc646f90764p1472b0jsnb23772ef34ad\",\n  \"4705b75321mshbf44c1f50689c5ep1cd333jsn4a0fbeced195\",\n  \"f7b88a3fe6mshef7640e73ade68ep1a4f5ejsn9326bb9a64ae\",\n  \"3f886e303amsh75d9deacc6179a8p10ef41jsn7d95e99fc8b6\",\n  \"a9af273873msh79d1f17af6368f3p1580f8jsna1ada97ef51c\",\n  \"a8f11ef94bmshfff7d5456d7ef86p11d93fjsn60358aedf8dd\",\n  \"868586a2damsh1ceb2ad7c162472p197605jsn6ea5d60777d7\",\n  \"b3410fb0b4mshdf7e2caff8489dap1bed6fjsn078d4c267f7b\",\n  \"7179741192msh941d11078b15c4fp1fd8cfjsn8e343b3aff6a\",\n  \"25469d08c4msha4ddc1c513c719cp1f1715jsndd0e53efbbcf\",\n  \"1361fdbcf0mshb7bf56bb548dec8p12c88cjsnc529f74dfccc\",\n  \"d2e61de399msh3b2a03ade1f08acp19e5a0jsn1d93cd78bd68\",\n  \"ada447f606msh2ac7670407cca96p1f1b2bjsn28cd6aefd02a\",\n  \"c0478a3036msh84ae27d52e661dbp1e455ejsnc0e2c0575533\",\n  \"791f62e7abmsh7219bc240e5c73cp1245cbjsn29c1710433d9\",\n  \"be07f05fcamshd5bf1bec1f29b50p1fd60ejsn05af15a26456\",\n  \"9db7892bdcmshfa24b043c1a46d8p10a85ajsn9f027cbdf594\",\n  \"2fbcedb97cmsh11f57f40d5bd69fp15aecajsnd7dc2accd744\",\n  \"9f9916de13msh92b2e6359125492p1cbe4ejsn75679c90e20a\",\n  \"87cbb50a70mshfcd8a9e31a3d5d5p1bb945jsnab37afeba946\",\n  \"28b32ea28cmshadf965c5139813dp126e0ejsn769b5b29b2c9\",\n  \"04f7285516mshde5392eab6ed456p1c123fjsne85987d89572\",\n  \"025d07938dmsha6fa5bea1fa9e46p1379c9jsn51e2f405de04\",\n  \"a1af45b1f9mshde4625b5bd8990ep115113jsn61b1e12c4266\",\n  \"67d54d377emsh9d46f2a2331df07p1f2f22jsneb67449bc984\",\n  \"d467326a2bmsh8e10cde01858e6ep150039jsnc97e4ae2c918\",\n  \"23e23aa2e8msh559c10ba6470d55p1e0911jsn7cf57d45a41f\",\n  \"18e9607da3msh77442d8ff7820c4p105dc2jsn49e56efcfcc8\",\n  \"279203737amsh10bc9f6716cb3d8p1a0bbdjsnac8c113cd7bc\",\n  \"80263a2b31msh3044eeb9d8b3943p1db6d0jsn32fe268e8909\",\n  \"96cb417d05mshabdc4c4be964eeap195be5jsnfbb8ddaa46df\",\n  \"a7bdae9706mshe40e21c7d10911cp118693jsna701c23e644f\",\n  \"f24488741emsh749228e17e9b1acp11c597jsn9477fad7e589\",\n  \"ee725f2476mshe5796e7806ca445p1b5011jsn7f9b25b3d396\",\n  \"506c5d47c9mshd3d2240f7ad9ac0p1620f7jsncb9e12d15d7d\",\n  \"dd361a0bd0msh907671be9777263p1d4cc9jsn6f2566ba5d92\",\n  \"155d562730msh246f2c7fa69d3fap1c3b3cjsnaa47ef9ad919\",\n  \"00a3bd445amsh0386b1a44ec3a71p18b350jsn186b357d92e3\",\n  \"2da039d7b1mshab9a4a1b0de36f1p17d8b8jsnbf5147019048\",\n  \"f0d6ab26e5mshb7da11650a3fdc5p1cde6ajsn26a9cefafa6b\",\n  \"bdb7472a34msh9534ae7807b77b0p17afd3jsnd8c48c0e25e8\",\n  \"8cff4c12c9msh74cc3a590e23846p1ed983jsn1181241c5b50\",\n  \"05fa2e4ffcmshb79ee3959dc2ce7p151a68jsn5a5a6b879629\",\n  \"550ed5a6d5msh3ec3ceaab049c2ep1df259jsn479b113c65b6\",\n  \"cfffae8947msha171e0b3b63b246p145d30jsna9dfcbdb1143\",\n  \"ff893eed46msh00f933a12cecb85p1253bbjsne244554154da\",\n  \"b99a1cb3bcmsh09aa9a3ccea0b42p1e595bjsncb28e340c1bd\",\n  \"91f2f85e38msh27dd3878198b70bp1b99f8jsn988340b0d0df\",\n  \"12760fd02emsh070462bff3ef734p134775jsnb2c6391212b0\",\n  \"305b028429msh1db3176b3254a35p1169aejsn772a12065497\",\n  \"5b504a0257mshde5d6d022bac458p1d000cjsn7f529e5754e2\",\n  \"22648119ecmshccaf72e731494b2p153ef2jsn5ff274ca9221\",\n  \"c1c23453e0mshec87c96a672e10fp1fab93jsn28dc053b9ece\"\n];\n\nlet sheetsItems = [];\ntry { sheetsItems = $input.all(); } catch(e) {}\nif (!sheetsItems || sheetsItems.length === 0) {\n  try { sheetsItems = $('Read Past Topics').all(); } catch(e2) {}\n}\n\nconst recentTitles = (sheetsItems || []).map(i => i.json?.Video_Title || i.json?.title || '').filter(t => t !== '').slice(-150);\nconst recentPlots = (sheetsItems || []).map(i => i.json?.Core_Plot || i.json?.corePlot || '').filter(p => p !== '').slice(-150);\nconst recentCharacters = [...new Set((sheetsItems || []).map(i => i.json?.Main_Character || i.json?.mainCharacter || '').filter(c => c !== '' && c !== 'Uploaded'))].slice(-30);\n\nreturn {\n  keys: primaryLlmApiKeys,\n  blockedTitles: recentTitles.join(' | ') || 'None',\n  blockedPlots: recentPlots.join(' | ') || 'None',\n  recentCharacters: recentCharacters.join(', ') || 'None'\n};"
+          "jsCode": "// ==========================================================\n// CONFIG: PRIMARY LLM PROVIDER API KEYS & BLOCKLIST PROCESSOR\n// ==========================================================\n\nconst primaryLlmApiKeys = [\n  /* TEMPORARILY COMMENTED OUT FOR BACKUP LLM TESTING\n  \"433d5ca5afmsh6f5ba24b66bb8a6p167149jsn3f23249d853b\",\n    \"c000ff3ea0mshd743eaad4a39eb7p1f855ajsn6b303cb35381\",\n    \"1e48160e7fmshfe1987e9ded3b88p16e690jsn8fe102065918\",\n    \"341670e677msh3d1555d62941208p1af732jsnaf90c385408c\",\n  \"523d71d7bbmsh8c5854f3f38e4dep1aadbbjsn712216c12405\",\n  \"89e676c1a8msh9edad37fea724f7p1c984djsn6dead39f1288\",\n  \"13bba6f9d5msh43be67f9c2783bap10233ejsn982a87d14dc5\",\n  \"305b028429msh1db3176b3254a35p1169aejsn772a12065497\",\n  \"9ca5da259cmsh3a660d7ab6ba7d0p1087e8jsnbd892cff89c6\",\n  \"1368f000e0msha6f2d86fee3d845p132daajsn2bf8c5dd920f\",\n  \"d9845def61mshdacdb4007309c6fp195954jsned03446505ef\",\n  \"6705f6c2aemsh5ebe51663051d47p11e343jsne4aeaa2a0469\",\n  \"fd4b480f62msh914725249be31b0p15b789jsn9e23a9bf2dbb\",\n  \"34d9f71051mshbz09cdba47ae257p15b690jsn6888e03c3b59\",\n  \"08085db5dcmsh4ab0f8c4a2ffba7p14c403jsna3ad47bd9b7c\",\n  \"74886c717bmsh9c3efd341f1c38ap138346jsn554d4efe16a6\",\n  \"d7b825a9f9msh3e0cf5117fc0463p1573b1jsnc08624151a8d\",\n  \"a69122327amsh011d464cbd5cc3ap1a0149jsn24a3001f96e6\",\n  \"28a8590227msh433a6e2d2767e72p1398d7jsndad0cd01a825\",\n  \"1c135d0e97msh801965027a8012bp1b9799jsnd5f63cb60f08\",\n  \"9c2be1f9d0msh463b7f9ffdf5e35p191d3djsna4d7d99e3029\",\n  \"9b4c2e70dfmsha02e0eb9a48802ap160f19jsn6963d913b753\",\n  \"c8423adb0bmsh210ef1fe692aab0p136836jsn85739f0e8560\",\n  \"b9cf30db25msh30c4a5ebb3891a0p1b276ejsn64bc71c36067\",\n  \"0603a8dd87msh2cd2a3aa7e3e23bp11fac4jsn747c62e86fb4\",\n  \"9d45f1a030msh02e966801dd9a49p1af4b0jsn28164501aad4\",\n  \"bccd2ddec3msh8ee7b03233bfbffp1d3ef5jsn70ac2cfad714\",\n  \"0128f6dca9mshd9a75d1921ca1a0p1f8bc4jsna171cb5c8e39\",\n  \"4d52aa3a62mshc6fe5ecac31f752p1ca190jsn1201e61c5fbe\",\n  \"9b6c00cd34msh48c26d1832306e0p14b20fjsneab8fc7ddb0a\",\n  \"48d3bd8fcamsh6254cc646f90764p1472b0jsnb23772ef34ad\",\n  \"4705b75321mshbf44c1f50689c5ep1cd333jsn4a0fbeced195\",\n  \"f7b88a3fe6mshef7640e73ade68ep1a4f5ejsn9326bb9a64ae\",\n  \"3f886e303amsh75d9deacc6179a8p10ef41jsn7d95e99fc8b6\",\n  \"a9af273873msh79d1f17af6368f3p1580f8jsna1ada97ef51c\",\n  \"a8f11ef94bmshfff7d5456d7ef86p11d93fjsn60358aedf8dd\",\n  \"868586a2damsh1ceb2ad7c162472p197605jsn6ea5d60777d7\",\n  \"b3410fb0b4mshdf7e2caff8489dap1bed6fjsn078d4c267f7b\",\n  \"7179741192msh941d11078b15c4fp1fd8cfjsn8e343b3aff6a\",\n  \"25469d08c4msha4ddc1c513c719cp1f1715jsndd0e53efbbcf\",\n  \"1361fdbcf0mshb7bf56bb548dec8p12c88cjsnc529f74dfccc\",\n  \"d2e61de399msh3b2a03ade1f08acp19e5a0jsn1d93cd78bd68\",\n  \"ada447f606msh2ac7670407cca96p1f1b2bjsn28cd6aefd02a\",\n  \"c0478a3036msh84ae27d52e661dbp1e455ejsnc0e2c0575533\",\n  \"791f62e7abmsh7219bc240e5c73cp1245cbjsn29c1710433d9\",\n  \"be07f05fcamshd5bf1bec1f29b50p1fd60ejsn05af15a26456\",\n  \"9db7892bdcmshfa24b043c1a46d8p10a85ajsn9f027cbdf594\",\n  \"2fbcedb97cmsh11f57f40d5bd69fp15aecajsnd7dc2accd744\",\n  \"9f9916de13msh92b2e6359125492p1cbe4ejsn75679c90e20a\",\n  \"87cbb50a70mshfcd8a9e31a3d5d5p1bb945jsnab37afeba946\",\n  \"28b32ea28cmshadf965c5139813dp126e0ejsn769b5b29b2c9\",\n  \"04f7285516mshde5392eab6ed456p1c123fjsne85987d89572\",\n  \"025d07938dmsha6fa5bea1fa9e46p1379c9jsn51e2f405de04\",\n  \"a1af45b1f9mshde4625b5bd8990ep115113jsn61b1e12c4266\",\n  \"67d54d377emsh9d46f2a2331df07p1f2f22jsneb67449bc984\",\n  \"d467326a2bmsh8e10cde01858e6ep150039jsnc97e4ae2c918\",\n  \"23e23aa2e8msh559c10ba6470d55p1e0911jsn7cf57d45a41f\",\n  \"18e9607da3msh77442d8ff7820c4p105dc2jsn49e56efcfcc8\",\n  \"279203737amsh10bc9f6716cb3d8p1a0bbdjsnac8c113cd7bc\",\n  \"80263a2b31msh3044eeb9d8b3943p1db6d0jsn32fe268e8909\",\n  \"96cb417d05mshabdc4c4be964eeap195be5jsnfbb8ddaa46df\",\n  \"a7bdae9706mshe40e21c7d10911cp118693jsna701c23e644f\",\n  \"f24488741emsh749228e17e9b1acp11c597jsn9477fad7e589\",\n  \"ee725f2476mshe5796e7806ca445p1b5011jsn7f9b25b3d396\",\n  \"506c5d47c9mshd3d2240f7ad9ac0p1620f7jsncb9e12d15d7d\",\n  \"dd361a0bd0msh907671be9777263p1d4cc9jsn6f2566ba5d92\",\n  \"155d562730msh246f2c7fa69d3fap1c3b3cjsnaa47ef9ad919\",\n  \"00a3bd445amsh0386b1a44ec3a71p18b350jsn186b357d92e3\",\n  \"2da039d7b1mshab9a4a1b0de36f1p17d8b8jsnbf5147019048\",\n  \"f0d6ab26e5mshb7da11650a3fdc5p1cde6ajsn26a9cefafa6b\",\n  \"bdb7472a34msh9534ae7807b77b0p17afd3jsnd8c48c0e25e8\",\n  \"8cff4c12c9msh74cc3a590e23846p1ed983jsn1181241c5b50\",\n  \"05fa2e4ffcmshb79ee3959dc2ce7p151a68jsn5a5a6b879629\",\n  \"550ed5a6d5msh3ec3ceaab049c2ep1df259jsn479b113c65b6\",\n  \"cfffae8947msha171e0b3b63b246p145d30jsna9dfcbdb1143\",\n  \"ff893eed46msh00f933a12cecb85p1253bbjsne244554154da\",\n  \"b99a1cb3bcmsh09aa9a3ccea0b42p1e595bjsncb28e340c1bd\",\n  \"91f2f85e38msh27dd3878198b70bp1b99f8jsn988340b0d0df\",\n  \"12760fd02emsh070462bff3ef734p134775jsnb2c6391212b0\",\n  \"305b028429msh1db3176b3254a35p1169aejsn772a12065497\",\n  \"5b504a0257mshde5d6d022bac458p1d000cjsn7f529e5754e2\",\n  \"22648119ecmshccaf72e731494b2p153ef2jsn5ff274ca9221\",\n  \"c1c23453e0mshec87c96a672e10fp1fab93jsn28dc053b9ece\"\n  */\n];\n\nlet sheetsItems = [];\ntry { sheetsItems = $input.all(); } catch(e) {}\nif (!sheetsItems || sheetsItems.length === 0) {\n  try { sheetsItems = $('Read Past Topics').all(); } catch(e2) {}\n}\n\nconst recentTitles = (sheetsItems || []).map(i => i.json?.Video_Title || i.json?.title || '').filter(t => t !== '').slice(-150);\nconst recentPlots = (sheetsItems || []).map(i => i.json?.Core_Plot || i.json?.corePlot || '').filter(p => p !== '').slice(-150);\nconst recentCharacters = [...new Set((sheetsItems || []).map(i => i.json?.Main_Character || i.json?.mainCharacter || '').filter(c => c !== '' && c !== 'Uploaded'))].slice(-30);\n\nreturn {\n  keys: primaryLlmApiKeys,\n  blockedTitles: recentTitles.join(' | ') || 'None',\n  blockedPlots: recentPlots.join(' | ') || 'None',\n  recentCharacters: recentCharacters.join(', ') || 'None'\n};"
         },
         "id": "8f2aa9a4-722c-4369-b445-6038026dae65",
         "name": "Config: Primary LLM Master",
@@ -19321,15 +19362,15 @@
     },
     "nodeGroups": [],
     "authors": "CM Punk",
-    "name": "Version 93db71c0",
+    "name": "Version 4b1256f2",
     "description": "",
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-09-21T14:47:26.251Z",
-        "id": 36,
+        "createdAt": "2026-09-21T14:51:48.968Z",
+        "id": 38,
         "workflowId": "GJWu0H1tqk1fvOO3",
-        "versionId": "93db71c0-9f0c-44a8-b7db-bac6012099c6",
+        "versionId": "4b1256f2-9b81-4d3d-97b7-3f88f958cfd7",
         "event": "activated",
         "userId": "f42e5678-5fc9-4b70-bce4-06925e9db28f"
       }
@@ -19376,5 +19417,5 @@
     "workflow:unshare",
     "workflow:update"
   ],
-  "checksum": "e90d5049bb19a99d5bf37091aead5ab5e9a377f7109b5cea2466b084d358b01d"
+  "checksum": "ac5c31f781979d0883f9da45d17b24dfb9770594cda99fa0a234c5f3a071f24b"
 }
