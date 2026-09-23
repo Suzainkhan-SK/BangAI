@@ -3,7 +3,8 @@ import {
   Plus, Sparkles, MessageSquare, ChevronLeft, ChevronRight,
   Settings, LogOut, Search, Trash2, Video, Film, Clock,
   CheckCircle2, AlertCircle, XCircle, Loader2, Zap,
-  Mic2, Music, Type, X, LayoutDashboard, User, CreditCard
+  Mic2, Music, Type, X, LayoutDashboard, User, CreditCard,
+  Bot
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
 
