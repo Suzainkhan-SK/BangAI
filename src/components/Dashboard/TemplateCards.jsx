@@ -12,10 +12,14 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
+import { useVideoSettings } from '../../state/videoSettings';
+import { getMusicTrackById } from '../../data/musicTracks';
 
 export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavigate, user }) {
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState(null);
+
+  const { settings: videoSettings } = useVideoSettings();
 
   const handleSelect = (item) => {
     audioEngine.playSfx('click');
@@ -40,6 +44,7 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
 
     try {
       const token = localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+      const chosenMusic = getMusicTrackById(videoSettings?.musicId || 'mystery2');
       const res = await fetch('/.netlify/functions/generate-template', {
         method: 'POST',
         headers: {
@@ -48,7 +53,16 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
         },
         body: JSON.stringify({
           templateId,
-          token
+          token,
+          voiceId: videoSettings?.voiceId || 'adam',
+          elevenLabsVoiceId: videoSettings?.elevenLabsVoiceId || '',
+          voiceSpeed: videoSettings?.voiceSpeed || 1.20,
+          voiceVolume: videoSettings?.voiceVolume ?? 1.0,
+          subtitleSettings: videoSettings?.subtitleSettings || null,
+          subtitleStyle: videoSettings?.subtitleStyle || 'hormozi',
+          musicId: videoSettings?.musicId || 'mystery2',
+          musicTrackUrl: videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
+          musicVolume: videoSettings?.musicVolume ?? 0.08
         })
       });
 

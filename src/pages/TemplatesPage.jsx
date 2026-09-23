@@ -10,6 +10,7 @@ import GenerationThinkingAnimation from '../components/Dashboard/GenerationThink
 import { audioEngine } from '../audio/audioEngine';
 import { getAuthToken } from '../utils/authClient';
 import { VOICES, getVoiceById } from '../data/voices';
+import { getMusicTrackById } from '../data/musicTracks';
 import { useVideoSettings } from '../state/videoSettings';
 import { useVoiceCatalog } from '../hooks/useVoiceCatalog';
 
@@ -259,6 +260,7 @@ export default function TemplatesPage({
         console.warn('[TemplatesPage] localStorage write error:', e);
       }
 
+      const chosenMusic = getMusicTrackById(videoSettings?.musicId || 'mystery2');
       const res = await fetch('/.netlify/functions/generate-template', {
         method: 'POST',
         signal: controller.signal,
@@ -272,7 +274,13 @@ export default function TemplatesPage({
           prompt:           customTopic.trim() || '',
           voiceId:          activeVoiceObj?.id || voiceId,
           elevenLabsVoiceId,
-          voiceSpeed:       clampedSpeed
+          voiceSpeed:       clampedSpeed,
+          voiceVolume:      videoSettings?.voiceVolume ?? 1.0,
+          subtitleSettings: videoSettings?.subtitleSettings || null,
+          subtitleStyle:    videoSettings?.subtitleStyle || 'hormozi',
+          musicId:          videoSettings?.musicId || 'mystery2',
+          musicTrackUrl:    videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
+          musicVolume:      videoSettings?.musicVolume ?? 0.08
         })
       });
 

@@ -178,6 +178,7 @@ export default function StoryApprovalCard({
   initialSubtitleSettings = null,
   initialMusicId = DEFAULT_MUSIC_ID,
   initialMusicVolume = 0.08,
+  initialVoiceVolume = 1.0,
   initialPrivacyStatus = 'public',
   onApprove, 
   onReject, 
@@ -297,8 +298,21 @@ export default function StoryApprovalCard({
     if (next !== musicVolume) setMusicVolume(next);
   }, [story?.finalSettings?.musicVolume, story?.musicVolume, initialMusicVolume]);
 
+  // 5b. Voice Volume
+  const seedVoiceVolume = () => {
+    const raw = story?.finalSettings?.voiceVolume ?? story?.voiceVolume ?? initialVoiceVolume;
+    const v = Number(raw);
+    return isFinite(v) ? Math.max(0, Math.min(2.0, v)) : 1.0;
+  };
+  const [voiceVolume, setVoiceVolume] = useState(seedVoiceVolume);
+  const voiceVolumeTouchedRef = useRef(false);
+  useEffect(() => {
+    if (voiceVolumeTouchedRef.current) return;
+    const next = seedVoiceVolume();
+    if (next !== voiceVolume) setVoiceVolume(next);
+  }, [story?.finalSettings?.voiceVolume, story?.voiceVolume, initialVoiceVolume]);
+
   const [privacyStatus, setPrivacyStatus] = useState(() => story?.finalSettings?.privacyStatus || story?.privacyStatus || initialPrivacyStatus || 'public');
-  const [voiceVolume, setVoiceVolume] = useState(1.0);
   const [duckingLevel, setDuckingLevel] = useState(18);
   const [musicMoodFilter, setMusicMoodFilter] = useState('all');
 
@@ -1134,6 +1148,7 @@ function splitPitchTextIntoChunks(text, maxChars = 480) {
         voiceId: selectedVoiceId,
         elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
         voiceSpeed: (function () { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
+        voiceVolume: (isFinite(Number(voiceVolume)) ? Math.max(0, Math.min(2.0, Number(voiceVolume))) : 1.0),
         subtitleSettings: cleanSubs,
         musicId: selectedMusicId,
         musicTrackUrl: chosenMusic?.audioUrl || '',
@@ -1193,6 +1208,7 @@ function splitPitchTextIntoChunks(text, maxChars = 480) {
           voiceId: selectedVoiceId,
           elevenLabsVoiceId: chosenVoice?.elevenLabsId || chosenVoice?.id || selectedVoiceId,
           voiceSpeed: (function () { const v = Number(voiceSpeed); return isFinite(v) && v > 0 ? Math.max(0.5, Math.min(4, v)) : 1.10; })(),
+          voiceVolume: (isFinite(Number(voiceVolume)) ? Math.max(0, Math.min(2.0, Number(voiceVolume))) : 1.0),
           subtitleSettings: cleanSubs,
           musicId: selectedMusicId,
           musicTrackUrl: chosenMusic?.audioUrl || '',

@@ -867,6 +867,7 @@ export default function DashboardApp({
             voiceId,
             elevenLabsVoiceId: (VOICES.find(v => v.id === voiceId) || {}).elevenLabsId || voiceId,
             voiceSpeed,
+            voiceVolume: videoSettings?.voiceVolume ?? 1.0,
             visualStyle: styleId,
             musicId,
             musicTrackUrl: getMusicTrackById(musicId).audioUrl || '',
@@ -1250,6 +1251,7 @@ export default function DashboardApp({
     const chosenMusicTrackUrl = customSettings.musicTrackUrl || getMusicTrackById(chosenMusicId).audioUrl || '';
     const chosenMusicVolume = customSettings.musicVolume ?? musicVolume ?? 0.08;
     const chosenVoiceSpeed = customSettings.voiceSpeed ?? activeThread?.voiceSpeed ?? voiceSpeed ?? 1.10;
+    const chosenVoiceVolume = customSettings.voiceVolume ?? videoSettings?.voiceVolume ?? 1.0;
     const chosenPrivacyStatus = customSettings.privacyStatus || privacyStatus || 'public';
 
     if (customSettings.privacyStatus && customSettings.privacyStatus !== privacyStatus) {
@@ -1279,6 +1281,7 @@ export default function DashboardApp({
           musicId: chosenMusicId,
           musicTrackUrl: chosenMusicTrackUrl,
           musicVolume: chosenMusicTrackUrl === '' ? 0 : (isFinite(Number(chosenMusicVolume)) ? Math.max(0, Math.min(0.4, Number(chosenMusicVolume))) : 0.08),
+          voiceVolume: (isFinite(Number(chosenVoiceVolume)) ? Math.max(0, Math.min(2.0, Number(chosenVoiceVolume))) : 1.0),
           autoUploadToYouTube: !!autoUploadToYouTube,
           selectedChannelId,
           channelId: selectedChannelId,
@@ -1863,6 +1866,7 @@ export default function DashboardApp({
               initialSubtitleSettings={activeThread.finalSettings?.subtitleSettings || activeThread.story?.finalSettings?.subtitleSettings || subtitleSettings}
               initialMusicId={activeThread.finalSettings?.musicId || activeThread.story?.finalSettings?.musicId || musicId}
               initialMusicVolume={activeThread.finalSettings?.musicVolume ?? activeThread.story?.finalSettings?.musicVolume ?? musicVolume}
+              initialVoiceVolume={activeThread.finalSettings?.voiceVolume ?? activeThread.story?.finalSettings?.voiceVolume ?? videoSettings?.voiceVolume ?? 1.0}
               initialPrivacyStatus={activeThread.finalSettings?.privacyStatus || activeThread.story?.finalSettings?.privacyStatus || privacyStatus}
               onApprove={handleApproveStory}
               onReject={handleRejectStory}

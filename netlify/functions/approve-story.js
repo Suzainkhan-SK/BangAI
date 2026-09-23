@@ -43,6 +43,7 @@ function buildResumeUrl(rawUrl, action, extraParams = {}) {
     if (extraParams.musicId) u.searchParams.set('musicId', extraParams.musicId);
     if (extraParams.musicTrackUrl) u.searchParams.set('musicTrackUrl', extraParams.musicTrackUrl);
     if (extraParams.musicVolume !== undefined) u.searchParams.set('musicVolume', String(extraParams.musicVolume));
+    if (extraParams.voiceVolume !== undefined) u.searchParams.set('voiceVolume', String(extraParams.voiceVolume));
     if (extraParams.privacyStatus) u.searchParams.set('privacyStatus', extraParams.privacyStatus);
     if (extraParams.subtitleSettings) {
       u.searchParams.set('subtitleSettings', typeof extraParams.subtitleSettings === 'string' ? extraParams.subtitleSettings : JSON.stringify(extraParams.subtitleSettings));
@@ -158,6 +159,7 @@ export const handler = async (event, context) => {
       musicId = 'mystery2',
       musicTrackUrl = '',
       musicVolume = 0.08,
+      voiceVolume = 1.0,
       privacyStatus = 'public'
     } = payload;
 
@@ -169,6 +171,11 @@ export const handler = async (event, context) => {
     const safeMusicVolume = (function() {
       const v = Number(musicVolume);
       return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
+    })();
+
+    const safeVoiceVolume = (function() {
+      const v = Number(voiceVolume);
+      return isFinite(v) ? Math.max(0, Math.min(2.0, v)) : 1.0;
     })();
 
     const safePrivacyStatus = (function() {
@@ -248,6 +255,7 @@ export const handler = async (event, context) => {
       musicId,
       musicTrackUrl,
       musicVolume: safeMusicVolume,
+      voiceVolume: safeVoiceVolume,
       privacyStatus: safePrivacyStatus
     });
     console.log(`[approve-story] Built n8n target URL for action "${action}":`, targetResumeUrl);
@@ -317,6 +325,7 @@ export const handler = async (event, context) => {
         musicId,
         musicTrackUrl,
         musicVolume: safeMusicVolume,
+        voiceVolume: safeVoiceVolume,
         privacyStatus: safePrivacyStatus,
         webhookSecret
       };
@@ -413,6 +422,7 @@ export const handler = async (event, context) => {
         musicId,
         musicTrackUrl,
         musicVolume: safeMusicVolume,
+        voiceVolume: safeVoiceVolume,
         privacyStatus: safePrivacyStatus,
         scenes: payload.scenes || scenes || null,
         webhookSecret
@@ -507,6 +517,7 @@ export const handler = async (event, context) => {
         musicId,
         musicTrackUrl,
         musicVolume: safeMusicVolume,
+        voiceVolume: safeVoiceVolume,
         privacyStatus: safePrivacyStatus,
         language,
         scenes: payload.scenes || scenes || null,
@@ -591,6 +602,7 @@ export const handler = async (event, context) => {
       musicId,
       musicTrackUrl,
       musicVolume: safeMusicVolume,
+      voiceVolume: safeVoiceVolume,
       privacyStatus: safePrivacyStatus,
       language,
       webhookSecret

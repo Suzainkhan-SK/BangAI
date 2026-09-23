@@ -170,12 +170,21 @@ export const handler = async (event) => {
       userSheetAccessToken,
       userSpreadsheetId,
       userSheetName,
-      // Voice & Visual Settings (optional — workflow uses defaults if blank)
+      // Voice & Visual Settings (dynamic from studio / frontend)
       voiceId: payload.voiceId || 'adam',
       elevenLabsVoiceId: payload.elevenLabsVoiceId || '',
-      voiceSpeed: payload.voiceSpeed || 1.20,
+      voiceSpeed: payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20,
+      voiceVolume: payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0,
       visualStyle: payload.visualStyle || 'Dark Cinematic Mystery',
       language: payload.language || 'English',
+      aspectRatio: payload.aspectRatio || '9:16',
+      // Subtitle settings & styling
+      subtitleSettings: payload.subtitleSettings || null,
+      subtitleStyle: payload.subtitleStyle || payload.subtitlePreset || 'hormozi',
+      // Music & volume settings
+      musicId: payload.musicId || 'mystery2',
+      musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
+      musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
       timestamp: new Date().toISOString()
     });
 

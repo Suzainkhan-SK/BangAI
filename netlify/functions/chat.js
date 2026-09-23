@@ -467,6 +467,10 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
         const v = Number(settings.musicVolume);
         return isFinite(v) ? Math.max(0, Math.min(0.4, v)) : 0.08;
       })(),
+      voiceVolume: (function () {
+        const v = Number(settings.voiceVolume);
+        return isFinite(v) ? Math.max(0, Math.min(2.0, v)) : 1.0;
+      })(),
       privacyStatus: safePrivacyStatus,
       callbackUrl,
       threadId: currentThreadId,
