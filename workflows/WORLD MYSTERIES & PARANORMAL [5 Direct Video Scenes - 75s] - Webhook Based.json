@@ -4960,7 +4960,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        43046,
+        43460,
         1184
       ]
     },
@@ -5102,7 +5102,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        44022,
+        44100,
         1568
       ]
     },
@@ -6402,7 +6402,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        42502,
+        42480,
         1376
       ]
     },
@@ -6415,7 +6415,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        42742,
+        42740,
         1568
       ]
     },
@@ -6448,7 +6448,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        44566,
+        44560,
         1184
       ],
       "onError": "continueRegularOutput"
@@ -6516,7 +6516,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        44566,
+        44560,
         1408
       ],
       "onError": "continueRegularOutput"
@@ -6530,7 +6530,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        43606,
+        43740,
         1568
       ]
     },
@@ -7081,7 +7081,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        42742,
+        42740,
         1184
       ],
       "parameters": {
@@ -7094,7 +7094,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        42982,
+        42980,
         1184
       ],
       "onError": "continueRegularOutput",
@@ -7129,7 +7129,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        43222,
+        43220,
         1184
       ],
       "parameters": {
@@ -10391,7 +10391,7 @@
         "youtubeDescriptionOpener": "क्या आप जानते हैं कि 1940s में Soviet Union ने 5 कैदियों पर एक ऐसा experiment किया जिसकी कल्पना करना भी मुश्किल है? 15 दिन तक बिना नींद के, एक ख़तरनाक gas के साथ, scientists ने इंसानी दिमाग की हदें तोड़ दीं। जो results आए वो इतने डरावने थे कि आज भी दुनिया हैरान है।",
         "allowedCategories": "STORY BRIEF: 1940s के आख़िर में Soviet Union ने एक secret experiment किया जिसे बाद में 'Russian Sleep Experiment' कहा गया। 5 political prisoners को एक sealed gas chamber में रखा गया और उन्हें 15 दिनों तक सोने नहीं दिया गया, उनके दिमाग पर एक experimental stimulant gas का इस्तेमाल किया गया। पहले 5 दिनों में prisoners चिल्लाने लगे, फिर उन्होंने अपनी नाकें खोलने की कोशिश की और अपने मांस को खरोंचने लगे। Day 9 तक उन्हें paranoia हो गया, उन्होंने दीवारों पर खून से message लिखे और एक prisoner ने अपनी ही आँखें निकाल लीं। Scientists ने recording की और observers ने कहा कि बचे हुए prisoners ज़बरदस्ती बोल रहे थे, पागलों की तरह हँस रहे थे और ख़ामोशी से खून बह रहे थे उनके मुँह से। Experiment officially recorded था, लेकिन Soviet archives ने कभी original documents release नहीं किए, और आज तक कोई पुष्प पुष्प medical records नहीं मिले जो यह साबित करें कि यह experiment हुआ था या सिर्फ एक dark urban legend है। | CHARACTER:  | ERA: World War 2 Era / Early Cold War | SETTING:  | EMOTIONAL CORE:  | VIRAL ANGLE: 5 prisoners, 15 days, no sleep, gas used, horrifying side effects, Soviet cover-up | HOOK: 1940s में Soviet Union ने 5 prisoners पर सबसे भयानक experiment किया। 15 दिन तक उन्हें सोने नहीं दिया। जो हुआ वो इंसानियत के खिलाफ़ था।",
         "blockedTitles": "नबी ﷺ की सवारी बुर्राक़! 😱 मीराज की रात का अजूबा! #Shorts | शास्त्री जी के आखिरी 24 घंटे: ताशकंद का अनसुलझा रहस्य 💔 | भगत सिंह के आखिरी 24 घंटे: एक मुस्कान, जिसने देश को जगाया 💔🇮🇳 | Dyatlov Pass का खूनी रहस्य 😱 | 9 hikers की मौत, क्या हुआ था? | धरती की परिक्रमा कर रहा तेरह हज़ार साल पुराना Alien Satellite? 👽🤯 | Roswell UFO Crash: क्या 1947 में एलियंस धरती पर आए थे? 👽🛸 | Flight MH370: 239 लोग, 8 साल, कोई जवाब नहीं 😱 | Great Pyramid का सबसे बड़ा रहस्य खुला 2017 में! 😱 अंदर मिला एक विशाल 'खाली चैम्बर'",
-        "blockedPlots": "भारत के प्रधानमंत्री लाल बहादुर शास्त्री ने 10 जनवरी 1966 को ताशकंद में शांति समझौते पर हस्ताक्षर किए। एक विजयी दिन के बाद, उन्होंने अपने परिवार से बात की और जश्न मनाया। लेकिन देर रात उनकी तबीयत बिगड़ने लगी, और आधी रात के बाद रहस्यमय परिस्थितियों में उनका निधन हो गया, जिससे भारत को गहरा सदमा लगा और आज भी उनकी मृत्यु एक अनसुलझी पहेली बनी हुई है। | 23 मार्च 1931 को लाहौर सेंट्रल जेल में भगत सिंह को बताया गया कि उनकी फांसी 11 घंटे पहले ही होगी। वे लेनिन की जीवनी पढ़ रहे थे और खबर सुनकर भी शांत रहे, किताब नहीं छोड़ी। उन्होंने अपने साथियों सुखदेव और राजगुरु के साथ देश के नाम अंतिम पत्र लिखे। फांसी के तख्ते की ओर बढ़ते हुए वे 'मेरा रंग दे बसंती चोला' गा रहे थे और 'इंकलाब जिंदाबाद' के नारे लगा रहे थे। बिना आँखें बांधे, उन्होंने देश के लिए शहादत दी, जिससे पूरा भारत स्तब्ध रह गया और यह बलिदान आजादी की लड़ाई का प्रतीक बन गया। | जनवरी 1959 में, 9 अनुभवी सोवियत हाइकर्स ने Ural पहाड़ों में एक कठिन अभियान शुरू किया। 2 फरवरी की रात को कुछ ऐसा भयानक हुआ जिसने उन्हें sub-zero तापमान में अपने टेंट को अंदर से काटकर नंगे पैर बर्फ में भागने पर मजबूर कर दिया। हफ्तों बाद, तलाश दल को उनके शव पहाड़ पर बिखरे मिले, जिन पर विचित्र चोटें थीं - कुचली हुई खोपड़ी, आंतरिक आघात और एक की जीभ गायब थी, साथ ही उच्च रेडिएशन के निशान भी मिले। व्यापक जांच के बावजूद, सोवियत अधिकारियों ने मामले को एक अज्ञात 'जबरदस्त प्राकृतिक शक्ति' के कारण बंद कर दिया, जिसे हाइकर्स झेल नहीं पाए। आज तक, Dyatlov Pass घटना का असली कारण इतिहास के सबसे भयावह और हैरान कर देने वाले रहस्यों में से एक बना हुआ है, जो हिमस्खलन और इन्फ्रासाउंड से लेकर गुप्त सैन्य परीक्षणों और क्रिप्टिड हमलों तक की थ्योरीज़ को हवा देता है। | The Black Knight Satellite is an alleged ancient, extraterrestrial object orbiting Earth. Its story begins in 1899 with Nikola Tesla's claims of receiving strange radio signals from space, followed by a Norwegian scientist recording unusual radio echoes in 1928. In 1960, both US and Soviet forces reportedly detected an unknown object in polar orbit, long before humans launched such satellites. Further 'evidence' emerged in 1998 during NASA's STS-88 mission, where photos from the Space Shuttle Endeavour showed an irregular object. Conspiracy theorists believe it's a 13,000-year-old alien sentinel monitoring humanity, with NASA covering up the truth. However, NASA and most scientists attribute these sightings to space debris or misinterpretations of natural phenomena, leaving the mystery unsolved. | In July 1947, near Roswell, New Mexico, a rancher found unusual debris on his land. The US Army Air Forces initially announced they had recovered a 'flying disc,' causing a global sensation. However, hours later, they retracted this statement, claiming it was merely a weather balloon, and swiftly suppressed further information. Decades later, alleged witnesses and former military personnel came forward, claiming they saw alien bodies and an advanced craft at the crash site and were threatened into silence. The US government has provided various, often contradictory, explanations over the years, none fully satisfying, leaving the Roswell incident as one of history's most enduring and unexplained alien mysteries and a prime example of alleged government cover-up. | On March 8, 2014, Malaysian Airlines Flight MH370, carrying 239 passengers and crew, departed Kuala Lumpur for Beijing. About an hour into the flight, over the South China Sea, the plane unexpectedly diverted from its route, turning west. The last communication with air traffic control was a casual 'Good night, Malaysian three seven zero.' Malaysian military radar tracked the plane for another hour, moving across the Malay Peninsula and into the Indian Ocean, with no distress signal. Inmarsat satellite data later indicated the aircraft continued flying south for several hours until it ran out of fuel. Despite one of the largest and most extensive search operations in aviation history, the plane's main wreckage and black box were never found. Small debris pieces have washed ashore, but they offer no definitive answers. Theories range from pilot suicide, hijacking, and technical failure to a catastrophic electrical fire. The disappearance remains one of modern aviation's greatest unsolved mysteries, leaving 239 families without closure. | 2017 में, वैज्ञानिकों ने Great Pyramid of Giza को स्कैन ���रते हुए एक विशाल, 30 मीटर लंबा और 8 मीटर ऊंचा खाली चैम्बर खोजा। यह 'ScanPyramids Big Void' Grand Gallery के ठीक ऊपर स्थित है और 4,500 सालों से अछूता है। म्यूऑन रेडियोग्राफी का उपयोग करके हुई इस खोज ने Egyptologists को हैरान कर दिया है, क्योंकि प्राचीन अभिलेखों में इसका कोई उल्लेख नहीं है। इसका असली मकसद अज्ञात है – क्या यह एक गुप्त गलियारा है, एक ceremonial space, या पिरामिड के वजन को कम करने के लिए बनाया गया एक relief chamber? वैज्ञानिक अब छोटे रोबोट्स भेजने की योजना बना रहे हैं ताकि इस अछूते रहस्य को खोला जा सके और प्राचीन मिस्र के निर्माण तकनीकों के बारे में नई जानकारी मिल सके। यह खोज आज भी दुनिया के सबसे प्रसिद्ध प्राचीन ढांचे के भीतर एक बड़ा अनसुलझा रहस्य बनी हुई है।",
+        "blockedPlots": "भारत के प्रधानमंत्री लाल बहादुर शास्त्री ने 10 जनवरी 1966 को ताशकंद में शांति समझौते पर हस्ताक्षर किए। एक विजयी दिन के बाद, उन्होंने अपने परिवार से बात की और जश्न मनाया। लेकिन देर रात उनकी तबीयत बिगड़ने लगी, और आधी रात के बाद रहस्यमय परिस्थितियों में उनका निधन हो गया, जिससे भारत को गहरा सदमा लगा और आज भी उनकी मृत्यु एक अनसुलझी पहेली बनी हुई है। | 23 मार्च 1931 को लाहौर सेंट्रल जेल में भगत सिंह को बताया गया कि उनकी फांसी 11 घंटे पहले ही होगी। वे लेनिन की जीवनी पढ़ रहे थे और खबर सुनकर भी शांत रहे, किताब नहीं छोड़ी। उन्होंने अपने साथियों सुखदेव और राजगुरु के साथ देश के नाम अंतिम पत्र लिखे। फांसी के तख्ते की ओर बढ़ते हुए वे 'मेरा रंग दे बसंती चोला' गा रहे थे और 'इंकलाब जिंदाबाद' के नारे लगा रहे थे। बिना आँखें बांधे, उन्होंने देश के लिए शहादत दी, जिससे पूरा भारत स्तब्ध रह गया और यह बलिदान आजादी की लड़ाई का प्रतीक बन गया। | जनवरी 1959 में, 9 अनुभवी सोवियत हाइकर्स ने Ural पहाड़ों में एक कठिन अभियान शुरू किया। 2 फरवरी की रात को कुछ ऐसा भयानक हुआ जिसने उन्हें sub-zero तापमान में अपने टेंट को अंदर से काटकर नंगे पैर बर्फ में भागने पर मजबूर कर दिया। हफ्तों बाद, तलाश दल को उनके शव पहाड़ पर बिखरे मिले, जिन पर विचित्र चोटें थीं - कुचली हुई खोपड़ी, आंतरिक आघात और एक की जीभ गायब थी, साथ ही उच्च रेडिएशन के निशान भी मिले। व्यापक जांच के बावजूद, सोवियत अधिकारियों ने मामले को एक अज्ञात 'जबरदस्त प्राकृतिक शक्ति' के कारण बंद कर दिया, जिसे हाइकर्स झेल नहीं पाए। आज तक, Dyatlov Pass घटना का असली कारण इतिहास के सबसे भयावह और हैरान कर देने वाले रहस्यों में से एक बना हुआ है, जो हिमस्खलन और इन्फ्रासाउंड से लेकर गुप्त सैन्य परीक्षणों और क्रिप्टिड हमलों तक की थ्योरीज़ को हवा देता है। | The Black Knight Satellite is an alleged ancient, extraterrestrial object orbiting Earth. Its story begins in 1899 with Nikola Tesla's claims of receiving strange radio signals from space, followed by a Norwegian scientist recording unusual radio echoes in 1928. In 1960, both US and Soviet forces reportedly detected an unknown object in polar orbit, long before humans launched such satellites. Further 'evidence' emerged in 1998 during NASA's STS-88 mission, where photos from the Space Shuttle Endeavour showed an irregular object. Conspiracy theorists believe it's a 13,000-year-old alien sentinel monitoring humanity, with NASA covering up the truth. However, NASA and most scientists attribute these sightings to space debris or misinterpretations of natural phenomena, leaving the mystery unsolved. | In July 1947, near Roswell, New Mexico, a rancher found unusual debris on his land. The US Army Air Forces initially announced they had recovered a 'flying disc,' causing a global sensation. However, hours later, they retracted this statement, claiming it was merely a weather balloon, and swiftly suppressed further information. Decades later, alleged witnesses and former military personnel came forward, claiming they saw alien bodies and an advanced craft at the crash site and were threatened into silence. The US government has provided various, often contradictory, explanations over the years, none fully satisfying, leaving the Roswell incident as one of history's most enduring and unexplained alien mysteries and a prime example of alleged government cover-up. | On March 8, 2014, Malaysian Airlines Flight MH370, carrying 239 passengers and crew, departed Kuala Lumpur for Beijing. About an hour into the flight, over the South China Sea, the plane unexpectedly diverted from its route, turning west. The last communication with air traffic control was a casual 'Good night, Malaysian three seven zero.' Malaysian military radar tracked the plane for another hour, moving across the Malay Peninsula and into the Indian Ocean, with no distress signal. Inmarsat satellite data later indicated the aircraft continued flying south for several hours until it ran out of fuel. Despite one of the largest and most extensive search operations in aviation history, the plane's main wreckage and black box were never found. Small debris pieces have washed ashore, but they offer no definitive answers. Theories range from pilot suicide, hijacking, and technical failure to a catastrophic electrical fire. The disappearance remains one of modern aviation's greatest unsolved mysteries, leaving 239 families without closure. | 2017 में, वैज्ञानिकों ने Great Pyramid of Giza को स्कैन करते हुए एक विशाल, 30 मीटर लंबा और 8 मीटर ऊंचा खाली चैम्बर खोजा। यह 'ScanPyramids Big Void' Grand Gallery के ठीक ऊपर स्थित है और 4,500 सालों से अछूता है। म्यूऑन रेडियोग्राफी का उपयोग करके हुई इस खोज ने Egyptologists को हैरान कर दिया है, क्योंकि प्राचीन अभिलेखों में इसका कोई उल्लेख नहीं है। इसका असली मकसद अज्ञात है – क्या यह एक गुप्त गलियारा है, एक ceremonial space, या पिरामिड के वजन को कम करने के लिए बनाया गया एक relief chamber? वैज्ञानिक अब छोटे रोबोट्स भेजने की योजना बना रहे हैं ताकि इस अछूते रहस्य को खोला जा सके और प्राचीन मिस्र के निर्माण तकनीकों के बारे में नई जानकारी मिल सके। यह खोज आज भी दुनिया के सबसे प्रसिद्ध प्राचीन ढांचे के भीतर एक बड़ा अनसुलझा रहस्य बनी हुई है।",
         "recentCharacters": "Lal Bahadur Shastri, Bhagat Singh",
         "titleStyle": "PURE_HINDI",
         "descriptionFormat": "STORYTELLING",
@@ -10490,7 +10490,7 @@
         "title": "Soviet Union का सबसे खौफ़नाक Experiment 😨 5 कैदी, 15 दिन, नींद नहीं!",
         "corePlot": "1940s के आख़िर में Soviet Union ने allegedly एक top-secret sleep deprivation experiment किया। 5 political prisoners को एक sealed chamber में रखा गया और 15 दिनों तक जागने पर मजबूर किया गया, allegedly एक experimental stimulant gas के साथ। पहले 5 दिनों में prisoners ने चिल्लाना शुरू किया, अपना मांस खरोंचा, और दीवारों पर खून से संदेश लिखे। Day 9 तक एक prisoner ने allegedly अपनी आँखें निकाल दीं। बचे हुए prisoners पागलों की तरह हँस रहे थे और उनके मुँह से खून बह रहा था। Soviet archives ने कभी original documents release नहीं किए, कोई confirmed medical records नहीं मिले। यह आज भी internet की सबसे disturbing creepypasta stories में से एक है, जिसकी true origins 2010 में 4chan के एक anonymous post से trace होती हैं। Original post ने खुद claim किया कि यह entries 'found footage' format में लिखी गई थीं, possibly fiction। आज तक कोई पुष्ट primary source, declassified Soviet file, या verified witness testimony नहीं मिली जो prove करे कि यह experiment सच में हुआ।",
         "category": "Education",
-        "youtubeDescription": "1940s के आख़िर में Soviet Union ने allegedly एक ऐसा experiment किया जो इंसानियत की सारी हदें पार कर गया। 5 political prisoners को एक sealed chamber में बंद किया गया और 15 दिनों तक उन्हें सोने नहीं दिया गया। Allegedly एक experimental gas का इस्तेमाल किया गया जिससे नींद और भी दूर हो जाए। पहले 5 दिनों में prisoners चीखने लगे, अपना मांस नोचने लगे, और दीवारों पर ख��न से message लिखने लगे। Day 9 तक एक prisoner ने अपनी ही आँखें निकाल लीं। बचे हुए prisoners पागलों की तरह हँस रहे थे और उनके मुँह से खून बह रहा था। Scientists ने microphones से recording की। लेकिन आज तक Soviet archives ने कोई original document release नहीं किया। कोई confirmed medical record नहीं मिला। Internet पर 2010 में 4chan पर एक anonymous post से यह story viral हुई, और तब से यह दुनिया की सबसे disturbing urban legends में से एक बन गई। सच क्या है, किसी को नहीं पता।\n\nयह कहानी unverified internet sources पर based है। Soviet archives से कोई official confirmation नहीं मिली है। कई researchers इसे modern creepypasta fiction मानते हैं जो 2010 के बाद viral हुई। Original 4chan post ने खुद कहा था कि यह possibly 'found footage' style fiction है। कोई primary historical document, medical record, या verified witness testimony आज तक सामने नहीं आई।\n\nआप क्या सोचते हैं, क्या यह experiment सच में हुआ था या सिर्फ internet की सबसे dark legend है? Comment में बताइए। अगर यह dark history आपको पसंद आई हो तो like ज़रूर करें और channel subscribe करें ताकि ऐसी ही रहस्यमय कहानियाँ आप तक पहुँचती रहें।",
+        "youtubeDescription": "1940s के आख़िर में Soviet Union ने allegedly एक ऐसा experiment किया जो इंसानियत की सारी हदें पार कर गया। 5 political prisoners को एक sealed chamber में बंद किया गया और 15 दिनों तक उन्हें सोने नहीं दिया गया। Allegedly एक experimental gas का इस्तेमाल किया गया जिससे नींद और भी दूर हो जाए। पहले 5 दिनों में prisoners चीखने लगे, अपना मांस नोचने लगे, और दीवारों पर खून से message लिखने लगे। Day 9 तक एक prisoner ने अपनी ही आँखें निकाल लीं। बचे हुए prisoners पागलों की तरह हँस रहे थे और उनके मुँह से खून बह रहा था। Scientists ने microphones से recording की। लेकिन आज तक Soviet archives ने कोई original document release नहीं किया। कोई confirmed medical record नहीं मिला। Internet पर 2010 में 4chan पर एक anonymous post से यह story viral हुई, और तब से यह दुनिया की सबसे disturbing urban legends में से एक बन गई। सच क्या है, किसी को नहीं पता।\n\nयह कहानी unverified internet sources पर based है। Soviet archives से कोई official confirmation नहीं मिली है। कई researchers इसे modern creepypasta fiction मानते हैं जो 2010 के बाद viral हुई। Original 4chan post ने खुद कहा था कि यह possibly 'found footage' style fiction है। कोई primary historical document, medical record, या verified witness testimony आज तक सामने नहीं आई।\n\nआप क्या सोचते हैं, क्या यह experiment सच में हुआ था या सिर्फ internet की सबसे dark legend है? Comment में बताइए। अगर यह dark history आपको पसंद आई हो तो like ज़रूर करें और channel subscribe करें ताकि ऐसी ही रहस्यमय कहानियाँ आप तक पहुँचती रहें।",
         "tags": [
           "mystery",
           "unexplained",
@@ -10786,7 +10786,7 @@
         "speaker": "",
         "duration": 15,
         "title": "Soviet Union का सबसे खौफ़नाक Experiment 😨 5 कैदी, 15 दिन, नींद नहीं!",
-        "corePlot": "1940s के आख़िर में Soviet Union ने allegedly एक top-secret sleep deprivation experiment किया। 5 political prisoners को एक sealed chamber में रखा गया और 15 दिनों तक जागने पर मजबूर किया गया, allegedly एक experimental stimulant gas के साथ। पहले 5 दिनों में prisoners ने चिल्लाना ���ुरू किया, अपना मांस खरोंचा, और दीवारों पर खून से संदेश लिखे। Day 9 तक एक prisoner ने allegedly अपनी आँखें निकाल दीं। बचे हुए prisoners पागलों की तरह हँस रहे थे और उनके मुँह से खून बह रहा था। Soviet archives ने कभी original documents release नहीं किए, कोई confirmed medical records नहीं मिले। यह आज भी internet की सबसे disturbing creepypasta stories में से एक है, जिसकी true origins 2010 में 4chan के एक anonymous post से trace होती हैं। Original post ने खुद claim किया कि यह entries 'found footage' format में लिखी गई थीं, possibly fiction। आज तक कोई पुष्ट primary source, declassified Soviet file, या verified witness testimony नहीं मिली जो prove करे कि यह experiment सच में हुआ।",
+        "corePlot": "1940s के आख़िर में Soviet Union ने allegedly एक top-secret sleep deprivation experiment किया। 5 political prisoners को एक sealed chamber में रखा गया और 15 दिनों तक जागने पर मजबूर किया गया, allegedly एक experimental stimulant gas के साथ। पहले 5 दिनों में prisoners ने चिल्लाना शुरू किया, अपना मांस खरोंचा, और दीवारों पर खून से संदेश लिखे। Day 9 तक एक prisoner ने allegedly अपनी आँखें निकाल दीं। बचे हुए prisoners पागलों की तरह हँस रहे थे और उनके मुँह से खून बह रहा था। Soviet archives ने कभी original documents release नहीं किए, कोई confirmed medical records नहीं मिले। यह आज भी internet की सबसे disturbing creepypasta stories में से एक है, जिसकी true origins 2010 में 4chan के एक anonymous post से trace होती हैं। Original post ने खुद claim किया कि यह entries 'found footage' format में लिखी गई थीं, possibly fiction। आज तक कोई पुष्ट primary source, declassified Soviet file, या verified witness testimony नहीं मिली जो prove करे कि यह experiment सच में हुआ।",
         "tags": [
           "mystery",
           "unexplained",
@@ -10921,7 +10921,7 @@
           "creepypasta",
           "urban legend"
         ],
-        "youtubeDescription": "1940s के आख़िर में Soviet Union ने allegedly एक ऐसा experiment किया जो इंसानियत की सारी हदें पार कर गया। 5 political prisoners को एक sealed chamber में बंद किया गया और 15 दिनों तक उन्हें सोने नहीं दिया गया। Allegedly एक experimental gas का इस्तेमाल किया गया जिससे नींद और भी दूर हो जाए। पहले 5 दिनों में prisoners चीखने लगे, अपना मांस नोचने लगे, और दीवारों पर खून से message लिखने लगे। Day 9 तक एक prisoner ने अपनी ही आँखें निकाल लीं। बचे हुए prisoners पागलों की तरह हँस रहे थे और उनके मुँह से खून बह रहा था। Scientists ने microphones से recording की। लेकिन आज तक Soviet archives ने कोई original document release नहीं किया। कोई confirmed medical record नहीं मिला। Internet पर 2010 में 4chan पर एक anonymous post से यह story viral हुई, और तब से यह दुनिया की सबसे disturbing urban legends में से एक बन गई। सच क्या है, किसी को नहीं पता।\n\nयह कहानी unverified internet sources पर based है। Soviet archives से कोई official confirmation नह��ं मिली है। कई researchers इसे modern creepypasta fiction मानते हैं जो 2010 के बाद viral हुई। Original 4chan post ने खुद कहा था कि यह possibly 'found footage' style fiction है। कोई primary historical document, medical record, या verified witness testimony आज तक सामने नहीं आई।\n\nआप क्या सोचते हैं, क्या यह experiment सच में हुआ था या सिर्फ internet की सबसे dark legend है? Comment में बताइए। अगर यह dark history आपको पसंद आई हो तो like ज़रूर करें और channel subscribe करें ताकि ऐसी ही रहस्यमय कहानियाँ आप तक पहुँचती रहें।",
+        "youtubeDescription": "1940s के आख़िर में Soviet Union ने allegedly एक ऐसा experiment किया जो इंसानियत की सारी हदें पार कर गया। 5 political prisoners को एक sealed chamber में बंद किया गया और 15 दिनों तक उन्हें सोने नहीं दिया गया। Allegedly एक experimental gas का इस्तेमाल किया गया जिससे नींद और भी दूर हो जाए। पहले 5 दिनों में prisoners चीखने लगे, अपना मांस नोचने लगे, और दीवारों पर खून से message लिखने लगे। Day 9 तक एक prisoner ने अपनी ही आँखें निकाल लीं। बचे हुए prisoners पागलों की तरह हँस रहे थे और उनके मुँह से खून बह रहा था। Scientists ने microphones से recording की। लेकिन आज तक Soviet archives ने कोई original document release नहीं किया। कोई confirmed medical record नहीं मिला। Internet पर 2010 में 4chan पर एक anonymous post से यह story viral हुई, और तब से यह दुनिया की सबसे disturbing urban legends में से एक बन गई। सच क्य�� है, किसी को नहीं पता।\n\nयह कहानी unverified internet sources पर based है। Soviet archives से कोई official confirmation नहीं मिली है। कई researchers इसे modern creepypasta fiction मानते हैं जो 2010 के बाद viral हुई। Original 4chan post ने खुद कहा था कि यह possibly 'found footage' style fiction है। कोई primary historical document, medical record, या verified witness testimony आज तक सामने नहीं आई।\n\nआप क्या सोचते हैं, क्या यह experiment सच में हुआ था या सिर्फ internet की सबसे dark legend है? Comment में बताइए। अगर यह dark history आपको पसंद आई हो तो like ज़रूर करें और channel subscribe करें ताकि ऐसी ही रहस्यमय कहानियाँ आप तक पहुँचती रहें।",
         "usedKey": "18609e3bdb8e6ac38de3c5c7469ede4f"
       },
       "fruitVideoAttempts_4": 0,
