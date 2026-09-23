@@ -180,3 +180,33 @@ export function getStoredUser() {
     return null;
   }
 }
+
+// 1-Click Popup for Connecting / Reconnecting YouTube Channels & Google Sheets
+export function openGoogleOAuthPopup(returnView = 'profile') {
+  if (typeof window === 'undefined') return;
+  const token = getAuthToken();
+  const user = getStoredUser() || {};
+  const userId = user.id || user._id || user.userId || 'creator';
+  const email = user.email || '';
+  const origin = window.location.origin;
+  const connectUrl = `/.netlify/functions/google-oauth?action=connect&userId=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}&returnUrl=${encodeURIComponent(origin + '/#/' + returnView)}&token=${encodeURIComponent(token || '')}`;
+
+  const popupWidth = 560;
+  const popupHeight = 680;
+  const left = window.screenLeft + (window.outerWidth - popupWidth) / 2;
+  const top = window.screenTop + (window.outerHeight - popupHeight) / 2;
+
+  try {
+    const popup = window.open(
+      connectUrl,
+      'BangGoogleOAuth',
+      `width=${popupWidth},height=${popupHeight},left=${left},top=${top},status=no,toolbar=no,menubar=no`
+    );
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+      window.location.href = connectUrl;
+    }
+  } catch (e) {
+    window.location.href = connectUrl;
+  }
+}
+

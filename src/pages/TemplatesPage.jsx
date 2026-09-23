@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Zap, CheckCircle2, AlertCircle, Loader2,
+  Zap, CheckCircle2, AlertCircle, AlertTriangle, Loader2,
   ChevronDown, ChevronRight, Mic, Type, Play,
   Square, XCircle, ExternalLink, Cpu, Brain,
-  Clapperboard, Mic2, Video
+  Clapperboard, Mic2, Video, RefreshCw
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 import GenerationThinkingAnimation from '../components/Dashboard/GenerationThinkingAnimation';
 import { audioEngine } from '../audio/audioEngine';
-import { getAuthToken } from '../utils/authClient';
+import { getAuthToken, openGoogleOAuthPopup } from '../utils/authClient';
 import { VOICES, getVoiceById } from '../data/voices';
 import { getMusicTrackById } from '../data/musicTracks';
 import { useVideoSettings } from '../state/videoSettings';
@@ -119,6 +119,26 @@ export default function TemplatesPage({
   }, [user]);
 
   const selectedChannel = channels.find(c => c.channelId === selectedChannelId) || channels[0] || null;
+  const isChannelTokenExpired = !!(selectedChannel && (selectedChannel.needsReconnect || selectedChannel.isTokenExpired));
+
+  // Listen for OAuth completion from popup
+  useEffect(() => {
+    const handleAuthMessage = (event) => {
+      if (event.data?.type === 'BANG_OAUTH_SUCCESS') {
+        fetch('/.netlify/functions/google-oauth?action=channels')
+          .then(res => res.json())
+          .then(data => {
+            if (data && Array.isArray(data.channels)) {
+              setChannels(data.channels);
+              setErrorMsg(null);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+    window.addEventListener('message', handleAuthMessage);
+    return () => window.removeEventListener('message', handleAuthMessage);
+  }, []);
 
   // Cleanup abort controller on unmount
   useEffect(() => {
@@ -214,6 +234,12 @@ export default function TemplatesPage({
   const handleLaunchTemplate = async (templateId) => {
     audioEngine.playSfx('click');
     if (!user) { if (typeof onNavigate === 'function') onNavigate('login'); return; }
+
+    if (isChannelTokenExpired) {
+      audioEngine.playSfx('warning');
+      setErrorMsg(`⚠️ YouTube Authorization Expired: The connection for "${selectedChannel?.title || selectedChannel?.channelTitle || 'your channel'}" has expired. Please click Reconnect below before launching.`);
+      return;
+    }
 
     const newThreadId = `thread-template-${templateId}-${Date.now()}`;
     const sessionId = `session-${Date.now()}`;
@@ -880,6 +906,47 @@ export default function TemplatesPage({
                               {selectedChannel?.title || selectedChannel?.channelTitle || 'YouTube Channel'}
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '5px' }}>· Auto-upload</span>
                             </span>
+                          )}
+                          {isChannelTokenExpired && (
+                            <span style={{
+                              background: 'rgba(239, 68, 68, 0.18)',
+                              border: '1px solid rgba(239, 68, 68, 0.35)',
+                              color: '#ef4444',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '2px 7px',
+                              borderRadius: '6px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              <AlertTriangle size={11} /> Expired
+                            </span>
+                          )}
+                          {isChannelTokenExpired && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                audioEngine.playSfx('shimmer');
+                                openGoogleOAuthPopup('templates');
+                              }}
+                              style={{
+                                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '4px 9px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
+                              }}
+                            >
+                              <RefreshCw size={11} /> ⚡ Reconnect
+                            </button>
                           )}
                         </div>
                       ) : (

@@ -33,7 +33,7 @@ import {
   Clock
 } from 'lucide-react';
 import { useBreakpoint, useBodyScrollLock } from '../../hooks/useMediaQuery';
-import { getAuthToken, getStoredUser } from '../../utils/authClient';
+import { getAuthToken, getStoredUser, openGoogleOAuthPopup } from '../../utils/authClient';
 import { ensureCamelCaseSubtitles } from '../../lib/json2videoSubtitles';
 
 const SESSION_ID_KEY = 'shortsai_session_id';
@@ -131,6 +131,11 @@ export default function DashboardApp({
   const [selectedSheetId, setSelectedSheetId] = useState('');
   const [autoLogToSheet, setAutoLogToSheet] = useState(true);
 
+  // Expired YouTube Token Guard Modal state
+  const [showTokenExpiredModal, setShowTokenExpiredModal] = useState(false);
+  const [tokenExpiredModalData, setTokenExpiredModalData] = useState(null);
+  const [isReconnectingInModal, setIsReconnectingInModal] = useState(false);
+
   // Fetch connected YouTube channels and Google Sheets
   useEffect(() => {
     const fetchPublishingAccounts = async () => {
@@ -176,6 +181,8 @@ export default function DashboardApp({
       if (event.data?.type === 'BANG_OAUTH_SUCCESS') {
         fetchPublishingAccounts();
         setTimeout(fetchPublishingAccounts, 800);
+        setShowTokenExpiredModal(false);
+        setIsReconnectingInModal(false);
       }
     };
     window.addEventListener('message', handleAuthMessage);
@@ -185,6 +192,9 @@ export default function DashboardApp({
       window.removeEventListener('focus', fetchPublishingAccounts);
     };
   }, []);
+
+  const activeChannel = channels.find(c => c.channelId === selectedChannelId) || (channels.length > 0 ? (channels.find(c => c.isDefault) || channels[0]) : null);
+  const isChannelTokenExpired = !!(activeChannel && (activeChannel.needsReconnect || activeChannel.isTokenExpired));
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -767,7 +777,7 @@ export default function DashboardApp({
   };
 
   // ─── UNIVERSAL CONVERSATIONAL MESSAGE & DISPATCH HANDLER ─────────
-  const handleGenerate = async (overrideMode, overridePrompt) => {
+  const handleGenerate = async (overrideMode, overridePrompt, options = {}) => {
     const rawText = (overridePrompt !== undefined ? overridePrompt : prompt) || '';
     if (!rawText.trim()) return;
 
@@ -781,6 +791,20 @@ export default function DashboardApp({
       const tab = ['voices', 'subtitles', 'music'].includes(askedTab) ? askedTab : 'voices';
       setPrompt('');
       handleOpenStudio(tab);
+      return;
+    }
+
+    // ── GUARD: Check if YouTube token is expired before launching video generation ──
+    const effectiveAutoUpload = options.forceWithoutUpload ? false : autoUploadToYouTube;
+    if (mode === 'VIDEO_GENERATION' && effectiveAutoUpload && isChannelTokenExpired) {
+      audioEngine.playSfx('click');
+      setTokenExpiredModalData({
+        channelTitle: activeChannel?.channelTitle || 'Connected Channel',
+        channelId: activeChannel?.channelId,
+        pendingMode: overrideMode,
+        pendingPrompt: overridePrompt
+      });
+      setShowTokenExpiredModal(true);
       return;
     }
 
@@ -874,7 +898,8 @@ export default function DashboardApp({
             musicVolume: (getMusicTrackById(musicId).audioUrl || '') === '' ? 0 : (isFinite(Number(musicVolume)) ? Math.max(0, Math.min(0.4, Number(musicVolume))) : 0.08),
             subtitleSettings,
             language,
-            autoUploadToYouTube,
+            autoUploadToYouTube: effectiveAutoUpload,
+            forceWithoutUpload: !!options.forceWithoutUpload,
             selectedChannelId,
             channelId: selectedChannelId,
             selectedSheetId,
@@ -2087,6 +2112,57 @@ export default function DashboardApp({
           }}
         >
           <div className="prompt-bar-inner">
+            {/* ── EXPIRED YOUTUBE TOKEN WARNING BANNER ── */}
+            {autoUploadToYouTube && isChannelTokenExpired && (
+              <div style={{
+                margin: '0 auto 10px auto',
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(245, 158, 11, 0.14) 100%)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                borderRadius: '14px',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                boxShadow: '0 4px 20px rgba(239, 68, 68, 0.16)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+                  <AlertTriangle size={17} color="#ef4444" style={{ flexShrink: 0 }} />
+                  <div style={{ fontSize: '12.5px', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ fontWeight: 700, color: '#fca5a5' }}>YouTube Connection Expired: </span>
+                    <span>Authorization for <strong>{activeChannel?.channelTitle || 'Channel'}</strong> expired. Reconnect to auto-upload.</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      audioEngine.playSfx('shimmer');
+                      openGoogleOAuthPopup('profile');
+                    }}
+                    style={{
+                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '5px 12px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 10px rgba(239, 68, 68, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <span>⚡ Reconnect</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <CanvasPromptBar
               prompt={prompt}
               setPrompt={setPrompt}
@@ -2117,6 +2193,7 @@ export default function DashboardApp({
               selectedChannelId={selectedChannelId}
               setSelectedChannelId={setSelectedChannelId}
               onChannelChange={setSelectedChannelId}
+              isChannelTokenExpired={isChannelTokenExpired}
               sheets={sheets}
               selectedSheetId={selectedSheetId}
               setSelectedSheetId={setSelectedSheetId}
@@ -2132,6 +2209,156 @@ export default function DashboardApp({
             />
           </div>
         </div>
+
+        {/* ── EXPIRED YOUTUBE TOKEN INTERCEPTOR MODAL ── */}
+        {showTokenExpiredModal && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(5, 8, 16, 0.84)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}>
+            <div style={{
+              background: 'linear-gradient(145deg, #131b2e 0%, #0c111e 100%)',
+              border: '1.5px solid rgba(239, 68, 68, 0.45)',
+              borderRadius: '24px',
+              padding: '30px',
+              maxWidth: '520px',
+              width: '100%',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 40px rgba(239, 68, 68, 0.25)',
+              position: 'relative'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '14px',
+                  background: 'rgba(239, 68, 68, 0.16)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <AlertTriangle size={26} color="#ef4444" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
+                    YouTube Authorization Expired
+                  </h3>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                    Target Channel: <strong style={{ color: '#fca5a5' }}>{tokenExpiredModalData?.channelTitle || 'YouTube Channel'}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: '14px',
+                padding: '14px 16px',
+                marginBottom: '20px',
+                fontSize: '13px',
+                color: '#e2e8f0',
+                lineHeight: 1.55
+              }}>
+                Google has expired or revoked the OAuth credentials for this channel. If you proceed with automatic upload, Google YouTube API will reject the upload with <strong>401 Unauthorized</strong>.
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    audioEngine.playSfx('shimmer');
+                    setIsReconnectingInModal(true);
+                    openGoogleOAuthPopup('profile');
+                  }}
+                  disabled={isReconnectingInModal}
+                  style={{
+                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '13px 20px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 18px rgba(239, 68, 68, 0.45)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {isReconnectingInModal ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Waiting for Google Authorization...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      <span>⚡ Reconnect Channel Now (10s)</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    audioEngine.playSfx('click');
+                    setShowTokenExpiredModal(false);
+                    handleGenerate(tokenExpiredModalData?.pendingMode, tokenExpiredModalData?.pendingPrompt, { forceWithoutUpload: true });
+                  }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    color: '#e2e8f0',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '12px',
+                    padding: '12px 20px',
+                    fontSize: '13.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>🎬 Generate Without YouTube Upload</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    audioEngine.playSfx('click');
+                    setShowTokenExpiredModal(false);
+                    setIsReconnectingInModal(false);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    color: '#94a3b8',
+                    border: 'none',
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    marginTop: '4px'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

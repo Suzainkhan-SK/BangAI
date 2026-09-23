@@ -456,13 +456,13 @@ export default function CanvasPromptBar(props) {
                   borderRadius: '99px',
                   fontSize: '11.5px',
                   fontWeight: 700,
-                  border: activeChannel ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid var(--border-subtle)',
-                  background: activeChannel ? 'rgba(239, 68, 68, 0.14)' : 'var(--bg-input)',
-                  color: activeChannel ? '#fca5a5' : 'var(--text-secondary)',
+                  border: props.isChannelTokenExpired ? '1px solid #ef4444' : (activeChannel ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid var(--border-subtle)'),
+                  background: props.isChannelTokenExpired ? 'rgba(239, 68, 68, 0.22)' : (activeChannel ? 'rgba(239, 68, 68, 0.14)' : 'var(--bg-input)'),
+                  color: props.isChannelTokenExpired ? '#f87171' : (activeChannel ? '#fca5a5' : 'var(--text-secondary)'),
                   cursor: 'pointer',
                   transition: 'all 0.15s ease'
                 }}
-                title="Select target YouTube Channel for upload (Change anytime)"
+                title={props.isChannelTokenExpired ? 'YouTube token expired! Click to select or reconnect.' : 'Select target YouTube Channel for upload (Change anytime)'}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="#ef4444">
                   <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
@@ -470,6 +470,11 @@ export default function CanvasPromptBar(props) {
                 <span style={{ maxWidth: isMobile ? '85px' : '130px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {activeChannel ? activeChannel.channelTitle : (channels.length > 0 ? channels[0].channelTitle : 'YouTube: Auto')}
                 </span>
+                {props.isChannelTokenExpired && (
+                  <span style={{ background: '#ef4444', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', marginLeft: '2px' }}>
+                    EXPIRED
+                  </span>
+                )}
                 <ChevronDown size={12} />
               </button>
 
@@ -499,6 +504,7 @@ export default function CanvasPromptBar(props) {
                     {channels.length > 0 ? (
                       channels.map((ch) => {
                         const isSelected = (selectedChannelId === ch.channelId) || (!selectedChannelId && ch.isDefault);
+                        const isExpired = !!(ch.needsReconnect || ch.isTokenExpired);
                         return (
                           <div
                             key={ch.channelId}
@@ -515,7 +521,7 @@ export default function CanvasPromptBar(props) {
                               padding: '8px 10px',
                               borderRadius: '10px',
                               background: isSelected ? 'rgba(239, 68, 68, 0.18)' : 'rgba(255, 255, 255, 0.03)',
-                              border: isSelected ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid rgba(255, 255, 255, 0.04)',
+                              border: isExpired ? '1px solid rgba(239, 68, 68, 0.5)' : (isSelected ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid rgba(255, 255, 255, 0.04)'),
                               cursor: 'pointer',
                               marginBottom: '6px',
                               transition: 'all 0.15s ease'
@@ -530,8 +536,13 @@ export default function CanvasPromptBar(props) {
                                 </div>
                               )}
                               <div style={{ overflow: 'hidden' }}>
-                                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                  {ch.channelTitle}
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span>{ch.channelTitle}</span>
+                                  {isExpired && (
+                                    <span style={{ color: '#ef4444', fontSize: '9px', fontWeight: 800, background: 'rgba(239, 68, 68, 0.2)', padding: '1px 5px', borderRadius: '4px' }}>
+                                      EXPIRED
+                                    </span>
+                                  )}
                                 </div>
                                 <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                                   {ch.customUrl || `@${ch.channelId.substring(0, 10)}`}

@@ -431,6 +431,54 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
           </button>
         </div>
 
+        {/* Expired Token Notice Banner */}
+        {channels.some(c => c.needsReconnect || c.isTokenExpired) && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(245, 158, 11, 0.12) 100%)',
+            border: '1.5px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '16px',
+            padding: '14px 18px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <AlertTriangle size={20} color="#ef4444" style={{ flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#fca5a5' }}>
+                  Action Required: YouTube Token Expired
+                </div>
+                <div style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '2px' }}>
+                  Google has expired the authorization for one or more channels. Click Reconnect below to re-authorize.
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleConnectGoogle}
+              style={{
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '7px 16px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 12px rgba(239, 68, 68, 0.4)'
+              }}
+            >
+              <RefreshCw size={13} />
+              <span>⚡ Reconnect Channel</span>
+            </button>
+          </div>
+        )}
+
         {channels.length === 0 ? (
           <div style={{
             background: 'var(--bg-input)',
@@ -467,12 +515,14 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '16px' }}>
-            {channels.map((ch) => (
+            {channels.map((ch) => {
+              const isExpired = !!(ch.needsReconnect || ch.isTokenExpired);
+              return (
               <div 
                 key={ch.channelId}
                 style={{
                   background: 'var(--bg-input)',
-                  border: ch.isDefault ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid var(--border-subtle)',
+                  border: isExpired ? '1.5px solid rgba(239, 68, 68, 0.65)' : (ch.isDefault ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid var(--border-subtle)'),
                   borderRadius: '16px',
                   padding: '18px',
                   display: 'flex',
@@ -487,7 +537,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                       <img 
                         src={ch.avatarUrl} 
                         alt={ch.channelTitle} 
-                        style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(239, 68, 68, 0.4)' }}
+                        style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: isExpired ? '2px solid #ef4444' : '2px solid rgba(239, 68, 68, 0.4)' }}
                       />
                     ) : (
                       <div style={{
@@ -505,8 +555,8 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                       </div>
                     )}
                     <div>
-                      <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                        {ch.channelTitle}
+                      <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{ch.channelTitle}</span>
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                         {ch.customUrl || `@${ch.channelId.substring(0, 10)}`}
@@ -530,19 +580,36 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                         <Star size={10} /> Default
                       </span>
                     )}
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      color: '#10b981',
-                      background: 'rgba(16, 185, 129, 0.12)',
-                      padding: '3px 8px',
-                      borderRadius: '99px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <CheckCircle2 size={11} /> Verified
-                    </span>
+                    {isExpired ? (
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#ef4444',
+                        background: 'rgba(239, 68, 68, 0.18)',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        padding: '3px 8px',
+                        borderRadius: '99px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <AlertTriangle size={11} /> Expired
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#10b981',
+                        background: 'rgba(16, 185, 129, 0.12)',
+                        padding: '3px 8px',
+                        borderRadius: '99px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <CheckCircle2 size={11} /> Verified
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -591,28 +658,52 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                   ) : (
                     <span style={{ fontSize: '11px', color: '#10b981' }}>⚡ Active in Prompt Bar</span>
                   )}
-                  <button
-                    onClick={() => handleDisconnectChannel(ch.channelId, ch.channelTitle)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      transition: 'color 0.15s ease'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                  >
-                    <Trash2 size={12} />
-                    <span>Disconnect</span>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {isExpired && (
+                      <button
+                        onClick={handleConnectGoogle}
+                        style={{
+                          background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '4px 10px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)'
+                        }}
+                      >
+                        <RefreshCw size={11} /> Reconnect
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDisconnectChannel(ch.channelId, ch.channelTitle)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'color 0.15s ease'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                    >
+                      <Trash2 size={12} />
+                      <span>Disconnect</span>
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
         )}
       </div>

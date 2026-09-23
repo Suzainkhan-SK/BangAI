@@ -396,7 +396,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
           targetChannel = selectedChannelId ? channels.find(c => c.channelId === selectedChannelId) : (channels.find(c => c.isDefault) || channels[0] || null);
 
           if (targetChannel && targetChannel.tokens) {
-            userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || targetChannel.tokens.accessToken || '';
+            userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || '';
             userYouTubeChannelTitle = targetChannel.channelTitle || '';
             userYouTubeChannelId = targetChannel.channelId || '';
           }
@@ -417,7 +417,7 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
           if (targetSheet) {
             const sheetTokenContainer = targetSheet.tokens ? targetSheet : targetChannel;
             if (sheetTokenContainer) {
-              userSheetAccessToken = await getFreshGoogleToken(sheetTokenContainer, 'youtubeChannels') || sheetTokenContainer.tokens?.accessToken || '';
+              userSheetAccessToken = await getFreshGoogleToken(sheetTokenContainer, 'youtubeChannels') || '';
             }
             userSpreadsheetId = targetSheet.spreadsheetId || '';
             userSheetName = targetSheet.sheetName || 'Production Log';
@@ -426,6 +426,18 @@ Language: ${detectedLanguage}. If the creator writes in Hindi or Hinglish, reply
       } catch (tokenErr) {
         console.warn('[chat.js] Token lookup warning:', tokenErr.message);
       }
+    }
+
+    if (settings.autoUploadToYouTube !== false && !userYouTubeAccessToken && targetChannel && settings.forceWithoutUpload !== true) {
+      return {
+        statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          error: 'YOUTUBE_TOKEN_EXPIRED',
+          message: `Your YouTube connection for "${targetChannel.channelTitle || 'YouTube'}" has expired. Please reconnect your channel on BangAI before starting generation.`
+        })
+      };
     }
 
     const autoUploadToYouTube = settings.autoUploadToYouTube !== false && !!userYouTubeAccessToken;

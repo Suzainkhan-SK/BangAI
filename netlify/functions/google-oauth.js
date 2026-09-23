@@ -54,7 +54,8 @@ export async function getFreshGoogleToken(tokenContainer, collectionField = 'you
   }
 
   if (!refreshToken) {
-    return accessToken || null;
+    const isStillValid = accessToken && expiresAt && Date.now() < expiresAt;
+    return isStillValid ? accessToken : null;
   }
 
   try {
@@ -71,8 +72,21 @@ export async function getFreshGoogleToken(tokenContainer, collectionField = 'you
 
     const data = await res.json();
     if (!res.ok || !data.access_token) {
-      console.error('[Google OAuth] Token refresh failed:', data);
-      return accessToken || null;
+      console.warn('[Google OAuth] Token refresh failed:', data?.error || res.statusText);
+      const db = await getDb();
+      if (db && tokenContainer.channelId) {
+        await db.collection('users').updateOne(
+          { 'youtubeChannels.channelId': tokenContainer.channelId },
+          {
+            $set: {
+              'youtubeChannels.$.tokens.needsReconnect': true,
+              'youtubeChannels.$.tokens.lastRefreshError': data?.error || 'refresh_failed',
+              'youtubeChannels.$.tokens.lastRefreshAttempt': new Date().toISOString()
+            }
+          }
+        ).catch(() => {});
+      }
+      return null;
     }
 
     const newAccessToken = data.access_token;
@@ -88,6 +102,7 @@ export async function getFreshGoogleToken(tokenContainer, collectionField = 'you
             $set: {
               'youtubeChannels.$.tokens.accessToken': newAccessToken,
               'youtubeChannels.$.tokens.expiresAt': newExpiresAt,
+              'youtubeChannels.$.tokens.needsReconnect': false,
               'youtubeChannels.$.tokens.lastRefreshedAt': new Date().toISOString()
             }
           }
@@ -100,6 +115,7 @@ export async function getFreshGoogleToken(tokenContainer, collectionField = 'you
             $set: {
               'sheets.$.tokens.accessToken': newAccessToken,
               'sheets.$.tokens.expiresAt': newExpiresAt,
+              'sheets.$.tokens.needsReconnect': false,
               'sheets.$.tokens.lastRefreshedAt': new Date().toISOString()
             }
           }
@@ -110,7 +126,8 @@ export async function getFreshGoogleToken(tokenContainer, collectionField = 'you
     return newAccessToken;
   } catch (err) {
     console.error('[Google OAuth] Exception during token refresh:', err.message);
-    return accessToken || null;
+    const isStillValid = accessToken && expiresAt && Date.now() < expiresAt;
+    return isStillValid ? accessToken : null;
   }
 }
 
@@ -514,28 +531,64 @@ export const handler = async (event, context) => {
         };
       }
 
+      const queryList = [];
       const uid = user.userId || user.id;
-      const userDoc = await db.collection('users').findOne({
-        $or: [
-          { id: uid },
-          { _id: uid },
-          { userId: uid },
-          { email: user.email ? user.email.toLowerCase() : '' }
-        ]
-      });
+      if (uid) {
+        queryList.push({ id: uid }, { _id: uid }, { userId: uid });
+      }
+      if (user.email) {
+        queryList.push({ email: user.email.toLowerCase() }, { email: user.email });
+      }
+
+      const userDoc = queryList.length > 0
+        ? await db.collection('users').findOne({ $or: queryList })
+        : null;
 
       const rawChannels = userDoc?.youtubeChannels || [];
-      const channels = rawChannels.map(c => ({
-        channelId: c.channelId,
-        channelTitle: c.channelTitle,
-        customUrl: c.customUrl,
-        avatarUrl: c.avatarUrl,
-        subscriberCount: c.subscriberCount || '0',
-        videoCount: c.videoCount || '0',
-        defaultPrivacy: c.defaultPrivacy || 'public',
-        isDefault: !!c.isDefault,
-        connectedAt: c.connectedAt,
-        isConnected: true
+      const channels = await Promise.all(rawChannels.map(async (c) => {
+        let isExpired = false;
+        let needsReconnect = !!c.tokens?.needsReconnect;
+        let reconnectReason = '';
+
+        const tokens = c.tokens || {};
+        if (!tokens.accessToken && !tokens.refreshToken) {
+          isExpired = true;
+          needsReconnect = true;
+          reconnectReason = 'No authorization tokens found. Please connect your YouTube channel.';
+        } else if (tokens.refreshToken) {
+          // If expired or expiring within 5 minutes, proactively test/refresh
+          if (!tokens.expiresAt || Date.now() >= tokens.expiresAt - 5 * 60 * 1000) {
+            const fresh = await getFreshGoogleToken(c, 'youtubeChannels');
+            if (!fresh) {
+              isExpired = true;
+              needsReconnect = true;
+              reconnectReason = 'Google authorization expired or was revoked (invalid_grant). Please reconnect your YouTube channel.';
+            } else {
+              isExpired = false;
+              needsReconnect = false;
+            }
+          }
+        } else if (tokens.expiresAt && Date.now() >= tokens.expiresAt) {
+          isExpired = true;
+          needsReconnect = true;
+          reconnectReason = 'Access token expired and no refresh token available. Please reconnect.';
+        }
+
+        return {
+          channelId: c.channelId,
+          channelTitle: c.channelTitle,
+          customUrl: c.customUrl,
+          avatarUrl: c.avatarUrl,
+          subscriberCount: c.subscriberCount || '0',
+          videoCount: c.videoCount || '0',
+          defaultPrivacy: c.defaultPrivacy || 'public',
+          isDefault: !!c.isDefault,
+          connectedAt: c.connectedAt,
+          isConnected: !needsReconnect,
+          isTokenExpired: isExpired,
+          needsReconnect: needsReconnect,
+          reconnectReason: reconnectReason
+        };
       }));
 
       // Multi-Sheets list

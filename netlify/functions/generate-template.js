@@ -92,7 +92,7 @@ export const handler = async (event) => {
             }
 
             if (targetChannel && targetChannel.tokens) {
-              userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || targetChannel.tokens.accessToken || '';
+              userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || '';
               userYouTubeChannelTitle = targetChannel.channelTitle || '';
               userYouTubeChannelId = targetChannel.channelId || '';
             }
@@ -106,7 +106,7 @@ export const handler = async (event) => {
             if (targetSheet) {
               const sheetTokenContainer = targetSheet.tokens ? targetSheet : targetChannel;
               if (sheetTokenContainer) {
-                userSheetAccessToken = await getFreshGoogleToken(sheetTokenContainer, 'youtubeChannels') || sheetTokenContainer.tokens?.accessToken || '';
+                userSheetAccessToken = await getFreshGoogleToken(sheetTokenContainer, 'youtubeChannels') || '';
               }
               userSpreadsheetId = targetSheet.spreadsheetId || '';
               userSheetName = targetSheet.sheetName || 'Production Log';
@@ -116,6 +116,18 @@ export const handler = async (event) => {
       } catch (dbErr) {
         console.warn('[generate-template] Error resolving dynamic tokens:', dbErr.message);
       }
+    }
+
+    if (payload.autoUploadToYouTube !== false && !userYouTubeAccessToken && payload.forceWithoutUpload !== true) {
+      return {
+        statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({
+          success: false,
+          error: 'YOUTUBE_TOKEN_EXPIRED',
+          message: 'Your YouTube channel connection has expired or is invalid. Please reconnect your YouTube channel on BangAI before starting generation.'
+        })
+      };
     }
 
     const autoUploadToYouTube = payload.autoUploadToYouTube !== false && !!userYouTubeAccessToken;
