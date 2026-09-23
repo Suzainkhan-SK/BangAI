@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-23T11:08:29.752Z",
+  "updatedAt": "2026-09-23T11:20:59.919Z",
   "createdAt": "2026-09-19T12:50:05.357Z",
   "id": "LPDivELTTv8QD24u",
   "name": "Viral All-In-One AI [5 Direct Video Scenes - 75s] - Webhook Based",
@@ -5072,8 +5072,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        29700,
-        1950
+        29400,
+        1400
       ],
       "onError": "continueErrorOutput"
     },
@@ -5093,8 +5093,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        30960,
-        1280
+        31200,
+        1250
       ]
     },
     {
@@ -5113,8 +5113,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        31236,
-        1664
+        31800,
+        1450
       ]
     },
     {
@@ -5126,7 +5126,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        31240,
+        31500,
         1000
       ]
     },
@@ -6968,8 +6968,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        29700,
-        2150
+        29400,
+        2050
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -7209,8 +7209,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        29892,
-        1664
+        29700,
+        1400
       ]
     },
     {
@@ -7242,7 +7242,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        29700,
+        29400,
         2350
       ],
       "onError": "continueRegularOutput"
@@ -7276,8 +7276,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        31240,
-        1280
+        31500,
+        1700
       ],
       "onError": "continueRegularOutput"
     },
@@ -7310,8 +7310,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        31444,
-        1472
+        32100,
+        1400
       ],
       "onError": "continueRegularOutput"
     },
@@ -7378,8 +7378,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        31444,
-        1680
+        32100,
+        1600
       ],
       "onError": "continueRegularOutput"
     },
@@ -7394,8 +7394,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        15568,
-        2608
+        29100,
+        2800
       ],
       "webhookId": "a0f38e0e-8c17-4a2a-aa54-fe40c51f7091"
     },
@@ -7408,8 +7408,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        29668,
-        2608
+        29400,
+        2800
       ]
     },
     {
@@ -7428,8 +7428,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        29908,
-        2608
+        29700,
+        2800
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -7465,8 +7465,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        30960,
-        2400
+        31200,
+        2800
       ]
     },
     {
@@ -7498,8 +7498,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        31800,
-        2480
+        32100,
+        2750
       ],
       "onError": "continueRegularOutput"
     },
@@ -7532,8 +7532,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        30240,
-        2720
+        30450,
+        3100
       ],
       "onError": "continueRegularOutput"
     },
@@ -7820,8 +7820,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        31240,
-        2240
+        31500,
+        2600
       ]
     },
     {
@@ -7833,8 +7833,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        31520,
-        2240
+        31800,
+        2600
       ]
     },
     {
@@ -7846,7 +7846,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        31520,
+        31800,
         1000
       ]
     },
@@ -7936,7 +7936,7 @@
       "typeVersion": 2.2,
       "position": [
         30000,
-        1400
+        1250
       ]
     },
     {
@@ -7948,8 +7948,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        31240,
-        1560
+        31500,
+        1450
       ],
       "onError": "continueErrorOutput"
     },
@@ -7983,7 +7983,7 @@
       "typeVersion": 2.2,
       "position": [
         30000,
-        2500
+        2800
       ]
     },
     {
@@ -7995,8 +7995,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        31240,
-        2560
+        31500,
+        2800
       ],
       "onError": "continueErrorOutput"
     },
@@ -8029,8 +8029,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        31520,
-        2560
+        31800,
+        2800
       ]
     },
     {
@@ -8062,8 +8062,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        31800,
-        2680
+        32100,
+        2950
       ],
       "onError": "continueRegularOutput"
     },
@@ -8076,8 +8076,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        30404,
-        1680
+        30300,
+        1550
       ]
     },
     {
@@ -8265,8 +8265,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        30964,
-        1008
+        31500,
+        1200
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -8982,8 +8982,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        30240,
-        1280
+        30300,
+        1250
       ],
       "parameters": {
         "jsCode": "// Init YouTube Resumable Upload (Auto Mode) — ZERO RAM ALLOCATION\nconst helpers = this.helpers;\nasync function httpFetch(url, opts = {}) {\n  const reqOpts = {\n    method: String(opts.method || 'GET').toUpperCase(),\n    url,\n    headers: opts.headers || {},\n    json: false,\n    returnFullResponse: true,\n    timeout: opts.timeout || 60000\n  };\n  if (opts.body !== undefined && opts.body !== null) reqOpts.body = opts.body;\n  let statusCode = 0;\n  let rawHeaders = {};\n  let rawBody = '';\n  try {\n    const r = await helpers.httpRequest(reqOpts);\n    statusCode = r.statusCode || 200;\n    rawHeaders = r.headers || {};\n    rawBody = r.body;\n  } catch (err) {\n    const resp = (err && (err.response || (err.cause && err.cause.response))) || {};\n    statusCode = Number(resp.status || resp.statusCode || err.statusCode || 0) || 0;\n    rawHeaders = resp.headers || {};\n    rawBody = resp.data !== undefined ? resp.data : (err.message || String(err));\n  }\n  const asText = () => typeof rawBody === 'string' ? rawBody : (Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : JSON.stringify(rawBody || ''));\n  return {\n    ok: statusCode >= 200 && statusCode < 300,\n    status: statusCode,\n    headers: {\n      get: (name) => {\n        const want = String(name).toLowerCase();\n        for (const k of Object.keys(rawHeaders || {})) {\n          if (k.toLowerCase() === want) return rawHeaders[k];\n        }\n        return null;\n      }\n    },\n    text: async () => asText(),\n    json: async () => {\n      if (rawBody && typeof rawBody === 'object' && !Buffer.isBuffer(rawBody)) return rawBody;\n      try { return JSON.parse(asText()); } catch (e) { return {}; }\n    }\n  };\n}\n\nconst item = $input.first();\nlet binaryMeta = item.binary?.data || Object.values(item.binary || {})[0] || {};\nlet chatCtx = {};\nlet splitScenes = {};\nlet parseStrategy = {};\n\ntry { chatCtx = $('Filter: My Chat Only').first().json || {}; } catch(e) {}\ntry { splitScenes = $('Split Scenes').first().json || {}; } catch(e) {}\ntry { parseStrategy = $('Parse Strategy Output').first().json || {}; } catch(e) {}\n\nlet accessToken = chatCtx.userYouTubeAccessToken;\n\n// 1. Refresh OAuth Token silently if threadId exists\nif (chatCtx.threadId) {\n  try {\n    const refreshRes = await httpFetch('https://bangai.netlify.app/.netlify/functions/refresh-upload-token', {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'x-webhook-secret': 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0'\n      },\n      body: JSON.stringify({\n        threadId: chatCtx.threadId,\n        channelId: chatCtx.userYouTubeChannelId || '',\n        scope: 'youtube'\n      })\n    });\n    if (refreshRes.ok) {\n      const refreshData = await refreshRes.json();\n      if (refreshData.accessToken) {\n        accessToken = refreshData.accessToken;\n      }\n    }\n  } catch (refreshErr) {\n    console.warn('[Init YouTube] Token refresh notice:', refreshErr.message);\n  }\n}\n\nif (!accessToken) {\n  throw new Error('User YouTube OAuth access token is missing');\n}\n\nconst title = (splitScenes.title || chatCtx.title || chatCtx.rawUserInput || 'Viral YouTube Short').substring(0, 100);\nconst baseDesc = splitScenes.youtubeDescription || chatCtx.description || '';\nconst description = baseDesc.includes('#Shorts') ? baseDesc : (baseDesc + '\\n\\n#Shorts');\nconst tags = Array.isArray(splitScenes.tags) ? splitScenes.tags : (splitScenes.tags ? splitScenes.tags.split(',') : []);\n\n// Determine privacy\nlet approvalPrivacy = '';\ntry {\n  const rawWait = $('Wait for Scenes Approval').first().json || {};\n  const waitBody = rawWait.body || rawWait.query || rawWait || {};\n  approvalPrivacy = String(waitBody.privacyStatus || waitBody.privacy || '').toLowerCase();\n} catch (e) {}\nconst requestedPrivacy = String(approvalPrivacy || chatCtx.privacyStatus || chatCtx.privacy || '').toLowerCase();\nconst finalPrivacy = ['public', 'private', 'unlisted'].includes(requestedPrivacy) ? requestedPrivacy : 'public';\n\n// Resolve video file size without reading buffer into V8 heap\nlet srcUrl = '';\ntry {\n  let zvidRes = $('Zvid Status = Done?').first().json || {};\n  if (!zvidRes.result && !zvidRes.url) zvidRes = $('Poll Zvid Status').first().json || {};\n  srcUrl = zvidRes.result?.url || zvidRes.url || zvidRes.videoUrl || '';\n} catch (e) {}\n\nlet bytes = Number(binaryMeta.fileSizeBytes || 0);\nif (!bytes && binaryMeta.fileSize) {\n  // If fileSize formatted e.g. \"45.2 MB\"\n  const m = String(binaryMeta.fileSize).match(/([0-9.]+)\\s*(MB|KB|B)/i);\n  if (m) {\n    const val = parseFloat(m[1]);\n    const unit = m[2].toUpperCase();\n    if (unit === 'MB') bytes = Math.round(val * 1024 * 1024);\n    else if (unit === 'KB') bytes = Math.round(val * 1024);\n    else bytes = Math.round(val);\n  }\n}\n\nif (!bytes && srcUrl) {\n  try {\n    const headRes = await httpFetch(srcUrl, { method: 'HEAD', timeout: 10000 });\n    const cl = headRes.headers.get('content-length');\n    if (cl && Number(cl) > 0) bytes = Number(cl);\n  } catch (e) {}\n}\n\nconst mimeType = binaryMeta.mimeType || 'video/mp4';\n\nconst metadata = {\n  snippet: {\n    title: title,\n    description: description,\n    tags: tags.map(t => t.replace(/[<>]/g, '').trim()).filter(t => t.length > 0).slice(0, 30),\n    categoryId: '24',\n    defaultLanguage: (parseStrategy.language === 'English') ? 'en' : 'hi'\n  },\n  status: {\n    privacyStatus: finalPrivacy,\n    selfDeclaredMadeForKids: false,\n    embeddable: true,\n    publicStatsViewable: true\n  }\n};\n\nconst initHeaders = {\n  'Authorization': 'Bearer ' + accessToken,\n  'Content-Type': 'application/json; charset=UTF-8',\n  'X-Upload-Content-Type': mimeType\n};\nif (bytes > 0) {\n  initHeaders['X-Upload-Content-Length'] = String(bytes);\n}\n\n// 2. Initiate Resumable Upload\nconst initRes = await httpFetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {\n  method: 'POST',\n  headers: initHeaders,\n  body: JSON.stringify(metadata)\n});\n\nif (!initRes.ok) {\n  const errText = await initRes.text();\n  throw new Error('YouTube Upload Init Failed: ' + errText);\n}\n\nconst uploadUrl = initRes.headers.get('location');\nif (!uploadUrl) {\n  throw new Error('YouTube API did not return upload location URL');\n}\n\nreturn [{\n  json: {\n    uploadUrl: uploadUrl,\n    fileSize: bytes,\n    mimeType: mimeType,\n    title: title,\n    description: description,\n    tags: tags,\n    accessToken: accessToken,\n    channelTitle: chatCtx.userYouTubeChannelTitle || '',\n    channelId: chatCtx.userYouTubeChannelId || '',\n    threadId: chatCtx.threadId || ''\n  },\n  binary: item.binary\n}];"
@@ -8995,8 +8995,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        30480,
-        1280
+        30600,
+        1250
       ],
       "onError": "continueRegularOutput",
       "parameters": {
@@ -9030,8 +9030,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        30720,
-        1280
+        30900,
+        1250
       ],
       "parameters": {
         "jsCode": "// Dynamic User YouTube Upload (Post-Stream Status Verifier)\nconst helpers = this.helpers;\nasync function httpFetch(url, opts = {}) {\n  const reqOpts = {\n    method: String(opts.method || 'GET').toUpperCase(),\n    url,\n    headers: opts.headers || {},\n    json: false,\n    returnFullResponse: true,\n    timeout: opts.timeout || 20000\n  };\n  let statusCode = 0;\n  let rawBody = '';\n  try {\n    const r = await helpers.httpRequest(reqOpts);\n    statusCode = r.statusCode || 200;\n    rawBody = r.body;\n  } catch (err) {\n    const resp = (err && (err.response || (err.cause && err.cause.response))) || {};\n    statusCode = Number(resp.status || resp.statusCode || err.statusCode || 0) || 0;\n    rawBody = resp.data !== undefined ? resp.data : (err.message || String(err));\n  }\n  const asText = () => typeof rawBody === 'string' ? rawBody : (Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : JSON.stringify(rawBody || ''));\n  return {\n    ok: statusCode >= 200 && statusCode < 300,\n    status: statusCode,\n    json: async () => {\n      if (rawBody && typeof rawBody === 'object' && !Buffer.isBuffer(rawBody)) return rawBody;\n      try { return JSON.parse(asText()); } catch (e) { return {}; }\n    }\n  };\n}\n\nconst inputItem = $input.first()?.json || {};\nlet initData = {};\ntry { initData = $('Init YouTube Resumable Upload').first().json || {}; } catch(e) {}\n\nconst videoId = inputItem.id || inputItem.uploadId;\nconst accessToken = initData.accessToken || inputItem.accessToken;\nconst title = initData.title || inputItem.title || 'Viral YouTube Short';\nconst bytes = initData.fileSize || inputItem.fileSize || 0;\nconst mimeType = initData.mimeType || 'video/mp4';\nconst channelTitle = initData.channelTitle || inputItem.channelTitle || '';\n\nif (!videoId) {\n  const errDesc = inputItem.error?.message || JSON.stringify(inputItem) || 'YouTube Stream Upload Failed';\n  return [{\n    json: {\n      success: false,\n      uploadId: null,\n      id: null,\n      title: title,\n      url: '',\n      channelTitle: channelTitle,\n      userUploaded: false,\n      bytesUploaded: 0,\n      mimeType: mimeType,\n      ytUploadStatus: 'failed',\n      ytProcessingStatus: 'failed',\n      ytFailureReason: errDesc,\n      uploadStatus: 'FAILED',\n      uploadError: errDesc\n    }\n  }];\n}\n\n// Check status on YouTube API\nlet ytUploadStatus = 'uploaded';\nlet ytProcessingStatus = 'processing';\nlet ytFailureReason = null;\nlet ytRejectionReason = null;\n\nif (accessToken && videoId) {\n  try {\n    const vRes = await httpFetch('https://www.googleapis.com/youtube/v3/videos?part=status,processingDetails&id=' + videoId, {\n      method: 'GET',\n      headers: { 'Authorization': 'Bearer ' + accessToken },\n      timeout: 15000\n    });\n    if (vRes.ok) {\n      const vJson = await vRes.json();\n      const vItem = (vJson.items || [])[0];\n      if (vItem) {\n        ytUploadStatus = vItem.status?.uploadStatus || ytUploadStatus;\n        ytFailureReason = vItem.status?.failureReason || null;\n        ytRejectionReason = vItem.status?.rejectionReason || null;\n        ytProcessingStatus = vItem.processingDetails?.processingStatus || ytProcessingStatus;\n      }\n    }\n  } catch (e) {}\n}\n\nconst isDone = (ytUploadStatus === 'processed' || ytProcessingStatus === 'succeeded');\n\nreturn [{\n  json: {\n    success: true,\n    uploadId: videoId,\n    id: videoId,\n    title: title,\n    url: 'https://youtube.com/shorts/' + videoId,\n    channelTitle: channelTitle,\n    userUploaded: true,\n    bytesUploaded: bytes,\n    mimeType: mimeType,\n    ytUploadStatus: ytUploadStatus,\n    ytProcessingStatus: ytProcessingStatus,\n    ytFailureReason: ytFailureReason,\n    ytRejectionReason: ytRejectionReason,\n    uploadStatus: isDone ? 'UPLOADED' : 'PROCESSING'\n  }\n}];"
@@ -9043,8 +9043,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        30240,
-        2400
+        30300,
+        2800
       ],
       "parameters": {
         "jsCode": "// Init YouTube Resumable Upload (Manual Mode) — ZERO RAM ALLOCATION\nconst helpers = this.helpers;\nasync function httpFetch(url, opts = {}) {\n  const reqOpts = {\n    method: String(opts.method || 'GET').toUpperCase(),\n    url,\n    headers: opts.headers || {},\n    json: false,\n    returnFullResponse: true,\n    timeout: opts.timeout || 60000\n  };\n  if (opts.body !== undefined && opts.body !== null) reqOpts.body = opts.body;\n  let statusCode = 0;\n  let rawHeaders = {};\n  let rawBody = '';\n  try {\n    const r = await helpers.httpRequest(reqOpts);\n    statusCode = r.statusCode || 200;\n    rawHeaders = r.headers || {};\n    rawBody = r.body;\n  } catch (err) {\n    const resp = (err && (err.response || (err.cause && err.cause.response))) || {};\n    statusCode = Number(resp.status || resp.statusCode || err.statusCode || 0) || 0;\n    rawHeaders = resp.headers || {};\n    rawBody = resp.data !== undefined ? resp.data : (err.message || String(err));\n  }\n  const asText = () => typeof rawBody === 'string' ? rawBody : (Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : JSON.stringify(rawBody || ''));\n  return {\n    ok: statusCode >= 200 && statusCode < 300,\n    status: statusCode,\n    headers: {\n      get: (name) => {\n        const want = String(name).toLowerCase();\n        for (const k of Object.keys(rawHeaders || {})) {\n          if (k.toLowerCase() === want) return rawHeaders[k];\n        }\n        return null;\n      }\n    },\n    text: async () => asText(),\n    json: async () => {\n      if (rawBody && typeof rawBody === 'object' && !Buffer.isBuffer(rawBody)) return rawBody;\n      try { return JSON.parse(asText()); } catch (e) { return {}; }\n    }\n  };\n}\n\nconst item = $input.first();\nlet binaryMeta = item.binary?.data || Object.values(item.binary || {})[0] || {};\nlet ctx = {};\ntry { ctx = $('Format Manual Upload Context').first().json || {}; } catch(e) {}\n\nlet accessToken = ctx.userYouTubeAccessToken;\n\n// 1. Silent token refresh before upload\nif (ctx.threadId) {\n  try {\n    const refreshRes = await httpFetch('https://bangai.netlify.app/.netlify/functions/refresh-upload-token', {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'x-webhook-secret': 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0'\n      },\n      body: JSON.stringify({\n        threadId: ctx.threadId,\n        channelId: ctx.userYouTubeChannelId || '',\n        scope: 'youtube'\n      })\n    });\n    if (refreshRes.ok) {\n      const refreshData = await refreshRes.json();\n      if (refreshData.accessToken) {\n        accessToken = refreshData.accessToken;\n      }\n    }\n  } catch (refreshErr) {\n    console.warn('[Init Manual YouTube] Token refresh notice:', refreshErr.message);\n  }\n}\n\nif (!accessToken) {\n  throw new Error('User YouTube OAuth access token is missing for manual upload');\n}\n\nconst title = (ctx.title || 'Viral YouTube Short').substring(0, 100);\nconst baseDesc = ctx.description || '';\nconst description = baseDesc.includes('#Shorts') ? baseDesc : (baseDesc + '\\n\\n#Shorts');\nconst tags = Array.isArray(ctx.tags) ? ctx.tags : (ctx.tags ? ctx.tags.split(',') : []);\nconst finalPrivacy = ['public', 'private', 'unlisted'].includes(String(ctx.privacyStatus || ctx.privacy || '').toLowerCase()) ? String(ctx.privacyStatus || ctx.privacy).toLowerCase() : 'public';\n\nconst srcUrl = ctx.videoUrl || '';\nlet bytes = Number(binaryMeta.fileSizeBytes || 0);\nif (!bytes && binaryMeta.fileSize) {\n  const m = String(binaryMeta.fileSize).match(/([0-9.]+)\\s*(MB|KB|B)/i);\n  if (m) {\n    const val = parseFloat(m[1]);\n    const unit = m[2].toUpperCase();\n    if (unit === 'MB') bytes = Math.round(val * 1024 * 1024);\n    else if (unit === 'KB') bytes = Math.round(val * 1024);\n    else bytes = Math.round(val);\n  }\n}\nif (!bytes && srcUrl) {\n  try {\n    const headRes = await httpFetch(srcUrl, { method: 'HEAD', timeout: 10000 });\n    const cl = headRes.headers.get('content-length');\n    if (cl && Number(cl) > 0) bytes = Number(cl);\n  } catch (e) {}\n}\n\nconst mimeType = binaryMeta.mimeType || 'video/mp4';\n\nconst metadata = {\n  snippet: {\n    title: title,\n    description: description,\n    tags: tags.map(t => t.replace(/[<>]/g, '').trim()).filter(t => t.length > 0).slice(0, 30),\n    categoryId: '24'\n  },\n  status: {\n    privacyStatus: finalPrivacy,\n    selfDeclaredMadeForKids: false,\n    embeddable: true,\n    publicStatsViewable: true\n  }\n};\n\nconst initHeaders = {\n  'Authorization': 'Bearer ' + accessToken,\n  'Content-Type': 'application/json; charset=UTF-8',\n  'X-Upload-Content-Type': mimeType\n};\nif (bytes > 0) {\n  initHeaders['X-Upload-Content-Length'] = String(bytes);\n}\n\nconst initRes = await httpFetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {\n  method: 'POST',\n  headers: initHeaders,\n  body: JSON.stringify(metadata)\n});\n\nif (!initRes.ok) {\n  const errText = await initRes.text();\n  throw new Error('Manual YouTube Upload Init Failed: ' + errText);\n}\n\nconst uploadUrl = initRes.headers.get('location');\nif (!uploadUrl) {\n  throw new Error('YouTube API did not return upload location URL');\n}\n\nreturn [{\n  json: {\n    uploadUrl: uploadUrl,\n    fileSize: bytes,\n    mimeType: mimeType,\n    title: title,\n    description: description,\n    tags: tags,\n    accessToken: accessToken,\n    channelTitle: ctx.userYouTubeChannelTitle || '',\n    channelId: ctx.userYouTubeChannelId || '',\n    threadId: ctx.threadId || ''\n  },\n  binary: item.binary\n}];"
@@ -9056,8 +9056,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        30480,
-        2400
+        30600,
+        2800
       ],
       "onError": "continueRegularOutput",
       "parameters": {
@@ -9091,8 +9091,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        30720,
-        2400
+        30900,
+        2800
       ],
       "parameters": {
         "jsCode": "// Dynamic User YouTube Upload (Manual - Post-Stream Status Verifier)\nconst helpers = this.helpers;\nasync function httpFetch(url, opts = {}) {\n  const reqOpts = {\n    method: String(opts.method || 'GET').toUpperCase(),\n    url,\n    headers: opts.headers || {},\n    json: false,\n    returnFullResponse: true,\n    timeout: opts.timeout || 20000\n  };\n  let statusCode = 0;\n  let rawBody = '';\n  try {\n    const r = await helpers.httpRequest(reqOpts);\n    statusCode = r.statusCode || 200;\n    rawBody = r.body;\n  } catch (err) {\n    const resp = (err && (err.response || (err.cause && err.cause.response))) || {};\n    statusCode = Number(resp.status || resp.statusCode || err.statusCode || 0) || 0;\n    rawBody = resp.data !== undefined ? resp.data : (err.message || String(err));\n  }\n  const asText = () => typeof rawBody === 'string' ? rawBody : (Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : JSON.stringify(rawBody || ''));\n  return {\n    ok: statusCode >= 200 && statusCode < 300,\n    status: statusCode,\n    json: async () => {\n      if (rawBody && typeof rawBody === 'object' && !Buffer.isBuffer(rawBody)) return rawBody;\n      try { return JSON.parse(asText()); } catch (e) { return {}; }\n    }\n  };\n}\n\nconst inputItem = $input.first()?.json || {};\nlet initData = {};\ntry { initData = $('Init YouTube Resumable Upload (Manual)').first().json || {}; } catch(e) {}\n\nconst videoId = inputItem.id || inputItem.uploadId;\nconst accessToken = initData.accessToken || inputItem.accessToken;\nconst title = initData.title || inputItem.title || 'Viral YouTube Short';\nconst bytes = initData.fileSize || inputItem.fileSize || 0;\nconst mimeType = initData.mimeType || 'video/mp4';\nconst channelTitle = initData.channelTitle || inputItem.channelTitle || '';\n\nif (!videoId) {\n  const errDesc = inputItem.error?.message || JSON.stringify(inputItem) || 'YouTube Stream Upload Failed';\n  return [{\n    json: {\n      success: false,\n      uploadId: null,\n      id: null,\n      title: title,\n      url: '',\n      channelTitle: channelTitle,\n      userUploaded: false,\n      bytesUploaded: 0,\n      mimeType: mimeType,\n      ytUploadStatus: 'failed',\n      ytProcessingStatus: 'failed',\n      ytFailureReason: errDesc,\n      uploadStatus: 'FAILED',\n      uploadError: errDesc\n    }\n  }];\n}\n\nlet ytUploadStatus = 'uploaded';\nlet ytProcessingStatus = 'processing';\nlet ytFailureReason = null;\nlet ytRejectionReason = null;\n\nif (accessToken && videoId) {\n  try {\n    const vRes = await httpFetch('https://www.googleapis.com/youtube/v3/videos?part=status,processingDetails&id=' + videoId, {\n      method: 'GET',\n      headers: { 'Authorization': 'Bearer ' + accessToken },\n      timeout: 15000\n    });\n    if (vRes.ok) {\n      const vJson = await vRes.json();\n      const vItem = (vJson.items || [])[0];\n      if (vItem) {\n        ytUploadStatus = vItem.status?.uploadStatus || ytUploadStatus;\n        ytFailureReason = vItem.status?.failureReason || null;\n        ytRejectionReason = vItem.status?.rejectionReason || null;\n        ytProcessingStatus = vItem.processingDetails?.processingStatus || ytProcessingStatus;\n      }\n    }\n  } catch (e) {}\n}\n\nconst isDone = (ytUploadStatus === 'processed' || ytProcessingStatus === 'succeeded');\n\nreturn [{\n  json: {\n    success: true,\n    uploadId: videoId,\n    id: videoId,\n    title: title,\n    url: 'https://youtube.com/shorts/' + videoId,\n    channelTitle: channelTitle,\n    userUploaded: true,\n    bytesUploaded: bytes,\n    mimeType: mimeType,\n    ytUploadStatus: ytUploadStatus,\n    ytProcessingStatus: ytProcessingStatus,\n    ytFailureReason: ytFailureReason,\n    ytRejectionReason: ytRejectionReason,\n    uploadStatus: isDone ? 'UPLOADED' : 'PROCESSING'\n  }\n}];"
@@ -13481,7 +13481,7 @@
         "execId": "13",
         "suggestedTitle": "Jungle mein Akbar ne lagaya bhoot ka trap, Birbal ne khola raaz 😱",
         "viralHook": "Birbal exposed Akbar's fake jungle ghosts by carrying their props back home.",
-        "storyBrief": "सन 1586 की एक शाम, सम्राट अकबर ने बीरबल को महल के पास वाले घने साल के जंगल में अकेले रात बिताने की चुनौती दी। अकबर का मानना था कि कोई भी इंसान उनके फैलाए गए नकली भूतों के डर के सामने टिक नहीं पाएगा। चुनौती स्वीकार होते ही, अकबर के छह सैनिकों ने अंधेरे में हड्डियों के ढांचों और चमड़े के मुखौटों से बीरबल को डराना शुरू किया। लेकिन बीरबल डरे नहीं, बल्कि उन्होंने समझ लिया कि डर केवल अज्ञानता का भ्रम होता है जिसे सच का सामना करना ही पड़ता है। उन्होंने भागने के बजाय उन नकली भूतों को प्रणाम किया और रातभर में सैनिकों द्वारा फेंके गए सारे डरावने मुखौटे और हड्डियां एक जूट की बोरी में जमा कर लीं। अगली सुबह जब बीरबल वह भारी बोरी लेकर सीधे राजदरबार के प्रांगण में पहुंचे, तो वहां अकबर अपने सिंहासन पर बैठे मुस्कुरा रहे थे। बीरबल ने वह बोरी खोलकर सारे नकली ��ाजो-सामान दरबारियों के सामने रख दिए, जिससे अकबर की चालाकी सबके सामने उजागर हो गई। महल में छिपे वो छह सैनिक डरकर भाग गए और अकबर को यह समझ आ गया कि सच्चा साहस कभी खोखले भ्रम से नहीं डरता।",
+        "storyBrief": "सन 1586 की एक शाम, सम्राट अकबर ने बीरबल को महल के पास वाले घने साल के जंगल में अकेले रात बिताने की चुनौती दी। अकबर का मानना था कि कोई भी इंसान उनके फैलाए गए नकली भूतों के डर के सामने टिक नहीं पाएगा। चुनौती स्वीकार होते ही, अकबर के छह सैनिकों ने अंधेरे में हड्डियों के ढांचों और चमड़े के मुखौटों ��े बीरबल को डराना शुरू किया। लेकिन बीरबल डरे नहीं, बल्कि उन्होंने समझ लिया कि डर केवल अज्ञानता का भ्रम होता है जिसे सच का सामना करना ही पड़ता है। उन्होंने भागने के बजाय उन नकली भूतों को प्रणाम किया और रातभर में सैनिकों द्वारा फेंके गए सारे डरावने मुखौटे और हड्डियां एक जूट की बोरी में जमा कर लीं। अगली सुबह जब बीरबल वह भारी बोरी लेकर सीधे राजदरबार के प्रांगण में पहुंचे, तो वहां अकबर अपने सिंहासन पर बैठे मुस्कुरा रहे थे। बीरबल ने वह बोरी खोलकर सारे नकली साजो-सामान दरबारियों के सामने रख दिए, जिससे अकबर की चालाकी सबके सामने उजागर हो गई। महल में छिपे वो छह सैनिक डरकर भाग गए और अकबर को यह समझ आ गया कि सच्चा साहस कभी खोखले भ्रम से नहीं डरता।",
         "voLengthBias": "default",
         "refineDirective": ""
       },
@@ -13650,9 +13650,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "0478e5e0-912b-42a2-b069-4c94e8519a49",
+  "versionId": "33fa27d1-dd29-4a8b-98db-aee947813d43",
   "activeVersionId": "cdc76e13-90d9-4815-8c6d-5c10ad45e375",
-  "versionCounter": 49,
+  "versionCounter": 51,
   "triggerCount": 2,
   "sourceWorkflowId": null,
   "tags": [],
@@ -26540,5 +26540,5 @@
     "workflow:unshare",
     "workflow:update"
   ],
-  "checksum": "f47adc9e004b974b2a5e6e7a702d98c5c1a3cbaea6f23a69acf14bbd0747d9d0"
+  "checksum": "cbab4dd4be06b7736abdee6ec40c930864309b1f385f922191f79f3713a4fc70"
 }
