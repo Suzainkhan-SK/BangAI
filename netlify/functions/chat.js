@@ -9,6 +9,7 @@ import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg25.app.n8n.cloud/webhook/viral-shorts-ai';
+const XKIRO_BASE_URL = process.env.XKIRO_BASE_URL || 'https://api.xkiro.com/v1';
 const XKIRO_DEFAULT_MODEL = 'minimax/minimax-m3:free';
 
 // Curated Top Free Models on xKiro for Bang AI Dropdown
