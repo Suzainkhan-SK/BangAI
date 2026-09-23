@@ -27,6 +27,51 @@ const SPEED_MAX  = 1.50;
 const SPEED_DEF  = 1.10;
 const SPEED_STEP = 0.05;
 
+export const ACTIVE_TEMPLATES = [
+  {
+    id: 'world-mysteries',
+    emoji: '🛸',
+    title: 'World Mysteries & Paranormal',
+    category: 'mysteries',
+    label: 'World Mysteries',
+    desc: 'Self-researches unrepeated paranormal mysteries, scripts 5 cinematic scenes, renders photorealistic AI video, and uploads directly to YouTube — zero manual review.',
+    tagline: '75s · 5 Scenes · Autonomous',
+    demoImage: '/template-demo-phone.jpg',
+    videoTitle: "The Bermuda Triangle's Darkest Secret",
+    stats: '128K likes · 1.2M views',
+    color: '#6366f1',
+    aiBrain: 'Claude Haiku 4.5 & Gemini'
+  },
+  {
+    id: 'last-24-hours',
+    emoji: '⏳',
+    title: 'Last 24 Hours [True Stories]',
+    category: 'history',
+    label: 'True Stories',
+    desc: 'Counts down the poignant and dramatic final 24 hours of legendary figures, heroic sacrifices, and historic events with empathetic narration and emotional hooks.',
+    tagline: '75s · 5 Scenes · Emotional & Inspiring',
+    demoImage: '/template-last-24-hours.jpg',
+    videoTitle: 'Princess Diana: The Final 24 Hours',
+    stats: '245K likes · 2.1M views',
+    color: '#f59e0b',
+    aiBrain: 'Claude Haiku 4.5 & Gemini'
+  },
+  {
+    id: '3am-horror',
+    emoji: '👻',
+    title: '3-AM Horror & Paranormal',
+    category: 'psychology',
+    label: 'Horror & Paranormal',
+    desc: 'Bone-chilling psychological terror and terrifying 3 AM encounters. Maximum camera movement, eerie suspense, and dark sound design crafted for viral retention.',
+    tagline: '75s · 5 Scenes · Extreme Suspense',
+    demoImage: '/template-3am-horror.jpg',
+    videoTitle: 'The Dyatlov Incident: 3 AM Anomaly',
+    stats: '380K likes · 3.4M views',
+    color: '#ef4444',
+    aiBrain: 'Claude Haiku 4.5 & Gemini'
+  }
+];
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TemplatesPage({
   user,
@@ -35,10 +80,11 @@ export default function TemplatesPage({
   onToggleCollapse,
   onNavigate
 }) {
-  const [launchingId, setLaunchingId] = useState(null);
-  const [errorMsg, setErrorMsg]       = useState(null);
-  const [successInfo, setSuccessInfo] = useState(null);
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('world-mysteries');
+  const [launchingId, setLaunchingId]               = useState(null);
+  const [errorMsg, setErrorMsg]                     = useState(null);
+  const [successInfo, setSuccessInfo]               = useState(null);
+  const [activeCategory, setActiveCategory]         = useState('all');
 
   // Generation & Cancel states
   const [isGenerating, setIsGenerating]                 = useState(false);
@@ -63,6 +109,12 @@ export default function TemplatesPage({
   // Active voice object resolution (matches StudioLab and CanvasPromptBar)
   const activeVoiceObj = getVoiceById(voiceId) || VOICES.find(v => v.id === voiceId || v.elevenLabsId === voiceId) || VOICES[0];
   const isCustomVoice = !VOICES.some(v => v.id === voiceId || v.elevenLabsId === voiceId);
+
+  const activeTpl = ACTIVE_TEMPLATES.find(t => t.id === selectedTemplateId) || ACTIVE_TEMPLATES[0];
+  const currentActiveTpl = ACTIVE_TEMPLATES.find(t => t.id === (generatingTemplateId || selectedTemplateId)) || ACTIVE_TEMPLATES[0];
+  const displayedActiveTemplates = activeCategory === 'all'
+    ? ACTIVE_TEMPLATES
+    : ACTIVE_TEMPLATES.filter(t => t.category === activeCategory);
 
   const handleVoiceChange = (newVal) => {
     if (newVal === '__open_studio__') {
@@ -173,7 +225,7 @@ export default function TemplatesPage({
             audioEngine.playSfx('boom');
             const vUrl = data.videoUrl || data.story?.videoUrl || '';
             const ytUrl = data.youtubeUrl || data.story?.youtubeUrl || (data.videoId ? `https://youtube.com/shorts/${data.videoId}` : '');
-            const vidTitle = data.title || data.story?.title || customTopic.trim() || 'World Mysteries & Paranormal';
+            const vidTitle = data.title || data.story?.title || customTopic.trim() || currentActiveTpl.title;
 
             // Sync directly to localStorage so Dashboard reflects COMPLETED status with real videoUrl and youtubeUrl
             try {
@@ -262,21 +314,22 @@ export default function TemplatesPage({
       const clampedSpeed = Math.max(SPEED_MIN, Math.min(SPEED_MAX, voiceSpeed));
 
       // Provisional record in localStorage so dashboard/history reflects it immediately
+      const targetTpl = ACTIVE_TEMPLATES.find(t => t.id === templateId) || activeTpl;
       try {
         const provisional = {
           id: newThreadId,
           threadId: newThreadId,
           sessionId,
           templateId,
-          title: customTopic.trim() ? `World Mysteries: ${customTopic.trim()}` : 'World Mysteries & Paranormal [1-Click]',
-          rawUserInput: customTopic.trim() || 'World Mysteries & Paranormal (Autonomous 75s)',
+          title: customTopic.trim() ? `${targetTpl.title}: ${customTopic.trim()}` : `${targetTpl.title} [1-Click]`,
+          rawUserInput: customTopic.trim() || `${targetTpl.title} (Autonomous 75s)`,
           status: 'GENERATING',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           messages: [
             {
               role: 'system',
-              content: `1-Click Autonomous Generation started for template: World Mysteries & Paranormal [75s].`
+              content: `1-Click Autonomous Generation started for template: ${targetTpl.title} [75s].`
             }
           ]
         };
@@ -396,12 +449,12 @@ export default function TemplatesPage({
   const templateSteps = [
     {
       icon: Cpu,
-      color: '#6366f1',
-      glow: 'rgba(99,102,241,0.35)',
+      color: currentActiveTpl.color,
+      glow: `${currentActiveTpl.color}55`,
       label: 'n8n Cloud Webhook Dispatch',
-      sub: 'Connecting to autonomous template workflow template-world-mysteries',
+      sub: `Connecting to autonomous template workflow template-${currentActiveTpl.id}`,
       logLines: [
-        'POST /webhook/template-world-mysteries → 200 OK',
+        `POST /webhook/template-${currentActiveTpl.id} → 200 OK`,
         `Execution: ${generatingThreadId || 'exec-pipeline'}`,
         'Channel Target: ' + (selectedChannel?.title || 'YouTube Channel')
       ]
@@ -410,12 +463,12 @@ export default function TemplatesPage({
       icon: Brain,
       color: '#38bdf8',
       glow: 'rgba(56,189,248,0.35)',
-      label: 'Gemini 2.5 Flash: Autonomous Topic Research',
-      sub: 'Mining unrepeated paranormal mysteries & high-retention angles',
+      label: `${currentActiveTpl.aiBrain}: Topic Engine`,
+      sub: `Mining unrepeated ${currentActiveTpl.label.toLowerCase()} & high-retention angles`,
       logLines: [
-        'Model: gemini-2.5-flash',
-        'Topic: ' + (customTopic.trim() || 'Unsolved Paranormal Mysteries'),
-        'Hook Retention: 97/100 Curiosity Score'
+        'Model: claude-haiku-4-5 / gemini',
+        'Topic: ' + (customTopic.trim() || currentActiveTpl.title),
+        'Hook Retention: 98/100 Curiosity Score'
       ]
     },
     {
@@ -427,7 +480,7 @@ export default function TemplatesPage({
       logLines: [
         'Pacing: 15s × 5 acts = 75s master short',
         'Scene 1: Cold Open Hook (0-15s)',
-        'Scenes 2-5: Narrative escalation & twist'
+        'Scenes 2-5: Narrative escalation & climax'
       ]
     },
     {
@@ -459,10 +512,18 @@ export default function TemplatesPage({
   const CATEGORIES = [
     { id: 'all', label: 'All' },
     { id: 'mysteries', label: 'World Mysteries' },
-    { id: 'history', label: 'History & Lore' },
-    { id: 'psychology', label: 'Dark Psychology' },
+    { id: 'history', label: 'True Stories' },
+    { id: 'psychology', label: 'Horror & Paranormal' },
     { id: 'scifi', label: 'Space & Tech' }
   ];
+
+  const handleCategorySelect = (catId) => {
+    audioEngine.playSfx('click');
+    setActiveCategory(catId);
+    if (catId === 'mysteries') setSelectedTemplateId('world-mysteries');
+    else if (catId === 'history') setSelectedTemplateId('last-24-hours');
+    else if (catId === 'psychology') setSelectedTemplateId('3am-horror');
+  };
 
   const UPCOMING = [
     { id: 'ancient-history', category: 'history', label: 'History & Lore', title: 'Ancient History & Lost Civilizations', desc: 'Deep-dives into forgotten dynasties and lost wonders.', duration: '75s', scenes: '5 Scenes' },
@@ -512,7 +573,7 @@ export default function TemplatesPage({
               {CATEGORIES.map(cat => {
                 const active = activeCategory === cat.id;
                 return (
-                  <button key={cat.id} onClick={() => { audioEngine.playSfx('click'); setActiveCategory(cat.id); }}
+                  <button key={cat.id} onClick={() => handleCategorySelect(cat.id)}
                     style={{
                       padding: '6px 14px', borderRadius: '8px', cursor: 'pointer',
                       border: `1px solid ${active ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
@@ -626,13 +687,13 @@ export default function TemplatesPage({
           {isGenerating && (
             <div style={{ marginBottom: '32px' }}>
               <GenerationThinkingAnimation
-                prompt={customTopic.trim() || 'World Mysteries & Paranormal (Autonomous 75s Short)'}
+                prompt={customTopic.trim() || `${currentActiveTpl.title} (Autonomous 75s Short)`}
                 steps={templateSteps}
                 stepDuration={5500}
-                title="Autonomous Template Pipeline: World Mysteries"
-                subtitle={`Gemini 2.5 Flash + ${activeVoiceObj?.name || 'Adam'} voice (${voiceSpeed.toFixed(2)}x) + n8n Cloud`}
+                title={`Autonomous Template Pipeline: ${currentActiveTpl.title}`}
+                subtitle={`${currentActiveTpl.aiBrain} + ${activeVoiceObj?.name || 'Adam'} voice (${voiceSpeed.toFixed(2)}x) + n8n Cloud`}
                 badgeText="Template AI"
-                model="Gemini 2.5 Flash"
+                model={currentActiveTpl.aiBrain}
                 onCancel={handleCancelTemplateGeneration}
                 isCancelling={isCancelling}
                 extraActions={
@@ -673,13 +734,42 @@ export default function TemplatesPage({
             </div>
           )}
 
-          {/* ═══ FEATURED TEMPLATE ═══ */}
-          {(activeCategory === 'all' || activeCategory === 'mysteries') && (
+          {/* ═══ FEATURED TEMPLATES ═══ */}
+          {displayedActiveTemplates.length > 0 && (
             <div className="saas-card" style={{ padding: '0', borderRadius: '20px', marginBottom: '36px', overflow: 'hidden' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 265px', minHeight: '540px' }}>
 
                 {/* Left: Content */}
                 <div style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                  {/* Template Switcher Tabs */}
+                  {displayedActiveTemplates.length > 1 && (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '2px' }}>
+                      {displayedActiveTemplates.map(tpl => {
+                        const isSelected = selectedTemplateId === tpl.id;
+                        return (
+                          <button
+                            key={tpl.id}
+                            type="button"
+                            onClick={() => { audioEngine.playSfx('click'); setSelectedTemplateId(tpl.id); }}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '6px',
+                              padding: '6px 14px', borderRadius: '10px',
+                              border: isSelected ? `1.5px solid ${tpl.color}` : '1px solid var(--border-medium)',
+                              background: isSelected ? `${tpl.color}15` : 'var(--bg-input)',
+                              color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                              fontSize: '12px', fontWeight: isSelected ? 700 : 500, cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span>{tpl.emoji}</span>
+                            <span>{tpl.title}</span>
+                            {isSelected && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: tpl.color }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {/* Badges */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -694,7 +784,7 @@ export default function TemplatesPage({
                     <span style={{
                       background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
                       color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '99px'
-                    }}>75s · 5 Scenes · Autonomous</span>
+                    }}>{activeTpl.tagline}</span>
                   </div>
 
                   {/* Title & desc */}
@@ -702,17 +792,17 @@ export default function TemplatesPage({
                     <h2 className="font-display" style={{
                       fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px 0', letterSpacing: '-0.02em'
                     }}>
-                      World Mysteries & Paranormal
+                      {activeTpl.title}
                     </h2>
                     <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, maxWidth: '480px' }}>
-                      Self-researches unrepeated paranormal mysteries, scripts 5 cinematic scenes, renders photorealistic AI video, and uploads directly to YouTube — zero manual review.
+                      {activeTpl.desc}
                     </p>
                   </div>
 
                   {/* Spec pills */}
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     {[
-                      { label: 'AI Brain', value: 'Gemini 2.5 Flash' },
+                      { label: 'AI Brain', value: activeTpl.aiBrain },
                       { label: 'Voice',   value: `${activeVoiceObj?.name || 'Adam'}${activeVoiceObj?.flag ? ' ' + activeVoiceObj.flag.split(' ')[0] : ''}` },
                       { label: 'Speed',   value: `${voiceSpeed.toFixed(2)}x` }
                     ].map((s, i) => (
@@ -964,7 +1054,7 @@ export default function TemplatesPage({
                     </div>
 
                     {/* Launch / Cancel Button Group */}
-                    {isGenerating && generatingTemplateId === 'world-mysteries' ? (
+                    {isGenerating && generatingTemplateId === activeTpl.id ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <button
                           type="button"
@@ -1011,18 +1101,18 @@ export default function TemplatesPage({
                       </div>
                     ) : (
                       <button
-                        disabled={launchingId === 'world-mysteries' || isGenerating}
-                        onClick={() => handleLaunchTemplate('world-mysteries')}
+                        disabled={launchingId === activeTpl.id || isGenerating}
+                        onClick={() => handleLaunchTemplate(activeTpl.id)}
                         className="btn-glow"
                         style={{
                           padding: '10px 22px', borderRadius: '10px', border: 'none',
-                          cursor: (launchingId === 'world-mysteries' || isGenerating) ? 'not-allowed' : 'pointer',
+                          cursor: (launchingId === activeTpl.id || isGenerating) ? 'not-allowed' : 'pointer',
                           fontSize: '13px', fontWeight: 700, color: '#ffffff',
                           display: 'flex', alignItems: 'center', gap: '7px',
-                          opacity: (launchingId === 'world-mysteries' || isGenerating) ? 0.7 : 1
+                          opacity: (launchingId === activeTpl.id || isGenerating) ? 0.7 : 1
                         }}
                       >
-                        {launchingId === 'world-mysteries' ? (
+                        {launchingId === activeTpl.id ? (
                           <><Loader2 size={14} className="animate-spin" /><span>Starting...</span></>
                         ) : (
                           <><Zap size={14} fill="#ffffff" /><span>1-Click Generate & Upload</span></>
@@ -1042,7 +1132,7 @@ export default function TemplatesPage({
                   <div style={{
                     position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
                     width: '200px', height: '200px', borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)',
+                    background: `radial-gradient(circle, ${activeTpl.color}20 0%, transparent 70%)`,
                     pointerEvents: 'none', filter: 'blur(30px)'
                   }} />
                   <div
@@ -1061,7 +1151,7 @@ export default function TemplatesPage({
                       width: '55px', height: '16px', borderRadius: '8px', background: '#111', zIndex: 3
                     }} />
                     {/* Live producing state overlay on phone screen */}
-                    {isGenerating && generatingTemplateId === 'world-mysteries' && (
+                    {isGenerating && generatingTemplateId === activeTpl.id && (
                       <div style={{
                         position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)',
                         backdropFilter: 'blur(3px)', borderRadius: '25px', zIndex: 4,
@@ -1071,13 +1161,13 @@ export default function TemplatesPage({
                         <div style={{ position: 'relative', width: '42px', height: '42px', marginBottom: '10px' }}>
                           <div style={{
                             position: 'absolute', inset: 0, borderRadius: '50%',
-                            border: '2px solid #6366f1', animation: 'pulseRing 1.4s ease-out infinite'
+                            border: `2px solid ${activeTpl.color}`, animation: 'pulseRing 1.4s ease-out infinite'
                           }} />
                           <div style={{
                             position: 'absolute', inset: 0, display: 'flex',
                             alignItems: 'center', justifyContent: 'center'
                           }}>
-                            <Loader2 size={20} color="#6366f1" className="animate-spin" />
+                            <Loader2 size={20} color={activeTpl.color} className="animate-spin" />
                           </div>
                         </div>
                         <span style={{ fontSize: '10px', fontWeight: 800, color: '#ffffff', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
@@ -1114,8 +1204,8 @@ export default function TemplatesPage({
                     ) : (
                       <>
                         <img
-                          src="/template-demo-phone.jpg"
-                          alt="World Mysteries demo"
+                          src={activeTpl.demoImage}
+                          alt={`${activeTpl.title} demo`}
                           style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '25px' }}
                         />
                         <div style={{
@@ -1132,13 +1222,14 @@ export default function TemplatesPage({
                           background: 'linear-gradient(transparent, rgba(0,0,0,0.88))'
                         }}>
                           <div style={{ fontSize: '7.5px', fontWeight: 700, color: '#fff', marginBottom: '2px', lineHeight: 1.3 }}>
-                            The Bermuda Triangle's Darkest Secret
+                            {activeTpl.videoTitle}
                           </div>
-                          <div style={{ fontSize: '6.5px', color: 'rgba(255,255,255,0.6)' }}>128K likes · 1.2M views</div>
+                          <div style={{ fontSize: '6.5px', color: 'rgba(255,255,255,0.6)' }}>{activeTpl.stats}</div>
                         </div>
                       </>
                     )}
                   </div>
+
                   <div style={{
                     position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)',
                     fontSize: '10px', fontWeight: 600, color: successInfo?.videoUrl ? '#10b981' : 'var(--text-muted)', whiteSpace: 'nowrap',

@@ -122,6 +122,36 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
     }
   ];
 
+  const AUTONOMOUS_TEMPLATES = [
+    {
+      id: 'world-mysteries',
+      emoji: '🛸',
+      title: 'World Mysteries & Paranormal',
+      desc: 'Uncover unexplained phenomena. Self-scripts 5 scenes, renders cinematic visuals, and uploads directly to YouTube without manual review.',
+      tagline: '75s • 5 Scenes • Auto-Upload',
+      accentColor: '#6366f1'
+    },
+    {
+      id: 'last-24-hours',
+      emoji: '⏳',
+      title: 'Last 24 Hours [True Stories]',
+      desc: 'Counts down the poignant and dramatic final 24 hours of legendary figures, heroic sacrifices, and historic events with emotional narration.',
+      tagline: '75s • 5 Scenes • Emotional & Inspiring',
+      accentColor: '#f59e0b'
+    },
+    {
+      id: '3am-horror',
+      emoji: '👻',
+      title: '3-AM Horror & Paranormal',
+      desc: 'Bone-chilling psychological terror and terrifying 3 AM encounters. Maximum camera movement, eerie suspense, and dark sound design.',
+      tagline: '75s • 5 Scenes • Extreme Suspense',
+      accentColor: '#ef4444'
+    }
+  ];
+
+  const [selectedAutonomousId, setSelectedAutonomousId] = useState('world-mysteries');
+  const activeAutoTpl = AUTONOMOUS_TEMPLATES.find(t => t.id === selectedAutonomousId) || AUTONOMOUS_TEMPLATES[0];
+
   return (
     <div style={{
       maxWidth: '860px',
@@ -161,7 +191,7 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
           margin: '0 auto',
           lineHeight: 1.5
         }}>
-          Launch our pre-built autonomous template below, or type your custom idea in the prompt bar.
+          Launch any of our 3 autonomous templates below, or type your custom idea in the prompt bar.
         </p>
       </div>
 
@@ -173,6 +203,51 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
         position: 'relative',
         borderRadius: '16px'
       }}>
+        {/* Template Switcher Tabs */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          flexWrap: 'wrap',
+          marginBottom: '14px',
+          paddingBottom: '12px',
+          borderBottom: '1px solid var(--border-subtle)'
+        }}>
+          {AUTONOMOUS_TEMPLATES.map(tpl => {
+            const isSelected = selectedAutonomousId === tpl.id;
+            return (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => {
+                  audioEngine.playSfx('click');
+                  setSelectedAutonomousId(tpl.id);
+                  setLaunchError(null);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 12px',
+                  borderRadius: '8px',
+                  border: isSelected ? `1.5px solid ${tpl.accentColor}` : '1px solid var(--border-medium)',
+                  background: isSelected ? `${tpl.accentColor}15` : 'var(--bg-card)',
+                  color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontSize: '12px',
+                  fontWeight: isSelected ? 700 : 500,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>{tpl.emoji}</span>
+                <span>{tpl.title.split(' [')[0]}</span>
+                {isSelected && (
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: tpl.accentColor }} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexWrap: 'wrap', gap: '16px'
@@ -193,7 +268,7 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
                 color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, padding: '2px 8px',
                 borderRadius: '99px'
               }}>
-                75s • 5 Scenes • Auto-Upload
+                {activeAutoTpl.tagline}
               </span>
             </div>
 
@@ -201,13 +276,13 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
               fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)',
               margin: '0 0 5px 0', fontFamily: 'Space Grotesk, sans-serif'
             }}>
-              World Mysteries & Paranormal
+              {activeAutoTpl.title}
             </h3>
 
             <p style={{
               fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0
             }}>
-              Uncover unexplained phenomena. Self-scripts 5 scenes, renders cinematic visuals, and uploads directly to YouTube without manual review.
+              {activeAutoTpl.desc}
             </p>
 
             {launchError && (
@@ -247,7 +322,7 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
 
             <button
               disabled={launching}
-              onClick={() => handle1ClickLaunch('world-mysteries')}
+              onClick={() => handle1ClickLaunch(selectedAutonomousId)}
               className="btn-glow"
               style={{
                 padding: '9px 18px',

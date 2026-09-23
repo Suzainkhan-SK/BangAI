@@ -5,9 +5,35 @@
 import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 
-// Webhook endpoint for the new World Mysteries & Paranormal template workflow
+// Webhook endpoints for autonomous template workflows on n8n Cloud
 const TEMPLATE_WEBHOOKS = {
-  'world-mysteries': 'https://cmpunktg25.app.n8n.cloud/webhook/template-world-mysteries'
+  'world-mysteries': 'https://cmpunktg25.app.n8n.cloud/webhook/template-world-mysteries',
+  'last-24-hours':   'https://cmpunktg25.app.n8n.cloud/webhook/template-last-24-hours',
+  '3am-horror':      'https://cmpunktg25.app.n8n.cloud/webhook/template-3am-horror'
+};
+
+const TEMPLATE_META = {
+  'world-mysteries': {
+    name: 'World Mysteries & Paranormal [5 Direct Video Scenes - 75s]',
+    title: 'World Mysteries & Paranormal [1-Click]',
+    musicId: 'mystery2',
+    visualStyle: 'Dark Cinematic Mystery',
+    language: 'English'
+  },
+  'last-24-hours': {
+    name: 'Last 24 Hours [5 Direct Video Scenes - 75s]',
+    title: 'Last 24 Hours [1-Click]',
+    musicId: 'cinematic',
+    visualStyle: 'Cinematic Realistic',
+    language: 'Hinglish'
+  },
+  '3am-horror': {
+    name: '3-AM Horror [5 Direct Video Scenes - 75s]',
+    title: '3-AM Horror [1-Click]',
+    musicId: 'mystery2',
+    visualStyle: 'Dark Horror Cinematic',
+    language: 'Hinglish'
+  }
 };
 
 export const handler = async (event) => {
@@ -138,6 +164,8 @@ export const handler = async (event) => {
     const sessionId = payload.sessionId || `session-${Date.now()}`;
     const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
 
+    const meta = TEMPLATE_META[templateId] || TEMPLATE_META['world-mysteries'];
+
     // Store thread in DB if available
     try {
       const db = await getDb();
@@ -145,7 +173,7 @@ export const handler = async (event) => {
         await db.collection('threads').insertOne({
           threadId,
           userId,
-          title: 'World Mysteries & Paranormal [1-Click]',
+          title: meta.title,
           templateId,
           status: 'started',
           createdAt: new Date(),
@@ -153,7 +181,7 @@ export const handler = async (event) => {
           messages: [
             {
               role: 'system',
-              content: `1-Click Autonomous Generation started for template: World Mysteries & Paranormal [75s].${(payload.prompt || '').trim() ? ` Custom topic: "${payload.prompt.trim()}".` : ' Auto-selecting topic.'} Auto-uploading to YouTube channel: ${userYouTubeChannelTitle || 'Default'}.`,
+              content: `1-Click Autonomous Generation started for template: ${meta.title}.${(payload.prompt || '').trim() ? ` Custom topic: "${payload.prompt.trim()}".` : ' Auto-selecting topic.'} Auto-uploading to YouTube channel: ${userYouTubeChannelTitle || 'Default'}.`,
               timestamp: new Date().toISOString()
             }
           ]
@@ -165,7 +193,7 @@ export const handler = async (event) => {
 
     const postData = JSON.stringify({
       templateId,
-      templateName: 'World Mysteries & Paranormal [5 Direct Video Scenes - 75s]',
+      templateName: meta.name,
       prompt: (payload.prompt || '').trim(), // optional custom topic — blank means auto-generate
       callbackUrl,
       threadId,
@@ -187,14 +215,14 @@ export const handler = async (event) => {
       elevenLabsVoiceId: payload.elevenLabsVoiceId || '',
       voiceSpeed: payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20,
       voiceVolume: payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0,
-      visualStyle: payload.visualStyle || 'Dark Cinematic Mystery',
-      language: payload.language || 'English',
+      visualStyle: payload.visualStyle || meta.visualStyle,
+      language: payload.language || meta.language,
       aspectRatio: payload.aspectRatio || '9:16',
       // Subtitle settings & styling
       subtitleSettings: payload.subtitleSettings || null,
       subtitleStyle: payload.subtitleStyle || payload.subtitlePreset || 'hormozi',
       // Music & volume settings
-      musicId: payload.musicId || 'mystery2',
+      musicId: payload.musicId || meta.musicId,
       musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
       musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
       timestamp: new Date().toISOString()
@@ -228,7 +256,7 @@ export const handler = async (event) => {
         status: 'started',
         autoUploadToYouTube,
         channelTitle: userYouTubeChannelTitle || null,
-        message: 'World Mysteries & Paranormal template generation dispatched successfully.'
+        message: `${meta.title} generation dispatched successfully.`
       })
     };
   } catch (err) {
