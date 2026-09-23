@@ -238,6 +238,25 @@ export default function Sidebar({
             <LayoutDashboard size={16} />
           </button>
 
+          {/* Bang AI Chat */}
+          <button
+            type="button"
+            onClick={() => navigateTo('chat')}
+            title="Bang AI Chat (ChatGPT 4.0)"
+            aria-label="Bang AI Chat"
+            aria-current={isItemActive('chat') ? 'page' : undefined}
+            style={{
+              width: '38px', height: '38px', borderRadius: '10px', padding: 0,
+              background: isItemActive('chat') ? 'rgba(99,102,241,0.22)' : 'transparent',
+              border: `1.5px solid ${isItemActive('chat') ? '#6366f1' : 'transparent'}`,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: isItemActive('chat') ? '#a5b4fc' : 'var(--text-muted)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Bot size={16} />
+          </button>
+
           <div style={{ width: '32px', height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
 
           {/* Design Studio Quick Links — Collapsed */}
@@ -457,6 +476,31 @@ export default function Sidebar({
           >
             <Zap size={14} color={isItemActive('templates') ? '#818cf8' : 'var(--text-muted)'} />
             <span>Templates</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigateTo('chat')}
+            aria-label="Bang AI Chat"
+            aria-current={isItemActive('chat') ? 'page' : undefined}
+            style={{
+              width: '100%', padding: '7px 10px',
+              background: isItemActive('chat') ? 'rgba(99,102,241,0.2)' : 'transparent',
+              border: `1px solid ${isItemActive('chat') ? 'rgba(99,102,241,0.5)' : 'transparent'}`,
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              color: isItemActive('chat') ? '#a5b4fc' : 'var(--text-secondary)',
+              fontSize: '12.5px', fontWeight: isItemActive('chat') ? 700 : 500,
+              transition: 'all 0.12s ease'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Bot size={14} color={isItemActive('chat') ? '#a5b4fc' : '#818cf8'} />
+              <span>Bang AI Chat</span>
+            </div>
+            <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: 'linear-gradient(135deg, #10b981, #06b6d4)', color: '#fff' }}>
+              4.0
+            </span>
           </button>
         </div>
 

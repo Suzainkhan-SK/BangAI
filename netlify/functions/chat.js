@@ -2,59 +2,205 @@
 // Path: /.netlify/functions/chat
 // Dedicated Separation:
 // - /video: Pure n8n Autonomous Workflow Pipeline (Topic Analyzer -> Strategy Engine -> Approval -> 5 Scenes -> Rendering)
-// - /chat: Bang AI Conversational AI Assistant
+// - /chat: Bang AI Conversational AI Assistant (Powered by xKiro Qwen3.8 Max with Live Web Search)
 // - /refine: Bang AI Script Doctor Refinement
 
 import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg25.app.n8n.cloud/webhook/viral-shorts-ai';
-const CLAUDE_BASE_URL = process.env.CLAUDE_BASE_URL || 'https://api.llmsrelay.com';
-const CLAUDE_MODEL = 'claude-sonnet-5';
+const XKIRO_DEFAULT_MODEL = 'minimax/minimax-m3:free';
 
-// Key Rotation Pool for llmsrelay (Key 2 verified 200 OK prioritized first)
-const CLAUDE_KEYS = [
-  process.env.CLAUDE_API_KEY_2 || 'sk-cs4-db2641233a8fbbd2e619a57ddd3acd8a1fb8fddf163b1923',
-  process.env.CLAUDE_API_KEY_1 || 'sk-cs4-13029e38c50d4d22f101da2230b9877fa84b1c7f27c8792a'
+// Curated Top Free Models on xKiro for Bang AI Dropdown
+export const BANG_AI_MODELS = {
+  'bang-ai-ultra': {
+    id: 'minimax/minimax-m3:free',
+    name: 'Bang AI Ultra 4.0',
+    tag: '1M Context • 65K Output',
+    desc: 'Multimodal foundation model with 1M context, 65K output, video, vision & reasoning.',
+    maxTokens: 65536
+  },
+  'bang-ai-max': {
+    id: 'qwen/qwen3.8-max:free',
+    name: 'Bang AI Max Strategist',
+    tag: 'Viral Master • Web Search',
+    desc: 'Flagship viral storytelling, 5-scene golden blueprint generator, and deep web citations.',
+    maxTokens: 65536
+  },
+  'bang-ai-reasoning': {
+    id: 'mistralai/mistral-large-2512',
+    name: 'Bang AI Enterprise Reasoning',
+    tag: 'Mistral Large • Deep Logic',
+    desc: 'High-end frontier reasoning model for complex script structures, research, and analysis.',
+    maxTokens: 32768
+  },
+  'bang-ai-omni': {
+    id: 'qwen/qwen3.8-omni-flash:free',
+    name: 'Bang AI Omni Flash',
+    tag: 'Sub-Second Speed',
+    desc: 'Ultra-fast response engine for instant hook variations, quick tag generation, and rapid Q&A.',
+    maxTokens: 16384
+  },
+  'bang-ai-vision': {
+    id: 'qwen/qwen3-vl-plus:free',
+    name: 'Bang AI Vision Specialist',
+    tag: 'Visual & Thumbnail Audit',
+    desc: 'Specialized visual inspection model for analyzing thumbnails, screenshots, and artwork.',
+    maxTokens: 16384
+  },
+  'bang-ai-coder': {
+    id: 'mistralai/codestral-2508',
+    name: 'Bang AI Automation Architect',
+    tag: 'Code & JSON Mode',
+    desc: 'Structured output master for n8n automations, JSON payloads, and technical scripts.',
+    maxTokens: 32768
+  }
+};
+
+// Smart Router: Intelligently select best model based on prompt complexity, vision, code, or speed
+export function autoRouteModel({ message, images = [], webSearch = true, reasoning = false }) {
+  const text = (message || '').toLowerCase();
+
+  // 1. Vision / Image attachments
+  if (Array.isArray(images) && images.length > 0) {
+    return {
+      key: 'bang-ai-vision',
+      id: BANG_AI_MODELS['bang-ai-vision'].id,
+      name: BANG_AI_MODELS['bang-ai-vision'].name,
+      reason: 'Image attached — Routed to Vision Specialist',
+      maxTokens: 16384
+    };
+  }
+
+  // 2. Coding, JSON schemas, automated webhooks, technical tasks
+  const codePatterns = [
+    /\b(json|code|function|api|webhook|regex|script|python|javascript|typescript|curl|payload|schema|error|bug|sql)\b/i,
+    /```/,
+    /\b(html|css|react|node|docker)\b/i
+  ];
+  if (codePatterns.some(p => p.test(text))) {
+    return {
+      key: 'bang-ai-coder',
+      id: BANG_AI_MODELS['bang-ai-coder'].id,
+      name: BANG_AI_MODELS['bang-ai-coder'].name,
+      reason: 'Technical content — Routed to Automation Architect',
+      maxTokens: 32768
+    };
+  }
+
+  // 3. Deep reasoning / Complex analysis / Philosophy / Deep thinking
+  const reasoningPatterns = [
+    /\b(analyze|compare|contrast|why|psychology|audit|critique|evaluate|deep dive|retention curve|strategy breakdown)\b/i,
+    /\b(explain why|pros and cons|difference between|in depth)\b/i
+  ];
+  if (reasoning || reasoningPatterns.some(p => p.test(text))) {
+    return {
+      key: 'bang-ai-reasoning',
+      id: BANG_AI_MODELS['bang-ai-reasoning'].id,
+      name: BANG_AI_MODELS['bang-ai-reasoning'].name,
+      reason: 'Deep analytical query — Routed to Enterprise Reasoning',
+      maxTokens: 32768
+    };
+  }
+
+  // 4. Quick brainstorms, short casual questions, instant answers
+  const isShortQuick = text.length < 50 && !text.includes('script') && !text.includes('blueprint');
+  if (isShortQuick && !webSearch) {
+    return {
+      key: 'bang-ai-omni',
+      id: BANG_AI_MODELS['bang-ai-omni'].id,
+      name: BANG_AI_MODELS['bang-ai-omni'].name,
+      reason: 'Quick query — Routed to Omni Flash for sub-second speed',
+      maxTokens: 16384
+    };
+  }
+
+  // 5. Default Flagship: 1M Context + 65K Output (MiniMax M3 / Qwen Max)
+  return {
+    key: 'bang-ai-ultra',
+    id: BANG_AI_MODELS['bang-ai-ultra'].id,
+    name: BANG_AI_MODELS['bang-ai-ultra'].name,
+    reason: 'Frontier multimodal engine — 1M Context & 65K Output',
+    maxTokens: 65536
+  };
+}
+
+// xKiro API Key Rotation Pool
+const XKIRO_KEYS = [
+  process.env.XKIRO_API_KEY_1 || 'sk-xt-e2786f0d32f17f1a0211ec5f1333c45379691ec0d6f9c954',
+  process.env.XKIRO_API_KEY_2 || 'sk-xt-450bf12af511af1eceb44dd398886c93a08b8bc52341e623'
 ];
 
-async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1500, timeoutMs = 25000) {
+let currentKeyIndex = 0;
+
+async function callBangAI(systemPrompt, conversationHistory, options = {}) {
+  // Ultra-High Ceiling: 1M token context window and up to 65,536 max output tokens
+  const {
+    model = XKIRO_DEFAULT_MODEL,
+    maxTokens = 65536,
+    timeoutMs = 120000,
+    jsonMode = false,
+    webSearch = true,
+    reasoning = false
+  } = options;
+
   const rawList = Array.isArray(conversationHistory) ? conversationHistory : [];
   const messages = rawList
     .filter(m => m && (m.content || m.text))
-    .map(m => ({
-      role: m.role === 'user' ? 'user' : 'assistant',
-      content: typeof m.content === 'string' ? m.content : (typeof m.text === 'string' ? m.text : JSON.stringify(m.content || m.text || ''))
-    }))
-    .filter(m => m.content.trim().length > 0);
+    .map(m => {
+      const role = m.role === 'user' ? 'user' : 'assistant';
+      // Support multi-modal vision content (array of text + image_url)
+      if (Array.isArray(m.content)) {
+        return { role, content: m.content };
+      }
+      return {
+        role,
+        content: typeof m.content === 'string' ? m.content : (typeof m.text === 'string' ? m.text : JSON.stringify(m.content || m.text || ''))
+      };
+    })
+    .filter(m => Array.isArray(m.content) ? m.content.length > 0 : (typeof m.content === 'string' && m.content.trim().length > 0));
 
   if (messages.length === 0) {
     messages.push({ role: 'user', content: 'Generate response' });
   }
 
-  let lastError = null;
+  const payload = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...messages
+    ],
+    max_tokens: maxTokens,
+    temperature: reasoning ? 0.4 : 0.7
+  };
 
-  for (let i = 0; i < CLAUDE_KEYS.length; i++) {
-    const key = CLAUDE_KEYS[i];
+  if (webSearch) {
+    payload.web_search = { enable: true, count: 5 };
+  }
+
+  if (jsonMode) {
+    payload.response_format = { type: 'json_object' };
+  }
+
+  let lastError = null;
+  const pool = XKIRO_KEYS;
+  const startIndex = currentKeyIndex;
+
+  for (let attempt = 0; attempt < pool.length; attempt++) {
+    const keyIdx = (startIndex + attempt) % pool.length;
+    const apiKey = pool[keyIdx];
+
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-      const res = await fetch(`${CLAUDE_BASE_URL}/v1/chat/completions`, {
+      const res = await fetch(`${XKIRO_BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${key}`
+          'Authorization': `Bearer ${apiKey}`
         },
-        body: JSON.stringify({
-          model: CLAUDE_MODEL,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...messages
-          ],
-          max_tokens: maxTokens,
-          temperature: 0.7
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal
       });
       clearTimeout(timer);
@@ -63,21 +209,27 @@ async function callClaudeAI(systemPrompt, conversationHistory, maxTokens = 1500,
         const json = await res.json();
         const content = json.choices?.[0]?.message?.content;
         if (content && content.trim()) {
-          return content.trim();
+          currentKeyIndex = (keyIdx + 1) % pool.length;
+          return {
+            content: content.trim(),
+            webSearch: json.web_search || null,
+            usage: json.usage || null
+          };
         }
       } else {
         const errText = await res.text().catch(() => '');
-        console.warn(`[chat.js:llmsrelay] Key ${i} HTTP ${res.status}: ${errText.substring(0, 100)}`);
+        console.warn(`[chat.js:xkiro] Key ${keyIdx} HTTP ${res.status}: ${errText.substring(0, 100)}`);
         lastError = new Error(`HTTP ${res.status}: ${errText.substring(0, 100)}`);
       }
     } catch (err) {
-      console.warn(`[chat.js:llmsrelay] Key ${i} error: ${err.message}`);
+      console.warn(`[chat.js:xkiro] Key ${keyIdx} error: ${err.message}`);
       lastError = err;
     }
   }
 
   throw new Error(`All Bang AI keys failed: ${lastError ? lastError.message : 'Unknown error'}`);
 }
+
 
 
 export const handler = async (event, context) => {
@@ -218,8 +370,12 @@ CRITICAL RULES:
 
       let parsed = null;
       try {
-        const aiRaw = await callClaudeAI(systemPrompt, [{ role: 'user', content: `Refine this story according to: ${message.trim()}` }], 1500);
-        const cleanJson = aiRaw.replace(/```json/g, '').replace(/```/g, '').trim();
+        const aiRes = await callBangAI(systemPrompt, [{ role: 'user', content: `Refine this story according to: ${message.trim()}` }], {
+          maxTokens: 1500,
+          jsonMode: true,
+          webSearch: false
+        });
+        const cleanJson = aiRes.content.replace(/```json/g, '').replace(/```/g, '').trim();
         parsed = JSON.parse(cleanJson);
       } catch (err) {
         parsed = {
@@ -287,7 +443,7 @@ CRITICAL RULES:
       };
     }
 
-    // ─── MODE B: CONVERSATIONAL AI CHAT (Bang AI Conversational AI) ───────────
+    // ─── MODE B: CONVERSATIONAL AI CHAT (Bang AI with Live Web Search) ───────────
     if (mode === 'CHAT') {
       // Clean command prefixes if user typed /chat, /hook, /tags, etc.
       let cleanMessage = message.trim();
@@ -302,52 +458,77 @@ CRITICAL RULES:
       }
       if (!cleanMessage) cleanMessage = message.trim();
 
-      // Build conversation history from the thread's stored messages
-      // Sanitize all content to plain strings — complex objects break Claude API
+      // Build conversation history from client-provided messages or the thread's stored messages
       let conversationHistory = [];
-      if (db) {
+      const clientMessages = Array.isArray(payload?.messages) ? payload.messages : (Array.isArray(payload?.conversationHistory) ? payload.conversationHistory : null);
+      const incomingImages = Array.isArray(payload?.images) ? payload.images : [];
+
+      if (clientMessages && clientMessages.length > 0) {
+        conversationHistory = clientMessages
+          .filter(d => d && d.role && (d.content || d.text))
+          .map(d => ({
+            role: d.role === 'user' ? 'user' : 'assistant',
+            content: Array.isArray(d.content) ? d.content : (typeof d.content === 'string' ? d.content : String(d.content || d.text || ''))
+          }));
+      } else if (db) {
         try {
           const thread = await db.collection('threads').findOne({ threadId: currentThreadId });
           const rawMsgs = thread?.messages || [];
           conversationHistory = rawMsgs
             .filter(d => d && d.role && (d.content || d.text))
-            .slice(-12) // last 12 messages for context
             .map(d => ({
               role: d.role === 'user' ? 'user' : 'assistant',
-              // Force to plain string — strip any objects that might sneak in
               content: typeof d.content === 'string' ? d.content
                 : typeof d.text === 'string' ? d.text
                 : String(d.content || d.text || '')
             }))
-            .filter(d => d.content.trim().length > 0 && d.content.length < 4000);
+            .filter(d => d.content.trim().length > 0);
         } catch (e) {
           console.warn('[CHAT] History fetch error:', e.message);
         }
       }
 
-      // Always ensure the new user message is at the end
-      const lastMsg = conversationHistory[conversationHistory.length - 1];
-      if (!lastMsg || lastMsg.role !== 'user' || lastMsg.content !== cleanMessage) {
-        conversationHistory = [...conversationHistory, { role: 'user', content: cleanMessage }];
+      // Format current user message with text + vision images if supplied
+      let currentUserContent = cleanMessage;
+      if (incomingImages.length > 0) {
+        currentUserContent = [
+          { type: 'text', text: cleanMessage || 'Analyze this image and assist with viral content strategy.' },
+          ...incomingImages.map(img => ({
+            type: 'image_url',
+            image_url: { url: typeof img === 'string' ? img : img.url || img.data }
+          }))
+        ];
       }
 
-      // Must start with user role — Claude requires alternating roles
+      // Always ensure the new user message is at the end
+      const lastMsg = conversationHistory[conversationHistory.length - 1];
+      if (!lastMsg || lastMsg.role !== 'user') {
+        conversationHistory = [...conversationHistory, { role: 'user', content: currentUserContent }];
+      } else if (typeof lastMsg.content === 'string' && lastMsg.content !== cleanMessage) {
+        conversationHistory = [...conversationHistory, { role: 'user', content: currentUserContent }];
+      }
+
+      // Must start with user role
       while (conversationHistory.length > 0 && conversationHistory[0].role !== 'user') {
         conversationHistory.shift();
       }
 
       if (conversationHistory.length === 0) {
-        conversationHistory = [{ role: 'user', content: cleanMessage }];
+        conversationHistory = [{ role: 'user', content: currentUserContent }];
       }
 
       const systemPrompt = `You are Bang AI (BangAI) — the creator's elite AI Co-Producer, creative director, and master viral strategist built directly inside the Bang AI Studio platform.
 
 ## STRICT IDENTITY & BRAND RULES (ABSOLUTE NON-NEGOTIABLE)
 1. YOUR NAME IS EXCLUSIVELY "Bang AI" (or "BangAI").
-2. NEVER mention Claude, Anthropic, Sonnet, Haiku, OpenAI, ChatGPT, LLMs, or any underlying model name or provider.
+2. NEVER mention Qwen, Alibaba, xKiro, Claude, Anthropic, Sonnet, OpenAI, ChatGPT, LLMs, or any underlying model name or external provider.
 3. If the user asks "What model are you?", "Who made you?", "Which AI is this?", or anything similar, reply enthusiastically and firmly:
    "I am Bang AI — your dedicated viral studio co-producer and creative director built directly into the Bang AI platform!"
 4. You are not a generic text assistant. You are an expert YouTube Shorts & Reels producer sitting right beside the creator in the Bang AI studio.
+
+## SUPERCHARGED LIVE WEB SEARCH & RESEARCH CAPABILITIES
+- REAL-TIME LIVE WEB SEARCH: You have live web search built directly into your core! When the user asks about real-time news, trending topics, recent events, viral YouTube Shorts trends, historical facts, or technical details, you can answer with real-time accuracy and cite live web sources ([1], [2]).
+- LIVE VIRAL RESEARCH POWER: You can identify the freshest viral trends, audio styles, retention hooks, and real-time audience psychology to give creators an unfair advantage.
 
 ## COMPLETE PLATFORM KNOWLEDGE BASE (BANG AI ECOSYSTEM)
 
@@ -402,13 +583,48 @@ Bang AI videos are engineered around the high-retention 75-second multi-scene fo
 - CLEAN FORMATTING:
   * Use bold markdown, bullet points, numbered lists, blockquotes, and tasteful emojis.`;
 
-      const aiReplyText = await callClaudeAI(systemPrompt, conversationHistory, 1200, 25000);
+      const requestWebSearch = typeof payload?.webSearch === 'boolean' ? payload.webSearch : (typeof payload?.enableSearch === 'boolean' ? payload.enableSearch : true);
+      const requestReasoning = payload?.reasoning === true || payload?.deepThink === true;
+
+      // Dynamic Model Resolution: Auto-Routing or Manual Selection
+      const requestedModelKey = payload?.modelKey || payload?.model || 'bang-ai-auto';
+      let resolvedModelId = null;
+      let resolvedMaxTokens = 65536;
+      let routingInfo = null;
+
+      if (requestedModelKey === 'bang-ai-auto' || requestedModelKey === 'auto') {
+        const route = autoRouteModel({
+          message: cleanMessage,
+          images: incomingImages,
+          webSearch: requestWebSearch,
+          reasoning: requestReasoning
+        });
+        resolvedModelId = route.id;
+        resolvedMaxTokens = route.maxTokens;
+        routingInfo = { isAuto: true, key: route.key, name: route.name, reason: route.reason };
+      } else {
+        const resolvedConfig = BANG_AI_MODELS[requestedModelKey] || BANG_AI_MODELS['bang-ai-ultra'];
+        resolvedModelId = resolvedConfig?.id || (requestedModelKey.includes('/') ? requestedModelKey : BANG_AI_MODELS['bang-ai-ultra'].id);
+        resolvedMaxTokens = resolvedConfig?.maxTokens || 65536;
+        routingInfo = { isAuto: false, key: requestedModelKey, name: resolvedConfig?.name || requestedModelKey, reason: 'Manually selected' };
+      }
+
+      const aiResult = await callBangAI(systemPrompt, conversationHistory, {
+        model: resolvedModelId,
+        maxTokens: resolvedMaxTokens,
+        timeoutMs: 120000,
+        webSearch: requestWebSearch,
+        reasoning: requestReasoning
+      });
+      const aiReplyText = aiResult.content;
 
       const assistantMsgObj = {
         threadId: currentThreadId,
         sessionId: currentSessionId,
         role: 'assistant',
         content: aiReplyText,
+        webSearch: aiResult.webSearch,
+        routing: routingInfo,
         mode: 'CHAT',
         timestamp: now
       };
@@ -435,6 +651,8 @@ Bang AI videos are engineered around the high-retention 75-second multi-scene fo
           status: 'CHAT_REPLY',
           mode: 'CHAT',
           message: aiReplyText,
+          webSearch: aiResult.webSearch,
+          routing: routingInfo,
           threadId: currentThreadId
         })
       };

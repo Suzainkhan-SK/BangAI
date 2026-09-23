@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import ApiDocsPage from './pages/ApiDocsPage';
 import PricingPage from './pages/PricingPage';
+import ChatPage from './pages/ChatPage';
 import { audioEngine } from './audio/audioEngine';
 import { getStoredUser, verifySession, logoutUser } from './utils/authClient';
 import { ROUTES, matchRoute } from './routes';
@@ -353,6 +354,15 @@ function AppContent() {
             currentRoutePath={currentRoutePath}
             collapsed={sidebarCollapsed}
             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onNavigate={handleNavigate}
+          />
+        )}
+
+        {currentView === 'chat' && (
+          <ChatPage
+            user={user}
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
             onNavigate={handleNavigate}
           />
         )}

@@ -964,3 +964,24 @@ body {
   .scene-act-name { font-size: 13px; }
   .voice-cards-grid { grid-template-columns: 1fr; }
 }
+
+/* ─── Bang AI Dedicated Chat Page Theme Helpers ─── */
+.chat-prompt-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+[data-theme='light'] .chat-prompt-textarea::placeholder {
+  color: #64748b;
+  opacity: 0.85;
+}
+
+[data-theme='dark'] .chat-prompt-textarea::placeholder {
+  color: #94a3b8;
+  opacity: 0.75;
+}
+
+.chat-markdown-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+

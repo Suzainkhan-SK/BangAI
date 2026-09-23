@@ -62,6 +62,7 @@ export default function Navbar({
   const NAV_LINKS = user
     ? [
         { label: 'Dashboard', view: 'dashboard' },
+        { label: 'Chat', view: 'chat', badge: 'AI' },
         { label: 'Templates', view: 'templates' },
         { label: 'Studio', view: 'studio/voices' },
         { label: 'Profile', view: 'profile' },
@@ -71,6 +72,7 @@ export default function Navbar({
       ]
     : [
         { label: 'Home', view: 'landing' },
+        { label: 'Chat AI', view: 'chat', badge: 'NEW' },
         { label: 'Templates', view: 'templates' },
         { label: 'Features', view: 'landing', anchor: '#features' },
         { label: 'Showcase', view: 'landing', anchor: '#showcase' },
