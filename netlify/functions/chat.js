@@ -269,14 +269,14 @@ async function callBangAI(systemPrompt, conversationHistory, options = {}) {
 
   // Resilient Fallback: If the selected model is unreachable or fails, auto-fallback to high-availability engine
   if (!options.isFallback) {
-    const fallbackModel = (model === 'minimax/minimax-m3:free') ? 'qwen/qwen3.8-omni-flash:free' : 'minimax/minimax-m3:free';
+    const fallbackModel = (model === 'mistralai/mistral-large-2512') ? 'qwen/qwen3.8-omni-flash:free' : 'mistralai/mistral-large-2512';
     console.warn(`[chat.js] Primary model ${model} failed (${lastError?.message}), attempting auto-fallback to ${fallbackModel}...`);
     try {
       return await callBangAI(systemPrompt, conversationHistory, {
         ...options,
         model: fallbackModel,
         isFallback: true,
-        timeoutMs: 14000
+        timeoutMs: 4500
       });
     } catch (fbErr) {
       console.error(`[chat.js] Auto-fallback model ${fallbackModel} also failed:`, fbErr.message);
@@ -289,6 +289,10 @@ async function callBangAI(systemPrompt, conversationHistory, options = {}) {
 
 
 export const handler = async (event, context) => {
+  if (context) {
+    context.callbackWaitsForEmptyEventLoop = false;
+  }
+
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -354,44 +358,6 @@ export const handler = async (event, context) => {
       } catch (e) {
         console.warn('MongoDB connection notice:', e.message);
       }
-    } else {
-      // For pure interactive CHAT, fire-and-forget DB update in background so response latency is 100% prioritized
-      getDb().then((database) => {
-        if (database) {
-          const userMsgObj = {
-            threadId: currentThreadId,
-            sessionId: currentSessionId,
-            role: 'user',
-            content: message.trim(),
-            mode,
-            timestamp: now
-          };
-          database.collection('messages').insertOne(userMsgObj).catch(() => {});
-          database.collection('threads').updateOne(
-            { threadId: currentThreadId },
-            {
-              $set: {
-                ...threadIdentity,
-                threadId: currentThreadId,
-                sessionId: currentSessionId,
-                rawUserInput: message.trim(),
-                lastPrompt: message.trim(),
-                mode,
-                language: detectedLanguage,
-                privacyStatus: safePrivacyStatus,
-                updatedAt: now
-              },
-              $push: { messages: userMsgObj },
-              $setOnInsert: {
-                createdAt: now,
-                status: 'IDLE',
-                title: message.trim().length > 35 ? (message.trim().substring(0, 35) + '...') : message.trim()
-              }
-            },
-            { upsert: true }
-          ).catch(() => {});
-        }
-      }).catch(() => {});
     }
 
     if (db && mode !== 'CHAT') {
@@ -701,19 +667,6 @@ CRITICAL RULES:
         mode: 'CHAT',
         timestamp: now
       };
-
-      getDb().then((database) => {
-        if (database) {
-          database.collection('threads').updateOne(
-            { threadId: currentThreadId },
-            {
-              $set: { updatedAt: now, status: 'CHAT', mode: 'CHAT' },
-              $push: { messages: assistantMsgObj }
-            },
-            { upsert: true }
-          ).catch(() => {});
-        }
-      }).catch(() => {});
 
       return {
         statusCode: 200,
