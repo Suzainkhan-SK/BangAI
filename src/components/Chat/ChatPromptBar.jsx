@@ -92,7 +92,7 @@ export default function ChatPromptBar({
   onSendMessage,
   onStopGeneration,
   isLoading = false,
-  webSearchEnabled = true,
+  webSearchEnabled = false,
   onToggleWebSearch,
   reasoningEnabled = false,
   onToggleReasoning,

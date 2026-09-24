@@ -127,25 +127,29 @@ const STARTER_PROMPTS = [
     icon: '💻',
     title: 'Build a Portfolio Website',
     desc: 'Generate a complete, modern, responsive portfolio website in HTML, CSS & JavaScript',
-    prompt: 'Build me a complete, modern, and beautiful developer portfolio website in HTML, CSS, and Vanilla JavaScript with a sleek dark mode and interactive projects section.'
+    prompt: 'Build me a complete, modern, and beautiful developer portfolio website in HTML, CSS, and Vanilla JavaScript with a sleek dark mode and interactive projects section.',
+    webSearch: false
   },
   {
     icon: '🎬',
     title: '75s Golden Short Blueprint',
     desc: 'Full 5-scene high-retention script with hooks, camera prompts & loop CTA',
-    prompt: 'Write a full 75-second 5-scene golden blueprint YouTube Short script about the mystery of the Mariana Trench with scene timings, visual camera cues, and voiceover pacing.'
+    prompt: 'Write a full 75-second 5-scene golden blueprint YouTube Short script about the mystery of the Mariana Trench with scene timings, visual camera cues, and voiceover pacing.',
+    webSearch: false
   },
   {
     icon: '🌐',
     title: 'Live Web Trend Research',
     desc: 'Real-time search for trending topics, algorithm shifts & live citations',
-    prompt: 'Search the live web and tell me the biggest viral trends and algorithm updates happening on YouTube Shorts right now.'
+    prompt: 'Search the live web and tell me the biggest viral trends and algorithm updates happening on YouTube Shorts right now.',
+    webSearch: true
   },
   {
     icon: '🧠',
     title: 'Deep Thinking & Logic',
     desc: 'Tackle a multi-step logic problem or complex architecture with deep reasoning',
-    prompt: 'Solve this riddle with high reasoning effort: A farmer has 17 sheep, and all but 9 die. How many are left? Think step by step.'
+    prompt: 'Solve this riddle with high reasoning effort: A farmer has 17 sheep, and all but 9 die. How many are left? Think step by step.',
+    webSearch: false
   }
 ];
 
@@ -156,7 +160,7 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
   const [searchFilter, setSearchFilter] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
-  const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [reasoningEnabled, setReasoningEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
@@ -430,8 +434,21 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
         })
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
       if (thinkingInterval) clearInterval(thinkingInterval);
+
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (jsonErr) {
+        if (res.status === 504 || rawText.includes('Inactivity Timeout') || rawText.includes('504')) {
+          throw new Error('Server request timed out. Please ensure Live Web Search is toggled OFF for heavy code generation, or switch to Bang AI 4.5 Flash.');
+        }
+        if (res.status === 502) {
+          throw new Error('Connection gateway error (502). Please check network and retry.');
+        }
+        throw new Error(`Server returned HTTP ${res.status}: ${rawText.slice(0, 90)}`);
+      }
 
       if (!res.ok || data.error) {
         throw new Error(data.message || data.error || `Server responded with ${res.status}`);

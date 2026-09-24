@@ -78,16 +78,16 @@ export const BANG_AI_MODELS = {
     maxTokens: 16384
   },
   'bang-ai-coder': {
-    id: 'mistralai/codestral-2508',
+    id: 'mistralai/mistral-large-2512',
     name: 'Bang AI 4.5 Coder',
     tag: 'Full Apps • Code & Scripts',
     desc: 'Specialized for complete software apps, websites, automation, and scripts.',
-    maxTokens: 32768
+    maxTokens: 4096
   }
 };
 
 // Smart Router: Intelligently select best model based on prompt complexity, vision, code, or speed
-export function autoRouteModel({ message, images = [], webSearch = true, reasoning = false }) {
+export function autoRouteModel({ message, images = [], webSearch = false, reasoning = false }) {
   const text = (message || '').toLowerCase();
 
   // 1. Vision / Image attachments
@@ -113,7 +113,7 @@ export function autoRouteModel({ message, images = [], webSearch = true, reasoni
       id: BANG_AI_MODELS['bang-ai-coder'].id,
       name: BANG_AI_MODELS['bang-ai-coder'].name,
       reason: 'Coding & Architecture — Routed to 4.5 Coder',
-      maxTokens: 32768
+      maxTokens: 4096
     };
   }
 
@@ -128,7 +128,7 @@ export function autoRouteModel({ message, images = [], webSearch = true, reasoni
       id: BANG_AI_MODELS['bang-ai-thinking'].id,
       name: BANG_AI_MODELS['bang-ai-thinking'].name,
       reason: 'Deep reasoning & logic — Routed to 4.5 Thinking',
-      maxTokens: 65536
+      maxTokens: 32768
     };
   }
 
@@ -150,7 +150,7 @@ export function autoRouteModel({ message, images = [], webSearch = true, reasoni
     id: BANG_AI_MODELS['bang-ai-ultra'].id,
     name: BANG_AI_MODELS['bang-ai-ultra'].name,
     reason: 'Frontier multimodal engine — 1M Context & 65K Output',
-    maxTokens: 65536
+    maxTokens: 32768
   };
 }
 
@@ -166,10 +166,10 @@ async function callBangAI(systemPrompt, conversationHistory, options = {}) {
   // Ultra-High Ceiling: 1M token context window and up to 65,536 max output tokens
   const {
     model = XKIRO_DEFAULT_MODEL,
-    maxTokens = 65536,
-    timeoutMs = 120000,
+    maxTokens = 32768,
+    timeoutMs = 22000,
     jsonMode = false,
-    webSearch = true,
+    webSearch = false,
     reasoning = false
   } = options;
 
@@ -332,13 +332,53 @@ export const handler = async (event, context) => {
     }
 
     let db = null;
-    try {
-      db = await getDb();
-    } catch (e) {
-      console.warn('MongoDB connection notice:', e.message);
+    if (mode !== 'CHAT') {
+      try {
+        db = await getDb();
+      } catch (e) {
+        console.warn('MongoDB connection notice:', e.message);
+      }
+    } else {
+      // For pure interactive CHAT, fire-and-forget DB update in background so response latency is 100% prioritized
+      getDb().then((database) => {
+        if (database) {
+          const userMsgObj = {
+            threadId: currentThreadId,
+            sessionId: currentSessionId,
+            role: 'user',
+            content: message.trim(),
+            mode,
+            timestamp: now
+          };
+          database.collection('messages').insertOne(userMsgObj).catch(() => {});
+          database.collection('threads').updateOne(
+            { threadId: currentThreadId },
+            {
+              $set: {
+                ...threadIdentity,
+                threadId: currentThreadId,
+                sessionId: currentSessionId,
+                rawUserInput: message.trim(),
+                lastPrompt: message.trim(),
+                mode,
+                language: detectedLanguage,
+                privacyStatus: safePrivacyStatus,
+                updatedAt: now
+              },
+              $push: { messages: userMsgObj },
+              $setOnInsert: {
+                createdAt: now,
+                status: 'IDLE',
+                title: message.trim().length > 35 ? (message.trim().substring(0, 35) + '...') : message.trim()
+              }
+            },
+            { upsert: true }
+          ).catch(() => {});
+        }
+      }).catch(() => {});
     }
 
-    if (db) {
+    if (db && mode !== 'CHAT') {
       try {
         const userMsgObj = {
           threadId: currentThreadId,
@@ -646,20 +686,18 @@ CRITICAL RULES:
         timestamp: now
       };
 
-      if (db) {
-        try {
-          await db.collection('threads').updateOne(
+      getDb().then((database) => {
+        if (database) {
+          database.collection('threads').updateOne(
             { threadId: currentThreadId },
             {
               $set: { updatedAt: now, status: 'CHAT', mode: 'CHAT' },
               $push: { messages: assistantMsgObj }
             },
             { upsert: true }
-          );
-        } catch (e) {
-          console.warn('[CHAT] DB update error:', e.message);
+          ).catch(() => {});
         }
-      }
+      }).catch(() => {});
 
       return {
         statusCode: 200,
