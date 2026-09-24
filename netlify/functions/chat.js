@@ -10,65 +10,65 @@ import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg25.app.n8n.cloud/webhook/viral-shorts-ai';
 const XKIRO_BASE_URL = process.env.XKIRO_BASE_URL || 'https://api.xkiro.com/v1';
-const XKIRO_DEFAULT_MODEL = 'minimax/minimax-m3:free';
+const XKIRO_DEFAULT_MODEL = 'mistralai/mistral-large-2512';
 
 // Curated Top Free Models on xKiro for Bang AI Dropdown (Bang AI 4.5 Series)
 export const BANG_AI_MODELS = {
   'bang-ai-auto': {
-    id: 'minimax/minimax-m3:free',
+    id: 'mistralai/mistral-large-2512',
     name: 'Bang AI 4.5 Auto',
     tag: 'Auto • Best Model',
     desc: 'Smart router automatically picks the best model for your task.',
-    maxTokens: 65536
+    maxTokens: 3000
   },
   'bang-ai-ultra': {
-    id: 'minimax/minimax-m3:free',
+    id: 'mistralai/mistral-large-2512',
     name: 'Bang AI 4.5 Ultra',
-    tag: '1M Context • 65K Output',
-    desc: 'Flagship powerhouse with 1M context, 65K max output, vision, and full coding mastery.',
-    maxTokens: 65536
+    tag: '128K Context • Flagship',
+    desc: 'High-speed flagship powerhouse with 128K context, deep logic, and full coding mastery.',
+    maxTokens: 3000
   },
   'bang-ai-thinking': {
-    id: 'minimax/minimax-m3:free',
+    id: 'mistralai/mistral-large-2512',
     name: 'Bang AI 4.5 Thinking',
     tag: 'Deep Reasoning • Logic',
     desc: 'Solves complex logic, multi-step math, deep architectures, and deep thinking.',
-    maxTokens: 65536
+    maxTokens: 3000
   },
   'bang-ai-reasoning': {
-    id: 'minimax/minimax-m3:free',
+    id: 'mistralai/mistral-large-2512',
     name: 'Bang AI 4.5 Thinking',
     tag: 'Deep Reasoning • Logic',
     desc: 'Solves complex logic, multi-step math, deep architectures, and deep thinking.',
-    maxTokens: 65536
+    maxTokens: 3000
   },
   'bang-ai-search': {
     id: 'qwen/qwen3.8-max:free',
     name: 'Bang AI 4.5 Search',
     tag: 'Web Search • Live Citations',
     desc: 'Real-time web browsing, latest news citations, and viral market analysis.',
-    maxTokens: 65536
+    maxTokens: 3000
   },
   'bang-ai-max': {
     id: 'qwen/qwen3.8-max:free',
     name: 'Bang AI 4.5 Search',
     tag: 'Web Search • Live Citations',
     desc: 'Real-time web browsing, latest news citations, and viral market analysis.',
-    maxTokens: 65536
+    maxTokens: 3000
   },
   'bang-ai-flash': {
-    id: 'qwen/qwen3.8-omni-flash:free',
+    id: 'mistralai/mistral-large-2512',
     name: 'Bang AI 4.5 Flash',
     tag: 'Fastest • Low Latency',
     desc: 'Instant generation for quick answers, drafting, and rapid brainstorming.',
-    maxTokens: 16384
+    maxTokens: 1500
   },
   'bang-ai-omni': {
-    id: 'qwen/qwen3.8-omni-flash:free',
+    id: 'mistralai/mistral-large-2512',
     name: 'Bang AI 4.5 Flash',
     tag: 'Fastest • Low Latency',
     desc: 'Instant generation for quick answers, drafting, and rapid brainstorming.',
-    maxTokens: 16384
+    maxTokens: 1500
   },
   'bang-ai-vision': {
     id: 'qwen/qwen3-vl-plus:free',
@@ -113,7 +113,7 @@ export function autoRouteModel({ message, images = [], webSearch = false, reason
       id: BANG_AI_MODELS['bang-ai-coder'].id,
       name: BANG_AI_MODELS['bang-ai-coder'].name,
       reason: 'Coding & Architecture — Routed to 4.5 Coder',
-      maxTokens: 4096
+      maxTokens: 1400
     };
   }
 
@@ -128,7 +128,7 @@ export function autoRouteModel({ message, images = [], webSearch = false, reason
       id: BANG_AI_MODELS['bang-ai-thinking'].id,
       name: BANG_AI_MODELS['bang-ai-thinking'].name,
       reason: 'Deep reasoning & logic — Routed to 4.5 Thinking',
-      maxTokens: 32768
+      maxTokens: 1800
     };
   }
 
@@ -140,17 +140,17 @@ export function autoRouteModel({ message, images = [], webSearch = false, reason
       id: BANG_AI_MODELS['bang-ai-flash'].id,
       name: BANG_AI_MODELS['bang-ai-flash'].name,
       reason: 'Quick query — Routed to 4.5 Flash for instant speed',
-      maxTokens: 16384
+      maxTokens: 1200
     };
   }
 
-  // 5. Default Flagship: 1M Context + 65K Output
+  // 5. Default Flagship: High Speed & High Quality
   return {
     key: 'bang-ai-ultra',
     id: BANG_AI_MODELS['bang-ai-ultra'].id,
     name: BANG_AI_MODELS['bang-ai-ultra'].name,
-    reason: 'Frontier multimodal engine — 1M Context & 65K Output',
-    maxTokens: 32768
+    reason: 'Frontier multimodal engine — Ultra Speed & Logic',
+    maxTokens: 1800
   };
 }
 
