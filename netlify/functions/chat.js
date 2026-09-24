@@ -267,6 +267,22 @@ async function callBangAI(systemPrompt, conversationHistory, options = {}) {
     }
   }
 
+  // Resilient Fallback: If the selected model is unreachable or fails, auto-fallback to high-availability engine
+  if (!options.isFallback) {
+    const fallbackModel = (model === 'minimax/minimax-m3:free') ? 'qwen/qwen3.8-omni-flash:free' : 'minimax/minimax-m3:free';
+    console.warn(`[chat.js] Primary model ${model} failed (${lastError?.message}), attempting auto-fallback to ${fallbackModel}...`);
+    try {
+      return await callBangAI(systemPrompt, conversationHistory, {
+        ...options,
+        model: fallbackModel,
+        isFallback: true,
+        timeoutMs: 14000
+      });
+    } catch (fbErr) {
+      console.error(`[chat.js] Auto-fallback model ${fallbackModel} also failed:`, fbErr.message);
+    }
+  }
+
   throw new Error(`All Bang AI keys failed: ${lastError ? lastError.message : 'Unknown error'}`);
 }
 
