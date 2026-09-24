@@ -416,123 +416,255 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
         { role: 'user', content: combinedPrompt }
       ];
 
-      const res = await fetch('/.netlify/functions/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || ''}`
-        },
-        body: JSON.stringify({
-          mode: 'CHAT',
-          modelKey: selectedModelKey,
-          message: combinedPrompt,
-          messages: historyPayload,
-          images: imageAttachments.map((img) => img.data),
-          webSearch: !!webSearch,
-          reasoning: !!reasoning,
-          threadId: currentId
-        })
-      });
+      let streamSucceeded = false;
+      let fullText = '';
+      let routingMeta = null;
+      let actualReasoning = '';
+      const token = localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || '';
 
-      const rawText = await res.text();
-      if (thinkingInterval) clearInterval(thinkingInterval);
+      const requestPayload = {
+        mode: 'CHAT',
+        modelKey: selectedModelKey,
+        message: combinedPrompt,
+        messages: historyPayload,
+        images: imageAttachments.map((img) => img.data),
+        webSearch: !!webSearch,
+        reasoning: !!reasoning,
+        threadId: currentId
+      };
 
-      let data;
+      // 1. Try real-time SSE streaming via Edge Function (/api/chat)
       try {
-        data = JSON.parse(rawText);
-      } catch (jsonErr) {
-        if (res.status === 504 || rawText.includes('Inactivity Timeout') || rawText.includes('504')) {
-          throw new Error('Server request timed out. Please ensure Live Web Search is toggled OFF for heavy code generation, or switch to Bang AI 4.5 Flash.');
-        }
-        if (res.status === 502) {
-          throw new Error('Connection gateway error (502). Please check network and retry.');
-        }
-        throw new Error(`Server returned HTTP ${res.status}: ${rawText.slice(0, 90)}`);
-      }
+        const streamRes = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify(requestPayload)
+        });
 
-      if (!res.ok || data.error) {
-        throw new Error(data.message || data.error || `Server responded with ${res.status}`);
-      }
+        if (streamRes.ok && streamRes.body) {
+          const routingHeader = streamRes.headers.get('x-bangai-routing');
+          if (routingHeader) {
+            try { routingMeta = JSON.parse(decodeURIComponent(routingHeader)); } catch (e) {}
+          }
 
-      const totalThoughtSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
-      const fullText = data.message || 'No response returned.';
-      const actualReasoning = data.reasoningContent || '';
+          const reader = streamRes.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let firstChunkArrived = false;
 
-      // First update thinking status to complete and attach citations
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.id === currentId
-            ? {
-                ...s,
-                messages: s.messages.map((m) =>
-                  m.id === assistantMsgId
-                    ? {
-                        ...m,
-                        isThinking: false,
-                        thoughtDuration: `${totalThoughtSec}s`,
-                        reasoningContent: actualReasoning,
-                        webSearch: data.webSearch || null,
-                        routing: data.routing || null
-                      }
-                    : m
-                )
+          while (true) {
+            if (stopStreamingRef.current) {
+              await reader.cancel();
+              break;
+            }
+
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || trimmed.startsWith(':')) continue;
+              if (trimmed === 'data: [DONE]') continue;
+
+              if (trimmed.startsWith('data: ')) {
+                try {
+                  const json = JSON.parse(trimmed.slice(6));
+                  const delta = json.choices?.[0]?.delta?.content || '';
+                  const reasoningDelta = json.choices?.[0]?.delta?.reasoning_content || '';
+                  if (reasoningDelta) actualReasoning += reasoningDelta;
+
+                  if (delta) {
+                    fullText += delta;
+                    if (!firstChunkArrived) {
+                      firstChunkArrived = true;
+                      streamSucceeded = true;
+                      if (thinkingInterval) clearInterval(thinkingInterval);
+                      const totalThoughtSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+                      setSessions((prev) =>
+                        prev.map((s) =>
+                          s.id === currentId
+                            ? {
+                                ...s,
+                                messages: s.messages.map((m) =>
+                                  m.id === assistantMsgId
+                                    ? {
+                                        ...m,
+                                        isThinking: false,
+                                        thoughtDuration: `${totalThoughtSec}s`,
+                                        routing: routingMeta
+                                      }
+                                    : m
+                                )
+                              }
+                            : s
+                        )
+                      );
+                    }
+
+                    // Live real-time token injection
+                    setSessions((prev) =>
+                      prev.map((s) =>
+                        s.id === currentId
+                          ? {
+                              ...s,
+                              messages: s.messages.map((m) =>
+                                m.id === assistantMsgId
+                                  ? { ...m, content: fullText, isStreaming: true }
+                                  : m
+                              )
+                            }
+                          : s
+                      )
+                    );
+                    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                  }
+                } catch (e) {}
               }
-            : s
-        )
-      );
+            }
+          }
 
-      // Real-time typewriter streaming animation (like ChatGPT)
-      let currentIdx = 0;
-      const totalChars = fullText.length;
-      // High-speed chunking for long code blocks / apps so user sees progressive typing
-      const chunkSize = totalChars > 2500 ? 16 : (totalChars > 800 ? 8 : 4);
-      const delayMs = 16;
-
-      await new Promise((resolve) => {
-        const streamTimer = setInterval(() => {
-          if (stopStreamingRef.current) {
-            clearInterval(streamTimer);
+          if (streamSucceeded) {
             setSessions((prev) =>
               prev.map((s) =>
                 s.id === currentId
                   ? {
                       ...s,
                       messages: s.messages.map((m) =>
-                        m.id === assistantMsgId ? { ...m, content: fullText, isStreaming: false } : m
+                        m.id === assistantMsgId
+                          ? {
+                              ...m,
+                              isStreaming: false,
+                              reasoningContent: actualReasoning || m.reasoningContent
+                            }
+                          : m
                       )
                     }
                   : s
               )
             );
-            resolve();
-            return;
           }
+        }
+      } catch (streamErr) {
+        console.warn('[ChatPage] Edge SSE streaming unavailable, attempting fallback:', streamErr);
+      }
 
-          currentIdx = Math.min(totalChars, currentIdx + chunkSize);
-          const nextSlice = fullText.slice(0, currentIdx);
-          const isDone = currentIdx >= totalChars;
+      // 2. Fallback to standard Netlify function if streaming did not start
+      if (!streamSucceeded) {
+        const res = await fetch('/.netlify/functions/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify(requestPayload)
+        });
 
-          setSessions((prev) =>
-            prev.map((s) =>
-              s.id === currentId
-                ? {
-                    ...s,
-                    messages: s.messages.map((m) =>
-                      m.id === assistantMsgId ? { ...m, content: nextSlice, isStreaming: !isDone } : m
-                    )
-                  }
-                : s
-            )
-          );
+        const rawText = await res.text();
+        if (thinkingInterval) clearInterval(thinkingInterval);
 
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-
-          if (isDone) {
-            clearInterval(streamTimer);
-            resolve();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (jsonErr) {
+          if (res.status === 504 || rawText.includes('Inactivity Timeout') || rawText.includes('504')) {
+            throw new Error('Server request timed out. Please ensure Live Web Search is toggled OFF for heavy code generation, or switch to Bang AI 4.5 Flash.');
           }
-        }, delayMs);
-      });
+          if (res.status === 502) {
+            throw new Error('Connection gateway error (502). Please check network and retry.');
+          }
+          throw new Error(`Server returned HTTP ${res.status}: ${rawText.slice(0, 90)}`);
+        }
+
+        if (!res.ok || data.error) {
+          throw new Error(data.message || data.error || `Server responded with ${res.status}`);
+        }
+
+        const totalThoughtSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+        fullText = data.message || 'No response returned.';
+        actualReasoning = data.reasoningContent || '';
+
+        // First update thinking status to complete and attach citations
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === currentId
+              ? {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === assistantMsgId
+                      ? {
+                          ...m,
+                          isThinking: false,
+                          thoughtDuration: `${totalThoughtSec}s`,
+                          reasoningContent: actualReasoning,
+                          webSearch: data.webSearch || null,
+                          routing: data.routing || null
+                        }
+                      : m
+                  )
+                }
+              : s
+          )
+        );
+
+        // Real-time typewriter streaming animation (like ChatGPT)
+        let currentIdx = 0;
+        const totalChars = fullText.length;
+        const chunkSize = totalChars > 2500 ? 16 : (totalChars > 800 ? 8 : 4);
+        const delayMs = 16;
+
+        await new Promise((resolve) => {
+          const streamTimer = setInterval(() => {
+            if (stopStreamingRef.current) {
+              clearInterval(streamTimer);
+              setSessions((prev) =>
+                prev.map((s) =>
+                  s.id === currentId
+                    ? {
+                        ...s,
+                        messages: s.messages.map((m) =>
+                          m.id === assistantMsgId ? { ...m, content: fullText, isStreaming: false } : m
+                        )
+                      }
+                    : s
+                )
+              );
+              resolve();
+              return;
+            }
+
+            currentIdx = Math.min(totalChars, currentIdx + chunkSize);
+            const nextSlice = fullText.slice(0, currentIdx);
+            const isDone = currentIdx >= totalChars;
+
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === currentId
+                  ? {
+                      ...s,
+                      messages: s.messages.map((m) =>
+                        m.id === assistantMsgId ? { ...m, content: nextSlice, isStreaming: !isDone } : m
+                      )
+                    }
+                  : s
+              )
+            );
+
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+            if (isDone) {
+              clearInterval(streamTimer);
+              resolve();
+            }
+          }, delayMs);
+        });
+      }
 
       try { audioEngine.playSfx('boom'); } catch (e) {}
     } catch (err) {

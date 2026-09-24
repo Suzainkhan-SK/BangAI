@@ -167,7 +167,7 @@ async function callBangAI(systemPrompt, conversationHistory, options = {}) {
   const {
     model = XKIRO_DEFAULT_MODEL,
     maxTokens = 32768,
-    timeoutMs = 22000,
+    timeoutMs = 8500,
     jsonMode = false,
     webSearch = false,
     reasoning = false

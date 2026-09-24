@@ -6,6 +6,16 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    host: true
+    host: true,
+    proxy: {
+      '/.netlify/functions': {
+        target: 'https://bangai.netlify.app',
+        changeOrigin: true
+      },
+      '/api': {
+        target: 'https://bangai.netlify.app',
+        changeOrigin: true
+      }
+    }
   }
 });

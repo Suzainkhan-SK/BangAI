@@ -3,10 +3,15 @@
   publish = "dist"
   command = "npm run build"
   functions = "netlify/functions"
+  edge_functions = "netlify/edge-functions"
 
 [functions]
   node_bundler = "esbuild"
   timeout = 26
+
+[[edge_functions]]
+  path = "/api/chat"
+  function = "chat"
 
 # Ensure Netlify Functions are ALWAYS executed directly
 [[redirects]]
