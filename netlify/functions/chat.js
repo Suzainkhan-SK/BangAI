@@ -661,7 +661,7 @@ CRITICAL RULES:
       const aiResult = await callBangAI(systemPrompt, conversationHistory, {
         model: resolvedModelId,
         maxTokens: Math.min(resolvedMaxTokens, 1200),
-        timeoutMs: 8000,
+        timeoutMs: (incomingImages.length > 0 || requestReasoning) ? 25000 : 10000,
         webSearch: requestWebSearch,
         reasoning: requestReasoning
       });

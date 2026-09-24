@@ -400,6 +400,22 @@ export default function ChatPromptBar({
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files || []);
     files.forEach((file) => {
+      if (file.type && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (uploadEvent) => {
+          setAttachments((prev) => [
+            ...prev,
+            {
+              type: 'image',
+              name: file.name,
+              size: (file.size / 1024).toFixed(1) + ' KB',
+              data: uploadEvent.target.result
+            }
+          ]);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (uploadEvent) => {
         const fileContent = uploadEvent.target.result;

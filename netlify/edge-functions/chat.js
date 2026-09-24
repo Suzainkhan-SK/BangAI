@@ -216,6 +216,11 @@ Provide comprehensive, production-ready, beautifully structured responses with d
     payload.web_search = { enable: true, count: 5 };
   }
 
+  if (reasoning) {
+    payload.reasoning_effort = 'high';
+    payload.thinking = { type: 'enabled', budget_tokens: 4096 };
+  }
+
   // Attempt upstream streaming call across available keys
   let upstreamResponse = null;
   let lastError = null;
