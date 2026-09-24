@@ -113,7 +113,7 @@ export function autoRouteModel({ message, images = [], webSearch = false, reason
       id: BANG_AI_MODELS['bang-ai-coder'].id,
       name: BANG_AI_MODELS['bang-ai-coder'].name,
       reason: 'Coding & Architecture — Routed to 4.5 Coder',
-      maxTokens: 1400
+      maxTokens: 1000
     };
   }
 
@@ -128,7 +128,7 @@ export function autoRouteModel({ message, images = [], webSearch = false, reason
       id: BANG_AI_MODELS['bang-ai-thinking'].id,
       name: BANG_AI_MODELS['bang-ai-thinking'].name,
       reason: 'Deep reasoning & logic — Routed to 4.5 Thinking',
-      maxTokens: 1800
+      maxTokens: 1000
     };
   }
 
@@ -140,7 +140,7 @@ export function autoRouteModel({ message, images = [], webSearch = false, reason
       id: BANG_AI_MODELS['bang-ai-flash'].id,
       name: BANG_AI_MODELS['bang-ai-flash'].name,
       reason: 'Quick query — Routed to 4.5 Flash for instant speed',
-      maxTokens: 1200
+      maxTokens: 800
     };
   }
 
@@ -150,7 +150,7 @@ export function autoRouteModel({ message, images = [], webSearch = false, reason
     id: BANG_AI_MODELS['bang-ai-ultra'].id,
     name: BANG_AI_MODELS['bang-ai-ultra'].name,
     reason: 'Frontier multimodal engine — Ultra Speed & Logic',
-    maxTokens: 1800
+    maxTokens: 1000
   };
 }
 
@@ -677,14 +677,14 @@ CRITICAL RULES:
       } else {
         const resolvedConfig = BANG_AI_MODELS[requestedModelKey] || BANG_AI_MODELS['bang-ai-ultra'];
         resolvedModelId = resolvedConfig?.id || (requestedModelKey.includes('/') ? requestedModelKey : BANG_AI_MODELS['bang-ai-ultra'].id);
-        resolvedMaxTokens = resolvedConfig?.maxTokens || 65536;
+        resolvedMaxTokens = Math.min(resolvedConfig?.maxTokens || 1200, 1200);
         routingInfo = { isAuto: false, key: requestedModelKey, name: resolvedConfig?.name || requestedModelKey, reason: 'Manually selected' };
       }
 
       const aiResult = await callBangAI(systemPrompt, conversationHistory, {
         model: resolvedModelId,
-        maxTokens: resolvedMaxTokens,
-        timeoutMs: 120000,
+        maxTokens: Math.min(resolvedMaxTokens, 1200),
+        timeoutMs: 8000,
         webSearch: requestWebSearch,
         reasoning: requestReasoning
       });
