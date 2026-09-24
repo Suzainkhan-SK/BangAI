@@ -985,3 +985,19 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  background-color: var(--accent-primary, #6366f1);
+  margin-left: 3px;
+  vertical-align: -2px;
+  border-radius: 1px;
+  animation: cursorBlink 0.8s infinite ease-in-out;
+}
+

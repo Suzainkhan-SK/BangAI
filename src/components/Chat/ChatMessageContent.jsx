@@ -69,8 +69,16 @@ function CodeBlock({ code, language }) {
   );
 }
 
-function parseMarkdown(text) {
+function parseMarkdown(text, isStreaming = false) {
   if (!text || typeof text !== 'string') return [];
+
+  let normalized = text;
+  if (isStreaming) {
+    const backticks = (normalized.match(/```/g) || []).length;
+    if (backticks % 2 === 1) {
+      normalized += '\n```';
+    }
+  }
 
   // Split text by fenced code blocks: ```lang ... ```
   const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
@@ -78,9 +86,9 @@ function parseMarkdown(text) {
   let lastIndex = 0;
   let match;
 
-  while ((match = codeBlockRegex.exec(text)) !== null) {
+  while ((match = codeBlockRegex.exec(normalized)) !== null) {
     if (match.index > lastIndex) {
-      blocks.push({ type: 'text', content: text.substring(lastIndex, match.index) });
+      blocks.push({ type: 'text', content: normalized.substring(lastIndex, match.index) });
     }
     blocks.push({
       type: 'code',
@@ -90,8 +98,8 @@ function parseMarkdown(text) {
     lastIndex = match.index + match[0].length;
   }
 
-  if (lastIndex < text.length) {
-    blocks.push({ type: 'text', content: text.substring(lastIndex) });
+  if (lastIndex < normalized.length) {
+    blocks.push({ type: 'text', content: normalized.substring(lastIndex) });
   }
 
   return blocks;
@@ -334,28 +342,39 @@ function renderInlineFormatting(rawText, onCitationClick) {
   });
 }
 
-export default function ChatMessageContent({ content, onCitationClick }) {
-  if (!content) return null;
+export default function ChatMessageContent({ content, onCitationClick, isStreaming = false }) {
+  if (!content && !isStreaming) return null;
 
-  const blocks = parseMarkdown(content);
+  const blocks = parseMarkdown(content || '', isStreaming);
 
   return (
-    <div className="chat-markdown-content" style={{ fontSize: '14.5px', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+    <div className="chat-markdown-content" style={{ fontSize: '14.5px', color: 'var(--text-primary)', wordBreak: 'break-word', lineHeight: 1.65 }}>
       {blocks.map((block, idx) => {
+        const isLastBlock = idx === blocks.length - 1;
         if (block.type === 'code') {
-          return <CodeBlock key={idx} code={block.code} language={block.language} />;
+          return (
+            <React.Fragment key={idx}>
+              <CodeBlock code={block.code} language={block.language} />
+              {isStreaming && isLastBlock && <span className="streaming-cursor" />}
+            </React.Fragment>
+          );
         }
         const paragraphs = block.content.split(/\n\s*\n/);
         return (
           <div key={idx}>
-            {paragraphs.map((para, pi) => (
-              <React.Fragment key={pi}>
-                {renderFormattedParagraph(para.trim(), onCitationClick)}
-              </React.Fragment>
-            ))}
+            {paragraphs.map((para, pi) => {
+              const isLastPara = isLastBlock && pi === paragraphs.length - 1;
+              return (
+                <React.Fragment key={pi}>
+                  {renderFormattedParagraph(para.trim(), onCitationClick)}
+                  {isStreaming && isLastPara && <span className="streaming-cursor" />}
+                </React.Fragment>
+              );
+            })}
           </div>
         );
       })}
+      {isStreaming && blocks.length === 0 && <span className="streaming-cursor" />}
     </div>
   );
 }

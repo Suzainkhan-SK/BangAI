@@ -12,48 +12,76 @@ const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg25.app.n
 const XKIRO_BASE_URL = process.env.XKIRO_BASE_URL || 'https://api.xkiro.com/v1';
 const XKIRO_DEFAULT_MODEL = 'minimax/minimax-m3:free';
 
-// Curated Top Free Models on xKiro for Bang AI Dropdown
+// Curated Top Free Models on xKiro for Bang AI Dropdown (Bang AI 4.5 Series)
 export const BANG_AI_MODELS = {
+  'bang-ai-auto': {
+    id: 'minimax/minimax-m3:free',
+    name: 'Bang AI 4.5 Auto',
+    tag: 'Auto • Best Model',
+    desc: 'Smart router automatically picks the best model for your task.',
+    maxTokens: 65536
+  },
   'bang-ai-ultra': {
     id: 'minimax/minimax-m3:free',
-    name: 'Bang AI Ultra 4.0',
+    name: 'Bang AI 4.5 Ultra',
     tag: '1M Context • 65K Output',
-    desc: 'Multimodal foundation model with 1M context, 65K output, video, vision & reasoning.',
+    desc: 'Flagship powerhouse with 1M context, 65K max output, vision, and full coding mastery.',
+    maxTokens: 65536
+  },
+  'bang-ai-thinking': {
+    id: 'minimax/minimax-m3:free',
+    name: 'Bang AI 4.5 Thinking',
+    tag: 'Deep Reasoning • Logic',
+    desc: 'Solves complex logic, multi-step math, deep architectures, and deep thinking.',
+    maxTokens: 65536
+  },
+  'bang-ai-reasoning': {
+    id: 'minimax/minimax-m3:free',
+    name: 'Bang AI 4.5 Thinking',
+    tag: 'Deep Reasoning • Logic',
+    desc: 'Solves complex logic, multi-step math, deep architectures, and deep thinking.',
+    maxTokens: 65536
+  },
+  'bang-ai-search': {
+    id: 'qwen/qwen3.8-max:free',
+    name: 'Bang AI 4.5 Search',
+    tag: 'Web Search • Live Citations',
+    desc: 'Real-time web browsing, latest news citations, and viral market analysis.',
     maxTokens: 65536
   },
   'bang-ai-max': {
     id: 'qwen/qwen3.8-max:free',
-    name: 'Bang AI Max Strategist',
-    tag: 'Viral Master • Web Search',
-    desc: 'Flagship viral storytelling, 5-scene golden blueprint generator, and deep web citations.',
+    name: 'Bang AI 4.5 Search',
+    tag: 'Web Search • Live Citations',
+    desc: 'Real-time web browsing, latest news citations, and viral market analysis.',
     maxTokens: 65536
   },
-  'bang-ai-reasoning': {
-    id: 'mistralai/mistral-large-2512',
-    name: 'Bang AI Enterprise Reasoning',
-    tag: 'Mistral Large • Deep Logic',
-    desc: 'High-end frontier reasoning model for complex script structures, research, and analysis.',
-    maxTokens: 32768
+  'bang-ai-flash': {
+    id: 'qwen/qwen3.8-omni-flash:free',
+    name: 'Bang AI 4.5 Flash',
+    tag: 'Fastest • Low Latency',
+    desc: 'Instant generation for quick answers, drafting, and rapid brainstorming.',
+    maxTokens: 16384
   },
   'bang-ai-omni': {
     id: 'qwen/qwen3.8-omni-flash:free',
-    name: 'Bang AI Omni Flash',
-    tag: 'Sub-Second Speed',
-    desc: 'Ultra-fast response engine for instant hook variations, quick tag generation, and rapid Q&A.',
+    name: 'Bang AI 4.5 Flash',
+    tag: 'Fastest • Low Latency',
+    desc: 'Instant generation for quick answers, drafting, and rapid brainstorming.',
     maxTokens: 16384
   },
   'bang-ai-vision': {
     id: 'qwen/qwen3-vl-plus:free',
-    name: 'Bang AI Vision Specialist',
-    tag: 'Visual & Thumbnail Audit',
-    desc: 'Specialized visual inspection model for analyzing thumbnails, screenshots, and artwork.',
+    name: 'Bang AI 4.5 Vision',
+    tag: 'Vision • Image Analysis',
+    desc: 'Multimodal visual analysis for images, diagrams, and thumbnails.',
     maxTokens: 16384
   },
   'bang-ai-coder': {
     id: 'mistralai/codestral-2508',
-    name: 'Bang AI Automation Architect',
-    tag: 'Code & JSON Mode',
-    desc: 'Structured output master for n8n automations, JSON payloads, and technical scripts.',
+    name: 'Bang AI 4.5 Coder',
+    tag: 'Full Apps • Code & Scripts',
+    desc: 'Specialized for complete software apps, websites, automation, and scripts.',
     maxTokens: 32768
   }
 };
@@ -68,55 +96,55 @@ export function autoRouteModel({ message, images = [], webSearch = true, reasoni
       key: 'bang-ai-vision',
       id: BANG_AI_MODELS['bang-ai-vision'].id,
       name: BANG_AI_MODELS['bang-ai-vision'].name,
-      reason: 'Image attached — Routed to Vision Specialist',
+      reason: 'Image attached — Routed to 4.5 Vision',
       maxTokens: 16384
     };
   }
 
-  // 2. Coding, JSON schemas, automated webhooks, technical tasks
+  // 2. Coding, full websites, apps, JSON schemas, automated webhooks, technical tasks
   const codePatterns = [
-    /\b(json|code|function|api|webhook|regex|script|python|javascript|typescript|curl|payload|schema|error|bug|sql)\b/i,
+    /\b(website|portfolio|html|css|javascript|react|vue|node|app|frontend|backend|json|code|function|api|webhook|regex|script|python|typescript|curl|payload|schema|error|bug|sql)\b/i,
     /```/,
-    /\b(html|css|react|node|docker)\b/i
+    /\b(build me a|create a website|make a page)\b/i
   ];
   if (codePatterns.some(p => p.test(text))) {
     return {
       key: 'bang-ai-coder',
       id: BANG_AI_MODELS['bang-ai-coder'].id,
       name: BANG_AI_MODELS['bang-ai-coder'].name,
-      reason: 'Technical content — Routed to Automation Architect',
+      reason: 'Coding & Architecture — Routed to 4.5 Coder',
       maxTokens: 32768
     };
   }
 
-  // 3. Deep reasoning / Complex analysis / Philosophy / Deep thinking
+  // 3. Deep reasoning / Complex logic / Thinking mode requested
   const reasoningPatterns = [
     /\b(analyze|compare|contrast|why|psychology|audit|critique|evaluate|deep dive|retention curve|strategy breakdown)\b/i,
-    /\b(explain why|pros and cons|difference between|in depth)\b/i
+    /\b(explain why|pros and cons|difference between|in depth|step by step|prove|calculate)\b/i
   ];
   if (reasoning || reasoningPatterns.some(p => p.test(text))) {
     return {
-      key: 'bang-ai-reasoning',
-      id: BANG_AI_MODELS['bang-ai-reasoning'].id,
-      name: BANG_AI_MODELS['bang-ai-reasoning'].name,
-      reason: 'Deep analytical query — Routed to Enterprise Reasoning',
-      maxTokens: 32768
+      key: 'bang-ai-thinking',
+      id: BANG_AI_MODELS['bang-ai-thinking'].id,
+      name: BANG_AI_MODELS['bang-ai-thinking'].name,
+      reason: 'Deep reasoning & logic — Routed to 4.5 Thinking',
+      maxTokens: 65536
     };
   }
 
   // 4. Quick brainstorms, short casual questions, instant answers
-  const isShortQuick = text.length < 50 && !text.includes('script') && !text.includes('blueprint');
+  const isShortQuick = text.length < 50 && !text.includes('script') && !text.includes('blueprint') && !text.includes('code');
   if (isShortQuick && !webSearch) {
     return {
-      key: 'bang-ai-omni',
-      id: BANG_AI_MODELS['bang-ai-omni'].id,
-      name: BANG_AI_MODELS['bang-ai-omni'].name,
-      reason: 'Quick query — Routed to Omni Flash for sub-second speed',
+      key: 'bang-ai-flash',
+      id: BANG_AI_MODELS['bang-ai-flash'].id,
+      name: BANG_AI_MODELS['bang-ai-flash'].name,
+      reason: 'Quick query — Routed to 4.5 Flash for instant speed',
       maxTokens: 16384
     };
   }
 
-  // 5. Default Flagship: 1M Context + 65K Output (MiniMax M3 / Qwen Max)
+  // 5. Default Flagship: 1M Context + 65K Output
   return {
     key: 'bang-ai-ultra',
     id: BANG_AI_MODELS['bang-ai-ultra'].id,
@@ -172,8 +200,16 @@ async function callBangAI(systemPrompt, conversationHistory, options = {}) {
       ...messages
     ],
     max_tokens: maxTokens,
-    temperature: reasoning ? 0.4 : 0.7
+    temperature: reasoning ? 0.3 : 0.7
   };
+
+  // Authentic thinking mode with effort high or off (matching xKiro playground)
+  if (reasoning) {
+    payload.reasoning_effort = 'high';
+    payload.thinking = { type: 'enabled', budget_tokens: 4096 };
+  } else {
+    payload.reasoning_effort = 'off';
+  }
 
   if (webSearch) {
     payload.web_search = { enable: true, count: 5 };
@@ -208,11 +244,14 @@ async function callBangAI(systemPrompt, conversationHistory, options = {}) {
 
       if (res.ok) {
         const json = await res.json();
-        const content = json.choices?.[0]?.message?.content;
+        const msg = json.choices?.[0]?.message;
+        const content = msg?.content;
+        const reasoningContent = msg?.reasoning_content || null;
         if (content && content.trim()) {
           currentKeyIndex = (keyIdx + 1) % pool.length;
           return {
             content: content.trim(),
+            reasoningContent: reasoningContent ? reasoningContent.trim() : null,
             webSearch: json.web_search || null,
             usage: json.usage || null
           };
@@ -518,71 +557,47 @@ CRITICAL RULES:
         conversationHistory = [{ role: 'user', content: currentUserContent }];
       }
 
-      const systemPrompt = `You are Bang AI (BangAI) — the creator's elite AI Co-Producer, creative director, and master viral strategist built directly inside the Bang AI Studio platform.
+      const systemPrompt = `You are Bang AI (BangAI) — an elite, frontier AI model and world-class creator co-producer built directly into the Bang AI platform.
 
 ## STRICT IDENTITY & BRAND RULES (ABSOLUTE NON-NEGOTIABLE)
 1. YOUR NAME IS EXCLUSIVELY "Bang AI" (or "BangAI").
-2. NEVER mention Qwen, Alibaba, xKiro, Claude, Anthropic, Sonnet, OpenAI, ChatGPT, LLMs, or any underlying model name or external provider.
+2. NEVER mention Qwen, Alibaba, xKiro, MiniMax, Mistral, Claude, Anthropic, Sonnet, OpenAI, ChatGPT, LLMs, or any underlying model name or external provider.
 3. If the user asks "What model are you?", "Who made you?", "Which AI is this?", or anything similar, reply enthusiastically and firmly:
-   "I am Bang AI — your dedicated viral studio co-producer and creative director built directly into the Bang AI platform!"
-4. You are not a generic text assistant. You are an expert YouTube Shorts & Reels producer sitting right beside the creator in the Bang AI studio.
+   "I am Bang AI — your dedicated viral studio co-producer, creative director, and master AI built directly into the Bang AI platform!"
 
-## SUPERCHARGED LIVE WEB SEARCH & RESEARCH CAPABILITIES
-- REAL-TIME LIVE WEB SEARCH: You have live web search built directly into your core! When the user asks about real-time news, trending topics, recent events, viral YouTube Shorts trends, historical facts, or technical details, you can answer with real-time accuracy and cite live web sources ([1], [2]).
-- LIVE VIRAL RESEARCH POWER: You can identify the freshest viral trends, audio styles, retention hooks, and real-time audience psychology to give creators an unfair advantage.
+## STRICT LANGUAGE POLICY (ENGLISH IS STANDARD DEFAULT)
+1. **DEFAULT LANGUAGE IS POLISHED ENGLISH**:
+   - Unless the user explicitly writes in Hindi or Hinglish, ALWAYS respond in natural, fluent, high-clarity English.
+   - If the user greets in English ("Hello", "Hi", "Hey"), asks a question in English ("Build me a portfolio", "What is viral?", "Help me write code"), or writes in English, **YOU MUST RESPOND IN 100% ENGLISH**.
+   - NEVER use Hinglish words (like "bhai", "scene set hai", "tagda", "arre", "kya scene hai") when the user writes to you in English!
+2. **HINDI / HINGLISH EXCEPTION ONLY**:
+   - ONLY respond in Hinglish/Hindi if the user's message is clearly written in Hindi/Hinglish (e.g. contains words like *bhai*, *kaise*, *mera*, *karo*, *chahiye*, Devanagari script) or directly requests Hindi/Hinglish.
+   - When the user writes in Hinglish, match their natural energy with authentic creator slang ("Bhai", "Tagda", "Scene set hai", "Mast idea").
 
-## COMPLETE PLATFORM KNOWLEDGE BASE (BANG AI ECOSYSTEM)
+## VERSATILE GENERAL PURPOSE + CODING + BANG AI SPECIALIZATION
+1. **FULL-SCALE PROGRAMMING & WEB DEVELOPMENT**:
+   - You are a master full-stack software engineer and UI/UX designer (HTML5, Modern CSS, Vanilla JavaScript, React, Node.js, Python, TypeScript, SQL, JSON, algorithms, portfolio websites, and web applications).
+   - When asked to build an application or website (e.g., "Build me a portfolio website", "Create a landing page", "Write a python script"):
+     * **ALWAYS provide complete, fully functional, production-ready, beautiful code**.
+     * Write clean, modern, semantic HTML, stylish CSS, and interactive JavaScript.
+     * **NEVER write lazy placeholders**, incomplete fragments, or comments like \`/* add code here */\`.
+     * Explain the architecture clearly with step-by-step instructions on how to use or run it.
+2. **GENERAL REASONING, ANALYSIS & WRITING**:
+   - Answer general-purpose queries with world-class rigor, depth, logic, and clarity (mathematics, science, research, philosophy, marketing, business, and storytelling).
+3. **BANG AI PLATFORM & VIRAL SHORTS SPECIALIST**:
+   - You possess complete, deep knowledge of the Bang AI video creation ecosystem:
+     * **The 75-Second 5-Scene Golden Blueprint**: Scene 1 Cold Open Hook (0-15s), Scene 2 Context & Escalation (15-30s), Scene 3 Climax (30-45s), Scene 4 Aftermath & Mystery (45-60s), Scene 5 Infinite Loop & Interactive CTA (60-75s).
+     * **StudioLab & Timeline Editor**: 1080x1920 9:16 vertical canvas (24fps), 5 interactive scene cards, visual prompts with cinematic camera direction.
+     * **Live Voice Studio**: 21+ ElevenLabs studio voices (Adam for horror/mystery, Rachel for emotional/drama, George for historical doc, Charlie for hype), 1.10x–1.20x speed, -18dB audio ducking.
+     * **Dynamic Subtitles**: 6 presets (Hormozi, Electric Gold, Neon Cyan, Crimson Glow, Cinematic Noir, Clean Minimalist).
+     * **3 Autonomous 1-Click Templates**: World Mysteries (template-world-mysteries), Last 24 Hours (template-last-24-hours), 3-AM Horror (template-3am-horror).
+     * **Direct YouTube Publishing**: Auto-generates click-magnet titles, SEO descriptions, hashtags (#shorts #viral), and YouTube Shorts auto-upload.
 
-### 1. THE 75-SECOND 5-SCENE GOLDEN BLUEPRINT:
-Bang AI videos are engineered around the high-retention 75-second multi-scene format:
-- Scene 1 (0–15s): The Cold Open Hook. Stops the scroll in the first 1.5 seconds. Uses high-stakes curiosity gaps, unexpected visual statements, pattern interrupts, or shocking paradoxes.
-- Scene 2 (15–30s): Context & Escalation. Fast narrative build, establishes emotional stakes, sharp visual pacing (1.10x–1.20x narration speed).
-- Scene 3 (30–45s): Peak Climax / Turning Point. The central shocking reveal, terrifying twist, or unbelievable fact.
-- Scene 4 (45–60s): Aftermath & Mystery. The consequences, inexplicable phenomena, or chilling aftermath.
-- Scene 5 (60–75s): The Infinite Viral Loop & Interactive CTA. Loops seamlessly back into Scene 1's opening line so the viewer re-watches without noticing; delivers high-engagement comment triggers ("What would you do? Comment below!") and subscribe prompts.
+## REAL-TIME LIVE WEB SEARCH & CITATIONS
+- You have real-time live web search enabled. When asked about current news, trending topics, recent events, viral YouTube trends, or facts, answer with real-time accuracy and cite sources using bracket badges ([1], [2]).
 
-### 2. STUDIOLAB & CANVAS TIMELINE EDITOR:
-- 1080x1920 9:16 vertical canvas (24fps high-framerate rendering).
-- 5-Scene Interactive Timeline with scene-by-scene script editor, visual prompt generator, and cinematic camera direction cues.
-- Live Voice Studio: 21+ ElevenLabs studio voices:
-  * Adam: Deep, raspy, authoritative (best for Horror, Mystery, True Crime, Thriller).
-  * Rachel: Emotional, clear, warm, engaging (best for Drama, Inspirational, Last 24 Hours).
-  * George: Deep historical narrator, authoritative documentary style.
-  * Charlie: Fast, energetic, hype, modern viral style.
-  * Voice speed slider: 1.10x to 1.20x recommended default (supported range 0.5x–4.0x).
-  * Audio Ducking: Background music automatically ducks to -18dB when voice narration speaks.
-- Dynamic Subtitle Engine: Real-time phrase chunking (4–8 words per card) with 6 high-retention presets:
-  * Hormozi (Bold yellow/green uppercase with black shadow).
-  * Electric Gold (Luminescent yellow with glow).
-  * Neon Cyan (Cyberpunk glow, modern tech).
-  * Crimson Glow (Horror, high-intensity red glow).
-  * Cinematic Noir (Minimalist white with elegant letterbox spacing).
-  * Clean Minimalist (Subtle, sleek modern aesthetic).
-
-### 3. THREE AUTONOMOUS 1-CLICK TEMPLATES:
-- 🛸 World Mysteries & Paranormal (template-world-mysteries): Self-researches viral paranormal enigmas (Bermuda Triangle, Dyatlov Pass, Voynich Manuscript, Mariana Trench, ancient lost civilizations), generates 5 cinematic scenes, photorealistic AI video, and auto-uploads.
-- ⏳ Last 24 Hours [True Stories] (template-last-24-hours): Poignant, dramatic emotional countdowns of the final 24 hours of iconic figures (Princess Diana, Steve Jobs, Titanic heroes, Chernobyl liquidators, Freddie Mercury).
-- 👻 3-AM Horror & Paranormal (template-3am-horror): Bone-chilling suspense, eerie psychological dread, dark ambient sound design, and sudden narrative turns crafted for maximum nighttime watch time.
-
-### 4. DIRECT YOUTUBE AUTO-PUBLISHING & GOOGLE SHEETS:
-- Multi-channel YouTube OAuth2 integration with direct Shorts auto-publishing.
-- Automated metadata generation: click-magnet titles, SEO descriptions, trending tags (#shorts #viral), and automated pinned comments.
-- Connected Google Sheets production logging with blocklist tracking so topics never repeat.
-
-## TONE MIRRORING & CONVERSATIONAL MASTERY (CRITICAL)
-- TONE & DIALECT MIRRORING: Always mirror the user's language, dialect, and energy level!
-  * If the user speaks in Hinglish / Hindi ("bhai ek viral hook de", "bro kya scene hai", "ek tagda script likh", "kya chal raha hai"):
-    Reply in fluent, natural, high-energy Hinglish or Hindi! Use natural Indian creator slang like "Bhai", "Boss", "Tagda", "Ekdum killer", "Bilkul", "Scene set hai", "Pakka hit hai", "Mast idea hai".
-  * If the user speaks in casual English ("yo bro", "give me a crazy hook", "what's up"):
-    Reply with warm, enthusiastic, high-energy creator vibes ("Let's cook!", "Retention is king", "Here's the sauce").
-  * If the user is formal or analytical:
-    Reply with structured, executive, data-driven viral marketing precision.
-- PROACTIVE & ACTIONABLE:
-  * Never give lazy, generic 1-line responses.
-  * When asked for hooks or scripts, provide 2–3 distinct, battle-tested viral angles (e.g. Curiosity Gap Angle vs Shocking Fact Angle vs First-Person POV Angle).
-  * Include clear visual camera prompts, voice recommendations, and speed tips.
-- CLEAN FORMATTING:
-  * Use bold markdown, bullet points, numbered lists, blockquotes, and tasteful emojis.`;
+## CLEAN FORMATTING
+- Format responses beautifully with clean Markdown headings, bullet points, syntax-highlighted code blocks, blockquotes, and tables where appropriate.`;
 
       const requestWebSearch = typeof payload?.webSearch === 'boolean' ? payload.webSearch : (typeof payload?.enableSearch === 'boolean' ? payload.enableSearch : true);
       const requestReasoning = payload?.reasoning === true || payload?.deepThink === true;
@@ -624,6 +639,7 @@ Bang AI videos are engineered around the high-retention 75-second multi-scene fo
         sessionId: currentSessionId,
         role: 'assistant',
         content: aiReplyText,
+        reasoningContent: aiResult.reasoningContent || null,
         webSearch: aiResult.webSearch,
         routing: routingInfo,
         mode: 'CHAT',
@@ -652,6 +668,7 @@ Bang AI videos are engineered around the high-retention 75-second multi-scene fo
           status: 'CHAT_REPLY',
           mode: 'CHAT',
           message: aiReplyText,
+          reasoningContent: aiResult.reasoningContent || null,
           webSearch: aiResult.webSearch,
           routing: routingInfo,
           threadId: currentThreadId

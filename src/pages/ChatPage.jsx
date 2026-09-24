@@ -62,90 +62,90 @@ function saveSessions(sessions) {
   } catch (e) {}
 }
 
-// Curated Top Free Models with Bang AI Ultra Branding
+// Curated Top Free Models with Bang AI 4.5 Series Minimalist Branding
 export const CHAT_MODELS = [
   {
     key: 'bang-ai-auto',
-    name: 'Bang AI Auto (Smart Router)',
-    tag: '✨ Recommended • Smart AI Selector',
+    name: 'Bang AI 4.5 Auto',
+    tag: 'Auto • Smart Router',
     badge: 'AUTO',
     badgeColor: 'linear-gradient(135deg, #10b981, #06b6d4)',
-    desc: 'Intelligently auto-routes between 1M-context, deep reasoning, vision, or sub-second flash based on your query.'
+    desc: 'Smart router picks the best model dynamically for your prompt.'
   },
   {
     key: 'bang-ai-ultra',
-    name: 'Bang AI Ultra 4.0',
+    name: 'Bang AI 4.5 Ultra',
     tag: '1M Context • 65K Output',
     badge: '1M TOKENS',
     badgeColor: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-    desc: 'Frontier foundation multimodal engine (MiniMax M3 Free). Max output up to 65K tokens with vision & video.'
+    desc: 'Flagship powerhouse with 1M context, 65K max output, vision, and full coding mastery.'
   },
   {
-    key: 'bang-ai-max',
-    name: 'Bang AI Max Strategist',
-    tag: 'Qwen 3.8 Max • Web Citations',
-    badge: 'SEARCH PRO',
-    badgeColor: 'linear-gradient(135deg, #0ea5e9, #6366f1)',
-    desc: 'Master viral strategist built for 5-scene golden blueprints and high-accuracy real-time web citations.'
+    key: 'bang-ai-thinking',
+    name: 'Bang AI 4.5 Thinking',
+    tag: 'Deep Reasoning • Logic',
+    badge: 'REASONING',
+    badgeColor: 'linear-gradient(135deg, #a855f7, #ec4899)',
+    desc: 'Solves complex logic, multi-step math, deep architectures, and deep thinking effort.'
   },
   {
-    key: 'bang-ai-reasoning',
-    name: 'Bang AI Enterprise Reasoning',
-    tag: 'Mistral Large 3 • Deep Logic',
-    badge: 'DEEP LOGIC',
+    key: 'bang-ai-search',
+    name: 'Bang AI 4.5 Search',
+    tag: 'Web Search • Live Citations',
+    badge: 'LIVE WEB',
+    badgeColor: 'linear-gradient(135deg, #0284c7, #38bdf8)',
+    desc: 'Real-time web browsing, latest news citations, and viral market analysis.'
+  },
+  {
+    key: 'bang-ai-flash',
+    name: 'Bang AI 4.5 Flash',
+    tag: 'Fastest • Low Latency',
+    badge: 'FASTEST',
     badgeColor: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-    desc: 'High-end frontier European reasoning model for complex script architecture, long audits, and narrative design.'
-  },
-  {
-    key: 'bang-ai-omni',
-    name: 'Bang AI Omni Flash',
-    tag: 'Sub-Second Speed',
-    badge: 'LIGHTNING',
-    badgeColor: 'linear-gradient(135deg, #ec4899, #f43f5e)',
-    desc: 'Ultra low-latency engine for instantaneous hook variations, fast tag ideas, and rapid brainstorming.'
-  },
-  {
-    key: 'bang-ai-vision',
-    name: 'Bang AI Vision Specialist',
-    tag: 'Thumbnail & Image Audit',
-    badge: 'VISION',
-    badgeColor: 'linear-gradient(135deg, #38bdf8, #0284c7)',
-    desc: 'Specialized visual inspection model for auditing thumbnails, creator screenshots, and graphic assets.'
+    desc: 'Sub-second speed for quick drafting, rapid brainstorming, and instant answers.'
   },
   {
     key: 'bang-ai-coder',
-    name: 'Bang AI Automation Architect',
-    tag: 'Codestral • JSON Mode',
-    badge: 'JSON ARCHITECT',
-    badgeColor: 'linear-gradient(135deg, #10b981, #059669)',
-    desc: 'Precision structured output master for n8n webhook payloads, API schemas, and technical automations.'
+    name: 'Bang AI 4.5 Coder',
+    tag: 'Code & Full Apps',
+    badge: 'CODER',
+    badgeColor: 'linear-gradient(135deg, #059669, #10b981)',
+    desc: 'Specialized for complete software apps, portfolio websites, automation, and scripts.'
+  },
+  {
+    key: 'bang-ai-vision',
+    name: 'Bang AI 4.5 Vision',
+    tag: 'Vision • Image Analysis',
+    badge: 'VISION',
+    badgeColor: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+    desc: 'Multimodal visual analysis for images, diagrams, thumbnails, and screenshots.'
   }
 ];
 
 const STARTER_PROMPTS = [
   {
-    icon: '💡',
-    title: 'Viral Hook Matrix',
-    desc: 'Craft 5 irresistible 3-second opening hooks in Hinglish for YouTube Shorts',
-    prompt: 'Bhai mujhe YouTube Shorts ke liye 5 ekdum viral aur shocking 3-second opening hooks do for a tech topic in Hinglish.'
+    icon: '💻',
+    title: 'Build a Portfolio Website',
+    desc: 'Generate a complete, modern, responsive portfolio website in HTML, CSS & JavaScript',
+    prompt: 'Build me a complete, modern, and beautiful developer portfolio website in HTML, CSS, and Vanilla JavaScript with a sleek dark mode and interactive projects section.'
+  },
+  {
+    icon: '🎬',
+    title: '75s Golden Short Blueprint',
+    desc: 'Full 5-scene high-retention script with hooks, camera prompts & loop CTA',
+    prompt: 'Write a full 75-second 5-scene golden blueprint YouTube Short script about the mystery of the Mariana Trench with scene timings, visual camera cues, and voiceover pacing.'
   },
   {
     icon: '🌐',
-    title: 'Live Trending Research',
-    desc: 'Search the live web for trending topics and viral formats today',
-    prompt: 'Search the live web: What are the most viral trending video topics and creator hooks right now on YouTube Shorts and Instagram Reels?'
+    title: 'Live Web Trend Research',
+    desc: 'Real-time search for trending topics, algorithm shifts & live citations',
+    prompt: 'Search the live web and tell me the biggest viral trends and algorithm updates happening on YouTube Shorts right now.'
   },
   {
-    icon: '✍️',
-    title: '75s Golden Blueprint',
-    desc: 'Draft a 5-scene golden ratio script for a mystery or dark documentary',
-    prompt: 'Write a complete 75-second, 5-scene golden blueprint script about the mystery of the Bermuda Triangle with scene timings, visual camera cues, and voiceover pacing.'
-  },
-  {
-    icon: '🎯',
-    title: 'Retention & CTR Audit',
-    desc: 'Analyze how to keep audience watch-time above 85% in first 5s',
-    prompt: 'How do top creators keep audience retention above 85% in YouTube Shorts? Give me a scene-by-scene retention strategy and loop secrets.'
+    icon: '🧠',
+    title: 'Deep Thinking & Logic',
+    desc: 'Tackle a multi-step logic problem or complex architecture with deep reasoning',
+    prompt: 'Solve this riddle with high reasoning effort: A farmer has 17 sheep, and all but 9 die. How many are left? Think step by step.'
   }
 ];
 
@@ -295,6 +295,14 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
     setEditingTitle('');
   };
 
+  const stopStreamingRef = useRef(false);
+
+  // ─── STOP GENERATION HANDLER ───
+  const handleStopGeneration = () => {
+    stopStreamingRef.current = true;
+    setIsLoading(false);
+  };
+
   // ─── MESSAGE DISPATCH ───
   const handleSendMessage = async ({ text, attachments = [], webSearch, reasoning }) => {
     let currentId = activeSessionId;
@@ -338,7 +346,25 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
       timestamp: Date.now()
     };
 
-    // Update session with user message
+    const assistantMsgId = 'msg-' + (Date.now() + 1);
+    const startTime = Date.now();
+
+    // Placeholder message for live streaming and authentic thinking process
+    const assistantPlaceholder = {
+      id: assistantMsgId,
+      role: 'assistant',
+      content: '',
+      isStreaming: true,
+      isThinking: !!reasoning,
+      thinkingTime: 1,
+      thoughtDuration: '2s',
+      reasoningContent: '',
+      webSearch: null,
+      routing: null,
+      timestamp: Date.now() + 1
+    };
+
+    // Update session with user message and streaming assistant placeholder
     setSessions((prev) =>
       prev.map((s) =>
         s.id === currentId
@@ -346,13 +372,35 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
               ...s,
               title: s.messages.length === 0 ? (text.substring(0, 35) || 'New conversation') : s.title,
               updatedAt: Date.now(),
-              messages: [...s.messages, userMessage]
+              messages: [...s.messages, userMessage, assistantPlaceholder]
             }
           : s
       )
     );
 
     setIsLoading(true);
+    stopStreamingRef.current = false;
+
+    // Live thinking ticker (increments elapsed seconds every 1s)
+    let thinkingSeconds = 1;
+    let thinkingInterval = null;
+    if (reasoning) {
+      thinkingInterval = setInterval(() => {
+        thinkingSeconds += 1;
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === currentId
+              ? {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === assistantMsgId ? { ...m, thinkingTime: thinkingSeconds } : m
+                  )
+                }
+              : s
+          )
+        );
+      }, 1000);
+    }
 
     try {
       // Build conversation history for API payload (no low slicing!)
@@ -383,57 +431,119 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
       });
 
       const data = await res.json();
+      if (thinkingInterval) clearInterval(thinkingInterval);
 
       if (!res.ok || data.error) {
         throw new Error(data.message || data.error || `Server responded with ${res.status}`);
       }
 
-      const assistantMessage = {
-        id: 'msg-' + Date.now(),
-        role: 'assistant',
-        content: data.message || 'No response returned.',
-        webSearch: data.webSearch || null,
-        routing: data.routing || null,
-        reasoning: !!reasoning,
-        timestamp: Date.now()
-      };
+      const totalThoughtSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+      const fullText = data.message || 'No response returned.';
+      const actualReasoning = data.reasoningContent || '';
 
+      // First update thinking status to complete and attach citations
       setSessions((prev) =>
         prev.map((s) =>
           s.id === currentId
             ? {
                 ...s,
-                updatedAt: Date.now(),
-                messages: [...s.messages, assistantMessage]
+                messages: s.messages.map((m) =>
+                  m.id === assistantMsgId
+                    ? {
+                        ...m,
+                        isThinking: false,
+                        thoughtDuration: `${totalThoughtSec}s`,
+                        reasoningContent: actualReasoning,
+                        webSearch: data.webSearch || null,
+                        routing: data.routing || null
+                      }
+                    : m
+                )
               }
             : s
         )
       );
 
+      // Real-time typewriter streaming animation (like ChatGPT)
+      let currentIdx = 0;
+      const totalChars = fullText.length;
+      // High-speed chunking for long code blocks / apps so user sees progressive typing
+      const chunkSize = totalChars > 2500 ? 16 : (totalChars > 800 ? 8 : 4);
+      const delayMs = 16;
+
+      await new Promise((resolve) => {
+        const streamTimer = setInterval(() => {
+          if (stopStreamingRef.current) {
+            clearInterval(streamTimer);
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === currentId
+                  ? {
+                      ...s,
+                      messages: s.messages.map((m) =>
+                        m.id === assistantMsgId ? { ...m, content: fullText, isStreaming: false } : m
+                      )
+                    }
+                  : s
+              )
+            );
+            resolve();
+            return;
+          }
+
+          currentIdx = Math.min(totalChars, currentIdx + chunkSize);
+          const nextSlice = fullText.slice(0, currentIdx);
+          const isDone = currentIdx >= totalChars;
+
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === currentId
+                ? {
+                    ...s,
+                    messages: s.messages.map((m) =>
+                      m.id === assistantMsgId ? { ...m, content: nextSlice, isStreaming: !isDone } : m
+                    )
+                  }
+                : s
+            )
+          );
+
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+          if (isDone) {
+            clearInterval(streamTimer);
+            resolve();
+          }
+        }, delayMs);
+      });
+
       try { audioEngine.playSfx('boom'); } catch (e) {}
     } catch (err) {
+      if (thinkingInterval) clearInterval(thinkingInterval);
       console.error('[ChatPage] Error sending message:', err);
-      const errorMessage = {
-        id: 'msg-' + Date.now(),
-        role: 'assistant',
-        content: `⚠️ **Error generating response:** ${err.message}\n\nPlease try again or verify your connection.`,
-        isError: true,
-        timestamp: Date.now()
-      };
-
       setSessions((prev) =>
         prev.map((s) =>
           s.id === currentId
             ? {
                 ...s,
-                updatedAt: Date.now(),
-                messages: [...s.messages, errorMessage]
+                messages: s.messages.map((m) =>
+                  m.id === assistantMsgId
+                    ? {
+                        ...m,
+                        content: `⚠️ **Error generating response:** ${err.message}\n\nPlease try again or verify your connection.`,
+                        isError: true,
+                        isStreaming: false,
+                        isThinking: false
+                      }
+                    : m
+                )
               }
             : s
         )
       );
     } finally {
       setIsLoading(false);
+      stopStreamingRef.current = false;
     }
   };
 
@@ -887,119 +997,24 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
               </button>
             )}
 
-            {/* Model Selector Dropdown Button */}
-            <div style={{ position: 'relative' }} ref={dropdownRef}>
-              <button
-                type="button"
-                onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '6px 12px',
-                  borderRadius: '10px',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-primary)',
-                  fontSize: '13.5px',
-                  fontWeight: 650,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <Sparkles size={14} color="#818cf8" />
-                <span>{currentModelConfig.name}</span>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: 800,
-                  padding: '1px 5px',
-                  borderRadius: '4px',
-                  background: currentModelConfig.badgeColor || 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                  color: '#fff'
-                }}>
-                  {currentModelConfig.badge}
-                </span>
-                <ChevronDown size={14} color="var(--text-muted)" />
-              </button>
-
-              {/* Comprehensive Bang AI Model Selector Popover */}
-              {modelDropdownOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: '44px',
-                  left: 0,
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-medium)',
-                  borderRadius: '16px',
-                  padding: '8px',
-                  boxShadow: 'var(--shadow-card)',
-                  width: '340px',
-                  zIndex: 250,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px'
-                }}>
-                  <div style={{ padding: '4px 8px 6px 8px', borderBottom: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Model Matrix (Zero-Cost Free Tier)
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '380px', overflowY: 'auto' }} className="thin-scroll">
-                    {CHAT_MODELS.map((m) => {
-                      const isSelected = m.key === selectedModelKey;
-                      return (
-                        <button
-                          key={m.key}
-                          type="button"
-                          onClick={() => handleSelectModel(m.key)}
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'flex-start',
-                            gap: '3px',
-                            padding: '8px 10px',
-                            borderRadius: '10px',
-                            border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'transparent'}`,
-                            background: isSelected ? 'var(--bg-card-hover)' : 'transparent',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            transition: 'all 0.12s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isSelected) e.currentTarget.style.background = 'var(--bg-card-hover)';
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isSelected) e.currentTarget.style.background = 'transparent';
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '13px', fontWeight: 650 }}>{m.name}</span>
-                              <span style={{
-                                fontSize: '8.5px',
-                                fontWeight: 800,
-                                padding: '1px 5px',
-                                borderRadius: '4px',
-                                background: m.badgeColor,
-                                color: '#fff'
-                              }}>
-                                {m.badge}
-                              </span>
-                            </div>
-                            {isSelected && <Check size={14} color="#10b981" />}
-                          </div>
-
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                            {m.desc}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+            {/* Claude Desktop / Modern Clean App Header Title */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)'
+              }}>
+                <Sparkles size={14} />
+              </div>
+              <span style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {activeSession?.title || 'Bang AI 4.5'}
+              </span>
             </div>
           </div>
 
@@ -1290,9 +1305,14 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                         border: isUser ? '1px solid var(--border-subtle)' : 'none',
                         width: '100%'
                       }}>
-                        {/* Thinking Accordion if reasoning enabled */}
-                        {isAssistant && msg.reasoning && (
-                          <ThinkingAccordion duration="3s" />
+                        {/* Thinking Accordion if reasoning requested or thinking in progress or reasoningContent available */}
+                        {isAssistant && (msg.reasoning || msg.isThinking || msg.reasoningContent) && (
+                          <ThinkingAccordion
+                            duration={msg.thoughtDuration || "3s"}
+                            isThinking={msg.isThinking}
+                            thinkingTime={msg.thinkingTime}
+                            thoughtText={msg.reasoningContent}
+                          />
                         )}
 
                         {/* Web Search Sources Cards */}
@@ -1311,13 +1331,14 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                         ) : (
                           <ChatMessageContent
                             content={msg.content}
+                            isStreaming={msg.isStreaming}
                             onCitationClick={(num) => setHighlightedCitation(num)}
                           />
                         )}
                       </div>
 
                       {/* Assistant Action Buttons Toolbar */}
-                      {isAssistant && (
+                      {isAssistant && !msg.isStreaming && msg.content && (
                         <div style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -1436,42 +1457,6 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
               })}
 
               {/* Generating / Thinking skeleton wave */}
-              {isLoading && (
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', width: '100%' }}>
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    <Sparkles size={16} color="#fff" />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '4px' }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      fontSize: '13px',
-                      color: 'var(--text-muted)'
-                    }}>
-                      <span style={{
-                        display: 'inline-block',
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        background: '#6366f1',
-                        animation: 'pulse 1.2s infinite'
-                      }} />
-                      <span>{webSearchEnabled ? 'Searching the web & thinking...' : 'Bang AI is thinking...'}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -1489,8 +1474,15 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
         }}>
           <ChatPromptBar
             theme={theme}
+            selectedModelKey={selectedModelKey}
+            onSelectModelKey={(key) => {
+              setSelectedModelKey(key);
+              try {
+                localStorage.setItem('bangai_chat_model', key);
+              } catch (e) {}
+            }}
             onSendMessage={handleSendMessage}
-            onStopGeneration={() => setIsLoading(false)}
+            onStopGeneration={handleStopGeneration}
             isLoading={isLoading}
             webSearchEnabled={webSearchEnabled}
             onToggleWebSearch={() => setWebSearchEnabled(!webSearchEnabled)}
@@ -1499,7 +1491,7 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
             onSelectQuickAction={(type) => {
               if (type === 'hook') {
                 handleSendMessage({
-                  text: 'Bhai mujhe ek viral 3-second hook do for my YouTube Short.',
+                  text: 'Give me 5 viral 3-second opening hooks in English for a YouTube Short.',
                   attachments: [],
                   webSearch: webSearchEnabled,
                   reasoning: reasoningEnabled

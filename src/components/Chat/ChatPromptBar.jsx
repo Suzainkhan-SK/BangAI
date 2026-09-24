@@ -13,12 +13,82 @@ import {
   X,
   Sparkles,
   Wand2,
-  Film
+  Film,
+  ChevronDown,
+  Zap
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
 
+const AVAILABLE_MODELS = [
+  {
+    key: 'bang-ai-auto',
+    name: 'Bang AI 4.5 Auto',
+    shortName: '4.5 Auto',
+    badge: 'AUTO',
+    badgeBg: 'linear-gradient(135deg, #10b981, #06b6d4)',
+    desc: 'Smart router picks best model dynamically',
+    icon: Sparkles
+  },
+  {
+    key: 'bang-ai-ultra',
+    name: 'Bang AI 4.5 Ultra',
+    shortName: '4.5 Ultra',
+    badge: '1M CONTEXT',
+    badgeBg: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+    desc: 'Flagship powerhouse • 65K output • Full code & video',
+    icon: Zap
+  },
+  {
+    key: 'bang-ai-thinking',
+    name: 'Bang AI 4.5 Thinking',
+    shortName: '4.5 Thinking',
+    badge: 'REASONING',
+    badgeBg: 'linear-gradient(135deg, #a855f7, #ec4899)',
+    desc: 'Deep logic, math & multi-step thinking effort',
+    icon: Brain
+  },
+  {
+    key: 'bang-ai-search',
+    name: 'Bang AI 4.5 Search',
+    shortName: '4.5 Search',
+    badge: 'LIVE WEB',
+    badgeBg: 'linear-gradient(135deg, #0284c7, #38bdf8)',
+    desc: 'Real-time web browsing & news citations',
+    icon: Globe
+  },
+  {
+    key: 'bang-ai-flash',
+    name: 'Bang AI 4.5 Flash',
+    shortName: '4.5 Flash',
+    badge: 'FASTEST',
+    badgeBg: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+    desc: 'Sub-second speed for quick drafting & brainstorming',
+    icon: Sparkles
+  },
+  {
+    key: 'bang-ai-coder',
+    name: 'Bang AI 4.5 Coder',
+    shortName: '4.5 Coder',
+    badge: 'CODE & APPS',
+    badgeBg: 'linear-gradient(135deg, #059669, #10b981)',
+    desc: 'Portfolio sites, web apps, scripts & n8n automations',
+    icon: Wand2
+  },
+  {
+    key: 'bang-ai-vision',
+    name: 'Bang AI 4.5 Vision',
+    shortName: '4.5 Vision',
+    badge: 'VISION',
+    badgeBg: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+    desc: 'Image analysis, diagram auditing & thumbnails',
+    icon: ImageIcon
+  }
+];
+
 export default function ChatPromptBar({
   theme = 'dark',
+  selectedModelKey = 'bang-ai-auto',
+  onSelectModelKey,
   onSendMessage,
   onStopGeneration,
   isLoading = false,
@@ -31,6 +101,7 @@ export default function ChatPromptBar({
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState([]); // [{ type: 'image'|'file', name, data, size }]
   const [menuOpen, setMenuOpen] = useState(false);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
 
@@ -38,7 +109,24 @@ export default function ChatPromptBar({
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const menuRef = useRef(null);
+  const modelMenuRef = useRef(null);
   const recognitionRef = useRef(null);
+
+  const currentModel = AVAILABLE_MODELS.find((m) => m.key === selectedModelKey) || AVAILABLE_MODELS[0];
+  const ActiveIcon = currentModel.icon;
+
+  // Handle clicking outside the model popover
+  useEffect(() => {
+    function handleModelOutside(e) {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(e.target)) {
+        setModelMenuOpen(false);
+      }
+    }
+    if (modelMenuOpen) {
+      document.addEventListener('mousedown', handleModelOutside);
+      return () => document.removeEventListener('mousedown', handleModelOutside);
+    }
+  }, [modelMenuOpen]);
 
   // Check speech recognition support
   useEffect(() => {
@@ -573,11 +661,148 @@ export default function ChatPromptBar({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          paddingTop: '2px',
-          borderTop: '1px solid var(--border-subtle)'
+          paddingTop: '3px',
+          borderTop: '1px solid var(--border-subtle)',
+          flexWrap: 'wrap',
+          gap: '6px'
         }}>
-          {/* Mode Pill Badges */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Left Mode Pill Badges & Model Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {/* Model Selector Pill (Claude Desktop / ChatGPT Style) */}
+            <div style={{ position: 'relative' }} ref={modelMenuRef}>
+              <button
+                type="button"
+                onClick={() => setModelMenuOpen(!modelMenuOpen)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '3px 9px',
+                  borderRadius: '99px',
+                  background: modelMenuOpen ? 'var(--bg-card-hover)' : 'var(--bg-input)',
+                  border: `1px solid ${modelMenuOpen ? 'var(--accent-primary, #6366f1)' : 'var(--border-subtle)'}`,
+                  color: 'var(--text-primary)',
+                  fontSize: '11px',
+                  fontWeight: 650,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Select Bang AI Model"
+              >
+                <ActiveIcon size={12} color="#6366f1" />
+                <span>{currentModel.shortName}</span>
+                <ChevronDown size={11} style={{ transform: modelMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease', opacity: 0.7 }} />
+              </button>
+
+              {/* Claude Desktop Floating Popover */}
+              {modelMenuOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 'calc(100% + 8px)',
+                    left: 0,
+                    width: '290px',
+                    maxHeight: '360px',
+                    overflowY: 'auto',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: '14px',
+                    boxShadow: 'var(--shadow-lg, 0 12px 30px -5px rgba(0,0,0,0.45))',
+                    padding: '6px',
+                    zIndex: 200,
+                    backdropFilter: 'blur(16px)'
+                  }}
+                  className="thin-scroll"
+                >
+                  <div style={{
+                    padding: '6px 8px 4px 8px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    Bang AI Models
+                  </div>
+                  {AVAILABLE_MODELS.map((m) => {
+                    const isSelected = m.key === selectedModelKey || (m.key === 'bang-ai-auto' && !selectedModelKey);
+                    const IconComp = m.icon;
+                    return (
+                      <div
+                        key={m.key}
+                        onClick={() => {
+                          try { audioEngine.playSfx('click'); } catch (e) {}
+                          if (typeof onSelectModelKey === 'function') onSelectModelKey(m.key);
+                          if (m.key === 'bang-ai-thinking' && !reasoningEnabled && typeof onToggleReasoning === 'function') {
+                            onToggleReasoning(true);
+                          }
+                          if (m.key === 'bang-ai-search' && !webSearchEnabled && typeof onToggleWebSearch === 'function') {
+                            onToggleWebSearch(true);
+                          }
+                          setModelMenuOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '7px 9px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          background: isSelected ? 'var(--bg-input)' : 'transparent',
+                          border: `1px solid ${isSelected ? 'var(--border-subtle)' : 'transparent'}`,
+                          marginBottom: '3px',
+                          transition: 'background 0.12s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'var(--bg-input)';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '6px',
+                            background: isSelected ? 'rgba(99, 102, 241, 0.18)' : 'var(--bg-card-hover)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: isSelected ? 'var(--accent-primary, #6366f1)' : 'var(--text-muted)',
+                            flexShrink: 0
+                          }}>
+                            <IconComp size={13} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '12px', fontWeight: isSelected ? 700 : 600, color: 'var(--text-primary)' }}>
+                              {m.name}
+                            </div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: 1.2 }}>
+                              {m.desc}
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: '8.5px',
+                          fontWeight: 800,
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          background: m.badgeBg,
+                          color: '#fff',
+                          letterSpacing: '0.02em',
+                          whiteSpace: 'nowrap',
+                          marginLeft: '6px'
+                        }}>
+                          {m.badge}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Search Pill */}
             <button
               type="button"
@@ -608,7 +833,7 @@ export default function ChatPromptBar({
               )}
             </button>
 
-            {/* Think / Deep Reasoning Pill */}
+            {/* Think / Deep Reasoning Pill with High / Off Effort */}
             <button
               type="button"
               onClick={() => {
@@ -629,18 +854,18 @@ export default function ChatPromptBar({
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title={reasoningEnabled ? 'Deep Reasoning is active' : 'Click to enable Deep Reasoning'}
+              title={reasoningEnabled ? 'Deep Reasoning Effort: High (Thinking Mode Active)' : 'Deep Reasoning Effort: Off'}
             >
               <Brain size={11} />
-              <span>Deep Think</span>
+              <span>Deep Think: {reasoningEnabled ? 'High' : 'Off'}</span>
               {reasoningEnabled && (
-                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#9333ea' }} />
+                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#9333ea', boxShadow: '0 0 5px #9333ea' }} />
               )}
             </button>
           </div>
 
           <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span>Bang AI 4.0</span>
+            <span>Bang AI 4.5</span>
             <span style={{ opacity: 0.5 }}>•</span>
             <span style={{ color: '#818cf8', fontWeight: 600 }}>1M Context • 65K Output</span>
           </div>
