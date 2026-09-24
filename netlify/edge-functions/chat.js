@@ -39,7 +39,7 @@ export const BANG_AI_MODELS = {
     tag: 'Full Apps • Code & Scripts'
   },
   'bang-ai-vision': {
-    id: 'qwen/qwen3-vl-plus:free',
+    id: 'minimax/minimax-m3:free',
     name: 'Bang AI 4.5 Vision',
     tag: 'Vision • Multimodal'
   }
@@ -51,9 +51,9 @@ function autoRouteModel({ message = '', images = [], webSearch = false, reasonin
   if (Array.isArray(images) && images.length > 0) {
     return {
       key: 'bang-ai-vision',
-      id: 'qwen/qwen3-vl-plus:free',
+      id: 'minimax/minimax-m3:free',
       name: 'Bang AI 4.5 Vision',
-      reason: 'Image attached — Routed to 4.5 Vision'
+      reason: 'Vision Attachment Detected — Routed to 4.5 Vision'
     };
   }
 
@@ -177,11 +177,28 @@ Provide comprehensive, production-ready, beautifully structured responses with d
       if (msg.role === 'user' || msg.role === 'assistant') {
         conversationHistory.push({
           role: msg.role,
-          content: msg.content || ''
+          content: Array.isArray(msg.content) ? msg.content : (msg.content || '')
         });
       }
     }
-  } else if (message) {
+  }
+
+  // Format active user content if images are present
+  const incomingImages = Array.isArray(images) ? images : [];
+  if (incomingImages.length > 0) {
+    const visionUserContent = [
+      { type: 'text', text: message || 'Analyze this image in detail and describe what it contains.' },
+      ...incomingImages.map(img => ({
+        type: 'image_url',
+        image_url: { url: typeof img === 'string' ? img : img.url || img.data }
+      }))
+    ];
+    if (conversationHistory.length > 0 && conversationHistory[conversationHistory.length - 1].role === 'user') {
+      conversationHistory[conversationHistory.length - 1].content = visionUserContent;
+    } else {
+      conversationHistory.push({ role: 'user', content: visionUserContent });
+    }
+  } else if (conversationHistory.length === 0 && message) {
     conversationHistory.push({ role: 'user', content: message });
   }
 

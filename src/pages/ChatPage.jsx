@@ -333,19 +333,22 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
     const imageAttachments = attachments.filter((a) => a.type === 'image');
     const fileAttachments = attachments.filter((a) => a.type === 'file');
 
-    let combinedPrompt = text;
+    let combinedPrompt = (text || '').trim();
     if (fileAttachments.length > 0) {
       const fileContext = fileAttachments
         .map((f) => `[File Attachment: ${f.name}]\n${f.content || ''}`)
         .join('\n\n');
-      combinedPrompt = `${fileContext}\n\n${text}`.trim();
+      combinedPrompt = `${fileContext}\n\n${combinedPrompt}`.trim();
+    }
+    if (!combinedPrompt && imageAttachments.length > 0) {
+      combinedPrompt = 'Analyze this image in detail and describe what it contains.';
     }
 
     const userMessage = {
       id: 'msg-' + Date.now(),
       role: 'user',
       content: combinedPrompt,
-      rawText: text,
+      rawText: text || combinedPrompt,
       attachments,
       timestamp: Date.now()
     };
@@ -374,7 +377,7 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
         s.id === currentId
           ? {
               ...s,
-              title: s.messages.length === 0 ? (text.substring(0, 35) || 'New conversation') : s.title,
+              title: s.messages.length === 0 ? ((text || combinedPrompt).substring(0, 35) || 'New conversation') : s.title,
               updatedAt: Date.now(),
               messages: [...s.messages, userMessage, assistantPlaceholder]
             }
@@ -407,13 +410,39 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
     }
 
     try {
-      // Build conversation history for API payload (no low slicing!)
+      // Build conversation history for API payload with full multi-turn vision memory!
       const historyPayload = [
-        ...(targetSession.messages || []).map((m) => ({
-          role: m.role,
-          content: m.content
-        })),
-        { role: 'user', content: combinedPrompt }
+        ...(targetSession.messages || []).map((m) => {
+          if (m.role === 'user' && m.attachments && m.attachments.some((a) => a.type === 'image')) {
+            const priorImgs = m.attachments.filter((a) => a.type === 'image');
+            return {
+              role: 'user',
+              content: [
+                { type: 'text', text: m.content || 'Analyze this image.' },
+                ...priorImgs.map((img) => ({
+                  type: 'image_url',
+                  image_url: { url: img.data }
+                }))
+              ]
+            };
+          }
+          return {
+            role: m.role,
+            content: m.content
+          };
+        }),
+        {
+          role: 'user',
+          content: imageAttachments.length > 0
+            ? [
+                { type: 'text', text: combinedPrompt },
+                ...imageAttachments.map((img) => ({
+                  type: 'image_url',
+                  image_url: { url: img.data }
+                }))
+              ]
+            : combinedPrompt
+        }
       ];
 
       let streamSucceeded = false;
@@ -422,9 +451,14 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
       let actualReasoning = '';
       const token = localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || '';
 
+      // Auto-route to vision if image attachment is present and auto mode selected
+      const effectiveModelKey = (imageAttachments.length > 0 && selectedModelKey === 'bang-ai-auto')
+        ? 'bang-ai-vision'
+        : selectedModelKey;
+
       const requestPayload = {
         mode: 'CHAT',
-        modelKey: selectedModelKey,
+        modelKey: effectiveModelKey,
         message: combinedPrompt,
         messages: historyPayload,
         images: imageAttachments.map((img) => img.data),

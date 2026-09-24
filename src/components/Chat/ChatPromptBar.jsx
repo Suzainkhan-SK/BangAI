@@ -104,6 +104,7 @@ export default function ChatPromptBar({
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -174,6 +175,142 @@ export default function ChatPromptBar({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Global paste listener: captures screenshots pasted anywhere while on the chat interface
+  useEffect(() => {
+    const handleGlobalPaste = (e) => {
+      // Don't intercept if user is typing in another specific input element (e.g. search input)
+      if (e.target && e.target.tagName === 'INPUT') return;
+      handlePaste(e);
+    };
+
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => window.removeEventListener('paste', handleGlobalPaste);
+  }, []);
+
+  // Process image & screenshot paste from clipboard
+  const handlePaste = (e) => {
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData) return;
+
+    const items = clipboardData.items;
+    const files = clipboardData.files;
+    let handledImage = false;
+
+    // 1. Check clipboard items for image blobs (Snipping Tool, PrtScn, Win+Shift+S)
+    if (items && items.length > 0) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            handledImage = true;
+            e.preventDefault();
+            const reader = new FileReader();
+            reader.onload = (uploadEvent) => {
+              const base64Data = uploadEvent.target.result;
+              const formattedName = file.name && !file.name.includes('image.png')
+                ? file.name
+                : `screenshot-${new Date().toLocaleTimeString().replace(/[:\s]/g, '')}.png`;
+              setAttachments((prev) => [
+                ...prev,
+                {
+                  type: 'image',
+                  name: formattedName,
+                  size: (file.size / 1024).toFixed(1) + ' KB',
+                  data: base64Data
+                }
+              ]);
+              try { audioEngine.playSfx('click'); } catch (err) {}
+            };
+            reader.readAsDataURL(file);
+          }
+        }
+      }
+    }
+
+    // 2. Check clipboard files fallback
+    if (!handledImage && files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type && file.type.startsWith('image/')) {
+          handledImage = true;
+          e.preventDefault();
+          const reader = new FileReader();
+          reader.onload = (uploadEvent) => {
+            setAttachments((prev) => [
+              ...prev,
+              {
+                type: 'image',
+                name: file.name || `pasted-image-${Date.now().toString().slice(-4)}.png`,
+                size: (file.size / 1024).toFixed(1) + ' KB',
+                data: uploadEvent.target.result
+              }
+            ]);
+            try { audioEngine.playSfx('click'); } catch (err) {}
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    }
+  };
+
+  // Drag & drop handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length === 0) return;
+
+    files.forEach((file) => {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (uploadEvent) => {
+          setAttachments((prev) => [
+            ...prev,
+            {
+              type: 'image',
+              name: file.name,
+              size: (file.size / 1024).toFixed(1) + ' KB',
+              data: uploadEvent.target.result
+            }
+          ]);
+          try { audioEngine.playSfx('click'); } catch (err) {}
+        };
+        reader.readAsDataURL(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (uploadEvent) => {
+          const fileContent = uploadEvent.target.result;
+          setAttachments((prev) => [
+            ...prev,
+            {
+              type: 'file',
+              name: file.name,
+              size: (file.size / 1024).toFixed(1) + ' KB',
+              content: typeof fileContent === 'string' ? fileContent.substring(0, 200000) : ''
+            }
+          ]);
+          try { audioEngine.playSfx('click'); } catch (err) {}
+        };
+        reader.readAsText(file);
+      }
+    });
+  };
+
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
@@ -214,8 +351,14 @@ export default function ChatPromptBar({
 
     try { audioEngine.playSfx('click'); } catch (e) {}
 
+    // If text is empty but image/attachment is present, provide natural default prompt
+    const effectiveText = trimmed || (attachments.some((a) => a.type === 'image')
+      ? 'Analyze this image in detail and describe what it contains.'
+      : 'Analyze this file in detail.');
+
     onSendMessage({
-      text: trimmed,
+      text: effectiveText,
+      rawText: trimmed,
       attachments: [...attachments],
       webSearch: webSearchEnabled,
       reasoning: reasoningEnabled
@@ -317,18 +460,23 @@ export default function ChatPromptBar({
       />
 
       {/* ─── MAIN CHATGPT CAPSULE CONTAINER ─── */}
-      <div style={{
-        background: 'var(--bg-card)',
-        borderRadius: '26px',
-        border: '1px solid var(--border-medium)',
-        boxShadow: 'var(--shadow-prompt, 0 10px 30px rgba(0, 0, 0, 0.12))',
-        backdropFilter: 'blur(16px)',
-        padding: '10px 14px 10px 14px',
-        transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px'
-      }}>
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          background: isDraggingOver ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-card)',
+          borderRadius: '26px',
+          border: isDraggingOver ? '2px dashed #6366f1' : '1px solid var(--border-medium)',
+          boxShadow: isDraggingOver ? '0 0 20px rgba(99, 102, 241, 0.3)' : 'var(--shadow-prompt, 0 10px 30px rgba(0, 0, 0, 0.12))',
+          backdropFilter: 'blur(16px)',
+          padding: '10px 14px 10px 14px',
+          transition: 'all 0.15s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px'
+        }}
+      >
         {/* Attachment Badges Tray */}
         {attachments.length > 0 && (
           <div style={{
@@ -561,6 +709,7 @@ export default function ChatPromptBar({
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder={isRecording ? 'Listening... Speak now...' : 'Ask Bang AI anything, or search the web...'}
             rows={1}
             style={{

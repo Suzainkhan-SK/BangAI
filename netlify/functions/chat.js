@@ -71,11 +71,11 @@ export const BANG_AI_MODELS = {
     maxTokens: 1500
   },
   'bang-ai-vision': {
-    id: 'qwen/qwen3-vl-plus:free',
+    id: 'minimax/minimax-m3:free',
     name: 'Bang AI 4.5 Vision',
     tag: 'Vision • Image Analysis',
     desc: 'Multimodal visual analysis for images, diagrams, and thumbnails.',
-    maxTokens: 16384
+    maxTokens: 1200
   },
   'bang-ai-coder': {
     id: 'mistralai/mistral-large-2512',
@@ -96,8 +96,8 @@ export function autoRouteModel({ message, images = [], webSearch = false, reason
       key: 'bang-ai-vision',
       id: BANG_AI_MODELS['bang-ai-vision'].id,
       name: BANG_AI_MODELS['bang-ai-vision'].name,
-      reason: 'Image attached — Routed to 4.5 Vision',
-      maxTokens: 16384
+      reason: 'Vision Attachment Detected — Routed to 4.5 Vision Specialist',
+      maxTokens: 1200
     };
   }
 
@@ -314,13 +314,19 @@ export const handler = async (event, context) => {
 
   try {
     const payload = JSON.parse(event.body || '{}');
-    const { threadId, sessionId, message, mode = 'CHAT', settings = {} } = payload;
+    let { threadId, sessionId, message, mode = 'CHAT', settings = {} } = payload;
+    const incomingImages = Array.isArray(payload?.images) ? payload.images : [];
+
+    // Support image-only prompts (e.g. user attaches screenshot or photo without typing text)
+    if ((!message || !message.trim()) && incomingImages.length > 0) {
+      message = 'Analyze this image in detail and describe what it contains.';
+    }
 
     if (!message || !message.trim()) {
       return {
         statusCode: 400,
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: 'Message is required' })
+        body: JSON.stringify({ error: 'Message or image attachment is required' })
       };
     }
 
@@ -554,20 +560,25 @@ CRITICAL RULES:
       let currentUserContent = cleanMessage;
       if (incomingImages.length > 0) {
         currentUserContent = [
-          { type: 'text', text: cleanMessage || 'Analyze this image and assist with viral content strategy.' },
+          { type: 'text', text: cleanMessage || 'Analyze this image in detail and describe what it contains.' },
           ...incomingImages.map(img => ({
             type: 'image_url',
             image_url: { url: typeof img === 'string' ? img : img.url || img.data }
           }))
         ];
-      }
 
-      // Always ensure the new user message is at the end
-      const lastMsg = conversationHistory[conversationHistory.length - 1];
-      if (!lastMsg || lastMsg.role !== 'user') {
-        conversationHistory = [...conversationHistory, { role: 'user', content: currentUserContent }];
-      } else if (typeof lastMsg.content === 'string' && lastMsg.content !== cleanMessage) {
-        conversationHistory = [...conversationHistory, { role: 'user', content: currentUserContent }];
+        // Guarantee image is attached to the active user message
+        if (conversationHistory.length > 0 && conversationHistory[conversationHistory.length - 1].role === 'user') {
+          conversationHistory[conversationHistory.length - 1].content = currentUserContent;
+        } else {
+          conversationHistory.push({ role: 'user', content: currentUserContent });
+        }
+      } else {
+        if (conversationHistory.length === 0 || conversationHistory[conversationHistory.length - 1].role !== 'user') {
+          conversationHistory.push({ role: 'user', content: cleanMessage });
+        } else {
+          conversationHistory[conversationHistory.length - 1].content = cleanMessage;
+        }
       }
 
       // Must start with user role
