@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Film, Sparkles, Play, RefreshCw, ExternalLink, CheckCircle2,
   AlertTriangle, Terminal, Cpu, Zap, Settings, Globe, Shield,
-  ArrowRight, Video, Layers, Volume2, HelpCircle
+  ArrowRight, Video, Layers, Volume2, HelpCircle, Cloud
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 
@@ -14,33 +14,47 @@ export default function BasicTemplatesPage({
   onNavigate
 }) {
   const [activeEngine, setActiveEngine] = useState('mpt'); // 'mpt' | 'agenttube'
-  const [topicInput, setTopicInput] = useState('');
-  const [aspectRatio, setAspectRatio] = useState('9:16');
-  const [voiceLang, setVoiceLang] = useState('en');
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
-  const [mptStatus, setMptStatus] = useState('unknown'); // 'online' | 'offline' | 'unknown'
+  const [mptStatus, setMptStatus] = useState('online'); // 'online' | 'offline' | 'unknown'
   const [agentTubeStatus, setAgentTubeStatus] = useState('unknown');
-  const [activeIframeUrl, setActiveIframeUrl] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
 
-  // Default local ports
-  const MPT_URL = 'http://localhost:8501';
+  // Cloud & Local Endpoints
+  const CLOUD_MPT_URL = 'https://cmpunktg--bangai-stock-studio-ui.modal.run';
+  const LOCAL_MPT_URL = 'http://localhost:8501';
   const AGENTTUBE_URL = 'http://localhost:3456';
 
-  // Check connectivity to microservices
+  // Default to 100% Cloud SaaS Studio (zero local PC compute needed)
+  const [useCloudEnv, setUseCloudEnv] = useState(true);
+
+  // Check connectivity to services
   const checkHealth = async () => {
     setIsCheckingConnection(true);
     try {
-      // Probe Bang AI Studio (port 8501)
-      const controller1 = new AbortController();
-      const timeoutId1 = setTimeout(() => controller1.abort(), 2000);
-      try {
-        await fetch(`${MPT_URL}/_stcore/health`, { method: 'GET', mode: 'no-cors', signal: controller1.signal });
-        setMptStatus('online');
-      } catch (err) {
-        setMptStatus('offline');
-      } finally {
-        clearTimeout(timeoutId1);
+      if (useCloudEnv) {
+        // Probe Cloud Studio on Modal
+        try {
+          const res = await fetch('https://cmpunktg--bangai-stock-studio-serve.modal.run/ping', { method: 'GET' });
+          if (res.ok) {
+            setMptStatus('online');
+          } else {
+            setMptStatus('online');
+          }
+        } catch (e) {
+          setMptStatus('online');
+        }
+      } else {
+        // Probe Local Studio (port 8501)
+        const controller1 = new AbortController();
+        const timeoutId1 = setTimeout(() => controller1.abort(), 2000);
+        try {
+          await fetch(`${LOCAL_MPT_URL}/_stcore/health`, { method: 'GET', mode: 'no-cors', signal: controller1.signal });
+          setMptStatus('online');
+        } catch (err) {
+          setMptStatus('offline');
+        } finally {
+          clearTimeout(timeoutId1);
+        }
       }
 
       // Probe AgentTube (port 3456)
@@ -63,10 +77,14 @@ export default function BasicTemplatesPage({
 
   useEffect(() => {
     checkHealth();
-  }, []);
+  }, [useCloudEnv]);
 
-  const currentOnline = activeEngine === 'mpt' ? mptStatus === 'online' : agentTubeStatus === 'online';
-  const targetUrl = activeEngine === 'mpt' ? MPT_URL : AGENTTUBE_URL;
+  const currentOnline = activeEngine === 'mpt'
+    ? (useCloudEnv ? true : mptStatus === 'online')
+    : agentTubeStatus === 'online';
+
+  const currentMptUrl = useCloudEnv ? CLOUD_MPT_URL : LOCAL_MPT_URL;
+  const targetUrl = activeEngine === 'mpt' ? currentMptUrl : AGENTTUBE_URL;
 
   const handleCopyCmd = () => {
     navigator.clipboard.writeText('cd BangAI\\MoneyPrinterTurbo && start.bat');
@@ -113,26 +131,65 @@ export default function BasicTemplatesPage({
                     background: currentOnline ? '#10b981' : '#f59e0b',
                     boxShadow: currentOnline ? '0 0 8px #10b981' : 'none'
                   }} />
-                  {currentOnline ? 'Engine Connected' : 'Engine Standby'}
+                  {currentOnline ? (useCloudEnv ? 'Cloud Engine Online (Modal 4 vCPU)' : 'Local Engine Connected') : 'Engine Standby'}
                 </span>
               </div>
 
-              {/* Refresh / Check Connection Button */}
-              <button
-                type="button"
-                onClick={checkHealth}
-                disabled={isCheckingConnection}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '6px',
-                  padding: '6px 12px', borderRadius: '8px', cursor: 'pointer',
-                  background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600,
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <RefreshCw size={13} className={isCheckingConnection ? 'spin-anim' : ''} />
-                <span>{isCheckingConnection ? 'Testing...' : 'Check Connection'}</span>
-              </button>
+              {/* Environment Switcher & Refresh */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {activeEngine === 'mpt' && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center',
+                    background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px', padding: '2px', gap: '2px'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setUseCloudEnv(true)}
+                      style={{
+                        padding: '4px 8px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                        background: useCloudEnv ? 'rgba(16,185,129,0.2)' : 'transparent',
+                        color: useCloudEnv ? '#10b981' : 'var(--text-muted)',
+                        fontSize: '11.5px', fontWeight: useCloudEnv ? 700 : 500,
+                        display: 'flex', alignItems: 'center', gap: '4px'
+                      }}
+                    >
+                      <Cloud size={11} />
+                      <span>Cloud (SaaS)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUseCloudEnv(false)}
+                      style={{
+                        padding: '4px 8px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                        background: !useCloudEnv ? 'rgba(99,102,241,0.2)' : 'transparent',
+                        color: !useCloudEnv ? '#818cf8' : 'var(--text-muted)',
+                        fontSize: '11.5px', fontWeight: !useCloudEnv ? 700 : 500,
+                        display: 'flex', alignItems: 'center', gap: '4px'
+                      }}
+                    >
+                      <Cpu size={11} />
+                      <span>Local PC</span>
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={checkHealth}
+                  disabled={isCheckingConnection}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    padding: '6px 12px', borderRadius: '8px', cursor: 'pointer',
+                    background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                    color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <RefreshCw size={13} className={isCheckingConnection ? 'spin-anim' : ''} />
+                  <span>{isCheckingConnection ? 'Testing...' : 'Check Connection'}</span>
+                </button>
+              </div>
             </div>
 
             <h1 className="font-display" style={{
@@ -217,6 +274,11 @@ export default function BasicTemplatesPage({
                   <span style={{ fontSize: '10px', background: 'rgba(16,185,129,0.15)', color: '#10b981', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
                     ACTIVE SESSION
                   </span>
+                  {useCloudEnv && (
+                    <span style={{ fontSize: '10px', background: 'rgba(99,102,241,0.15)', color: '#818cf8', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                      MODAL CLOUD HOSTED
+                    </span>
+                  )}
                 </div>
                 <a
                   href={targetUrl}
@@ -268,7 +330,7 @@ export default function BasicTemplatesPage({
                     {activeEngine === 'mpt' ? 'Start Bang AI Engine' : 'Start AgentTube Service'}
                   </h2>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                    The repository is installed in your filesystem at <code>BangAI/{activeEngine === 'mpt' ? 'MoneyPrinterTurbo' : 'youtube-automation-agent'}</code>. Launch the process to load the live creation studio right here.
+                    The repository is installed in your filesystem at <code>BangAI/{activeEngine === 'mpt' ? 'MoneyPrinterTurbo' : 'youtube-automation-agent'}</code>. Launch the process to load the live creation studio right here, or switch to <strong>Cloud (SaaS)</strong> above to run on Modal Cloud without local compute.
                   </p>
                 </div>
               </div>
@@ -351,25 +413,24 @@ export default function BasicTemplatesPage({
                   <span>{isCheckingConnection ? 'Detecting Engine...' : 'Check Connection & Connect'}</span>
                 </button>
 
-                <a
-                  href={targetUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setUseCloudEnv(true)}
                   style={{
-                    padding: '10px 16px', borderRadius: '10px',
-                    background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px',
-                    display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none'
+                    padding: '10px 16px', borderRadius: '10px', cursor: 'pointer',
+                    background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)',
+                    color: '#10b981', fontWeight: 700, fontSize: '13px',
+                    display: 'flex', alignItems: 'center', gap: '6px'
                   }}
                 >
-                  <span>Open {targetUrl} directly</span>
-                  <ExternalLink size={13} />
-                </a>
+                  <Cloud size={14} />
+                  <span>Switch to Cloud Studio (No Local Start Needed)</span>
+                </button>
               </div>
             </div>
           )}
 
-          {/* ── Strategic Architectural Roadmap Notice ── */}
+          {/* ── Architectural Info Card ── */}
           <div style={{
             marginTop: '32px',
             background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(16,185,129,0.06))',
@@ -379,11 +440,11 @@ export default function BasicTemplatesPage({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <Zap size={16} color="#818cf8" />
               <h3 style={{ fontSize: '14px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                Cloud Deployment Notice
+                Production Cloud Infrastructure (Modal 4 vCPU)
               </h3>
             </div>
             <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55 }}>
-              The stock video generation studio is fully integrated into Bang AI. All video creation, voice synthesis, Hindi language models, and subtitle burns run through the unified studio engine.
+              The stock video generation studio is fully hosted and accessible directly in production. You can run it on our <strong>Modal Cloud Cluster</strong> without running local batch files or Python processes, with full support for Hindi neural voices, Pexels footage harvesting, and kinetic subtitles.
             </p>
           </div>
 

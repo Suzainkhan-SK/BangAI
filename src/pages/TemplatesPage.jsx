@@ -3,7 +3,7 @@ import {
   Zap, CheckCircle2, AlertCircle, AlertTriangle, Loader2,
   ChevronDown, ChevronRight, Mic, Type, Play,
   Square, XCircle, ExternalLink, Cpu, Brain,
-  Clapperboard, Mic2, Video, RefreshCw
+  Clapperboard, Mic2, Video, RefreshCw, Film, ArrowRight
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 import GenerationThinkingAnimation from '../components/Dashboard/GenerationThinkingAnimation';
@@ -28,6 +28,21 @@ const SPEED_DEF  = 1.10;
 const SPEED_STEP = 0.05;
 
 export const ACTIVE_TEMPLATES = [
+  {
+    id: 'bang-ai-stock-video',
+    emoji: '🎬',
+    title: 'Bang AI Stock Video Studio',
+    category: 'basic',
+    label: 'Basic Templates',
+    desc: 'Pure SaaS automated stock video production. Enter any topic, prompt, or script — Bang AI synthesizes neural voiceover (Edge-TTS & Azure Hindi/English), fetches HD Pexels stock footage, burns animated captions, and renders final 1080p video completely on the cloud.',
+    tagline: 'Pexels B-Roll · Neural Voices · Cloud Render',
+    demoImage: '/template-demo-phone.jpg',
+    videoTitle: 'Stock Video Automation Studio',
+    stats: '100% Free · Cloud Hosted',
+    color: '#10b981',
+    aiBrain: 'Bang AI Cloud Engine (Modal 4 vCPU)',
+    isBasicTemplate: true
+  },
   {
     id: 'world-mysteries',
     emoji: '🛸',
@@ -511,6 +526,7 @@ export default function TemplatesPage({
 
   const CATEGORIES = [
     { id: 'all', label: 'All' },
+    { id: 'basic', label: '🎬 Basic Templates (Stock Video)' },
     { id: 'mysteries', label: 'World Mysteries' },
     { id: 'history', label: 'True Stories' },
     { id: 'psychology', label: 'Horror & Paranormal' },
@@ -520,12 +536,15 @@ export default function TemplatesPage({
   const handleCategorySelect = (catId) => {
     audioEngine.playSfx('click');
     setActiveCategory(catId);
-    if (catId === 'mysteries') setSelectedTemplateId('world-mysteries');
+    if (catId === 'basic') setSelectedTemplateId('bang-ai-stock-video');
+    else if (catId === 'mysteries') setSelectedTemplateId('world-mysteries');
     else if (catId === 'history') setSelectedTemplateId('last-24-hours');
     else if (catId === 'psychology') setSelectedTemplateId('3am-horror');
   };
 
   const UPCOMING = [
+    { id: 'reddit-stories', category: 'basic', label: 'Stock Video', title: 'Reddit Stories & Viral Confessions', desc: 'Narrates viral Reddit posts with dynamic Pexels b-roll footage and captions.', duration: '60s', scenes: 'Stock B-Roll' },
+    { id: 'motivational-quotes', category: 'basic', label: 'Stock Video', title: 'Daily Stoic & Motivation Clips', desc: 'Inspirational philosophical quotes over cinematic drone stock video.', duration: '45s', scenes: 'Stock B-Roll' },
     { id: 'ancient-history', category: 'history', label: 'History & Lore', title: 'Ancient History & Lost Civilizations', desc: 'Deep-dives into forgotten dynasties and lost wonders.', duration: '75s', scenes: '5 Scenes' },
     { id: 'dark-psychology', category: 'psychology', label: 'Dark Psychology', title: 'Dark Psychology & Human Behavior', desc: 'Behavioral insights and persuasion breakdowns.', duration: '60s', scenes: '4 Scenes' },
     { id: 'cosmic-space', category: 'scifi', label: 'Space & Tech', title: 'Deep Space & Cosmic Wonders', desc: 'Astrophysics anomalies and planetary mysteries.', duration: '75s', scenes: '5 Scenes' },
@@ -585,6 +604,73 @@ export default function TemplatesPage({
                 );
               })}
             </div>
+          </div>
+
+          {/* ── Basic Templates Feature Banner ── */}
+          <div style={{
+            marginBottom: '28px',
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(6,182,212,0.08) 100%)',
+            border: '1.5px solid rgba(16,185,129,0.3)',
+            borderRadius: '16px',
+            padding: '16px 22px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '14px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                width: '42px', height: '42px', borderRadius: '12px',
+                background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}>
+                <Film size={22} color="#34d399" />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    New Category: Bang AI Stock Video Studio
+                  </h4>
+                  <span style={{ fontSize: '10px', fontWeight: 800, background: '#10b981', color: '#000', padding: '1px 8px', borderRadius: '99px', letterSpacing: '0.04em' }}>
+                    100% CLOUD SAAS
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 600 }}>
+                    Modal 4 vCPU Hosted
+                  </span>
+                </div>
+                <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Generate viral vertical & landscape stock videos with Pexels footage, Hindi & English neural voices, and kinetic subtitles directly in production.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                audioEngine.playSfx('click');
+                if (typeof onNavigate === 'function') onNavigate('basic-templates');
+                else window.location.hash = '#basic-templates';
+              }}
+              style={{
+                padding: '9px 18px',
+                borderRadius: '10px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <span>Open Stock Studio</span>
+              <ArrowRight size={14} />
+            </button>
           </div>
 
           {/* ── Alerts ── */}
@@ -962,9 +1048,18 @@ export default function TemplatesPage({
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     flexWrap: 'wrap', gap: '12px', marginTop: 'auto'
                   }}>
-                    {/* Channel selector */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <YouTubeIcon size={16} />
+                    {/* Channel selector or Cloud Studio Badge */}
+                    {activeTpl.isBasicTemplate ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Film size={16} color="#10b981" />
+                        <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#10b981' }}>
+                          Bang AI Stock Studio
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>· 100% Cloud SaaS · Modal 4 vCPU</span>
+                        </span>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <YouTubeIcon size={16} />
                       {loadingChannels ? (
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Loading...</span>
                       ) : channels.length > 0 ? (
@@ -1052,8 +1147,9 @@ export default function TemplatesPage({
                         </button>
                       )}
                     </div>
+                  )}
 
-                    {/* Launch / Cancel Button Group */}
+                  {/* Launch / Cancel Button Group */}
                     {isGenerating && generatingTemplateId === activeTpl.id ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <button
@@ -1099,6 +1195,26 @@ export default function TemplatesPage({
                           <ExternalLink size={13} />
                         </button>
                       </div>
+                    ) : activeTpl.isBasicTemplate ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audioEngine.playSfx('click');
+                          if (typeof onNavigate === 'function') onNavigate('basic-templates');
+                          else window.location.hash = '#basic-templates';
+                        }}
+                        style={{
+                          padding: '10px 24px', borderRadius: '10px', border: 'none',
+                          cursor: 'pointer',
+                          background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                          fontSize: '13px', fontWeight: 700, color: '#ffffff',
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          boxShadow: '0 4px 16px rgba(16,185,129,0.35)',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <Zap size={14} fill="#ffffff" /><span>Launch Bang AI Stock Studio ⚡</span>
+                      </button>
                     ) : (
                       <button
                         disabled={launchingId === activeTpl.id || isGenerating}
