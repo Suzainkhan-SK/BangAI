@@ -34,3 +34,7 @@ lerna-debug.log*
 *.sln
 *.sw?
 .claude/
+
+# Cloned external automation engines (isolated from production bundle)
+/youtube-automation-agent/
+/MoneyPrinterTurbo/

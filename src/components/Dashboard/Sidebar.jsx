@@ -239,6 +239,44 @@ export default function Sidebar({
             <LayoutDashboard size={16} />
           </button>
 
+          {/* AI Templates */}
+          <button
+            type="button"
+            onClick={() => navigateTo('templates')}
+            title="AI Templates (75s Autonomous)"
+            aria-label="AI Templates"
+            aria-current={isItemActive('templates') ? 'page' : undefined}
+            style={{
+              width: '38px', height: '38px', borderRadius: '10px', padding: 0,
+              background: isItemActive('templates') ? 'rgba(99,102,241,0.18)' : 'transparent',
+              border: `1.5px solid ${isItemActive('templates') ? '#6366f1' : 'transparent'}`,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: isItemActive('templates') ? '#818cf8' : 'var(--text-muted)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Zap size={16} />
+          </button>
+
+          {/* Basic Templates */}
+          <button
+            type="button"
+            onClick={() => navigateTo('basic-templates')}
+            title="Basic Templates (Stock Video)"
+            aria-label="Basic Templates"
+            aria-current={isItemActive('basic-templates') ? 'page' : undefined}
+            style={{
+              width: '38px', height: '38px', borderRadius: '10px', padding: 0,
+              background: isItemActive('basic-templates') ? 'rgba(16,185,129,0.18)' : 'transparent',
+              border: `1.5px solid ${isItemActive('basic-templates') ? '#10b981' : 'transparent'}`,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: isItemActive('basic-templates') ? '#34d399' : 'var(--text-muted)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Film size={16} />
+          </button>
+
           {/* Bang AI Chat */}
           <button
             type="button"
@@ -462,7 +500,7 @@ export default function Sidebar({
           <button
             type="button"
             onClick={() => navigateTo('templates')}
-            aria-label="Templates"
+            aria-label="AI Templates"
             aria-current={isItemActive('templates') ? 'page' : undefined}
             style={{
               width: '100%', padding: '7px 10px',
@@ -476,7 +514,37 @@ export default function Sidebar({
             }}
           >
             <Zap size={14} color={isItemActive('templates') ? '#818cf8' : 'var(--text-muted)'} />
-            <span>Templates</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <span>AI Templates</span>
+              <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: 'rgba(99,102,241,0.2)', color: '#818cf8' }}>
+                75S
+              </span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigateTo('basic-templates')}
+            aria-label="Basic Templates"
+            aria-current={isItemActive('basic-templates') ? 'page' : undefined}
+            style={{
+              width: '100%', padding: '7px 10px',
+              background: isItemActive('basic-templates') ? 'rgba(16,185,129,0.15)' : 'transparent',
+              border: `1px solid ${isItemActive('basic-templates') ? 'rgba(16,185,129,0.4)' : 'transparent'}`,
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '8px',
+              color: isItemActive('basic-templates') ? '#34d399' : 'var(--text-secondary)',
+              fontSize: '12.5px', fontWeight: isItemActive('basic-templates') ? 700 : 500,
+              transition: 'all 0.12s ease'
+            }}
+          >
+            <Film size={14} color={isItemActive('basic-templates') ? '#34d399' : 'var(--text-muted)'} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <span>Basic Templates</span>
+              <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: 'linear-gradient(135deg, #10b981, #06b6d4)', color: '#fff' }}>
+                STOCK
+              </span>
+            </div>
           </button>
 
           <button
@@ -652,7 +720,7 @@ export default function Sidebar({
               }}>
                 {group.title}
               </div>
-              {group.items.map(s => {
+              {group.items.map((s, idx) => {
                 const id = s.threadId || s.id;
                 const isActive = activeShortId === id || currentRoutePath === 'dashboard/t/' + id;
                 const isHovered = hoveredId === id;
@@ -662,7 +730,7 @@ export default function Sidebar({
 
                 return (
                   <button
-                    key={id}
+                    key={`${id}-${idx}`}
                     type="button"
                     title={accessibleLabel}
                     aria-label={`Open video thread: ${accessibleLabel}`}

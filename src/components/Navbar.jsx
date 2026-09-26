@@ -63,7 +63,8 @@ export default function Navbar({
     ? [
         { label: 'Dashboard', view: 'dashboard' },
         { label: 'Chat', view: 'chat', badge: 'AI' },
-        { label: 'Templates', view: 'templates' },
+        { label: 'AI Templates', view: 'templates' },
+        { label: 'Basic Templates', view: 'basic-templates', badge: 'STOCK' },
         { label: 'Studio', view: 'studio/voices' },
         { label: 'Profile', view: 'profile' },
         { label: 'Settings', view: 'settings' },
@@ -73,7 +74,8 @@ export default function Navbar({
     : [
         { label: 'Home', view: 'landing' },
         { label: 'Chat AI', view: 'chat', badge: 'NEW' },
-        { label: 'Templates', view: 'templates' },
+        { label: 'AI Templates', view: 'templates' },
+        { label: 'Basic Templates', view: 'basic-templates', badge: 'STOCK' },
         { label: 'Features', view: 'landing', anchor: '#features' },
         { label: 'Showcase', view: 'landing', anchor: '#showcase' },
         { label: 'Pricing', view: 'pricing' },

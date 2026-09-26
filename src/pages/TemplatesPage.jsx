@@ -553,21 +553,21 @@ export default function TemplatesPage({
                 fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)'
               }}>
                 <Zap size={11} color="var(--accent-primary, #6366f1)" />
-                Autonomous Workflows
+                Cinematic AI Workflows (75s)
               </span>
               <span style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                n8n Cloud Connected
+                n8n Cloud & Veo 3 / Wan Connected
               </span>
             </div>
             <h1 className="font-display" style={{
               fontSize: 'clamp(24px, 3.5vw, 32px)', fontWeight: 800,
               color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: '0 0 6px 0'
             }}>
-              Pre-Built Video Templates
+              Autonomous AI Templates
             </h1>
             <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55, maxWidth: '620px' }}>
-              Tap once to autonomously research, script, narrate, render 5 cinematic scenes, and upload directly to your YouTube channel.
+              1-Click cinematic AI generation. Researches viral topics, crafts 5-act narrative hooks, renders photorealistic AI video scenes, and auto-publishes to YouTube.
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '20px', flexWrap: 'wrap' }}>
               {CATEGORIES.map(cat => {

@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start:basic-templates": "cmd /c \"cd MoneyPrinterTurbo && call webui.bat\""
   },
   "dependencies": {
     "@netlify/blobs": "^10.7.13",
