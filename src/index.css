@@ -4,29 +4,29 @@
    ========================================================================== */
 
 :root, [data-theme='dark'] {
-  --bg-app: #1a1313;
-  --bg-nav: rgba(26, 19, 19, 0.94);
-  --bg-card: #251c1c;
-  --bg-card-hover: #2f2323;
-  --bg-surface: #201717;
-  --bg-input: #201717;
-  --bg-sidebar: #1e1616;
-  --bg-elevated: #251c1c;
-  --bg-gemini-input: rgba(37, 28, 28, 0.96);
+  --bg-app: #090a0d;
+  --bg-nav: rgba(9, 10, 13, 0.95);
+  --bg-card: #12151c;
+  --bg-card-hover: #181c25;
+  --bg-surface: #161922;
+  --bg-input: #161922;
+  --bg-sidebar: #0e1015;
+  --bg-elevated: #1a1d26;
+  --bg-gemini-input: rgba(18, 21, 28, 0.96);
   --bg-pill: rgba(255, 255, 255, 0.08);
   --bg-pill-hover: rgba(255, 255, 255, 0.14);
   
-  --border-subtle: rgba(255, 255, 255, 0.12);
-  --border-medium: rgba(255, 255, 255, 0.22);
+  --border-subtle: #2d3340;
+  --border-medium: #3d4454;
   --border-glow: rgba(255, 79, 0, 0.45);
   --border-grok: rgba(255, 79, 0, 0.5);
 
-  --text-primary: #fffefb;
-  --text-secondary: #c5c0b1;
-  --text-muted: #939084;
+  --text-primary: #f7f8f8;
+  --text-secondary: #d0d6e0;
+  --text-muted: #8a8f98;
 
   --accent-primary: #ff4f00;
-  --accent-secondary: #36342e;
+  --accent-secondary: #262b35;
   --accent-orange: #ff4f00;
   --accent-cyan: #38bdf8;
   --accent-emerald: #10b981;
@@ -34,21 +34,21 @@
   --accent-rose: #ff4f00;
 
   --btn-primary-bg: #ff4f00;
-  --btn-primary-text: #fffefb;
-  --btn-outline-border: rgba(255, 255, 255, 0.2);
-  --btn-outline-bg: rgba(255, 255, 255, 0.06);
+  --btn-primary-text: #ffffff;
+  --btn-outline-border: #2d3340;
+  --btn-outline-bg: #161922;
 
   --grad-primary: linear-gradient(135deg, #ff4f00 0%, #e04500 100%);
   --grad-gemini: linear-gradient(135deg, #ff4f00 0%, #ff7733 100%);
-  --grad-grok: linear-gradient(135deg, #fffefb 0%, #c5c0b1 100%);
+  --grad-grok: linear-gradient(135deg, #ffffff 0%, #8a8f98 100%);
   --grad-cyan: linear-gradient(135deg, #ff4f00 0%, #ff7733 100%);
   --grad-mesh: radial-gradient(circle at 10% 10%, rgba(255, 79, 0, 0.18) 0%, transparent 45%),
-               radial-gradient(circle at 90% 90%, rgba(47, 42, 38, 0.4) 0%, transparent 45%);
+               radial-gradient(circle at 90% 90%, rgba(18, 21, 28, 0.6) 0%, transparent 45%);
 
-  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 24px rgba(255, 79, 0, 0.25);
   --shadow-grok: 0 0 20px rgba(255, 79, 0, 0.2);
-  --shadow-prompt: 0 16px 48px rgba(0, 0, 0, 0.5);
+  --shadow-prompt: 0 16px 48px rgba(0, 0, 0, 0.6);
 }
 
 [data-theme='light'] {

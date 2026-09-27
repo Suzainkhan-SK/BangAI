@@ -4,6 +4,7 @@ name: Zapier-design-analysis
 description: An inspired interpretation of Zapier's design language — a workflow-automation platform whose surface combines warm-cream neutrals (`#fffefb` canvas, `#f8f4f0` soft cream) with deep coffee ink (`#201515`) and a single saturated orange CTA accent (`#ff4f00`); typography pairs the proprietary Degular Display family at hero scale with Inter for sub-displays and body, giving the brand a confident-warm rather than cool-tech voice.
 
 colors:
+  # Light Theme (Zapier Warm Cream System)
   primary: "#ff4f00"
   on-primary: "#fffefb"
   ink: "#201515"
@@ -14,6 +15,19 @@ colors:
   mute: "#c5c0b1"
   canvas: "#fffefb"
   canvas-soft: "#f8f4f0"
+
+  # Dark Theme (Billion-Dollar Linear Obsidian System)
+  dark-primary: "#ff4f00"
+  dark-on-primary: "#ffffff"
+  dark-canvas: "#090a0d"
+  dark-surface-1: "#12151c"
+  dark-surface-2: "#161922"
+  dark-surface-3: "#1a1d26"
+  dark-hairline: "#2d3340"
+  dark-hairline-strong: "#3d4454"
+  dark-ink: "#f7f8f8"
+  dark-ink-muted: "#d0d6e0"
+  dark-ink-subtle: "#8a8f98"
 
 typography:
   display-xl:
