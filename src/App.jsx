@@ -362,6 +362,7 @@ function AppContent() {
         {currentView === 'basic-templates' && (
           <BasicTemplatesPage
             user={user}
+            theme={theme}
             currentRoutePath={currentRoutePath}
             collapsed={sidebarCollapsed}
             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}

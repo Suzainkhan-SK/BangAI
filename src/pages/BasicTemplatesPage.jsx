@@ -1,96 +1,73 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Film, Sparkles, Play, RefreshCw, ExternalLink, CheckCircle2,
-  AlertTriangle, Terminal, Cpu, Zap, Settings, Globe, Shield,
-  ArrowRight, Video, Layers, Volume2, HelpCircle, Cloud
+  Film, Sparkles, RefreshCw, ExternalLink,
+  Terminal, Cpu, Zap, Globe, Cloud, ShieldCheck
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 
 export default function BasicTemplatesPage({
   user,
+  theme,
   currentRoutePath = 'basic-templates',
   collapsed = false,
   onToggleCollapse,
   onNavigate
 }) {
-  const [activeEngine, setActiveEngine] = useState('mpt'); // 'mpt' | 'agenttube'
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
-  const [mptStatus, setMptStatus] = useState('online'); // 'online' | 'offline' | 'unknown'
-  const [agentTubeStatus, setAgentTubeStatus] = useState('unknown');
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [mptStatus, setMptStatus] = useState('online');
+  const [iframeKey, setIframeKey] = useState(0);
 
   // Cloud & Local Endpoints
   const CLOUD_MPT_URL = 'https://cmpunktg--bangai-stock-studio-ui.modal.run';
   const LOCAL_MPT_URL = 'http://localhost:8501';
-  const AGENTTUBE_URL = 'http://localhost:3456';
 
-  // Default to 100% Cloud SaaS Studio (zero local PC compute needed)
+  // Default to 100% Cloud SaaS Studio
   const [useCloudEnv, setUseCloudEnv] = useState(true);
 
-  // Check connectivity to services
+  // Read authenticated user's JWT token & theme
+  const token = typeof window !== 'undefined'
+    ? (localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || user?.token || '')
+    : (user?.token || '');
+
+  const activeTheme = theme || (typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : 'dark') || 'dark';
+
+  const baseUrl = useCloudEnv ? CLOUD_MPT_URL : LOCAL_MPT_URL;
+  const targetUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&theme=${encodeURIComponent(activeTheme)}`;
+
+  // Probe connectivity
   const checkHealth = async () => {
     setIsCheckingConnection(true);
     try {
       if (useCloudEnv) {
-        // Probe Cloud Studio on Modal
         try {
           const res = await fetch('https://cmpunktg--bangai-stock-studio-serve.modal.run/ping', { method: 'GET' });
-          if (res.ok) {
-            setMptStatus('online');
-          } else {
-            setMptStatus('online');
-          }
-        } catch (e) {
+          setMptStatus(res.ok ? 'online' : 'online');
+        } catch {
           setMptStatus('online');
         }
       } else {
-        // Probe Local Studio (port 8501)
-        const controller1 = new AbortController();
-        const timeoutId1 = setTimeout(() => controller1.abort(), 2000);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
         try {
-          await fetch(`${LOCAL_MPT_URL}/_stcore/health`, { method: 'GET', mode: 'no-cors', signal: controller1.signal });
+          await fetch(`${LOCAL_MPT_URL}/_stcore/health`, { method: 'GET', mode: 'no-cors', signal: controller.signal });
           setMptStatus('online');
-        } catch (err) {
+        } catch {
           setMptStatus('offline');
         } finally {
-          clearTimeout(timeoutId1);
+          clearTimeout(timeoutId);
         }
-      }
-
-      // Probe AgentTube (port 3456)
-      const controller2 = new AbortController();
-      const timeoutId2 = setTimeout(() => controller2.abort(), 2000);
-      try {
-        await fetch(`${AGENTTUBE_URL}/health`, { method: 'GET', mode: 'no-cors', signal: controller2.signal });
-        setAgentTubeStatus('online');
-      } catch (err) {
-        setAgentTubeStatus('offline');
-      } finally {
-        clearTimeout(timeoutId2);
       }
     } catch (e) {
       console.warn('[BasicTemplates] Health check probe failed:', e);
     } finally {
       setIsCheckingConnection(false);
+      setIframeKey(k => k + 1);
     }
   };
 
   useEffect(() => {
     checkHealth();
   }, [useCloudEnv]);
-
-  const currentOnline = activeEngine === 'mpt'
-    ? (useCloudEnv ? true : mptStatus === 'online')
-    : agentTubeStatus === 'online';
-
-  const currentMptUrl = useCloudEnv ? CLOUD_MPT_URL : LOCAL_MPT_URL;
-  const targetUrl = activeEngine === 'mpt' ? currentMptUrl : AGENTTUBE_URL;
-
-  const handleCopyCmd = () => {
-    navigator.clipboard.writeText('cd BangAI\\MoneyPrinterTurbo && start.bat');
-    setCopySuccess(true);
-    setTimeout(() => setCopySuccess(false), 2000);
-  };
 
   return (
     <AppShell
@@ -102,350 +79,218 @@ export default function BasicTemplatesPage({
       user={user}
     >
       <div style={{
-        flex: 1, width: '100%', minHeight: '100%',
-        backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)',
-        padding: '32px 28px 80px 28px', overflowY: 'auto'
+        flex: 1,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'var(--bg-app)',
+        color: 'var(--text-primary)',
+        padding: '16px 20px 24px 20px',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ width: '100%', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1 }}>
 
-          {/* ── Top Header ── */}
-          <div style={{ marginBottom: '28px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '5px',
-                  padding: '3px 10px', borderRadius: '99px',
-                  background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)',
-                  fontSize: '11px', fontWeight: 700, color: '#10b981'
-                }}>
-                  <Film size={12} />
-                  Stock Footage & Open-Source Engine
-                </span>
-                <span style={{
-                  fontSize: '11px', fontWeight: 600,
-                  color: currentOnline ? '#10b981' : '#f59e0b',
-                  display: 'inline-flex', alignItems: 'center', gap: '5px'
-                }}>
-                  <span style={{
-                    width: '7px', height: '7px', borderRadius: '50%',
-                    background: currentOnline ? '#10b981' : '#f59e0b',
-                    boxShadow: currentOnline ? '0 0 8px #10b981' : 'none'
-                  }} />
-                  {currentOnline ? (useCloudEnv ? 'Cloud Engine Online (Modal 4 vCPU)' : 'Local Engine Connected') : 'Engine Standby'}
-                </span>
-              </div>
-
-              {/* Environment Switcher & Refresh */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {activeEngine === 'mpt' && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center',
-                    background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px', padding: '2px', gap: '2px'
-                  }}>
-                    <button
-                      type="button"
-                      onClick={() => setUseCloudEnv(true)}
-                      style={{
-                        padding: '4px 8px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                        background: useCloudEnv ? 'rgba(16,185,129,0.2)' : 'transparent',
-                        color: useCloudEnv ? '#10b981' : 'var(--text-muted)',
-                        fontSize: '11.5px', fontWeight: useCloudEnv ? 700 : 500,
-                        display: 'flex', alignItems: 'center', gap: '4px'
-                      }}
-                    >
-                      <Cloud size={11} />
-                      <span>Cloud (SaaS)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUseCloudEnv(false)}
-                      style={{
-                        padding: '4px 8px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                        background: !useCloudEnv ? 'rgba(99,102,241,0.2)' : 'transparent',
-                        color: !useCloudEnv ? '#818cf8' : 'var(--text-muted)',
-                        fontSize: '11.5px', fontWeight: !useCloudEnv ? 700 : 500,
-                        display: 'flex', alignItems: 'center', gap: '4px'
-                      }}
-                    >
-                      <Cpu size={11} />
-                      <span>Local PC</span>
-                    </button>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={checkHealth}
-                  disabled={isCheckingConnection}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '6px',
-                    padding: '6px 12px', borderRadius: '8px', cursor: 'pointer',
-                    background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600,
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <RefreshCw size={13} className={isCheckingConnection ? 'spin-anim' : ''} />
-                  <span>{isCheckingConnection ? 'Testing...' : 'Check Connection'}</span>
-                </button>
-              </div>
-            </div>
-
-            <h1 className="font-display" style={{
-              fontSize: 'clamp(24px, 3.2vw, 32px)', fontWeight: 800,
-              color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: '0 0 6px 0'
-            }}>
-              Generic / Basic Templates
-            </h1>
-            <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55, maxWidth: '780px' }}>
-              Enter any custom topic to generate complete faceless short videos. The engine writes the script, pulls curated stock clips from Pexels/Pixabay, speaks via free neural Edge-TTS, and burns synchronized subtitles.
-            </p>
-          </div>
-
-          {/* ── Engine Switcher Tabs ── */}
+          {/* ── Top Header Toolbar ── */}
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            marginBottom: '24px', background: 'var(--bg-card)',
-            padding: '6px', borderRadius: '12px', border: '1px solid var(--border-subtle)',
-            maxWidth: '540px'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            marginBottom: '14px',
+            padding: '10px 14px',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '12px'
           }}>
-            <button
-              type="button"
-              onClick={() => setActiveEngine('mpt')}
-              style={{
-                flex: 1, padding: '9px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                background: activeEngine === 'mpt' ? 'linear-gradient(135deg, #10b981, #06b6d4)' : 'transparent',
-                color: activeEngine === 'mpt' ? '#fff' : 'var(--text-secondary)',
-                fontWeight: activeEngine === 'mpt' ? 700 : 500, fontSize: '12.5px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <Film size={14} />
-              <span>Stock Video Generator</span>
-              <span style={{
-                fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px',
-                background: activeEngine === 'mpt' ? 'rgba(0,0,0,0.25)' : 'rgba(16,185,129,0.15)',
-                color: activeEngine === 'mpt' ? '#fff' : '#10b981'
-              }}>BANG AI</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveEngine('agenttube')}
-              style={{
-                flex: 1, padding: '9px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                background: activeEngine === 'agenttube' ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
-                color: activeEngine === 'agenttube' ? '#fff' : 'var(--text-secondary)',
-                fontWeight: activeEngine === 'agenttube' ? 700 : 500, fontSize: '12.5px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <Zap size={14} />
-              <span>Channel Operator</span>
-              <span style={{
-                fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px',
-                background: activeEngine === 'agenttube' ? 'rgba(0,0,0,0.25)' : 'rgba(99,102,241,0.15)',
-                color: activeEngine === 'agenttube' ? '#fff' : '#818cf8'
-              }}>AGENT</span>
-            </button>
-          </div>
-
-          {/* ── Main Engine Portal Container ── */}
-          {currentOnline ? (
-            <div style={{
-              background: 'var(--bg-card)',
-              borderRadius: '16px',
-              border: '1px solid var(--border-subtle)',
-              overflow: 'hidden',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
-            }}>
-              {/* Toolbar */}
+            {/* Title & Status */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <div style={{
-                padding: '12px 18px', background: 'rgba(0,0,0,0.25)',
-                borderBottom: '1px solid var(--border-subtle)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px'
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(6,182,212,0.18))',
+                border: '1px solid rgba(16,185,129,0.3)',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: '#10b981'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  <Globe size={15} color="#10b981" />
-                  <span>Connected to <strong>{targetUrl}</strong></span>
-                  <span style={{ fontSize: '10px', background: 'rgba(16,185,129,0.15)', color: '#10b981', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                    ACTIVE SESSION
-                  </span>
-                  {useCloudEnv && (
-                    <span style={{ fontSize: '10px', background: 'rgba(99,102,241,0.15)', color: '#818cf8', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                      MODAL CLOUD HOSTED
-                    </span>
-                  )}
-                </div>
-                <a
-                  href={targetUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '5px',
-                    fontSize: '12px', fontWeight: 600, color: '#818cf8',
-                    textDecoration: 'none'
-                  }}
-                >
-                  <span>Open Full Window</span>
-                  <ExternalLink size={12} />
-                </a>
+                <Film size={14} />
+                <span>Stock Video Studio</span>
               </div>
 
-              {/* Embedded Frame */}
-              <iframe
-                src={targetUrl}
-                title={activeEngine === 'mpt' ? 'Bang AI Video Studio' : 'AgentTube'}
-                style={{
-                  width: '100%',
-                  height: '840px',
-                  border: 'none',
-                  display: 'block',
-                  background: '#0e1117'
-                }}
-              />
+              <div style={{
+                fontSize: '11.5px',
+                fontWeight: 600,
+                color: mptStatus === 'online' ? '#10b981' : '#f59e0b',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: mptStatus === 'online' ? '#10b981' : '#f59e0b',
+                  boxShadow: mptStatus === 'online' ? '0 0 8px #10b981' : 'none'
+                }} />
+                <span>{useCloudEnv ? 'Modal Cloud 4 vCPU' : 'Local PC Engine'}</span>
+              </div>
+
+              {/* User Workspace Tag */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '11px',
+                color: 'var(--text-muted)',
+                background: 'var(--bg-input)',
+                padding: '3px 8px',
+                borderRadius: '6px'
+              }}>
+                <ShieldCheck size={12} color="#10b981" />
+                <span>Private Workspace: <strong>{user?.name || user?.email?.split('@')[0] || 'User'}</strong></span>
+              </div>
             </div>
-          ) : (
-            /* ── Engine Standby Card ── */
-            <div style={{
-              background: 'var(--bg-card)',
-              borderRadius: '16px',
-              border: '1px solid var(--border-subtle)',
-              padding: '32px 28px',
-              boxShadow: '0 4px 24px rgba(0,0,0,0.15)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '24px' }}>
-                <div style={{
-                  width: '44px', height: '44px', borderRadius: '12px',
-                  background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                }}>
-                  <Terminal size={22} color="#10b981" />
-                </div>
-                <div>
-                  <h2 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
-                    {activeEngine === 'mpt' ? 'Start Bang AI Engine' : 'Start AgentTube Service'}
-                  </h2>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                    The repository is installed in your filesystem at <code>BangAI/{activeEngine === 'mpt' ? 'MoneyPrinterTurbo' : 'youtube-automation-agent'}</code>. Launch the process to load the live creation studio right here, or switch to <strong>Cloud (SaaS)</strong> above to run on Modal Cloud without local compute.
-                  </p>
-                </div>
-              </div>
 
-              {/* Quick Launch Steps */}
+            {/* Actions: Env Switcher, Refresh, Full Window */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Cloud vs Local Switcher */}
               <div style={{
-                background: 'rgba(0,0,0,0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                background: 'var(--bg-input)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: '12px', padding: '18px 20px', marginBottom: '24px'
+                borderRadius: '8px',
+                padding: '2px',
+                gap: '2px'
               }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                  EASY START INSTRUCTIONS (WINDOWS)
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--bg-pill)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
-                      1
-                    </span>
-                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                      Double-click the 1-click startup file in your workspace: <br />
-                      <strong style={{ color: 'var(--text-primary)' }}>d:\n8n-automation-builder-main\BangAI\start_basic_templates.bat</strong>
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--bg-pill)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
-                      2
-                    </span>
-                    <div style={{ width: '100%' }}>
-                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                        Or run from PowerShell / Terminal:
-                      </span>
-                      <div style={{
-                        marginTop: '6px', background: '#0a0a0f', border: '1px solid var(--border-subtle)',
-                        borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center',
-                        justifyContent: 'space-between', fontFamily: 'monospace', fontSize: '12px', color: '#10b981'
-                      }}>
-                        <span>cd BangAI\MoneyPrinterTurbo ; .\start.bat</span>
-                        <button
-                          type="button"
-                          onClick={handleCopyCmd}
-                          style={{
-                            background: 'transparent', border: 'none', cursor: 'pointer',
-                            color: copySuccess ? '#10b981' : 'var(--text-muted)', fontSize: '11px', fontWeight: 700
-                          }}
-                        >
-                          {copySuccess ? 'Copied!' : 'Copy'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--bg-pill)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
-                      3
-                    </span>
-                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                      Once the console shows <code>Network URL: http://localhost:8501</code>, click the button below to connect!
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={checkHealth}
-                  disabled={isCheckingConnection}
-                  style={{
-                    padding: '10px 20px', borderRadius: '10px', border: 'none', cursor: 'pointer',
-                    background: 'linear-gradient(135deg, #10b981, #06b6d4)',
-                    color: '#fff', fontWeight: 700, fontSize: '13px',
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    boxShadow: '0 4px 14px rgba(16,185,129,0.3)'
-                  }}
-                >
-                  <RefreshCw size={15} className={isCheckingConnection ? 'spin-anim' : ''} />
-                  <span>{isCheckingConnection ? 'Detecting Engine...' : 'Check Connection & Connect'}</span>
-                </button>
-
                 <button
                   type="button"
                   onClick={() => setUseCloudEnv(true)}
                   style={{
-                    padding: '10px 16px', borderRadius: '10px', cursor: 'pointer',
-                    background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)',
-                    color: '#10b981', fontWeight: 700, fontSize: '13px',
-                    display: 'flex', alignItems: 'center', gap: '6px'
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: useCloudEnv ? 'rgba(16,185,129,0.2)' : 'transparent',
+                    color: useCloudEnv ? '#10b981' : 'var(--text-muted)',
+                    fontSize: '11.5px',
+                    fontWeight: useCloudEnv ? 700 : 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s ease'
                   }}
                 >
-                  <Cloud size={14} />
-                  <span>Switch to Cloud Studio (No Local Start Needed)</span>
+                  <Cloud size={12} />
+                  <span>Cloud SaaS</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUseCloudEnv(false)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: !useCloudEnv ? 'rgba(99,102,241,0.2)' : 'transparent',
+                    color: !useCloudEnv ? '#818cf8' : 'var(--text-muted)',
+                    fontSize: '11.5px',
+                    fontWeight: !useCloudEnv ? 700 : 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Cpu size={12} />
+                  <span>Local</span>
                 </button>
               </div>
-            </div>
-          )}
 
-          {/* ── Architectural Info Card ── */}
-          <div style={{
-            marginTop: '32px',
-            background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(16,185,129,0.06))',
-            border: '1px solid rgba(99,102,241,0.2)',
-            borderRadius: '14px', padding: '20px 24px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Zap size={16} color="#818cf8" />
-              <h3 style={{ fontSize: '14px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                Production Cloud Infrastructure (Modal 4 vCPU)
-              </h3>
+              {/* Refresh / Reconnect */}
+              <button
+                type="button"
+                onClick={checkHealth}
+                disabled={isCheckingConnection}
+                title="Reload Studio Frame"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '5px 10px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <RefreshCw size={12} className={isCheckingConnection ? 'spin-anim' : ''} />
+                <span>{isCheckingConnection ? 'Testing...' : 'Reload'}</span>
+              </button>
+
+              {/* Full Window Link */}
+              <a
+                href={targetUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Open Studio in Full Window"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '5px 10px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-subtle)',
+                  color: '#818cf8',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>Full Window</span>
+                <ExternalLink size={12} />
+              </a>
             </div>
-            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55 }}>
-              The stock video generation studio is fully hosted and accessible directly in production. You can run it on our <strong>Modal Cloud Cluster</strong> without running local batch files or Python processes, with full support for Hindi neural voices, Pexels footage harvesting, and kinetic subtitles.
-            </p>
+          </div>
+
+          {/* ── Studio Frame Container ── */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'var(--bg-card)',
+            borderRadius: '14px',
+            border: '1px solid var(--border-subtle)',
+            overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+            minHeight: '760px'
+          }}>
+            <iframe
+              key={`studio-frame-${iframeKey}-${activeTheme}`}
+              src={targetUrl}
+              title="Bang AI Stock Video Studio"
+              style={{
+                width: '100%',
+                height: '100%',
+                minHeight: '760px',
+                flex: 1,
+                border: 'none',
+                display: 'block',
+                background: activeTheme === 'light' ? '#f8fafc' : '#0b0f19'
+              }}
+              allow="camera; microphone; clipboard-write; clipboard-read"
+            />
           </div>
 
         </div>

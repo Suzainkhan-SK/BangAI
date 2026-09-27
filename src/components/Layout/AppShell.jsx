@@ -6,7 +6,14 @@ export default function AppShell({ user, currentRoutePath, onNavigate, collapsed
   const { threads } = useThreadList();
 
   return (
-    <div style={{ flex: 1, display: 'flex', width: '100%', minHeight: 'calc(100vh - 64px)' }}>
+    <div style={{
+      flex: 1,
+      display: 'flex',
+      width: '100%',
+      height: 'calc(100dvh - var(--nav-h, 58px))',
+      minHeight: 'calc(100dvh - var(--nav-h, 58px))',
+      overflow: 'hidden'
+    }}>
       <Sidebar
         user={user}
         pastShorts={threads}
@@ -18,7 +25,7 @@ export default function AppShell({ user, currentRoutePath, onNavigate, collapsed
         onSelectShort={(id) => onNavigate('dashboard/t/' + id)}
         onNewShort={() => onNavigate('dashboard')}
       />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         {children}
       </div>
     </div>
