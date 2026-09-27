@@ -114,10 +114,10 @@ export default function Navbar({
         position: 'sticky',
         top: 0,
         zIndex: 200,
-        background: isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(7, 24, 41, 0.92)',
+        background: isLight ? 'rgba(255, 254, 251, 0.96)' : 'rgba(26, 19, 19, 0.94)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: isLight ? '1px solid #d9d9dd' : '1px solid rgba(255, 255, 255, 0.1)',
+        borderBottom: isLight ? '1px solid #c5c0b1' : '1px solid rgba(255, 255, 255, 0.12)',
         transition: 'background 0.2s ease, border-color 0.2s ease'
       }}>
         <div style={{
@@ -139,10 +139,10 @@ export default function Navbar({
                 style={{
                   width: '32px',
                   height: '32px',
-                  borderRadius: '9999px',
+                  borderRadius: '8px',
                   padding: 0,
-                  background: isLight ? '#eeece7' : 'rgba(255,255,255,0.06)',
-                  border: isLight ? '1px solid #d9d9dd' : '1px solid rgba(255,255,255,0.12)',
+                  background: isLight ? '#f8f4f0' : '#251c1c',
+                  border: isLight ? '1px solid #c5c0b1' : '1px solid rgba(255,255,255,0.12)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -156,7 +156,7 @@ export default function Navbar({
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.color = 'var(--text-secondary)';
-                  e.currentTarget.style.borderColor = isLight ? '#d9d9dd' : 'rgba(255,255,255,0.12)';
+                  e.currentTarget.style.borderColor = isLight ? '#c5c0b1' : 'rgba(255,255,255,0.12)';
                 }}
                 title={sidebarCollapsed ? 'Open Sidebar (Ctrl+B)' : 'Close Sidebar (Ctrl+B)'}
                 aria-label={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
@@ -165,7 +165,7 @@ export default function Navbar({
               </button>
             )}
 
-            {/* Logo (Cohere Clean Minimal Brand) */}
+            {/* Logo (Zapier Clean Warm Brand) */}
             <div
               onClick={() => go(user ? 'dashboard' : 'landing')}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
@@ -174,21 +174,21 @@ export default function Navbar({
                 width: '28px',
                 height: '28px',
                 borderRadius: '8px',
-                background: isLight ? '#17171c' : '#ffffff',
-                border: isLight ? '1px solid #d9d9dd' : 'none',
+                background: '#ff4f00',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(255,79,0,0.35)',
                 flexShrink: 0
               }}>
-                <Sparkles size={15} color={isLight ? '#ffffff' : '#071829'} />
+                <Zap size={15} color="#fffefb" fill="#fffefb" />
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                 <span style={{
-                  fontFamily: 'Space Grotesk, sans-serif',
-                  fontWeight: 800,
+                  fontFamily: "'Inter', sans-serif",
+                  fontWeight: 700,
                   fontSize: '18px',
-                  letterSpacing: '-0.03em',
+                  letterSpacing: '-0.02em',
                   color: 'var(--text-primary)'
                 }}>
                   Bang AI
@@ -196,24 +196,24 @@ export default function Navbar({
               </div>
             </div>
 
-            {/* Cohere Coral Accent Chip */}
+            {/* Zapier Eyebrow Tag */}
             {user && (currentView === 'dashboard' || currentView.startsWith('dashboard/')) && !isTablet && (
-              <span className="chip-coral" style={{ fontSize: '10px' }}>
-                ENTERPRISE
+              <span className="zapier-badge-eyebrow" style={{ fontSize: '10px' }}>
+                AUTOMATION
               </span>
             )}
           </div>
 
-          {/* ── CENTER: Cohere Minimal Segmented Pill Navigation ─────────────────── */}
+          {/* ── CENTER: Zapier Segmented Navigation Tabs ─────────────────── */}
           {!isMobile && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
               gap: '2px',
-              background: isLight ? '#eeece7' : '#05101c',
+              background: isLight ? '#f8f4f0' : '#201717',
               padding: '3px 4px',
-              borderRadius: '9999px',
-              border: isLight ? '1px solid #d9d9dd' : '1px solid rgba(255, 255, 255, 0.12)'
+              borderRadius: '10px',
+              border: isLight ? '1px solid #c5c0b1' : '1px solid rgba(255, 255, 255, 0.12)'
             }}>
               {PRIMARY_LINKS.map(link => {
                 const isPathMatch = link.view && (currentView === link.view || currentView.startsWith(link.view.split('/')[0] + '/'));
@@ -227,43 +227,43 @@ export default function Navbar({
                     onClick={() => go(link.view, link.anchor)}
                     style={{
                       padding: '5px 14px',
-                      borderRadius: '9999px',
+                      borderRadius: '8px',
                       border: 'none',
                       cursor: 'pointer',
                       background: active
-                        ? (isLight ? '#17171c' : '#ffffff')
+                        ? (isLight ? '#201515' : '#ff4f00')
                         : 'transparent',
                       color: active
-                        ? (isLight ? '#ffffff' : '#071829')
-                        : (isLight ? '#616161' : '#93939f'),
-                      fontSize: '12.5px',
-                      fontWeight: active ? 700 : 500,
+                        ? '#fffefb'
+                        : (isLight ? '#605d52' : '#c5c0b1'),
+                      fontSize: '13px',
+                      fontWeight: active ? 600 : 500,
                       transition: 'all 0.15s ease',
-                      fontFamily: 'Space Grotesk, sans-serif',
+                      fontFamily: "'Inter', sans-serif",
                       boxShadow: active ? '0 1px 4px rgba(0, 0, 0, 0.15)' : 'none',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '5px'
                     }}
-                    onMouseEnter={e => { if (!active) e.currentTarget.style.color = isLight ? '#17171c' : '#ffffff'; }}
-                    onMouseLeave={e => { if (!active) e.currentTarget.style.color = isLight ? '#616161' : '#93939f'; }}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.color = isLight ? '#201515' : '#fffefb'; }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.color = isLight ? '#605d52' : '#c5c0b1'; }}
                   >
-                    {Icon && <Icon size={13} color={active ? (isLight ? '#ffffff' : '#071829') : 'currentColor'} />}
+                    {Icon && <Icon size={13} color={active ? '#fffefb' : 'currentColor'} />}
                     <span>{link.label}</span>
                     {link.badge && (
                       <span style={{
-                        fontSize: '9px',
-                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: '9.5px',
+                        fontFamily: "'Inter', sans-serif",
                         fontWeight: 700,
                         padding: '1px 5px',
-                        borderRadius: '9999px',
+                        borderRadius: '6px',
                         background: active
-                          ? (isLight ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)')
-                          : 'rgba(255, 119, 89, 0.15)',
+                          ? 'rgba(255,255,255,0.2)'
+                          : 'rgba(255, 79, 0, 0.15)',
                         color: active
-                          ? (isLight ? '#ffffff' : '#071829')
-                          : '#ff7759',
-                        letterSpacing: '0.04em'
+                          ? '#fffefb'
+                          : '#ff4f00',
+                        letterSpacing: '0.02em'
                       }}>
                         {link.badge}
                       </span>
@@ -276,35 +276,35 @@ export default function Navbar({
 
           {/* ── RIGHT: Credits + Theme + Profile ──────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-            {/* Credits badge (Cohere Pill) */}
+            {/* Credits badge (Zapier 8px pill) */}
             {user && !isTablet && (
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
-                background: isLight ? '#eeece7' : 'rgba(255,255,255,0.06)',
-                border: isLight ? '1px solid #d9d9dd' : '1px solid rgba(255,255,255,0.12)',
+                background: isLight ? '#f8f4f0' : '#251c1c',
+                border: isLight ? '1px solid #c5c0b1' : '1px solid rgba(255,255,255,0.12)',
                 padding: '4px 10px',
-                borderRadius: '9999px'
+                borderRadius: '8px'
               }}>
-                <Zap size={11} fill="#ff7759" color="#ff7759" />
-                <span style={{ fontSize: '11.5px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--text-primary)' }}>
+                <Zap size={11} fill="#ff4f00" color="#ff4f00" />
+                <span style={{ fontSize: '12px', fontFamily: "'Inter', sans-serif", fontWeight: 600, color: 'var(--text-primary)' }}>
                   {user.credits ?? 100}
                 </span>
               </div>
             )}
 
-            {/* Theme Toggle (Cohere Pill) */}
+            {/* Theme Toggle (Zapier 8px Button) */}
             <button
               type="button"
               onClick={() => { audioEngine.playSfx('click'); onToggleTheme(); }}
               style={{
                 width: '32px',
                 height: '32px',
-                borderRadius: '9999px',
+                borderRadius: '8px',
                 padding: 0,
-                background: isLight ? '#eeece7' : 'rgba(255,255,255,0.06)',
-                border: isLight ? '1px solid #d9d9dd' : '1px solid rgba(255,255,255,0.12)',
+                background: isLight ? '#f8f4f0' : '#251c1c',
+                border: isLight ? '1px solid #c5c0b1' : '1px solid rgba(255,255,255,0.12)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -312,28 +312,29 @@ export default function Navbar({
                 transition: 'all 0.15s ease'
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-primary)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = isLight ? '#d9d9dd' : 'rgba(255,255,255,0.12)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = isLight ? '#c5c0b1' : 'rgba(255,255,255,0.12)'; }}
               title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {theme === 'dark' ? (
                 <Sun size={15} color="#fbbf24" />
               ) : (
-                <Moon size={15} color="#17171c" />
+                <Moon size={15} color="#201515" />
               )}
             </button>
 
-            {/* Unauthenticated: Sign In / Register (Cohere Pill CTAs) */}
+            {/* Unauthenticated: Sign In / Register (Zapier 10px Rounded Buttons) */}
             {!user ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {!isMobile && (
                   <button
                     type="button"
                     onClick={() => go('login')}
-                    className="btn-pill-outline"
+                    className="btn-zapier-outline"
                     style={{
                       padding: '6px 14px',
-                      fontSize: '12.5px'
+                      fontSize: '13px',
+                      borderRadius: '10px'
                     }}
                   >
                     Sign In
@@ -342,10 +343,11 @@ export default function Navbar({
                 <button
                   type="button"
                   onClick={() => go('register')}
-                  className="btn-pill-primary"
+                  className="btn-zapier-primary"
                   style={{
                     padding: isMobile ? '6px 14px' : '7px 18px',
-                    fontSize: '12.5px'
+                    fontSize: '13px',
+                    borderRadius: '10px'
                   }}
                 >
                   <span>{isMobile ? 'Start' : 'Get Started'}</span>

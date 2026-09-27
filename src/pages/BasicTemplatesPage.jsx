@@ -92,7 +92,7 @@ export default function BasicTemplatesPage({
       }}>
         <div style={{ width: '100%', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1 }}>
 
-          {/* ── Top Header Toolbar (Cohere Enterprise AI Layout) ── */}
+          {/* ── Top Header Toolbar (Zapier Automation Design Layout) ── */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -103,7 +103,7 @@ export default function BasicTemplatesPage({
             padding: '12px 18px',
             background: 'var(--bg-card)',
             border: '1px solid var(--border-subtle)',
-            borderRadius: '16px',
+            borderRadius: '12px',
             boxShadow: 'var(--shadow-card)'
           }}>
             {/* Title & Status */}
@@ -112,7 +112,7 @@ export default function BasicTemplatesPage({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                fontFamily: "'Space Grotesk', sans-serif",
+                fontFamily: "'Inter', sans-serif",
                 fontWeight: 700,
                 fontSize: '15px',
                 color: 'var(--text-primary)'
@@ -121,26 +121,27 @@ export default function BasicTemplatesPage({
                   width: '28px',
                   height: '28px',
                   borderRadius: '8px',
-                  background: 'var(--btn-primary-bg)',
+                  background: '#ff4f00',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'var(--btn-primary-text)'
+                  color: '#fffefb',
+                  boxShadow: '0 2px 8px rgba(255,79,0,0.35)'
                 }}>
-                  <Film size={14} />
+                  <Zap size={14} fill="#fffefb" />
                 </div>
                 <span>Stock Video Studio</span>
               </div>
 
-              {/* Cohere Coral Taxonomy Chip */}
-              <span className="chip-coral" style={{ fontSize: '11px', textTransform: 'uppercase' }}>
-                STUDIO CONSOLE
+              {/* Zapier Eyebrow Tag */}
+              <span className="zapier-badge-eyebrow" style={{ fontSize: '10.5px' }}>
+                AUTOMATION STUDIO
               </span>
 
               <div style={{
                 fontSize: '12px',
                 fontWeight: 600,
-                color: mptStatus === 'online' ? '#10b981' : '#f59e0b',
+                color: mptStatus === 'online' ? '#ff4f00' : '#d97706',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px'
@@ -149,8 +150,8 @@ export default function BasicTemplatesPage({
                   width: '7px',
                   height: '7px',
                   borderRadius: '50%',
-                  background: mptStatus === 'online' ? '#10b981' : '#f59e0b',
-                  boxShadow: mptStatus === 'online' ? '0 0 8px #10b981' : 'none'
+                  background: mptStatus === 'online' ? '#ff4f00' : '#d97706',
+                  boxShadow: mptStatus === 'online' ? '0 0 8px #ff4f00' : 'none'
                 }} />
                 <span>{useCloudEnv ? 'Modal Cloud 4 vCPU' : 'Local PC Engine'}</span>
               </div>
@@ -165,22 +166,22 @@ export default function BasicTemplatesPage({
                 background: 'var(--bg-surface)',
                 border: '1px solid var(--border-subtle)',
                 padding: '4px 10px',
-                borderRadius: '9999px'
+                borderRadius: '8px'
               }}>
-                <ShieldCheck size={12} color="#10b981" />
-                <span>Private Workspace: <strong style={{ color: 'var(--text-primary)' }}>{user?.name || user?.email?.split('@')[0] || 'Creator'}</strong></span>
+                <ShieldCheck size={12} color="#ff4f00" />
+                <span>Workspace: <strong style={{ color: 'var(--text-primary)' }}>{user?.name || user?.email?.split('@')[0] || 'Creator'}</strong></span>
               </div>
             </div>
 
-            {/* Actions: Cohere Pill Segmented Env Switcher, Reload, Full Window */}
+            {/* Actions: Zapier Segmented Env Switcher, Reload, Full Window */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {/* Cloud vs Local Switcher (Cohere Pill Enclosure) */}
+              {/* Cloud vs Local Switcher (Zapier Enclosure) */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 background: 'var(--bg-surface)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: '9999px',
+                borderRadius: '8px',
                 padding: '3px',
                 gap: '2px'
               }}>
@@ -189,13 +190,13 @@ export default function BasicTemplatesPage({
                   onClick={() => setUseCloudEnv(true)}
                   style={{
                     padding: '5px 12px',
-                    borderRadius: '9999px',
+                    borderRadius: '6px',
                     border: 'none',
                     cursor: 'pointer',
-                    background: useCloudEnv ? 'var(--btn-primary-bg)' : 'transparent',
-                    color: useCloudEnv ? 'var(--btn-primary-text)' : 'var(--text-muted)',
+                    background: useCloudEnv ? '#ff4f00' : 'transparent',
+                    color: useCloudEnv ? '#fffefb' : 'var(--text-muted)',
                     fontSize: '12px',
-                    fontWeight: useCloudEnv ? 700 : 500,
+                    fontWeight: useCloudEnv ? 600 : 500,
                     display: 'flex',
                     alignItems: 'center',
                     gap: '5px',
@@ -210,13 +211,13 @@ export default function BasicTemplatesPage({
                   onClick={() => setUseCloudEnv(false)}
                   style={{
                     padding: '5px 12px',
-                    borderRadius: '9999px',
+                    borderRadius: '6px',
                     border: 'none',
                     cursor: 'pointer',
-                    background: !useCloudEnv ? 'var(--btn-primary-bg)' : 'transparent',
-                    color: !useCloudEnv ? 'var(--btn-primary-text)' : 'var(--text-muted)',
+                    background: !useCloudEnv ? '#ff4f00' : 'transparent',
+                    color: !useCloudEnv ? '#fffefb' : 'var(--text-muted)',
                     fontSize: '12px',
-                    fontWeight: !useCloudEnv ? 700 : 500,
+                    fontWeight: !useCloudEnv ? 600 : 500,
                     display: 'flex',
                     alignItems: 'center',
                     gap: '5px',
@@ -228,16 +229,17 @@ export default function BasicTemplatesPage({
                 </button>
               </div>
 
-              {/* Reload Button (Cohere Outlined Pill) */}
+              {/* Reload Button (Zapier Outline) */}
               <button
                 type="button"
                 onClick={checkHealth}
                 disabled={isCheckingConnection}
                 title="Reload Studio Frame"
-                className="btn-pill-outline"
+                className="btn-zapier-outline"
                 style={{
                   padding: '6px 14px',
-                  fontSize: '12px',
+                  fontSize: '12.5px',
+                  borderRadius: '8px',
                   gap: '6px'
                 }}
               >
@@ -245,16 +247,17 @@ export default function BasicTemplatesPage({
                 <span>{isCheckingConnection ? 'Testing...' : 'Reload'}</span>
               </button>
 
-              {/* Full Window Link (Cohere Primary Pill CTA) */}
+              {/* Full Window Link (Zapier Orange Primary CTA) */}
               <a
                 href={fullWindowUrl}
                 target="_blank"
                 rel="noreferrer"
                 title="Open Studio in Full Window"
-                className="btn-pill-primary"
+                className="btn-zapier-primary"
                 style={{
                   padding: '6px 16px',
-                  fontSize: '12px',
+                  fontSize: '12.5px',
+                  borderRadius: '8px',
                   gap: '6px'
                 }}
               >
@@ -264,13 +267,13 @@ export default function BasicTemplatesPage({
             </div>
           </div>
 
-          {/* ── Studio Frame Container (Cohere 22px Media Card) ── */}
+          {/* ── Studio Frame Container (Zapier 12px Card) ── */}
           <div style={{
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
             background: 'var(--bg-card)',
-            borderRadius: '22px',
+            borderRadius: '12px',
             border: '1px solid var(--border-subtle)',
             overflow: 'hidden',
             boxShadow: 'var(--shadow-card)',
@@ -287,7 +290,7 @@ export default function BasicTemplatesPage({
                 flex: 1,
                 border: 'none',
                 display: 'block',
-                background: activeTheme === 'light' ? '#ffffff' : '#071829'
+                background: activeTheme === 'light' ? '#fffefb' : '#1a1313'
               }}
               allow="camera; microphone; clipboard-write; clipboard-read"
             />

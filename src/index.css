@@ -4,99 +4,99 @@
    ========================================================================== */
 
 :root, [data-theme='dark'] {
-  --bg-app: #071829;
-  --bg-nav: rgba(7, 24, 41, 0.92);
-  --bg-card: #0c1b30;
-  --bg-card-hover: #112540;
-  --bg-surface: #05101c;
-  --bg-input: #112238;
-  --bg-sidebar: #05101c;
-  --bg-elevated: #112238;
-  --bg-gemini-input: rgba(12, 27, 48, 0.95);
+  --bg-app: #1a1313;
+  --bg-nav: rgba(26, 19, 19, 0.94);
+  --bg-card: #251c1c;
+  --bg-card-hover: #2f2323;
+  --bg-surface: #201717;
+  --bg-input: #201717;
+  --bg-sidebar: #1e1616;
+  --bg-elevated: #251c1c;
+  --bg-gemini-input: rgba(37, 28, 28, 0.96);
   --bg-pill: rgba(255, 255, 255, 0.08);
   --bg-pill-hover: rgba(255, 255, 255, 0.14);
   
   --border-subtle: rgba(255, 255, 255, 0.12);
   --border-medium: rgba(255, 255, 255, 0.22);
-  --border-glow: rgba(255, 255, 255, 0.35);
-  --border-grok: rgba(255, 119, 89, 0.45);
+  --border-glow: rgba(255, 79, 0, 0.45);
+  --border-grok: rgba(255, 79, 0, 0.5);
 
-  --text-primary: #ffffff;
-  --text-secondary: #93939f;
-  --text-muted: #75758a;
+  --text-primary: #fffefb;
+  --text-secondary: #c5c0b1;
+  --text-muted: #939084;
 
-  --accent-primary: #1863dc;
-  --accent-secondary: #003c33;
-  --accent-coral: #ff7759;
+  --accent-primary: #ff4f00;
+  --accent-secondary: #36342e;
+  --accent-orange: #ff4f00;
   --accent-cyan: #38bdf8;
   --accent-emerald: #10b981;
   --accent-amber: #f59e0b;
-  --accent-rose: #ff7759;
+  --accent-rose: #ff4f00;
 
-  --btn-primary-bg: #ffffff;
-  --btn-primary-text: #071829;
+  --btn-primary-bg: #ff4f00;
+  --btn-primary-text: #fffefb;
   --btn-outline-border: rgba(255, 255, 255, 0.2);
   --btn-outline-bg: rgba(255, 255, 255, 0.06);
 
-  --grad-primary: #ffffff;
-  --grad-gemini: linear-gradient(135deg, #ffffff 0%, #d9d9dd 100%);
-  --grad-grok: linear-gradient(135deg, #ffffff 0%, #93939f 100%);
-  --grad-cyan: linear-gradient(135deg, #1863dc 0%, #003c33 100%);
-  --grad-mesh: radial-gradient(circle at 10% 10%, rgba(0, 60, 51, 0.25) 0%, transparent 45%),
-               radial-gradient(circle at 90% 90%, rgba(24, 99, 220, 0.12) 0%, transparent 45%);
+  --grad-primary: linear-gradient(135deg, #ff4f00 0%, #e04500 100%);
+  --grad-gemini: linear-gradient(135deg, #ff4f00 0%, #ff7733 100%);
+  --grad-grok: linear-gradient(135deg, #fffefb 0%, #c5c0b1 100%);
+  --grad-cyan: linear-gradient(135deg, #ff4f00 0%, #ff7733 100%);
+  --grad-mesh: radial-gradient(circle at 10% 10%, rgba(255, 79, 0, 0.18) 0%, transparent 45%),
+               radial-gradient(circle at 90% 90%, rgba(47, 42, 38, 0.4) 0%, transparent 45%);
 
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 24px rgba(255, 255, 255, 0.15);
-  --shadow-grok: 0 0 20px rgba(255, 119, 89, 0.2);
+  --shadow-glow: 0 0 24px rgba(255, 79, 0, 0.25);
+  --shadow-grok: 0 0 20px rgba(255, 79, 0, 0.2);
   --shadow-prompt: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
 
 [data-theme='light'] {
-  --bg-app: #ffffff;
-  --bg-nav: rgba(255, 255, 255, 0.94);
-  --bg-card: #ffffff;
-  --bg-card-hover: #eeece7;
-  --bg-surface: #eeece7;
-  --bg-input: #ffffff;
-  --bg-sidebar: #fafaf9;
-  --bg-elevated: #ffffff;
-  --bg-gemini-input: rgba(255, 255, 255, 0.98);
-  --bg-pill: #eeece7;
-  --bg-pill-hover: #e0ded8;
+  --bg-app: #fffefb;
+  --bg-nav: rgba(255, 254, 251, 0.95);
+  --bg-card: #f8f4f0;
+  --bg-card-hover: #f1eae2;
+  --bg-surface: #f8f4f0;
+  --bg-input: #fffefb;
+  --bg-sidebar: #f8f4f0;
+  --bg-elevated: #fffefb;
+  --bg-gemini-input: rgba(255, 254, 251, 0.98);
+  --bg-pill: #ede7df;
+  --bg-pill-hover: #e2ddd5;
   
-  --border-subtle: #d9d9dd;
-  --border-medium: #b5b5bc;
-  --border-glow: rgba(23, 23, 28, 0.25);
-  --border-grok: rgba(255, 119, 89, 0.45);
+  --border-subtle: #c5c0b1;
+  --border-medium: #939084;
+  --border-glow: rgba(255, 79, 0, 0.35);
+  --border-grok: rgba(255, 79, 0, 0.45);
 
-  --text-primary: #17171c;
-  --text-secondary: #616161;
-  --text-muted: #75758a;
+  --text-primary: #201515;
+  --text-secondary: #605d52;
+  --text-muted: #939084;
 
-  --accent-primary: #17171c;
-  --accent-secondary: #003c33;
-  --accent-coral: #ff7759;
+  --accent-primary: #ff4f00;
+  --accent-secondary: #36342e;
+  --accent-orange: #ff4f00;
   --accent-cyan: #1863dc;
   --accent-emerald: #059669;
   --accent-amber: #d97706;
-  --accent-rose: #ff7759;
+  --accent-rose: #ff4f00;
 
-  --btn-primary-bg: #17171c;
-  --btn-primary-text: #ffffff;
-  --btn-outline-border: #d9d9dd;
-  --btn-outline-bg: #ffffff;
+  --btn-primary-bg: #ff4f00;
+  --btn-primary-text: #fffefb;
+  --btn-outline-border: #c5c0b1;
+  --btn-outline-bg: #fffefb;
 
-  --grad-primary: #17171c;
-  --grad-gemini: linear-gradient(135deg, #17171c 0%, #3a3a44 100%);
-  --grad-grok: linear-gradient(135deg, #17171c 0%, #616161 100%);
-  --grad-cyan: linear-gradient(135deg, #1863dc 0%, #003c33 100%);
-  --grad-mesh: radial-gradient(circle at 10% 10%, rgba(238, 236, 231, 0.8) 0%, transparent 50%),
-               radial-gradient(circle at 90% 90%, rgba(237, 252, 233, 0.5) 0%, transparent 50%);
+  --grad-primary: linear-gradient(135deg, #ff4f00 0%, #e04500 100%);
+  --grad-gemini: linear-gradient(135deg, #ff4f00 0%, #ff7733 100%);
+  --grad-grok: linear-gradient(135deg, #201515 0%, #605d52 100%);
+  --grad-cyan: linear-gradient(135deg, #ff4f00 0%, #ff7733 100%);
+  --grad-mesh: radial-gradient(circle at 10% 10%, rgba(248, 244, 240, 0.9) 0%, transparent 50%),
+               radial-gradient(circle at 90% 90%, rgba(255, 79, 0, 0.05) 0%, transparent 50%);
 
-  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.04);
-  --shadow-glow: 0 0 20px rgba(23, 23, 28, 0.08);
-  --shadow-grok: 0 0 16px rgba(255, 119, 89, 0.15);
-  --shadow-prompt: 0 8px 30px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 2px 10px rgba(32, 21, 21, 0.05);
+  --shadow-glow: 0 0 20px rgba(255, 79, 0, 0.15);
+  --shadow-grok: 0 0 16px rgba(255, 79, 0, 0.18);
+  --shadow-prompt: 0 8px 30px rgba(32, 21, 21, 0.08);
 }
 
 /* Reset & Universal Setup */
@@ -158,29 +158,36 @@ body {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Studio Glass Card Utility */
-.saas-card {
+/* Zapier Content Card */
+.saas-card,
+.zapier-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 20px;
+  border-radius: 12px;
   box-shadow: var(--shadow-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, border-color 0.22s ease;
 }
 
-.saas-card:hover {
+.saas-card:hover,
+.zapier-card:hover {
+  transform: translateY(-2px);
   border-color: var(--border-medium);
+  box-shadow: 0 8px 24px rgba(32, 21, 21, 0.08);
 }
 
 /* Glass Card */
 .glass-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 18px;
+  border-radius: 12px;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   box-shadow: var(--shadow-card);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
+}
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(32, 21, 21, 0.08);
 }
 
 /* Glowing Pill & Chips */
@@ -197,49 +204,53 @@ body {
   backdrop-filter: blur(12px);
 }
 
-/* Cohere Signature Pill CTA Button (button-primary) */
+/* Zapier Saturated Orange Primary Button (button-primary, rounded 12px) */
 .btn-glow,
-.btn-pill-primary {
-  background: var(--btn-primary-bg);
-  color: var(--btn-primary-text) !important;
-  border: 1px solid var(--btn-primary-bg);
-  padding: 10px 24px;
-  border-radius: 9999px;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
+.btn-pill-primary,
+.btn-zapier-primary {
+  background: #ff4f00;
+  color: #fffefb !important;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
   font-size: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 14px rgba(255, 79, 0, 0.35);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   letter-spacing: -0.01em;
   text-decoration: none;
 }
 
 .btn-glow:hover,
-.btn-pill-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
-  filter: brightness(1.05);
+.btn-pill-primary:hover,
+.btn-zapier-primary:hover {
+  background: #e04500;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 79, 0, 0.45);
 }
 
 .btn-glow:active,
-.btn-pill-primary:active {
+.btn-pill-primary:active,
+.btn-zapier-primary:active {
   transform: translateY(0);
 }
 
-/* Cohere Outlined Pill Button (button-pill-outline) */
+/* Zapier Tertiary / Outline Button (rounded 12px) */
 .btn-outline,
-.btn-pill-outline {
+.btn-pill-outline,
+.btn-zapier-outline {
   background: var(--btn-outline-bg);
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
   padding: 8px 20px;
-  border-radius: 9999px;
-  font-family: 'Space Grotesk', sans-serif;
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
   font-weight: 600;
   font-size: 13.5px;
   display: inline-flex;
@@ -253,10 +264,12 @@ body {
 }
 
 .btn-outline:hover,
-.btn-pill-outline:hover {
+.btn-pill-outline:hover,
+.btn-zapier-outline:hover {
   background: var(--bg-card-hover);
   border-color: var(--text-primary);
   color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
 .btn-ghost {
@@ -264,9 +277,9 @@ body {
   border: none;
   color: var(--text-secondary);
   padding: 8px 14px;
-  border-radius: 9999px;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-weight: 600;
+  border-radius: 10px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
   font-size: 13.5px;
   display: inline-flex;
   align-items: center;
@@ -277,32 +290,34 @@ body {
 
 .btn-ghost:hover {
   color: var(--text-primary);
-  background: var(--border-subtle);
+  background: var(--bg-card-hover);
 }
 
-/* Cohere Hairline Card */
+/* Zapier Hairline Card */
 .cohere-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 20px;
+  border-radius: 12px;
   box-shadow: var(--shadow-card);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, border-color 0.22s ease;
 }
 
 .cohere-card:hover {
+  transform: translateY(-2px);
   border-color: var(--border-medium);
+  box-shadow: 0 8px 24px rgba(32, 21, 21, 0.08);
 }
 
-/* Badges & Cohere Taxonomy Chips */
+/* Badges & Zapier Eyebrow Tags */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 4px 12px;
   border-radius: 9999px;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 11.5px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.01em;
 }
 
@@ -313,20 +328,23 @@ body {
   padding: 3px 10px;
   border-radius: 9999px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .badge-cohere-coral,
-.chip-coral {
-  font-family: 'JetBrains Mono', monospace;
+.chip-coral,
+.chip-orange,
+.zapier-badge-eyebrow {
+  font-family: 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(255, 119, 89, 0.12);
-  color: #ff7759;
-  border: 1px solid rgba(255, 119, 89, 0.3);
-  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(255, 79, 0, 0.12);
+  color: #ff4f00;
+  border: 1px solid rgba(255, 79, 0, 0.25);
+  letter-spacing: 1px;
 }
 
 .badge-brand {
