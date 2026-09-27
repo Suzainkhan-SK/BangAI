@@ -92,39 +92,53 @@ export default function BasicTemplatesPage({
       }}>
         <div style={{ width: '100%', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1 }}>
 
-          {/* ── Top Header Toolbar ── */}
+          {/* ── Top Header Toolbar (Cohere Enterprise AI Layout) ── */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '12px',
-            marginBottom: '14px',
-            padding: '10px 14px',
+            marginBottom: '16px',
+            padding: '12px 18px',
             background: 'var(--bg-card)',
             border: '1px solid var(--border-subtle)',
-            borderRadius: '12px'
+            borderRadius: '16px',
+            boxShadow: 'var(--shadow-card)'
           }}>
             {/* Title & Status */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '4px 10px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(6,182,212,0.18))',
-                border: '1px solid rgba(16,185,129,0.3)',
-                fontSize: '12px',
+                gap: '8px',
+                fontFamily: "'Space Grotesk', sans-serif",
                 fontWeight: 700,
-                color: '#10b981'
+                fontSize: '15px',
+                color: 'var(--text-primary)'
               }}>
-                <Film size={14} />
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '8px',
+                  background: 'var(--btn-primary-bg)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--btn-primary-text)'
+                }}>
+                  <Film size={14} />
+                </div>
                 <span>Stock Video Studio</span>
               </div>
 
+              {/* Cohere Coral Taxonomy Chip */}
+              <span className="chip-coral" style={{ fontSize: '11px', textTransform: 'uppercase' }}>
+                STUDIO CONSOLE
+              </span>
+
               <div style={{
-                fontSize: '11.5px',
+                fontSize: '12px',
                 fontWeight: 600,
                 color: mptStatus === 'online' ? '#10b981' : '#f59e0b',
                 display: 'inline-flex',
@@ -146,44 +160,45 @@ export default function BasicTemplatesPage({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '5px',
-                fontSize: '11px',
+                fontSize: '11.5px',
                 color: 'var(--text-muted)',
-                background: 'var(--bg-input)',
-                padding: '3px 8px',
-                borderRadius: '6px'
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
+                padding: '4px 10px',
+                borderRadius: '9999px'
               }}>
                 <ShieldCheck size={12} color="#10b981" />
-                <span>Private Workspace: <strong>{user?.name || user?.email?.split('@')[0] || 'User'}</strong></span>
+                <span>Private Workspace: <strong style={{ color: 'var(--text-primary)' }}>{user?.name || user?.email?.split('@')[0] || 'Creator'}</strong></span>
               </div>
             </div>
 
-            {/* Actions: Env Switcher, Refresh, Full Window */}
+            {/* Actions: Cohere Pill Segmented Env Switcher, Reload, Full Window */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {/* Cloud vs Local Switcher */}
+              {/* Cloud vs Local Switcher (Cohere Pill Enclosure) */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                background: 'var(--bg-input)',
+                background: 'var(--bg-surface)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: '8px',
-                padding: '2px',
+                borderRadius: '9999px',
+                padding: '3px',
                 gap: '2px'
               }}>
                 <button
                   type="button"
                   onClick={() => setUseCloudEnv(true)}
                   style={{
-                    padding: '4px 10px',
-                    borderRadius: '6px',
+                    padding: '5px 12px',
+                    borderRadius: '9999px',
                     border: 'none',
                     cursor: 'pointer',
-                    background: useCloudEnv ? 'rgba(16,185,129,0.2)' : 'transparent',
-                    color: useCloudEnv ? '#10b981' : 'var(--text-muted)',
-                    fontSize: '11.5px',
+                    background: useCloudEnv ? 'var(--btn-primary-bg)' : 'transparent',
+                    color: useCloudEnv ? 'var(--btn-primary-text)' : 'var(--text-muted)',
+                    fontSize: '12px',
                     fontWeight: useCloudEnv ? 700 : 500,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
+                    gap: '5px',
                     transition: 'all 0.15s ease'
                   }}
                 >
@@ -194,17 +209,17 @@ export default function BasicTemplatesPage({
                   type="button"
                   onClick={() => setUseCloudEnv(false)}
                   style={{
-                    padding: '4px 10px',
-                    borderRadius: '6px',
+                    padding: '5px 12px',
+                    borderRadius: '9999px',
                     border: 'none',
                     cursor: 'pointer',
-                    background: !useCloudEnv ? 'rgba(99,102,241,0.2)' : 'transparent',
-                    color: !useCloudEnv ? '#818cf8' : 'var(--text-muted)',
-                    fontSize: '11.5px',
+                    background: !useCloudEnv ? 'var(--btn-primary-bg)' : 'transparent',
+                    color: !useCloudEnv ? 'var(--btn-primary-text)' : 'var(--text-muted)',
+                    fontSize: '12px',
                     fontWeight: !useCloudEnv ? 700 : 500,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
+                    gap: '5px',
                     transition: 'all 0.15s ease'
                   }}
                 >
@@ -213,50 +228,34 @@ export default function BasicTemplatesPage({
                 </button>
               </div>
 
-              {/* Refresh / Reconnect */}
+              {/* Reload Button (Cohere Outlined Pill) */}
               <button
                 type="button"
                 onClick={checkHealth}
                 disabled={isCheckingConnection}
                 title="Reload Studio Frame"
+                className="btn-pill-outline"
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '5px 10px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-secondary)',
+                  padding: '6px 14px',
                   fontSize: '12px',
-                  fontWeight: 600,
-                  transition: 'all 0.15s ease'
+                  gap: '6px'
                 }}
               >
                 <RefreshCw size={12} className={isCheckingConnection ? 'spin-anim' : ''} />
                 <span>{isCheckingConnection ? 'Testing...' : 'Reload'}</span>
               </button>
 
-              {/* Full Window Link */}
+              {/* Full Window Link (Cohere Primary Pill CTA) */}
               <a
                 href={fullWindowUrl}
                 target="_blank"
                 rel="noreferrer"
                 title="Open Studio in Full Window"
+                className="btn-pill-primary"
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '5px 10px',
-                  borderRadius: '8px',
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-subtle)',
-                  color: '#818cf8',
+                  padding: '6px 16px',
                   fontSize: '12px',
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                  transition: 'all 0.15s ease'
+                  gap: '6px'
                 }}
               >
                 <span>Full Window</span>
@@ -265,16 +264,16 @@ export default function BasicTemplatesPage({
             </div>
           </div>
 
-          {/* ── Studio Frame Container ── */}
+          {/* ── Studio Frame Container (Cohere 22px Media Card) ── */}
           <div style={{
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
             background: 'var(--bg-card)',
-            borderRadius: '14px',
+            borderRadius: '22px',
             border: '1px solid var(--border-subtle)',
             overflow: 'hidden',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+            boxShadow: 'var(--shadow-card)',
             minHeight: '760px'
           }}>
             <iframe
@@ -288,7 +287,7 @@ export default function BasicTemplatesPage({
                 flex: 1,
                 border: 'none',
                 display: 'block',
-                background: activeTheme === 'light' ? '#f8fafc' : '#0b0f19'
+                background: activeTheme === 'light' ? '#ffffff' : '#071829'
               }}
               allow="camera; microphone; clipboard-write; clipboard-read"
             />

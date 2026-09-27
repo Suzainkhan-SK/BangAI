@@ -114,10 +114,10 @@ export default function Navbar({
         position: 'sticky',
         top: 0,
         zIndex: 200,
-        background: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(11, 15, 25, 0.85)',
+        background: isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(7, 24, 41, 0.92)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: isLight ? '1px solid rgba(0, 0, 0, 0.08)' : '1px solid rgba(255, 255, 255, 0.07)',
+        borderBottom: isLight ? '1px solid #d9d9dd' : '1px solid rgba(255, 255, 255, 0.1)',
         transition: 'background 0.2s ease, border-color 0.2s ease'
       }}>
         <div style={{
@@ -139,10 +139,10 @@ export default function Navbar({
                 style={{
                   width: '32px',
                   height: '32px',
-                  borderRadius: '8px',
+                  borderRadius: '9999px',
                   padding: 0,
-                  background: 'transparent',
-                  border: '1px solid var(--border-subtle)',
+                  background: isLight ? '#eeece7' : 'rgba(255,255,255,0.06)',
+                  border: isLight ? '1px solid #d9d9dd' : '1px solid rgba(255,255,255,0.12)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -151,92 +151,69 @@ export default function Navbar({
                   transition: 'all 0.15s ease'
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.background = 'var(--bg-card)';
                   e.currentTarget.style.color = 'var(--text-primary)';
+                  e.currentTarget.style.borderColor = 'var(--text-primary)';
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.background = 'transparent';
                   e.currentTarget.style.color = 'var(--text-secondary)';
+                  e.currentTarget.style.borderColor = isLight ? '#d9d9dd' : 'rgba(255,255,255,0.12)';
                 }}
                 title={sidebarCollapsed ? 'Open Sidebar (Ctrl+B)' : 'Close Sidebar (Ctrl+B)'}
                 aria-label={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
               >
-                <PanelLeft size={16} />
+                <PanelLeft size={15} />
               </button>
             )}
 
-            {/* Logo */}
+            {/* Logo (Cohere Clean Minimal Brand) */}
             <div
               onClick={() => go(user ? 'dashboard' : 'landing')}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
             >
               <div style={{
-                width: '30px',
-                height: '30px',
+                width: '28px',
+                height: '28px',
                 borderRadius: '8px',
-                background: 'linear-gradient(135deg, #6366f1 0%, #38bdf8 100%)',
+                background: isLight ? '#17171c' : '#ffffff',
+                border: isLight ? '1px solid #d9d9dd' : 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 0 14px rgba(99,102,241,0.4)',
                 flexShrink: 0
               }}>
-                <Sparkles size={16} color="#fff" />
+                <Sparkles size={15} color={isLight ? '#ffffff' : '#071829'} />
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                 <span style={{
                   fontFamily: 'Space Grotesk, sans-serif',
-                  fontWeight: 900,
-                  fontSize: '19px',
+                  fontWeight: 800,
+                  fontSize: '18px',
                   letterSpacing: '-0.03em',
                   color: 'var(--text-primary)'
                 }}>
-                  Bang
-                </span>
-                <span style={{
-                  fontSize: '10px',
-                  fontWeight: 800,
-                  letterSpacing: '0.06em',
-                  background: 'linear-gradient(135deg, #6366f1, #38bdf8)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  textTransform: 'uppercase'
-                }}>
-                  AI
+                  Bang AI
                 </span>
               </div>
             </div>
 
-            {/* Subtle Live Model Dot (Dashboard only) */}
+            {/* Cohere Coral Accent Chip */}
             {user && (currentView === 'dashboard' || currentView.startsWith('dashboard/')) && !isTablet && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                background: isLight ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.1)',
-                border: '1px solid rgba(16,185,129,0.25)',
-                padding: '3px 8px',
-                borderRadius: '99px',
-                marginLeft: '4px'
-              }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981', flexShrink: 0 }} />
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', whiteSpace: 'nowrap' }}>
-                  Claude 4.6 + n8n
-                </span>
-              </div>
+              <span className="chip-coral" style={{ fontSize: '10px' }}>
+                ENTERPRISE
+              </span>
             )}
           </div>
 
-          {/* ── CENTER: Minimal 4-Pill Navigation ─────────────────── */}
+          {/* ── CENTER: Cohere Minimal Segmented Pill Navigation ─────────────────── */}
           {!isMobile && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '3px',
-              background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)',
+              gap: '2px',
+              background: isLight ? '#eeece7' : '#05101c',
               padding: '3px 4px',
-              borderRadius: '99px',
-              border: '1px solid var(--border-subtle)'
+              borderRadius: '9999px',
+              border: isLight ? '1px solid #d9d9dd' : '1px solid rgba(255, 255, 255, 0.12)'
             }}>
               {PRIMARY_LINKS.map(link => {
                 const isPathMatch = link.view && (currentView === link.view || currentView.startsWith(link.view.split('/')[0] + '/'));
@@ -249,36 +226,43 @@ export default function Navbar({
                     type="button"
                     onClick={() => go(link.view, link.anchor)}
                     style={{
-                      padding: '5px 12px',
-                      borderRadius: '99px',
+                      padding: '5px 14px',
+                      borderRadius: '9999px',
                       border: 'none',
                       cursor: 'pointer',
                       background: active
-                        ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                        ? (isLight ? '#17171c' : '#ffffff')
                         : 'transparent',
-                      color: active ? '#fff' : 'var(--text-secondary)',
+                      color: active
+                        ? (isLight ? '#ffffff' : '#071829')
+                        : (isLight ? '#616161' : '#93939f'),
                       fontSize: '12.5px',
                       fontWeight: active ? 700 : 500,
                       transition: 'all 0.15s ease',
                       fontFamily: 'Space Grotesk, sans-serif',
-                      boxShadow: active ? '0 2px 10px rgba(99,102,241,0.35)' : 'none',
+                      boxShadow: active ? '0 1px 4px rgba(0, 0, 0, 0.15)' : 'none',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '5px'
                     }}
-                    onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-primary)'; }}
-                    onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.color = isLight ? '#17171c' : '#ffffff'; }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.color = isLight ? '#616161' : '#93939f'; }}
                   >
-                    {Icon && <Icon size={13} color={active ? '#fff' : 'currentColor'} />}
+                    {Icon && <Icon size={13} color={active ? (isLight ? '#ffffff' : '#071829') : 'currentColor'} />}
                     <span>{link.label}</span>
                     {link.badge && (
                       <span style={{
-                        fontSize: '8.5px',
-                        fontWeight: 800,
+                        fontSize: '9px',
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontWeight: 700,
                         padding: '1px 5px',
-                        borderRadius: '99px',
-                        background: active ? 'rgba(255,255,255,0.22)' : 'rgba(99,102,241,0.18)',
-                        color: active ? '#fff' : '#818cf8',
+                        borderRadius: '9999px',
+                        background: active
+                          ? (isLight ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)')
+                          : 'rgba(255, 119, 89, 0.15)',
+                        color: active
+                          ? (isLight ? '#ffffff' : '#071829')
+                          : '#ff7759',
                         letterSpacing: '0.04em'
                       }}>
                         {link.badge}
@@ -292,74 +276,65 @@ export default function Navbar({
 
           {/* ── RIGHT: Credits + Theme + Profile ──────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-            {/* Credits badge */}
+            {/* Credits badge (Cohere Pill) */}
             {user && !isTablet && (
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
-                background: 'rgba(99,102,241,0.1)',
-                border: '1px solid rgba(99,102,241,0.25)',
-                padding: '4px 9px',
-                borderRadius: '99px'
+                gap: '5px',
+                background: isLight ? '#eeece7' : 'rgba(255,255,255,0.06)',
+                border: isLight ? '1px solid #d9d9dd' : '1px solid rgba(255,255,255,0.12)',
+                padding: '4px 10px',
+                borderRadius: '9999px'
               }}>
-                <Zap size={11} fill="#6366f1" color="#6366f1" />
-                <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#818cf8' }}>
+                <Zap size={11} fill="#ff7759" color="#ff7759" />
+                <span style={{ fontSize: '11.5px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--text-primary)' }}>
                   {user.credits ?? 100}
                 </span>
               </div>
             )}
 
-            {/* Theme Toggle (Sun/Moon) */}
+            {/* Theme Toggle (Cohere Pill) */}
             <button
               type="button"
               onClick={() => { audioEngine.playSfx('click'); onToggleTheme(); }}
               style={{
                 width: '32px',
                 height: '32px',
-                borderRadius: '8px',
+                borderRadius: '9999px',
                 padding: 0,
-                background: 'transparent',
-                border: '1px solid var(--border-subtle)',
+                background: isLight ? '#eeece7' : 'rgba(255,255,255,0.06)',
+                border: isLight ? '1px solid #d9d9dd' : '1px solid rgba(255,255,255,0.12)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.15s ease'
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-card)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-primary)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = isLight ? '#d9d9dd' : 'rgba(255,255,255,0.12)'; }}
               title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {theme === 'dark' ? (
                 <Sun size={15} color="#fbbf24" />
               ) : (
-                <Moon size={15} color="#6366f1" />
+                <Moon size={15} color="#17171c" />
               )}
             </button>
 
-            {/* Unauthenticated: Sign In / Register */}
+            {/* Unauthenticated: Sign In / Register (Cohere Pill CTAs) */}
             {!user ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {!isMobile && (
                   <button
                     type="button"
                     onClick={() => go('login')}
+                    className="btn-pill-outline"
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: '99px',
-                      border: '1px solid var(--border-medium)',
-                      background: 'transparent',
-                      color: 'var(--text-secondary)',
-                      fontSize: '12.5px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      fontFamily: 'Space Grotesk, sans-serif'
+                      padding: '6px 14px',
+                      fontSize: '12.5px'
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
                   >
                     Sign In
                   </button>
@@ -367,24 +342,11 @@ export default function Navbar({
                 <button
                   type="button"
                   onClick={() => go('register')}
+                  className="btn-pill-primary"
                   style={{
-                    padding: isMobile ? '6px 12px' : '6px 14px',
-                    borderRadius: '99px',
-                    border: 'none',
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                    color: '#fff',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    boxShadow: '0 3px 12px rgba(99,102,241,0.35)',
-                    transition: 'all 0.18s ease',
-                    fontFamily: 'Space Grotesk, sans-serif'
+                    padding: isMobile ? '6px 14px' : '7px 18px',
+                    fontSize: '12.5px'
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
                 >
                   <span>{isMobile ? 'Start' : 'Get Started'}</span>
                   <ArrowRight size={13} />
