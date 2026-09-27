@@ -32,7 +32,8 @@ export default function BasicTemplatesPage({
   const activeTheme = theme || (typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : 'dark') || 'dark';
 
   const baseUrl = useCloudEnv ? CLOUD_MPT_URL : LOCAL_MPT_URL;
-  const targetUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&theme=${encodeURIComponent(activeTheme)}`;
+  const embeddedUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&theme=${encodeURIComponent(activeTheme)}&embedded=1`;
+  const fullWindowUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&theme=${encodeURIComponent(activeTheme)}`;
 
   // Probe connectivity
   const checkHealth = async () => {
@@ -239,7 +240,7 @@ export default function BasicTemplatesPage({
 
               {/* Full Window Link */}
               <a
-                href={targetUrl}
+                href={fullWindowUrl}
                 target="_blank"
                 rel="noreferrer"
                 title="Open Studio in Full Window"
@@ -278,7 +279,7 @@ export default function BasicTemplatesPage({
           }}>
             <iframe
               key={`studio-frame-${iframeKey}-${activeTheme}`}
-              src={targetUrl}
+              src={embeddedUrl}
               title="Bang AI Stock Video Studio"
               style={{
                 width: '100%',
