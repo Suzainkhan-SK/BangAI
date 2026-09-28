@@ -16,8 +16,9 @@
   --bg-pill: rgba(255, 255, 255, 0.08);
   --bg-pill-hover: rgba(255, 255, 255, 0.14);
   
-  --border-subtle: #2d3340;
-  --border-medium: #3d4454;
+  --border-subtle: #363d4e;
+  --border-medium: #4a5468;
+  --border-column-dark: #ff4f00;
   --border-glow: rgba(255, 79, 0, 0.45);
   --border-grok: rgba(255, 79, 0, 0.5);
 

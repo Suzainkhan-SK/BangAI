@@ -23,8 +23,9 @@ colors:
   dark-surface-1: "#12151c"
   dark-surface-2: "#161922"
   dark-surface-3: "#1a1d26"
-  dark-hairline: "#2d3340"
-  dark-hairline-strong: "#3d4454"
+  dark-card-border: "#ff4f00" # 100% visible vibrant column borders
+  dark-hairline: "#363d4e"
+  dark-hairline-strong: "#ff4f00"
   dark-ink: "#f7f8f8"
   dark-ink-muted: "#d0d6e0"
   dark-ink-subtle: "#8a8f98"
