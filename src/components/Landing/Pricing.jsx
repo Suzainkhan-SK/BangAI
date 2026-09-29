@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Check, Sparkles, Zap, ArrowRight } from 'lucide-react';
+import { Check, Sparkles, Zap, ArrowRight, ShieldCheck, HelpCircle } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
+import { useBreakpoint } from '../../hooks/useMediaQuery';
 
 export default function Pricing({ onSelectPlan }) {
+  const { isMobile } = useBreakpoint();
   const [isYearly, setIsYearly] = useState(false);
 
   const plans = [
@@ -11,17 +13,18 @@ export default function Pricing({ onSelectPlan }) {
       badge: 'Starter',
       price: '$0',
       period: 'forever',
-      desc: 'Perfect for exploring the AI studio and creating your first viral short.',
+      desc: 'Perfect for exploring the AI studio and creating your first viral videos.',
       features: [
-        '3 75-Second Shorts / Month',
-        'Grok Imagine 1.5 Video Generation',
-        'Standard ElevenLabs Voice Models',
-        '5 Curated Background Music Tracks',
-        'Standard 1080p 9:16 Render',
+        '5 Full AI Videos / Month',
+        'All Aspect Ratios (9:16, 16:9, 1:1)',
+        'Grok Imagine & Wan 2.1 Video Generation',
+        'Standard Studio Voice Narrators',
+        'Curated Background Music Library',
+        'Full HD 1080p Export',
         'Community Support'
       ],
       isPopular: false,
-      btnText: 'Start Free',
+      btnText: 'Start Free — No Card Needed',
       btnClass: 'btn-outline'
     },
     {
@@ -29,15 +32,16 @@ export default function Pricing({ onSelectPlan }) {
       badge: 'Most Popular',
       price: isYearly ? '$29' : '$39',
       period: 'per month',
-      desc: 'For serious YouTubers and content creators scaling their channel to millions of views.',
+      desc: 'For serious creators, agencies, and faceless channels scaling to millions of views.',
       features: [
-        '50 75-Second Shorts / Month',
-        'Priority Grok 1.5 Parallel Video Generation',
-        'All 6 ElevenLabs Turbo v2.5 Voices',
-        'Dynamic BGM Library with Speech Ducking',
+        '50 Full AI Videos / Month',
+        'Priority Parallel Scene Generation',
+        'All ElevenLabs Turbo v2.5 Voices',
+        'Dynamic BGM with -18dB Speech Ducking',
         '7-Checkpoint Story Quality Critic Auditor',
-        '1-Click Auto YouTube Upload & Pinned Comments',
-        'High-CTR AI Thumbnail & Cover Art Generator',
+        '1-Click Multi-Platform Publishing (YouTube, Reels, TikTok)',
+        'Kinetic Subtitles with Emoji & Font Presets',
+        'High-CTR AI Thumbnail & Title Generator',
         'Priority 24/7 Creator Support'
       ],
       isPopular: true,
@@ -51,12 +55,13 @@ export default function Pricing({ onSelectPlan }) {
       period: 'per month',
       desc: 'For media companies, marketing agencies, and automated faceless channel networks.',
       features: [
-        'Unlimited 75-Second Shorts Generation',
-        'Multi-Channel YouTube & TikTok Automation',
+        'Unlimited AI Video Generations',
+        'Multi-Channel YouTube, Reels & TikTok Automation',
         'Custom Voice Cloning & Custom Music Ingestion',
-        'API Webhook Access & Automated Ingestion',
-        'Dedicated Cloud n8n Infrastructure',
-        'Dedicated Account Manager'
+        'REST API & Webhook Automation Pipeline',
+        'Dedicated Cloud Worker Infrastructure',
+        'Commercial Licensing & White-Label Export',
+        'Dedicated Technical Account Manager'
       ],
       isPopular: false,
       btnText: 'Contact Agency Team',
@@ -64,107 +69,124 @@ export default function Pricing({ onSelectPlan }) {
     }
   ];
 
+  const handleToggle = () => {
+    audioEngine.playSfx('click');
+    setIsYearly(!isYearly);
+  };
+
   return (
-    <section id="pricing" style={{ paddingTop: 'clamp(48px, 8vw, 80px)', paddingBottom: 'clamp(48px, 8vw, 80px)', borderTop: '1px solid var(--border-subtle)' }}>
+    <section id="pricing" style={{
+      paddingTop: isMobile ? '48px' : '80px',
+      paddingBottom: isMobile ? '48px' : '80px',
+      borderTop: '1px solid var(--border-subtle)'
+    }}>
       <div className="container">
         {/* Header */}
-        <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto 40px auto' }}>
+        <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 36px auto' }}>
           <span className="badge badge-brand" style={{ marginBottom: '12px' }}>
             <Sparkles size={13} />
-            <span>Transparent Pricing</span>
+            <span>Transparent Creator Pricing</span>
           </span>
           <h2 className="font-display" style={{
-            fontSize: 'clamp(26px, 5vw, 36px)',
+            fontSize: 'clamp(26px, 5vw, 38px)',
             fontWeight: 800,
             letterSpacing: '-0.02em',
             marginBottom: '14px',
             color: 'var(--text-primary)'
           }}>
-            Simple, Predictable Plans for Every Creator
+            Simple, Transparent Plans for Every Creator
           </h2>
-          <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>
-            Start free, upgrade as your channel grows. No hidden fees.
+          <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'var(--text-secondary)' }}>
+            Start for free. Scale when you're ready to dominate YouTube, Reels, TikTok, and LinkedIn.
           </p>
 
-          {/* Billing Toggle */}
+          {/* Monthly / Annual Toggle */}
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '10px',
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-medium)',
+            marginTop: '24px',
+            background: 'var(--bg-input)',
             padding: '4px 6px',
-            borderRadius: '99px',
-            marginTop: '24px'
+            borderRadius: '12px',
+            border: '1px solid var(--border-subtle)'
           }}>
             <button
-              onClick={() => {
-                audioEngine.playSfx('click');
-                setIsYearly(false);
-              }}
+              type="button"
+              onClick={handleToggle}
               style={{
-                background: !isYearly ? 'var(--accent-primary)' : 'transparent',
+                background: !isYearly ? 'var(--grad-primary)' : 'transparent',
                 color: !isYearly ? '#ffffff' : 'var(--text-secondary)',
                 border: 'none',
+                borderRadius: '8px',
                 padding: '6px 14px',
-                borderRadius: '99px',
-                fontSize: '12px',
-                fontWeight: 600,
+                fontSize: '12.5px',
+                fontWeight: 700,
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
             >
-              Monthly
+              Monthly Billing
             </button>
+
             <button
-              onClick={() => {
-                audioEngine.playSfx('click');
-                setIsYearly(true);
-              }}
+              type="button"
+              onClick={handleToggle}
               style={{
-                background: isYearly ? 'var(--accent-primary)' : 'transparent',
+                background: isYearly ? 'var(--grad-primary)' : 'transparent',
                 color: isYearly ? '#ffffff' : 'var(--text-secondary)',
                 border: 'none',
+                borderRadius: '8px',
                 padding: '6px 14px',
-                borderRadius: '99px',
-                fontSize: '12px',
-                fontWeight: 600,
+                fontSize: '12.5px',
+                fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
+                gap: '6px',
                 transition: 'all 0.15s ease'
               }}
             >
-              <span>Yearly</span>
-              <span style={{ background: '#10b981', color: '#000000', fontSize: '10px', fontWeight: 800, padding: '1px 5px', borderRadius: '99px' }}>
-                Save 25%
+              <span>Annual Billing</span>
+              <span style={{
+                background: '#10b981',
+                color: '#ffffff',
+                fontSize: '10px',
+                padding: '2px 6px',
+                borderRadius: '5px',
+                fontWeight: 800
+              }}>
+                SAVE 25%
               </span>
             </button>
           </div>
         </div>
 
-        {/* 3 Pricing Cards */}
+        {/* Pricing Cards Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))',
-          gap: '24px',
-          alignItems: 'stretch'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(290px, 100%), 1fr))',
+          gap: isMobile ? '20px' : '28px',
+          alignItems: 'stretch',
+          maxWidth: '1100px',
+          margin: '0 auto'
         }}>
           {plans.map((p, idx) => (
             <div
               key={idx}
               className="saas-card"
               style={{
-                padding: '32px 24px',
+                padding: isMobile ? '24px 20px' : '32px 28px',
                 borderRadius: '24px',
+                border: p.isPopular ? '2px solid #818cf8' : '1px solid var(--border-subtle)',
+                background: p.isPopular 
+                  ? 'linear-gradient(135deg, rgba(26, 35, 62, 0.9) 0%, rgba(16, 22, 40, 0.95) 100%)' 
+                  : 'var(--bg-card)',
+                boxShadow: p.isPopular ? 'var(--shadow-glow)' : 'var(--shadow-card)',
+                position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'space-between',
-                position: 'relative',
-                border: p.isPopular ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-                boxShadow: p.isPopular ? 'var(--shadow-glow)' : 'var(--shadow-card)',
-                background: p.isPopular ? 'var(--bg-card-hover)' : 'var(--bg-card)'
+                justifyContent: 'space-between'
               }}
             >
               {p.isPopular && (
@@ -177,67 +199,78 @@ export default function Pricing({ onSelectPlan }) {
                   color: '#ffffff',
                   fontSize: '11px',
                   fontWeight: 800,
-                  padding: '3px 14px',
-                  borderRadius: '99px',
+                  padding: '3px 12px',
+                  borderRadius: '20px',
                   textTransform: 'uppercase',
-                  boxShadow: '0 2px 10px rgba(99,102,241,0.5)'
+                  letterSpacing: '0.04em',
+                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)'
                 }}>
                   {p.badge}
                 </div>
               )}
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
-                  <h3 className="font-display" style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>
                     {p.name}
                   </h3>
+                  {!p.isPopular && (
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {p.badge}
+                    </span>
+                  )}
                 </div>
 
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px', minHeight: '38px' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '20px', minHeight: '40px' }}>
                   {p.desc}
                 </p>
 
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '24px' }}>
-                  <span className="font-display" style={{ fontSize: 'clamp(32px, 5.4vw, 40px)', fontWeight: 900, color: 'var(--text-primary)' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '24px' }}>
+                  <span style={{ fontSize: '42px', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1 }}>
                     {p.price}
                   </span>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                    / {p.period}
+                    /{p.period}
                   </span>
                 </div>
 
-                {/* Features list */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '28px' }}>
-                  {p.features.map((feat, fi) => (
-                    <div key={fi} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                      <div style={{
-                        width: '18px',
-                        height: '18px',
-                        borderRadius: '50%',
-                        background: 'rgba(16, 185, 129, 0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}>
-                        <Check size={11} color="#10b981" strokeWidth={3} />
-                      </div>
-                      <span>{feat}</span>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  marginBottom: '28px',
+                  paddingTop: '16px',
+                  borderTop: '1px solid var(--border-subtle)'
+                }}>
+                  {p.features.map((feat, fIdx) => (
+                    <div key={fIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <Check size={16} color="#38bdf8" style={{ marginTop: '2px', flexShrink: 0 }} />
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                        {feat}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
 
               <button
+                type="button"
                 onClick={() => {
                   audioEngine.playSfx('boom');
-                  onSelectPlan(p.name);
+                  onSelectPlan(p);
                 }}
                 className={p.btnClass}
-                style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  padding: '12px 18px',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  borderRadius: '12px'
+                }}
               >
                 <span>{p.btnText}</span>
-                <ArrowRight size={15} />
+                <ArrowRight size={16} />
               </button>
             </div>
           ))}

@@ -7,156 +7,273 @@ import {
   ShieldCheck, 
   Share2, 
   Sparkles, 
-  Layers 
+  Layers,
+  Sliders,
+  Cpu,
+  Monitor,
+  CheckCircle2,
+  ArrowRight
 } from 'lucide-react';
+import { useBreakpoint } from '../../hooks/useMediaQuery';
 
 export default function Features() {
+  const { isMobile } = useBreakpoint();
+
   const steps = [
     {
       step: '01',
-      title: 'Type Story or Voice Note',
-      desc: 'Stage 0 Universal Classifier analyzes your prompt, detects the genre, and applies anti-repetition memory.',
-      icon: <Sparkles size={20} color="#6366f1" />
+      title: 'Input Raw Topic or Voice Memo',
+      desc: 'Stage 0 Neural Classifier analyzes your prompt, detects genre and emotional tone, and structures retention-optimized narrative beats.',
+      icon: <Sparkles size={22} color="#6366f1" />,
+      color: '#6366f1'
     },
     {
       step: '02',
-      title: 'AI Screenplay & Voice Studio',
-      desc: 'Writes 5 scenes with calibrated voiceover pacing (~15s per scene), casts ElevenLabs narrator, and selects adaptive BGM.',
-      icon: <Layers size={20} color="#8b5cf6" />
+      title: 'Autonomous Screenplay & Voice Casting',
+      desc: 'Writes scene-by-scene script with calibrated speech limits, casts the perfect ElevenLabs narrator, and composes an adaptive score.',
+      icon: <Layers size={22} color="#8b5cf6" />,
+      color: '#8b5cf6'
     },
     {
       step: '03',
-      title: '1-Click Render & Publish',
-      desc: 'Renders 5 parallel Grok Imagine 1.5 scenes, burns animated subtitles, and uploads directly to YouTube.',
-      icon: <Zap size={20} color="#06b6d4" />
+      title: '1-Click Multi-Platform Syndication',
+      desc: 'Renders high-definition visuals, burns animated word-by-word captions, and publishes directly to YouTube, Reels, TikTok, and LinkedIn.',
+      icon: <Zap size={22} color="#06b6d4" />,
+      color: '#06b6d4'
     }
   ];
 
   const gridFeatures = [
     {
-      title: 'Grok Imagine 1.5 Video Engine',
-      desc: 'Generates 5 direct 15-second cinematic video scenes in parallel, composited into a 1080×1920 vertical master.',
-      icon: <Video size={22} color="#06b6d4" />
+      title: 'Multi-Model AI Video Engine',
+      desc: 'Leverages Wan 2.1 and Grok Imagine to generate cinematic video scenes in 9:16 vertical or 16:9 widescreen with 4K clarity.',
+      icon: <Video size={22} color="#06b6d4" />,
+      tag: 'Wan 2.1 + Grok'
     },
     {
-      title: 'ElevenLabs Voice Casting',
-      desc: 'Instant access to studio narrator voices (Adam, Marcus, Aarav, Priya, Charlie) with emotion & speed control.',
-      icon: <Mic2 size={22} color="#10b981" />
+      title: 'Studio Voice Casting (9,650+ Voices)',
+      desc: 'Instant access to ElevenLabs Turbo v2.5 and json2video premium voices across 31+ languages with emotional nuance and speed control.',
+      icon: <Mic2 size={22} color="#10b981" />,
+      tag: '31+ Languages'
     },
     {
-      title: 'Adaptive Background Score & Ducking',
-      desc: 'Multi-genre soundtrack library with automated -18dB speech ducking curve so narration is always crystal clear.',
-      icon: <Music size={22} color="#ec4899" />
+      title: 'Adaptive BGM & -18dB Speech Ducking',
+      desc: 'Multi-genre soundtrack library with automated -18dB speech ducking curves so voice narration is always crystal clear.',
+      icon: <Music size={22} color="#ec4899" />,
+      tag: 'Dynamic Audio'
     },
     {
-      title: '7-Checkpoint Quality Critic',
-      desc: 'Stage 3 AI auditor inspects character count timing, visual style continuity, and YouTube policy safety before export.',
-      icon: <ShieldCheck size={22} color="#f59e0b" />
+      title: '7-Checkpoint Quality Critic Auditor',
+      desc: 'Built-in automated QA auditor inspects character speech timing, visual style continuity, and platform policy safety before export.',
+      icon: <ShieldCheck size={22} color="#f59e0b" />,
+      tag: 'Autonomous QA'
     },
     {
-      title: 'High-CTR YouTube Metadata & Tags',
-      desc: 'Auto-generates curiosity-gap titles with emoji, 800-1200 character structured descriptions, and 10 viral tags.',
-      icon: <Sparkles size={22} color="#8b5cf6" />
+      title: 'Kinetic Subtitles & Emoji Sync',
+      desc: 'Auto-burns viral word-by-word highlighted captions with custom color themes, animation styles, and multi-language Devanagari/Latin support.',
+      icon: <Sparkles size={22} color="#8b5cf6" />,
+      tag: 'Auto-Burned'
     },
     {
-      title: 'Multi-Platform Syndication',
-      desc: 'One-click publish to YouTube Shorts, Instagram Reels, and TikTok with platform-optimized formatting.',
-      icon: <Share2 size={22} color="#3b82f6" />
+      title: 'Cross-Platform Syndication & Webhooks',
+      desc: 'Direct automated publishing to YouTube, Instagram Reels, TikTok, and LinkedIn with tailored aspect ratios and SEO tags.',
+      icon: <Share2 size={22} color="#3b82f6" />,
+      tag: 'Omnichannel'
     }
   ];
 
   return (
-    <section id="features" style={{ paddingTop: 'clamp(48px, 8vw, 80px)', paddingBottom: 'clamp(48px, 8vw, 80px)', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+    <section id="features" style={{
+      paddingTop: isMobile ? '48px' : '80px',
+      paddingBottom: isMobile ? '48px' : '80px',
+      borderTop: '1px solid var(--border-subtle)',
+      background: 'var(--bg-surface)'
+    }}>
       <div className="container">
-        {/* 3-Step Workflow */}
-        <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 48px auto' }}>
+        {/* Workflow Overview */}
+        <div style={{ textAlign: 'center', maxWidth: '720px', margin: '0 auto 48px auto' }}>
           <span className="badge badge-brand" style={{ marginBottom: '12px' }}>
             <Zap size={13} />
-            <span>Autonomous Production Pipeline</span>
+            <span>End-to-End Autonomous Pipeline</span>
           </span>
           <h2 className="font-display" style={{
-            fontSize: 'clamp(26px, 5vw, 36px)',
+            fontSize: 'clamp(26px, 5vw, 38px)',
             fontWeight: 800,
             letterSpacing: '-0.02em',
             marginBottom: '14px',
             color: 'var(--text-primary)'
           }}>
-            How Bang AI Works in 3 Simple Steps
+            How Bang AI Creates Videos in 3 Seamless Steps
           </h2>
-          <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>
-            From raw idea to published 75-second vertical video in under 2 minutes.
+          <p style={{ fontSize: isMobile ? '14.5px' : '16px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            From raw prompt or voice note to a polished, published cinematic video in under 2 minutes.
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '24px', marginBottom: '80px' }}>
+        {/* 3-Step Cards */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(290px, 100%), 1fr))',
+          gap: isMobile ? '16px' : '24px',
+          marginBottom: isMobile ? '50px' : '80px'
+        }}>
           {steps.map((s, idx) => (
-            <div key={idx} className="saas-card" style={{ padding: '28px', position: 'relative' }}>
-              <div style={{
-                fontFamily: 'Outfit, sans-serif',
-                fontSize: 'clamp(30px, 6vw, 44px)',
-                fontWeight: 900,
-                color: 'var(--border-medium)',
-                lineHeight: 1,
-                marginBottom: '16px'
-              }}>
-                {s.step}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            <div
+              key={idx}
+              className="saas-card saas-card-interactive"
+              style={{
+                padding: isMobile ? '22px 18px' : '30px 24px',
+                position: 'relative',
+                borderRadius: '20px',
+                border: '1.5px solid var(--border-subtle)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}
+            >
+              <div>
                 <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: 'var(--bg-card-hover)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'space-between',
+                  marginBottom: '20px'
                 }}>
-                  {s.icon}
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: `${s.color}15`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: `1px solid ${s.color}30`
+                  }}>
+                    {s.icon}
+                  </div>
+
+                  <span style={{
+                    fontFamily: 'Outfit, sans-serif',
+                    fontSize: '28px',
+                    fontWeight: 900,
+                    color: 'var(--border-medium)',
+                    lineHeight: 1
+                  }}>
+                    {s.step}
+                  </span>
                 </div>
-                <h3 className="font-display" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  marginBottom: '10px',
+                  letterSpacing: '-0.01em'
+                }}>
                   {s.title}
                 </h3>
+
+                <p style={{
+                  fontSize: '13.5px',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.55
+                }}>
+                  {s.desc}
+                </p>
               </div>
-              <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                {s.desc}
-              </p>
+
+              <div style={{
+                marginTop: '20px',
+                paddingTop: '12px',
+                borderTop: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '11.5px',
+                color: '#38bdf8',
+                fontWeight: 600
+              }}>
+                <CheckCircle2 size={13} /> Automated In 10 Seconds
+              </div>
             </div>
           ))}
         </div>
 
-        {/* 6 Capabilities Grid */}
-        <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 48px auto' }}>
+        {/* 6-Engine Feature Grid */}
+        <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 40px auto' }}>
+          <span className="badge badge-amber" style={{ marginBottom: '12px' }}>
+            <Sliders size={13} />
+            <span>Industrial-Grade Technology</span>
+          </span>
           <h2 className="font-display" style={{
-            fontSize: 'clamp(24px, 4.6vw, 32px)',
+            fontSize: 'clamp(24px, 4.5vw, 34px)',
             fontWeight: 800,
             letterSpacing: '-0.02em',
-            marginBottom: '14px',
             color: 'var(--text-primary)'
           }}>
-            Engineered for Maximum Virality & Retention
+            The 6 Pillars Powering Every Bang AI Production
           </h2>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '20px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))',
+          gap: isMobile ? '16px' : '24px'
+        }}>
           {gridFeatures.map((f, i) => (
-            <div key={i} className="saas-card" style={{ padding: '24px', display: 'flex', gap: '16px' }}>
-              <div style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: 'var(--bg-card-hover)',
+            <div
+              key={i}
+              className="saas-card saas-card-interactive"
+              style={{
+                padding: '24px',
+                borderRadius: '18px',
+                border: '1px solid var(--border-subtle)',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                {f.icon}
-              </div>
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}
+            >
               <div>
-                <h3 className="font-display" style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: 'var(--bg-input)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid var(--border-subtle)'
+                  }}>
+                    {f.icon}
+                  </div>
+
+                  <span style={{
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    color: 'var(--text-muted)',
+                    background: 'var(--bg-input)',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-subtle)'
+                  }}>
+                    {f.tag}
+                  </span>
+                </div>
+
+                <h3 style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  marginBottom: '8px'
+                }}>
                   {f.title}
                 </h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+
+                <p style={{
+                  fontSize: '13px',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.5
+                }}>
                   {f.desc}
                 </p>
               </div>

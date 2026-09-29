@@ -73,7 +73,7 @@ export default function Footer({ onNavigate }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Privacy Policy</span>
               <span style={{ color: 'var(--text-secondary)' }}>Terms of Service</span>
-              <span style={{ color: 'var(--text-secondary)' }}>YouTube Safety Compliance</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Commercial Rights Compliance</span>
             </div>
           </div>
         </div>
@@ -93,7 +93,7 @@ export default function Footer({ onNavigate }) {
             © {new Date().getFullYear()} Bang AI. All rights reserved.
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            Built for viral YouTube Shorts creation with <Heart size={13} color="#f43f5e" fill="#f43f5e" />
+            Empowering viral video creators across all platforms with <Heart size={13} color="#f43f5e" fill="#f43f5e" />
           </div>
         </div>
       </div>

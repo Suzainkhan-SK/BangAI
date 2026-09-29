@@ -74,7 +74,7 @@ export default function Navbar({
   const PRIMARY_LINKS = user
     ? [
         { label: 'Dashboard', view: 'dashboard', icon: LayoutDashboard },
-        { label: 'AI Templates', view: 'templates', icon: Zap, badge: '75S' },
+        { label: 'AI Templates', view: 'templates', icon: Zap, badge: 'PRO' },
         { label: 'Stock Studio', view: 'basic-templates', icon: Film, badge: 'STOCK' },
         { label: 'Chat', view: 'chat', icon: Bot, badge: '4.0' },
       ]
