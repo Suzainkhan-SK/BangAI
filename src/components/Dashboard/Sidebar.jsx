@@ -132,12 +132,13 @@ export default function Sidebar({
   };
 
   const handleDelete = (e, id) => {
-    e.stopPropagation();
-    audioEngine.playSfx('click');
-    if (typeof window !== 'undefined' && window.confirm('Are you sure you want to delete this video thread? This cannot be undone.')) {
-      if (typeof onDeleteShort === 'function') {
-        onDeleteShort(id);
-      }
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    try { audioEngine.playSfx('click'); } catch (err) {}
+    if (typeof onDeleteShort === 'function') {
+      onDeleteShort(id);
     }
   };
 
@@ -784,9 +785,10 @@ export default function Sidebar({
                 const timeAgo = formatRelativeTime(getThreadTimestamp(s));
 
                 return (
-                  <button
+                  <div
                     key={`${id}-${idx}`}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     title={accessibleLabel}
                     aria-label={`Open video thread: ${accessibleLabel}`}
                     onMouseEnter={() => setHoveredId(id)}
@@ -795,6 +797,13 @@ export default function Sidebar({
                       audioEngine.playSfx('click');
                       if (typeof onSelectShort === 'function') onSelectShort(id);
                       else navigateTo('dashboard/t/' + id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (typeof onSelectShort === 'function') onSelectShort(id);
+                        else navigateTo('dashboard/t/' + id);
+                      }
                     }}
                     style={{
                       width: '100%',
@@ -809,7 +818,8 @@ export default function Sidebar({
                       alignItems: 'center',
                       gap: '6px',
                       transition: 'all 0.12s ease',
-                      textAlign: 'left'
+                      textAlign: 'left',
+                      boxSizing: 'border-box'
                     }}
                   >
                     <ThreadStatusDot status={s.status} />
@@ -831,30 +841,38 @@ export default function Sidebar({
                         </span>
                       )}
                     </div>
-                    {(isHovered || isActive) && typeof onDeleteShort === 'function' && (
+                    {typeof onDeleteShort === 'function' && (
                       <button
                         type="button"
                         onClick={(e) => handleDelete(e, id)}
+                        title="Delete thread"
                         aria-label="Delete video thread"
                         style={{
                           background: 'transparent',
                           border: 'none',
-                          padding: '2px',
+                          padding: '3px 4px',
                           cursor: 'pointer',
                           borderRadius: '4px',
                           flexShrink: 0,
-                          color: 'var(--text-muted)',
+                          color: isHovered || isActive ? 'var(--text-muted)' : 'transparent',
                           display: 'flex',
                           alignItems: 'center',
-                          transition: 'color 0.15s ease'
+                          justifyContent: 'center',
+                          transition: 'all 0.15s ease'
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.color = '#ef4444';
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.color = isHovered || isActive ? 'var(--text-muted)' : 'transparent';
+                          e.currentTarget.style.background = 'transparent';
+                        }}
                       >
-                        <Trash2 size={11} />
+                        <Trash2 size={12} />
                       </button>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>

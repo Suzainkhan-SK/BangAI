@@ -270,9 +270,11 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
   };
 
   const handleDeleteSession = (e, id) => {
-    e.stopPropagation();
-    try { audioEngine.playSfx('click'); } catch (e) {}
-    if (!confirm('Are you sure you want to delete this chat?')) return;
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    try { audioEngine.playSfx('click'); } catch (err) {}
     setSessions((prev) => prev.filter((s) => s.id !== id));
     if (activeSessionId === id) {
       setActiveSessionId(null);
