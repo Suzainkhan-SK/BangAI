@@ -1,88 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Sparkles, 
   ArrowRight, 
   TrendingUp,
   Zap,
   Flame,
-  Loader2,
   CheckCircle2,
-  AlertCircle,
-  ExternalLink,
-  ShieldCheck
+  ExternalLink
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
-import { useVideoSettings } from '../../state/videoSettings';
-import { getMusicTrackById } from '../../data/musicTracks';
 
-export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavigate, user }) {
-  const [launching, setLaunching] = useState(false);
-  const [launchError, setLaunchError] = useState(null);
-
-  const { settings: videoSettings } = useVideoSettings();
-
+export default function TemplateCards({ onSelectTemplate, onSelectPreset }) {
   const handleSelect = (item) => {
     audioEngine.playSfx('click');
     if (typeof onSelectTemplate === 'function') {
       onSelectTemplate(item);
     } else if (typeof onSelectPreset === 'function') {
       onSelectPreset(item.id);
-    }
-  };
-
-  const handle1ClickLaunch = async (templateId = 'world-mysteries') => {
-    audioEngine.playSfx('click');
-    if (!user) {
-      if (typeof onNavigate === 'function') {
-        onNavigate('login');
-      }
-      return;
-    }
-
-    setLaunching(true);
-    setLaunchError(null);
-
-    try {
-      const token = localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || localStorage.getItem('token') || localStorage.getItem('user_token') || '';
-      const chosenMusic = getMusicTrackById(videoSettings?.musicId || 'mystery2');
-      const res = await fetch('/.netlify/functions/generate-template', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: JSON.stringify({
-          templateId,
-          token,
-          voiceId: videoSettings?.voiceId || 'adam',
-          elevenLabsVoiceId: videoSettings?.elevenLabsVoiceId || '',
-          voiceSpeed: videoSettings?.voiceSpeed || 1.20,
-          voiceVolume: videoSettings?.voiceVolume ?? 1.0,
-          subtitleSettings: videoSettings?.subtitleSettings || null,
-          subtitleStyle: videoSettings?.subtitleStyle || 'hormozi',
-          musicId: videoSettings?.musicId || 'mystery2',
-          musicTrackUrl: videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
-          musicVolume: videoSettings?.musicVolume ?? 0.08
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to dispatch template workflow');
-      }
-
-      audioEngine.playSfx('success');
-      setTimeout(() => {
-        if (data.threadId && typeof onNavigate === 'function') {
-          onNavigate(`dashboard/t/${data.threadId}`);
-        }
-      }, 1000);
-
-    } catch (err) {
-      console.error('[TemplateCards] 1-Click launch error:', err);
-      audioEngine.playSfx('error');
-      setLaunchError(err.message || 'Error launching template pipeline');
-      setLaunching(false);
     }
   };
 
@@ -121,36 +55,6 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
       stats: '5.1M Views'
     }
   ];
-
-  const AUTONOMOUS_TEMPLATES = [
-    {
-      id: 'world-mysteries',
-      emoji: '🛸',
-      title: 'World Mysteries & Paranormal',
-      desc: 'Uncover unexplained phenomena. Self-scripts 5 scenes, renders cinematic visuals, and uploads directly to YouTube without manual review.',
-      tagline: '75s • 5 Scenes • Auto-Upload',
-      accentColor: '#6366f1'
-    },
-    {
-      id: 'last-24-hours',
-      emoji: '⏳',
-      title: 'Last 24 Hours [True Stories]',
-      desc: 'Counts down the poignant and dramatic final 24 hours of legendary figures, heroic sacrifices, and historic events with emotional narration.',
-      tagline: '75s • 5 Scenes • Emotional & Inspiring',
-      accentColor: '#f59e0b'
-    },
-    {
-      id: '3am-horror',
-      emoji: '👻',
-      title: '3-AM Horror & Paranormal',
-      desc: 'Bone-chilling psychological terror and terrifying 3 AM encounters. Maximum camera movement, eerie suspense, and dark sound design.',
-      tagline: '75s • 5 Scenes • Extreme Suspense',
-      accentColor: '#ef4444'
-    }
-  ];
-
-  const [selectedAutonomousId, setSelectedAutonomousId] = useState('world-mysteries');
-  const activeAutoTpl = AUTONOMOUS_TEMPLATES.find(t => t.id === selectedAutonomousId) || AUTONOMOUS_TEMPLATES[0];
 
   return (
     <div style={{
@@ -191,169 +95,11 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
           margin: '0 auto',
           lineHeight: 1.5
         }}>
-          Launch any of our 3 autonomous templates below, or type your custom idea in the prompt bar.
+          Pick a prompt idea below, or type your custom idea in the prompt bar.
         </p>
       </div>
 
-      {/* ═══════ FEATURED 1-CLICK AUTONOMOUS TEMPLATE HERO CARD ═══════ */}
-      <div className="saas-card" style={{
-        width: '100%',
-        padding: '20px 24px',
-        textAlign: 'left',
-        position: 'relative',
-        borderRadius: '16px'
-      }}>
-        {/* Template Switcher Tabs */}
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          flexWrap: 'wrap',
-          marginBottom: '14px',
-          paddingBottom: '12px',
-          borderBottom: '1px solid var(--border-subtle)'
-        }}>
-          {AUTONOMOUS_TEMPLATES.map(tpl => {
-            const isSelected = selectedAutonomousId === tpl.id;
-            return (
-              <button
-                key={tpl.id}
-                type="button"
-                onClick={() => {
-                  audioEngine.playSfx('click');
-                  setSelectedAutonomousId(tpl.id);
-                  setLaunchError(null);
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '5px 12px',
-                  borderRadius: '8px',
-                  border: isSelected ? `1.5px solid ${tpl.accentColor}` : '1px solid var(--border-medium)',
-                  background: isSelected ? `${tpl.accentColor}15` : 'var(--bg-card)',
-                  color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  fontSize: '12px',
-                  fontWeight: isSelected ? 700 : 500,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span>{tpl.emoji}</span>
-                <span>{tpl.title.split(' [')[0]}</span>
-                {isSelected && (
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: tpl.accentColor }} />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexWrap: 'wrap', gap: '16px'
-        }}>
-          <div style={{ flex: '1 1 400px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span style={{
-                background: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.25)',
-                color: '#10b981', fontSize: '11px', fontWeight: 700, padding: '2px 8px',
-                borderRadius: '99px', display: 'inline-flex', alignItems: 'center', gap: '5px'
-              }}>
-                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
-                1-Click Autonomous
-              </span>
-              <span style={{
-                background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
-                color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, padding: '2px 8px',
-                borderRadius: '99px'
-              }}>
-                {activeAutoTpl.tagline}
-              </span>
-            </div>
-
-            <h3 style={{
-              fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)',
-              margin: '0 0 5px 0', fontFamily: 'Space Grotesk, sans-serif'
-            }}>
-              {activeAutoTpl.title}
-            </h3>
-
-            <p style={{
-              fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0
-            }}>
-              {activeAutoTpl.desc}
-            </p>
-
-            {launchError && (
-              <div style={{
-                marginTop: '10px', fontSize: '12px', color: '#ef4444',
-                display: 'flex', alignItems: 'center', gap: '6px'
-              }}>
-                <AlertCircle size={14} color="#ef4444" />
-                <span>{launchError}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-            {typeof onNavigate === 'function' && (
-              <button
-                type="button"
-                onClick={() => { audioEngine.playSfx('click'); onNavigate('templates'); }}
-                className="btn-outline"
-                style={{
-                  padding: '9px 14px',
-                  borderRadius: '10px',
-                  fontSize: '12.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  color: 'var(--text-secondary)'
-                }}
-              >
-                <span>Browse All</span>
-                <ArrowRight size={13} />
-              </button>
-            )}
-
-            <button
-              disabled={launching}
-              onClick={() => handle1ClickLaunch(selectedAutonomousId)}
-              className="btn-glow"
-              style={{
-                padding: '9px 18px',
-                borderRadius: '10px',
-                border: 'none',
-                cursor: launching ? 'not-allowed' : 'pointer',
-                fontSize: '13px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '7px',
-                color: '#ffffff'
-              }}
-            >
-              {launching ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" />
-                  <span>Launching...</span>
-                </>
-              ) : (
-                <>
-                  <Zap size={14} fill="#ffffff" />
-                  <span>1-Click Generate</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Or Prompt Inspiration Cards */}
+      {/* Prompt Inspiration Cards */}
       <div style={{ width: '100%', marginTop: '4px' }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -363,7 +109,7 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset, onNavi
             fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)',
             textTransform: 'uppercase', letterSpacing: '0.06em'
           }}>
-            OR START FROM A PROMPT IDEA
+            START FROM A PROMPT IDEA
           </span>
         </div>
 

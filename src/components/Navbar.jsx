@@ -130,41 +130,8 @@ export default function Navbar({
           gap: isMobile ? '8px' : '12px'
         }}>
 
-          {/* ── LEFT: Sidebar Toggle + Brand Logo ─────────────────── */}
+          {/* ── LEFT: Brand Logo ─────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, minWidth: 0 }}>
-            {user && !isMobile && typeof onToggleSidebar === 'function' && (
-              <button
-                type="button"
-                onClick={() => { audioEngine.playSfx('click'); onToggleSidebar(); }}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  padding: 0,
-                  background: isLight ? '#f8f4f0' : '#251c1c',
-                  border: isLight ? '1px solid #c5c0b1' : '1px solid rgba(255,255,255,0.12)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--text-secondary)',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.color = 'var(--text-primary)';
-                  e.currentTarget.style.borderColor = 'var(--text-primary)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                  e.currentTarget.style.borderColor = isLight ? '#c5c0b1' : 'rgba(255,255,255,0.12)';
-                }}
-                title={sidebarCollapsed ? 'Open Sidebar (Ctrl+B)' : 'Close Sidebar (Ctrl+B)'}
-                aria-label={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
-              >
-                <PanelLeft size={15} />
-              </button>
-            )}
-
             {/* Logo (Zapier Clean Warm Brand) */}
             <div
               onClick={() => go(user ? 'dashboard' : 'landing')}
