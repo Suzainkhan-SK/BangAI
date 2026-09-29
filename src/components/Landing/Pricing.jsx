@@ -17,11 +17,11 @@ export default function Pricing({ onSelectPlan }) {
       features: [
         '5 Full AI Videos / Month',
         'All Aspect Ratios (9:16, 16:9, 1:1)',
-        'Grok Imagine & Wan 2.1 Video Generation',
-        'Standard Studio Voice Narrators',
-        'Curated Background Music Library',
-        'Full HD 1080p Export',
-        'Community Support'
+        'Proprietary High-Fidelity Video Engine',
+        'Studio Voice Synthesis & Narration',
+        'Curated Dynamic Soundtrack Library',
+        'Full HD 1080p Master Export',
+        'Community Creator Support'
       ],
       isPopular: false,
       btnText: 'Start Free — No Card Needed',
@@ -32,16 +32,16 @@ export default function Pricing({ onSelectPlan }) {
       badge: 'Most Popular',
       price: isYearly ? '$29' : '$39',
       period: 'per month',
-      desc: 'For serious creators, agencies, and faceless channels scaling to millions of views.',
+      desc: 'For serious creators, agencies, and faceless channels scaling cross-platform.',
       features: [
         '50 Full AI Videos / Month',
         'Priority Parallel Scene Generation',
-        'All ElevenLabs Turbo v2.5 Voices',
+        'All Studio Voice Models in 31+ Languages',
         'Dynamic BGM with -18dB Speech Ducking',
-        '7-Checkpoint Story Quality Critic Auditor',
-        '1-Click Multi-Platform Publishing (YouTube, Reels, TikTok)',
+        '7-Checkpoint Narrative Quality Critic',
+        '1-Click Publishing (YouTube, Reels, TikTok, LinkedIn)',
         'Kinetic Subtitles with Emoji & Font Presets',
-        'High-CTR AI Thumbnail & Title Generator',
+        'High-CTR AI Thumbnail & Title Suggestions',
         'Priority 24/7 Creator Support'
       ],
       isPopular: true,
@@ -53,14 +53,14 @@ export default function Pricing({ onSelectPlan }) {
       badge: 'Enterprise',
       price: isYearly ? '$99' : '$129',
       period: 'per month',
-      desc: 'For media companies, marketing agencies, and automated faceless channel networks.',
+      desc: 'For media companies, marketing agencies, and automated content networks.',
       features: [
         'Unlimited AI Video Generations',
-        'Multi-Channel YouTube, Reels & TikTok Automation',
+        'Omnichannel Syndication across 4 Networks',
         'Custom Voice Cloning & Custom Music Ingestion',
-        'REST API & Webhook Automation Pipeline',
-        'Dedicated Cloud Worker Infrastructure',
-        'Commercial Licensing & White-Label Export',
+        'Developer REST API & Enterprise Webhooks',
+        'Dedicated Cloud Compute Priority',
+        'Commercial Rights & White-Label Export',
         'Dedicated Technical Account Manager'
       ],
       isPopular: false,
@@ -178,10 +178,8 @@ export default function Pricing({ onSelectPlan }) {
               style={{
                 padding: isMobile ? '24px 20px' : '32px 28px',
                 borderRadius: '24px',
-                border: p.isPopular ? '2px solid #818cf8' : '1px solid var(--border-subtle)',
-                background: p.isPopular 
-                  ? 'linear-gradient(135deg, rgba(26, 35, 62, 0.9) 0%, rgba(16, 22, 40, 0.95) 100%)' 
-                  : 'var(--bg-card)',
+                border: p.isPopular ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                background: 'var(--bg-card)',
                 boxShadow: p.isPopular ? 'var(--shadow-glow)' : 'var(--shadow-card)',
                 position: 'relative',
                 display: 'flex',

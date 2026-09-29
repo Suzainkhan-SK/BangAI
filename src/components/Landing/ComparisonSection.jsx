@@ -35,19 +35,19 @@ export default function ComparisonSection() {
     {
       feature: 'Story & Screenplay Writing',
       oldWay: '45–60 minutes of manual scripting, hook research & scene planning',
-      shortsAi: 'Stage 0–2 AI Engine auto-architects high-retention multi-act narrative in 10s',
+      shortsAi: 'Proprietary narrative engine auto-architects high-retention multi-act storyline in seconds',
       highlight: true
     },
     {
       feature: 'Voiceover & Actor Narration',
       oldWay: 'Hiring voice actors ($50–$150/video) or noisy amateur mic takes with endless re-records',
-      shortsAi: 'Studio ElevenLabs Turbo v2.5 & 9,650+ voices in 31+ languages with emotional pitch calibration',
+      shortsAi: 'Studio voice synthesis in 31+ languages with emotional pitch and cadence calibration',
       highlight: true
     },
     {
-      feature: 'Visual Footage & CGI Creation',
+      feature: 'Visual Footage & Scene Direction',
       oldWay: 'Browsing repetitive stock video sites or paying 3D VFX artists ($300+ per clip)',
-      shortsAi: 'Wan 2.1 & Grok generate custom cinematic scenes in 9:16 vertical or 16:9 widescreen',
+      shortsAi: 'Proprietary generative visuals in 9:16 vertical, 16:9 widescreen, or 1:1 square',
       highlight: true
     },
     {
@@ -94,7 +94,7 @@ export default function ComparisonSection() {
             Traditional Manual Editing vs. Bang AI Studio
           </h2>
           <p style={{ fontSize: isMobile ? '14px' : '16px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            See why over 120,000+ creators, media agencies, and faceless channels replaced 5 different editing tools with our unified engine.
+            See how modern creators, media agencies, and digital studios replace multiple disjointed tools with our unified video engine.
           </p>
         </div>
 
@@ -211,31 +211,32 @@ export default function ComparisonSection() {
           </div>
         </div>
 
-        {/* Interactive Creator ROI & Time-Saved Calculator */}
+        {/* Interactive Creator Productivity & Time-Saved Calculator */}
         <div className="saas-card" style={{
           padding: isMobile ? '24px 18px' : '36px 32px',
           borderRadius: '24px',
           border: '1.5px solid var(--border-subtle)',
-          background: 'linear-gradient(135deg, rgba(16, 22, 40, 0.8) 0%, rgba(9, 13, 24, 0.95) 100%)'
+          background: 'var(--bg-card)',
+          boxShadow: 'var(--shadow-card)'
         }}>
           <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 28px auto' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '12px', fontWeight: 700, marginBottom: '8px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '12px', fontWeight: 700, marginBottom: '8px' }}>
               <Calculator size={15} />
               <span>INTERACTIVE PRODUCTIVITY CALCULATOR</span>
             </div>
             <h3 style={{ fontSize: isMobile ? '20px' : '26px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
-              Calculate How Much Time & Money You Save
+              Calculate Your Studio Time & Cost Savings
             </h3>
             <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-              Drag the slider to see your monthly savings compared to traditional editors and voice talent.
+              See how many production hours and editor fees your team recovers every month with Bang AI.
             </p>
           </div>
 
           {/* Slider Control */}
           <div style={{ maxWidth: '540px', margin: '0 auto 36px auto', textAlign: 'center' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', fontWeight: 600 }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Videos Created Per Month:</span>
-              <span style={{ color: '#38bdf8', fontSize: '18px', fontWeight: 800 }}>{videoCount} Videos</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Videos Produced Per Month:</span>
+              <span style={{ color: 'var(--accent-primary)', fontSize: '18px', fontWeight: 800 }}>{videoCount} Videos</span>
             </div>
 
             <input
@@ -247,7 +248,7 @@ export default function ComparisonSection() {
               onChange={handleSliderChange}
               style={{
                 width: '100%',
-                accentColor: '#38bdf8',
+                accentColor: 'var(--accent-primary)',
                 cursor: 'pointer'
               }}
             />
@@ -275,13 +276,13 @@ export default function ComparisonSection() {
               textAlign: 'center'
             }}>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px' }}>
-                CREATIVE HOURS SAVED
+                CREATIVE HOURS RECOVERED
               </div>
               <div style={{ fontSize: isMobile ? '28px' : '36px', fontWeight: 900, color: '#38bdf8' }}>
                 ~{hoursSaved} hrs
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                per month recovered
+                per month saved
               </div>
             </div>
 
@@ -293,13 +294,13 @@ export default function ComparisonSection() {
               textAlign: 'center'
             }}>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px' }}>
-                ESTIMATED DOLLARS SAVED
+                ESTIMATED PRODUCTION BUDGET SAVED
               </div>
               <div style={{ fontSize: isMobile ? '28px' : '36px', fontWeight: 900, color: '#10b981' }}>
                 ${dollarsSaved.toLocaleString()}
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                vs editors & voice actors
+                vs freelancer & agency rates
               </div>
             </div>
 
@@ -311,13 +312,13 @@ export default function ComparisonSection() {
               textAlign: 'center'
             }}>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px' }}>
-                ESTIMATED MONTHLY VIEWS
+                OMNICHANNEL SYNDICATION
               </div>
-              <div style={{ fontSize: isMobile ? '28px' : '36px', fontWeight: 900, color: '#ec4899' }}>
-                {potentialReach}+
+              <div style={{ fontSize: isMobile ? '28px' : '36px', fontWeight: 900, color: 'var(--accent-primary)' }}>
+                4 Networks
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                cross-platform potential
+                YouTube • Reels • TikTok • LinkedIn
               </div>
             </div>
           </div>

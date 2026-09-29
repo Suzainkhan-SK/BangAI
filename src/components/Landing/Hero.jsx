@@ -110,8 +110,9 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
       <div style={{
         position: 'absolute',
         inset: 0,
-        backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px)',
+        backgroundImage: 'radial-gradient(var(--text-muted) 1px, transparent 1px)',
         backgroundSize: '32px 32px',
+        opacity: 0.12,
         maskImage: 'radial-gradient(ellipse 60% 50% at 50% 20%, #000 60%, transparent 100%)',
         WebkitMaskImage: 'radial-gradient(ellipse 60% 50% at 50% 20%, #000 60%, transparent 100%)',
         pointerEvents: 'none',
@@ -427,7 +428,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            {/* Floating Live Metric: Retention */}
+            {/* Floating Live Metric: Engine Architecture */}
             <div className="saas-card animate-float" style={{
               position: 'absolute',
               top: '-12px',
@@ -442,12 +443,12 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
               background: 'var(--bg-card)',
               border: '1px solid var(--border-medium)'
             }}>
-              <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Flame size={18} color="#ef4444" />
+              <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(255, 79, 0, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Sparkles size={18} color="var(--accent-primary)" />
               </div>
               <div>
-                <div style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--text-primary)' }}>1.8M+ Total Views</div>
-                <div style={{ fontSize: '10px', color: '#10b981', fontWeight: 600 }}>98.4% Audience Retention</div>
+                <div style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--text-primary)' }}>Multi-Act Screenplay</div>
+                <div style={{ fontSize: '10px', color: '#10b981', fontWeight: 600 }}>Ultra HD 1080p Engine</div>
               </div>
             </div>
 

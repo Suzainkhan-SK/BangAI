@@ -30,13 +30,12 @@ export default function Showcase({ onSelectPreset }) {
       category: 'mystery',
       title: 'Bermuda Triangle: Flight 19',
       subtitle: 'Mystery & Thriller • 5 Acts • Multi-Language',
-      duration: 'Flexible Duration',
+      duration: '5 Scenes • Full HD',
       aspectRatio: '9:16 & 16:9',
-      views: '1.4M views',
-      retention: '98% Retention',
-      rating: '4.9 ★',
+      voiceModel: 'Adam (Deep Cinematic)',
+      soundtrack: 'Deep Ocean Score (-18dB)',
       gradient: 'radial-gradient(circle at 50% 30%, #1e1b4b 0%, #0f172a 70%, #020617 100%)',
-      badge: 'Trending Mystery',
+      badge: 'Mystery & Thriller',
       color: '#6366f1',
       voice: 'Adam (Deep Cinematic)',
       icon: '🌊'
@@ -46,13 +45,12 @@ export default function Showcase({ onSelectPreset }) {
       category: 'cgi',
       title: 'Dragons: Eastern vs Western War',
       subtitle: 'Epic Mythological CGI • Hyper-Realistic VFX',
-      duration: 'Cinematic Narrative',
+      duration: '5 Scenes • Cinematic 4K',
       aspectRatio: '9:16 & 16:9',
-      views: '2.8M views',
-      retention: '96% Retention',
-      rating: '5.0 ★',
+      voiceModel: 'George (Epic British)',
+      soundtrack: 'Orchestral Hybrid Score',
       gradient: 'radial-gradient(circle at 50% 30%, #311042 0%, #1e102f 70%, #05020a 100%)',
-      badge: 'Billion VFX',
+      badge: 'CGI & VFX',
       color: '#8b5cf6',
       voice: 'George (Epic British)',
       icon: '🐉'
@@ -62,13 +60,12 @@ export default function Showcase({ onSelectPreset }) {
       category: 'comedy',
       title: 'Talking Pineapple Supermarket Escape',
       subtitle: 'Pixar 3D Animation • Viral Comedy Fiction',
-      duration: 'Fast-Paced Viral',
+      duration: '5 Scenes • 60 FPS',
       aspectRatio: '9:16 Vertical',
-      views: '3.6M views',
-      retention: '99% Retention',
-      rating: '4.8 ★',
+      voiceModel: 'Charlie (Cartoon Playful)',
+      soundtrack: 'Playful Pizzicato Score',
       gradient: 'radial-gradient(circle at 50% 30%, #451a03 0%, #1c0a00 70%, #0c0a09 100%)',
-      badge: 'Viral TikTok & Reels',
+      badge: '3D Animation',
       color: '#f59e0b',
       voice: 'Charlie (Cartoon Playful)',
       icon: '🍍'
@@ -78,13 +75,12 @@ export default function Showcase({ onSelectPreset }) {
       category: 'bio',
       title: 'Ratan Tata: The Final 24 Hours',
       subtitle: 'Emotional Biography • Archival Cinematic Story',
-      duration: 'Inspiring Deep-Dive',
+      duration: '5 Scenes • Archival Grade',
       aspectRatio: '16:9 & 9:16',
-      views: '4.1M views',
-      retention: '97% Retention',
-      rating: '5.0 ★',
+      voiceModel: 'Marcus (Warm Storyteller)',
+      soundtrack: 'Emotional Piano & Strings',
       gradient: 'radial-gradient(circle at 50% 30%, #1c1917 0%, #0f172a 70%, #000000 100%)',
-      badge: 'Emotional Hook',
+      badge: 'Cinematic Biography',
       color: '#ec4899',
       voice: 'Marcus (Warm Storyteller)',
       icon: '💔'
@@ -309,10 +305,10 @@ export default function Showcase({ onSelectPreset }) {
                       color: 'var(--text-muted)'
                     }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Eye size={13} /> {card.views}
+                        🎙️ {card.voiceModel}
                       </span>
-                      <span style={{ color: '#10b981', fontWeight: 600 }}>
-                        {card.retention}
+                      <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>
+                        {card.duration}
                       </span>
                     </div>
                   </div>

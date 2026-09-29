@@ -18,15 +18,15 @@ export default function FAQ() {
     },
     {
       q: 'What languages and voice models are supported?',
-      a: 'We support over 31+ languages with crystal-clear phonetic pronunciation, including Hindi, Hinglish (blend of Hindi & English), Global English (US, UK, India, Australia), Spanish, French, German, Japanese, and Portuguese. Powered by ElevenLabs Turbo v2.5 and our library of 9,650+ voices.'
+      a: 'We support over 31+ languages with crystal-clear phonetic pronunciation, including Hindi, Hinglish (blend of Hindi & English), Global English (US, UK, India, Australia), Spanish, French, German, Japanese, and Portuguese. Every voice is calibrated for emotional inflection and natural pacing.'
     },
     {
       q: 'Are the generated videos eligible for monetization and free of copyright strikes?',
-      a: 'Yes, 100%. All visual generations, ElevenLabs voiceovers, and curated soundtrack scores come with full commercial rights. You own your content and can monetize immediately on YouTube Partner Program, TikTok Creator Rewards, and Meta Reels bonuses.'
+      a: 'Yes, 100%. All visual generations, studio voiceovers, and curated soundtrack scores come with full commercial rights. You own your content and can monetize immediately on YouTube Partner Program, TikTok Creator Rewards, and Meta Reels bonuses.'
     },
     {
-      q: 'What AI engines power the video and script creation?',
-      a: 'Bang AI uses a multi-model neural orchestration: Wan 2.1 and Grok Imagine for realistic video scenes, ElevenLabs Turbo v2.5 for human-like emotional speech, our Stage 0–3 Autonomous Screenplay Architect for calibrated narrative pacing, and intelligent -18dB audio ducking for crystal-clear acoustics.'
+      q: 'How does the Bang AI autonomous video pipeline work?',
+      a: 'Bang AI unifies creative screenwriting, neural voice synthesis, dynamic scene generation, audio mastering, and automated subtitle typography into one seamless pipeline. You simply provide an initial concept, and the engine handles research, narrative structure, speech casting, and multi-format rendering automatically.'
     },
     {
       q: 'Can I edit the screenplay, voice, and subtitles before exporting?',

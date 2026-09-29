@@ -69,7 +69,7 @@ export default function PlatformShowcase({ onSelectPreset }) {
         '1-Click YouTube Data API v3 Direct Publishing'
       ],
       sampleTitle: 'The 3-Second Mystery That Shocked Marine Biologists 🌊',
-      sampleStats: 'Avg. 94% Retention • High Algorithm Velocity'
+      sampleStats: 'High-CTR SEO Titles, Tags & Pinned Comments'
     },
     {
       id: 'instagram',
@@ -79,13 +79,13 @@ export default function PlatformShowcase({ onSelectPreset }) {
       color: '#ec4899',
       aspectRatio: '9:16 Vertical',
       features: [
-        'Aesthetic Color Grading & Cinematic 35mm Realism',
+        'Aesthetic Color Grading & Cinematic Visual Realism',
         'Trendy Kinetic Subtitle Typography',
         'Optimized First-Frame Visual Thumbnails',
         'Hashtag Groups Optimized for Explore Page Discovery'
       ],
       sampleTitle: 'This ancient secret was buried for 2,000 years... ✨',
-      sampleStats: '2.4x Higher Share Rate on Explore'
+      sampleStats: 'Native 9:16 Vertical & Burned-In Typography'
     },
     {
       id: 'tiktok',
@@ -97,11 +97,11 @@ export default function PlatformShowcase({ onSelectPreset }) {
       features: [
         'Sub-1-Second Visual Pattern Interrupts',
         'Trending Sound Sync & Dynamic Beat Matching',
-        'Native TikTok Font Presets & Bold Emojis',
+        'Native TikTok Font Presets & Bold Highlight Emojis',
         'High-Completion Loop Pacing'
       ],
       sampleTitle: 'Wait until the end... you won\'t believe what happened! 🤯',
-      sampleStats: 'Built for FYP Algorithm Recommendation'
+      sampleStats: 'Loop Pacing & Synchronized Kinetic Subtitles'
     },
     {
       id: 'linkedin',
@@ -117,7 +117,7 @@ export default function PlatformShowcase({ onSelectPreset }) {
         'High-Trust Narrative Architecture'
       ],
       sampleTitle: 'How Autonomous AI Workflows Slashed Production Costs by 90%',
-      sampleStats: '3.8x More B2B Leads vs Static Posts'
+      sampleStats: 'Crisp Audio & Sound-Off Accessible Captions'
     },
     {
       id: 'ads',
@@ -133,7 +133,7 @@ export default function PlatformShowcase({ onSelectPreset }) {
         'Broadcast-Quality 4K Master Render'
       ],
       sampleTitle: 'Stop Spending $500 per Video. Here is the Secret Tool ⚡',
-      sampleStats: 'Up to 340% Higher Conversion Rate'
+      sampleStats: 'Multiple Hook Variants & Direct Call-to-Action'
     }
   ];
 
@@ -226,9 +226,9 @@ export default function PlatformShowcase({ onSelectPreset }) {
           margin: '0 auto',
           padding: isMobile ? '20px 16px' : '36px',
           borderRadius: '24px',
-          border: `1.5px solid ${current.color}40`,
-          boxShadow: `0 20px 60px -20px ${current.color}20`,
-          background: 'linear-gradient(135deg, rgba(16, 22, 40, 0.95) 0%, rgba(9, 13, 24, 0.95) 100%)'
+          border: '1.5px solid var(--border-medium)',
+          boxShadow: 'var(--shadow-card)',
+          background: 'var(--bg-card)'
         }}>
           <div style={{
             display: 'grid',
@@ -314,11 +314,11 @@ export default function PlatformShowcase({ onSelectPreset }) {
 
             {/* Right Column: Native Feed Mockup Preview */}
             <div style={{
-              background: '#040711',
+              background: 'var(--bg-elevated)',
               borderRadius: '20px',
-              border: `2px solid ${current.color}35`,
+              border: `1.5px solid ${current.color}40`,
               padding: '16px',
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7)',
+              boxShadow: 'var(--shadow-card)',
               position: 'relative'
             }}>
               {/* Native App Top Bar */}

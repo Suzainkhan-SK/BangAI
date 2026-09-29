@@ -12,13 +12,13 @@ export default function PricingPage({ onSelectPlan }) {
       badge: 'Test Free',
       price: '$0',
       period: 'forever',
-      description: 'Ideal for trying out 75-second multi-scene shorts creation.',
+      description: 'Ideal for trying out autonomous multi-platform AI video creation.',
       features: [
-        '10 75-second Shorts per month',
+        '10 Full AI Videos per month',
+        'All Aspect Ratios (9:16 Vertical, 16:9 Cinema, 1:1)',
         'Standard HD 1080p Export',
-        '2 ElevenLabs Voice Models (Adam & Priya)',
-        '3 Visual Art Styles',
-        'Standard YouTube Upload'
+        'Studio Voice Models & Multi-Language',
+        'Kinetic Subtitles & Sound Design'
       ],
       btnText: 'Start Free Trial',
       popular: false
@@ -29,15 +29,15 @@ export default function PricingPage({ onSelectPlan }) {
       badge: 'MOST POPULAR',
       price: isAnnual ? '$29' : '$39',
       period: 'per month',
-      description: 'Everything serious faceless channel creators need to dominate.',
+      description: 'Everything serious creators & faceless channels need to scale across platforms.',
       features: [
-        '100 75-second Shorts per month',
-        '1080×1920 Full HD master export',
-        'All 6 ElevenLabs Turbo v2.5 Voices',
-        'All 6 Visual Art Styles + Pixar 3D',
-        'Automatic Word-by-Word Subtitle Burn',
-        '1-Click Automated YouTube Upload',
-        'Priority GPU Video Rendering'
+        '100 Full AI Videos per month',
+        'Full HD 1080p & 4K master export',
+        'All Studio Voice Models with Emotion Pitch',
+        'All Cinematic Visual Styles & 3D Pixar VFX',
+        'Automatic Kinetic Subtitle Burn & Dynamic BGM',
+        '1-Click Multi-Platform Publishing (YouTube, Reels, TikTok, LinkedIn)',
+        'Priority GPU Video Rendering Queue'
       ],
       btnText: 'Get Creator Pro',
       popular: true
@@ -48,15 +48,14 @@ export default function PricingPage({ onSelectPlan }) {
       badge: 'SCALE CHANNELS',
       price: isAnnual ? '$89' : '$119',
       period: 'per month',
-      description: 'For media companies running 5+ monetized YouTube channels.',
+      description: 'For media companies, marketing agencies, and high-volume content networks.',
       features: [
-        '500 75-second Shorts per month',
-        'Unlimited 1080×1920 master exports',
-        'Custom ElevenLabs Voice Cloning',
-        'Custom Art Style LoRA Training',
-        'n8n & REST API Webhook Access',
-        'Multi-Channel YouTube Integration',
-        'Dedicated 24/7 Account Manager'
+        'Unlimited AI Videos per month',
+        'Unlimited master exports in all aspect ratios',
+        'Custom Voice Cloning & Custom Music Ingestion',
+        'REST API & Enterprise Automation Webhook',
+        'Multi-Platform Automated Syndication',
+        'Dedicated 24/7 Account Manager & White-Label'
       ],
       btnText: 'Get Studio Agency',
       popular: false

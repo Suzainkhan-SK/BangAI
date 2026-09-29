@@ -1,9 +1,11 @@
 import React from 'react';
 import Hero from '../components/Landing/Hero';
+import MarqueeTicker from '../components/Landing/MarqueeTicker';
 import PlatformShowcase from '../components/Landing/PlatformShowcase';
+import BentoGrid from '../components/Landing/BentoGrid';
 import Showcase from '../components/Landing/Showcase';
-import Features from '../components/Landing/Features';
 import ComparisonSection from '../components/Landing/ComparisonSection';
+import Testimonials from '../components/Landing/Testimonials';
 import Pricing from '../components/Landing/Pricing';
 import FAQ from '../components/Landing/FAQ';
 import CallToAction from '../components/Landing/CallToAction';
@@ -48,17 +50,40 @@ export default function LandingPage({
 
   return (
     <main style={{ flex: 1, width: '100%', overflowX: 'hidden' }}>
+      {/* 1. Hero Command Center with Live Preset & Adaptive Player */}
       <Hero
         onStartCreation={onStartCreation}
         onOpenDemoPreset={onSelectPreset}
       />
+
+      {/* 2. Infinite Span Marquee Ticker (Requested viral effect) */}
+      <MarqueeTicker />
+
+      {/* 3. Omnichannel Multi-Platform Studio (YouTube, Reels, TikTok, LinkedIn) */}
       <PlatformShowcase onSelectPreset={onSelectPreset} />
+
+      {/* 4. 2026 Bento Grid: Core Engine Capabilities & Micro-Interactions */}
+      <BentoGrid />
+
+      {/* 5. Interactive Video & Voice Showcase Gallery */}
       <Showcase onSelectPreset={onSelectPreset} />
-      <Features />
+
+      {/* 6. Traditional vs Bang AI Workflow Comparison & Time-Saved Calculator */}
       <ComparisonSection />
+
+      {/* 7. Creator Community Wall of Love / Social Proof */}
+      <Testimonials />
+
+      {/* 8. Transparent Creator Pricing */}
       <Pricing onSelectPlan={() => handleAuth('signup')} />
+
+      {/* 9. Frequently Asked Questions */}
       <FAQ />
+
+      {/* 10. Bottom Launch Pad Call to Action */}
       <CallToAction onStartCreation={onStartCreation} />
+
+      {/* 11. Production-Grade Enterprise Footer */}
       <Footer onNavigate={handleNav} />
     </main>
   );

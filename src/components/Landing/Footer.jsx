@@ -46,9 +46,9 @@ export default function Footer({ onNavigate }) {
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
               <a href="#features" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>AI Storyboard Engine</a>
-              <a href="#templates" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Viral Templates</a>
-              <a href="#showcase" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Grok Imagine 1.5 Video</a>
-              <a href="#pricing" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>ElevenLabs Voices</a>
+              <a href="#features" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Viral Story Blueprints</a>
+              <a href="#showcase" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Cinematic AI Visuals</a>
+              <a href="#pricing" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Studio Voice Models</a>
             </div>
           </div>
 
@@ -59,7 +59,7 @@ export default function Footer({ onNavigate }) {
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Documentation & Guides</span>
-              <span style={{ color: 'var(--text-secondary)' }}>n8n Pipeline Architecture</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Cloud Studio Architecture</span>
               <span style={{ color: 'var(--text-secondary)' }}>API Status: Operational</span>
               <span style={{ color: 'var(--text-secondary)' }}>Creator Community</span>
             </div>

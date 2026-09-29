@@ -20,7 +20,7 @@ export default function CallToAction({ onStartCreation }) {
       paddingBottom: isMobile ? '56px' : '90px',
       overflow: 'hidden',
       borderTop: '1px solid var(--border-subtle)',
-      background: 'linear-gradient(180deg, var(--bg-surface) 0%, #03060f 100%)'
+      background: 'linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-app) 100%)'
     }}>
       {/* Cosmic Glow Mesh */}
       <div style={{
@@ -30,7 +30,7 @@ export default function CallToAction({ onStartCreation }) {
         transform: 'translate(-50%, -50%)',
         width: '900px',
         height: '450px',
-        background: 'radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(6, 182, 212, 0.15) 45%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(255, 79, 0, 0.16) 0%, rgba(56, 189, 248, 0.08) 45%, transparent 70%)',
         filter: 'blur(90px)',
         pointerEvents: 'none',
         zIndex: 0
@@ -43,11 +43,11 @@ export default function CallToAction({ onStartCreation }) {
           gap: '8px',
           padding: '6px 16px',
           borderRadius: '999px',
-          background: 'rgba(99, 102, 241, 0.1)',
-          border: '1px solid rgba(99, 102, 241, 0.35)',
+          background: 'rgba(255, 79, 0, 0.08)',
+          border: '1px solid rgba(255, 79, 0, 0.25)',
           marginBottom: '20px'
         }}>
-          <Sparkles size={14} color="#38bdf8" />
+          <Sparkles size={14} color="var(--accent-primary)" />
           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
             Start Creating in Under 60 Seconds
           </span>
@@ -61,7 +61,7 @@ export default function CallToAction({ onStartCreation }) {
           marginBottom: '18px',
           color: 'var(--text-primary)'
         }}>
-          Ready to Build Your Viral Video Empire?
+          Ready to Build Your <span className="grad-text">Viral Video Empire</span>?
         </h2>
 
         <p style={{
@@ -71,7 +71,7 @@ export default function CallToAction({ onStartCreation }) {
           maxWidth: '640px',
           margin: '0 auto 36px auto'
         }}>
-          Join over 120,000+ creators, media companies, and agencies producing high-retention content with Bang AI.
+          Turn your creative concepts into high-retention cinematic videos across YouTube, Reels, TikTok, and LinkedIn in seconds.
         </p>
 
         {/* Action Form */}
@@ -81,11 +81,11 @@ export default function CallToAction({ onStartCreation }) {
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
           gap: '10px',
-          background: 'rgba(16, 22, 40, 0.85)',
+          background: 'var(--bg-card)',
           padding: '8px',
           borderRadius: '16px',
           border: '1.5px solid var(--border-glow)',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.2)'
+          boxShadow: 'var(--shadow-glow)'
         }}>
           <input
             type="text"
