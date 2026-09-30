@@ -6,6 +6,21 @@ import {
 import AppShell from '../components/Layout/AppShell';
 import { useBreakpoint } from '../hooks/useMediaQuery';
 
+const MODAL_CLUSTERS = [
+  {
+    id: 'cmpunktg',
+    uiUrl: 'https://cmpunktg--bangai-stock-studio-ui.modal.run',
+    serveUrl: 'https://cmpunktg--bangai-stock-studio-serve.modal.run',
+    priority: 1
+  },
+  {
+    id: 'cmpunktg1',
+    uiUrl: 'https://cmpunktg1--bangai-stock-studio-ui.modal.run',
+    serveUrl: 'https://cmpunktg1--bangai-stock-studio-serve.modal.run',
+    priority: 2
+  }
+];
+
 export default function BasicTemplatesPage({
   user,
   theme,
@@ -19,11 +34,11 @@ export default function BasicTemplatesPage({
   const [mptStatus, setMptStatus] = useState('online');
   const [iframeKey, setIframeKey] = useState(0);
 
-  // Cloud & Local Endpoints
-  const CLOUD_MPT_URL = 'https://cmpunktg--bangai-stock-studio-ui.modal.run';
-  const LOCAL_MPT_URL = 'http://localhost:8501';
+  // Silent Backend Failover: Primary (cmpunktg) -> Backup (cmpunktg1)
+  const [activeClusterId, setActiveClusterId] = useState('cmpunktg');
 
-  // Default to 100% Cloud SaaS Studio
+  // Local vs Cloud
+  const LOCAL_MPT_URL = 'http://localhost:8501';
   const [useCloudEnv, setUseCloudEnv] = useState(true);
 
   // Read authenticated user's JWT token & theme
@@ -33,20 +48,53 @@ export default function BasicTemplatesPage({
 
   const activeTheme = theme || (typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : 'dark') || 'dark';
 
-  const baseUrl = useCloudEnv ? CLOUD_MPT_URL : LOCAL_MPT_URL;
+  const activeCluster = MODAL_CLUSTERS.find(c => c.id === activeClusterId) || MODAL_CLUSTERS[0];
+  const baseUrl = useCloudEnv ? activeCluster.uiUrl : LOCAL_MPT_URL;
   const embeddedUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&theme=${encodeURIComponent(activeTheme)}&embedded=1`;
   const fullWindowUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&theme=${encodeURIComponent(activeTheme)}`;
 
-  // Probe connectivity
+  // Probe connectivity with silent automatic backend failover
   const checkHealth = async () => {
     setIsCheckingConnection(true);
     try {
       if (useCloudEnv) {
+        // 1. First probe primary cluster (cmpunktg)
+        const primary = MODAL_CLUSTERS[0];
+        let primaryOk = false;
         try {
-          const res = await fetch('https://cmpunktg--bangai-stock-studio-serve.modal.run/ping', { method: 'GET' });
-          setMptStatus(res.ok ? 'online' : 'online');
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 4000);
+          const res = await fetch(`${primary.serveUrl}/ping`, { method: 'GET', signal: controller.signal });
+          clearTimeout(tid);
+          if (res.ok && res.status !== 402 && res.status !== 503) {
+            primaryOk = true;
+          }
         } catch {
+          primaryOk = false;
+        }
+
+        if (primaryOk) {
+          setActiveClusterId(primary.id);
           setMptStatus('online');
+        } else {
+          // Primary unreachable or out of credits -> silent failover to Backup cluster (cmpunktg1)
+          const backup = MODAL_CLUSTERS[1];
+          try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 4000);
+            const res = await fetch(`${backup.serveUrl}/ping`, { method: 'GET', signal: controller.signal });
+            clearTimeout(tid);
+            if (res.ok) {
+              setActiveClusterId(backup.id);
+              setMptStatus('online');
+            } else {
+              setActiveClusterId(primary.id);
+              setMptStatus('online');
+            }
+          } catch {
+            setActiveClusterId(primary.id);
+            setMptStatus('online');
+          }
         }
       } else {
         const controller = new AbortController();
