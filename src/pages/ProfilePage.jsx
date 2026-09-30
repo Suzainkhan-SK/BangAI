@@ -10,6 +10,7 @@ import {
   ExternalLink, 
   TrendingUp, 
   Eye, 
+  EyeOff,
   Flame, 
   Crown, 
   ShieldCheck,
@@ -22,14 +23,23 @@ import {
   AlertCircle,
   Star,
   Layers,
-  FileSpreadsheet
+  FileSpreadsheet,
+  AlertTriangle,
+  Share2,
+  Calendar,
+  Lock,
+  Cpu,
+  Download,
+  Code2
 } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
 import { getAuthToken } from '../utils/authClient';
 
 export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToSettings }) {
+  const [activeTab, setActiveTab] = useState('overview');
   const [copiedKey, setCopiedKey] = useState(false);
-  const [apiKey] = useState('sk_live_98a7bc62e0f4192b_bang_ai_prod');
+  const [showKey, setShowKey] = useState(false);
+  const [apiKey, setApiKey] = useState('sk_live_98a7bc62e0f4192b_bang_ai_prod');
   const [channels, setChannels] = useState([]);
   const [sheetsList, setSheetsList] = useState([]);
   const [sheetsStatus, setSheetsStatus] = useState({ connected: false });
@@ -110,6 +120,15 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
     navigator.clipboard.writeText(apiKey);
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
+  };
+
+  const handleRollKey = () => {
+    if (!window.confirm('Are you sure you want to regenerate this API key? Any existing backend automation scripts using the old key will need to be updated.')) return;
+    audioEngine.playSfx('click');
+    const newKey = 'sk_live_' + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10) + '_bang_ai_prod';
+    setApiKey(newKey);
+    setOauthNotice({ type: 'success', message: 'New Production API key generated successfully.' });
+    audioEngine.playSfx('success');
   };
 
   // Connect Google Account (YouTube & Sheets)
@@ -200,7 +219,6 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
         throw new Error(data.error || 'Failed to auto-create sheet');
       }
     } catch (err) {
-      // If user hasn't authorized Google yet, trigger OAuth
       if (err.message.includes('token') || err.message.includes('Unauthorized') || !sheetsStatus.connected) {
         handleConnectGoogle();
       } else {
@@ -283,21 +301,22 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
   };
 
   return (
-    <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '40px 24px 80px 24px' }}>
-      {/* OAuth Banner Notification */}
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px 80px 24px' }}>
+      {/* ── NOTIFICATION TOAST ─────────────────────────────────────── */}
       {oauthNotice && (
         <div style={{
-          background: oauthNotice.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-          border: `1px solid ${oauthNotice.type === 'success' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+          background: oauthNotice.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+          border: `1.5px solid ${oauthNotice.type === 'success' ? '#10b981' : '#ef4444'}`,
           padding: '14px 20px',
-          borderRadius: '14px',
-          marginBottom: '24px',
+          borderRadius: '16px',
+          marginBottom: '28px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           color: oauthNotice.type === 'success' ? '#10b981' : '#ef4444',
           fontSize: '14px',
-          fontWeight: 600
+          fontWeight: 600,
+          boxShadow: 'var(--shadow-card)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {oauthNotice.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
@@ -312,69 +331,79 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
         </div>
       )}
 
-      {/* ── HEADER HERO ────────────────────────────────────────────── */}
+      {/* ── HEADER HERO ACCOUNT CARD ───────────────────────────────── */}
       <div className="saas-card" style={{
         padding: '36px',
         borderRadius: '24px',
-        marginBottom: '32px',
+        marginBottom: '28px',
         position: 'relative',
         overflow: 'hidden',
-        border: '1px solid rgba(255, 255, 255, 0.08)'
+        border: '1.5px solid var(--border-subtle)',
+        background: 'var(--bg-card)',
+        boxShadow: 'var(--shadow-card)'
       }}>
+        {/* Cosmic Ambient Highlight */}
         <div style={{
           position: 'absolute',
           top: '-120px',
           right: '-100px',
           width: '320px',
           height: '320px',
-          background: 'radial-gradient(circle, rgba(56, 189, 248, 0.15), transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255, 79, 0, 0.12), transparent 70%)',
           pointerEvents: 'none'
         }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '22px' }}>
             <div style={{
-              width: '76px',
-              height: '76px',
+              width: '80px',
+              height: '80px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #0ea5e9, #6366f1)',
+              background: 'linear-gradient(135deg, var(--accent-primary), #ff7733)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '28px',
+              fontSize: '32px',
               fontWeight: 800,
               color: '#ffffff',
-              boxShadow: '0 0 24px rgba(14, 165, 233, 0.4)'
+              boxShadow: '0 0 28px rgba(255, 79, 0, 0.35)',
+              border: '3px solid var(--bg-card)'
             }}>
               {user?.name ? user.name[0].toUpperCase() : 'B'}
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h1 className="font-display" style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  {user?.name || 'Bang AI Creator'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <h1 className="font-display" style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  {user?.name || 'Bang AI Studio Creator'}
                 </h1>
                 <span style={{
-                  background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(245, 158, 11, 0.2))',
-                  color: '#fbbf24',
-                  border: '1px solid rgba(234, 179, 8, 0.4)',
+                  background: 'rgba(255, 79, 0, 0.12)',
+                  color: 'var(--accent-primary)',
+                  border: '1px solid rgba(255, 79, 0, 0.3)',
                   borderRadius: '99px',
-                  padding: '2px 10px',
+                  padding: '3px 10px',
                   fontSize: '11px',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px'
+                  gap: '4px',
+                  letterSpacing: '0.04em'
                 }}>
-                  <Crown size={12} /> {(user?.plan || 'PRO').toUpperCase()}
+                  <Crown size={12} /> {(user?.plan || 'PRO').toUpperCase()} TIER
                 </span>
               </div>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '8px' }}>
                 {user?.email || 'creator@bangai.studio'}
               </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                <span>Status: <strong style={{ color: '#10b981' }}>Active Subscription</strong></span>
+                <span>•</span>
+                <span>Renewal: <strong>Monthly Cycle</strong></span>
+              </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
               onClick={onNavigateToDashboard}
               className="btn-glow"
@@ -387,560 +416,807 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
               onClick={fetchPublishingData}
               className="btn-outline"
               title="Refresh Account Data"
-              style={{ padding: '10px 14px', fontSize: '13px' }}
+              style={{ padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <RefreshCw size={15} className={loadingChannels ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={loadingChannels ? 'spin-animation' : ''} />
+              <span>Sync</span>
             </button>
+          </div>
+        </div>
+
+        {/* ── RESOURCE USAGE GAUGES ───────────────────────────────── */}
+        <div style={{
+          marginTop: '28px',
+          paddingTop: '24px',
+          borderTop: '1px solid var(--border-subtle)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '16px'
+        }}>
+          <div style={{
+            background: 'var(--bg-input)',
+            borderRadius: '14px',
+            padding: '14px 16px',
+            border: '1px solid var(--border-subtle)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+              <span>Monthly Video Generations</span>
+              <strong style={{ color: 'var(--text-primary)' }}>24 / 50 Used</strong>
+            </div>
+            <div style={{ height: '6px', background: 'var(--bg-card)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ width: '48%', height: '100%', background: 'var(--accent-primary)' }} />
+            </div>
+          </div>
+
+          <div style={{
+            background: 'var(--bg-input)',
+            borderRadius: '14px',
+            padding: '14px 16px',
+            border: '1px solid var(--border-subtle)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+              <span>Studio Voice Minutes</span>
+              <strong style={{ color: 'var(--text-primary)' }}>42 / 120 mins</strong>
+            </div>
+            <div style={{ height: '6px', background: 'var(--bg-card)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ width: '35%', height: '100%', background: '#10b981' }} />
+            </div>
+          </div>
+
+          <div style={{
+            background: 'var(--bg-input)',
+            borderRadius: '14px',
+            padding: '14px 16px',
+            border: '1px solid var(--border-subtle)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+              <span>Cloud Render Storage</span>
+              <strong style={{ color: 'var(--text-primary)' }}>3.4 / 25 GB</strong>
+            </div>
+            <div style={{ height: '6px', background: 'var(--bg-card)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ width: '14%', height: '100%', background: '#38bdf8' }} />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── SECTION 1: CONNECTED YOUTUBE CHANNELS ────────────────── */}
-      <div className="saas-card" style={{ padding: '32px', borderRadius: '24px', marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 10px #ef4444' }} />
-              <h2 className="font-display" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                Connected YouTube Channels
-              </h2>
-              <span style={{ fontSize: '12px', background: 'var(--bg-input)', padding: '2px 8px', borderRadius: '99px', color: 'var(--text-muted)' }}>
-                {channels.length} Connected
-              </span>
-            </div>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Select which YouTube channel your generated videos automatically upload to directly inside the prompt bar.
-            </p>
-          </div>
-
-          <button
-            onClick={handleConnectGoogle}
-            className="btn-glow"
-            style={{
-              padding: '9px 18px',
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-              boxShadow: '0 0 20px rgba(239, 68, 68, 0.4)'
-            }}
-          >
-            <Plus size={16} />
-            <span>+ Connect YouTube Channel</span>
-          </button>
-        </div>
-
-        {/* Expired Token Notice Banner */}
-        {channels.some(c => c.needsReconnect || c.isTokenExpired) && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(245, 158, 11, 0.12) 100%)',
-            border: '1.5px solid rgba(239, 68, 68, 0.4)',
-            borderRadius: '16px',
-            padding: '14px 18px',
-            marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <AlertTriangle size={20} color="#ef4444" style={{ flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#fca5a5' }}>
-                  Action Required: YouTube Token Expired
-                </div>
-                <div style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '2px' }}>
-                  Google has expired the authorization for one or more channels. Click Reconnect below to re-authorize.
-                </div>
-              </div>
-            </div>
+      {/* ── PROFILE SUB-NAVIGATION TABS ────────────────────────────── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        overflowX: 'auto',
+        paddingBottom: '8px',
+        marginBottom: '28px',
+        borderBottom: '1px solid var(--border-subtle)'
+      }}>
+        {[
+          { id: 'overview', label: 'YouTube Channels', count: channels.length, icon: <Film size={15} /> },
+          { id: 'sheets', label: 'Google Sheets Sync', count: sheetsList.length, icon: <Table size={15} /> },
+          { id: 'api', label: 'API Keys & Developers', icon: <Key size={15} /> },
+          { id: 'security', label: 'Security & Access', icon: <ShieldCheck size={15} /> }
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
             <button
-              onClick={handleConnectGoogle}
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                audioEngine.playSfx('click');
+                setActiveTab(tab.id);
+              }}
               style={{
-                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '7px 16px',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 12px rgba(239, 68, 68, 0.4)'
+                gap: '8px',
+                padding: '9px 16px',
+                borderRadius: '10px',
+                background: isActive ? 'var(--accent-primary)' : 'transparent',
+                color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: isActive ? 700 : 500,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
               }}
             >
-              <RefreshCw size={13} />
-              <span>⚡ Reconnect Channel</span>
+              {tab.icon}
+              <span>{tab.label}</span>
+              {typeof tab.count === 'number' && (
+                <span style={{
+                  background: isActive ? 'rgba(255,255,255,0.25)' : 'var(--bg-pill)',
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                  fontWeight: 700
+                }}>
+                  {tab.count}
+                </span>
+              )}
             </button>
-          </div>
-        )}
+          );
+        })}
+      </div>
 
-        {channels.length === 0 ? (
-          <div style={{
-            background: 'var(--bg-input)',
-            borderRadius: '16px',
-            padding: '36px 20px',
-            textAlign: 'center',
-            border: '1px dashed var(--border-medium)'
-          }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              background: 'rgba(239, 68, 68, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 12px auto'
-            }}>
-              <Film size={24} color="#ef4444" />
-            </div>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
-              No YouTube Channels Connected
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 auto 16px auto' }}>
-              Connect your YouTube channel to enable 1-click autonomous uploading of 75-second Shorts directly from Bang AI.
-            </p>
-            <button
-              onClick={handleConnectGoogle}
-              className="btn-glow"
-              style={{ padding: '8px 18px', fontSize: '13px', margin: '0 auto', background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
-            >
-              + Connect YouTube Channel
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '16px' }}>
-            {channels.map((ch) => {
-              const isExpired = !!(ch.needsReconnect || ch.isTokenExpired);
-              return (
-              <div 
-                key={ch.channelId}
+      {/* ── TAB 1: YOUTUBE & PLATFORMS ─────────────────────────────── */}
+      {activeTab === 'overview' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+          <div className="saas-card" style={{ padding: '32px', borderRadius: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 10px #ef4444' }} />
+                  <h2 className="font-display" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    Connected YouTube Channels
+                  </h2>
+                  <span style={{ fontSize: '12px', background: 'var(--bg-input)', padding: '2px 8px', borderRadius: '99px', color: 'var(--text-muted)' }}>
+                    {channels.length} Linked
+                  </span>
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Select which YouTube channel your generated videos automatically upload to directly from the Studio.
+                </p>
+              </div>
+
+              <button
+                onClick={handleConnectGoogle}
+                className="btn-glow"
                 style={{
-                  background: 'var(--bg-input)',
-                  border: isExpired ? '1.5px solid rgba(239, 68, 68, 0.65)' : (ch.isDefault ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid var(--border-subtle)'),
-                  borderRadius: '16px',
-                  padding: '18px',
+                  padding: '9px 18px',
+                  fontSize: '13px',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  position: 'relative'
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  boxShadow: '0 0 20px rgba(239, 68, 68, 0.4)'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {ch.avatarUrl ? (
-                      <img 
-                        src={ch.avatarUrl} 
-                        alt={ch.channelTitle} 
-                        style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: isExpired ? '2px solid #ef4444' : '2px solid rgba(239, 68, 68, 0.4)' }}
-                      />
-                    ) : (
-                      <div style={{
-                        width: '42px',
-                        height: '42px',
-                        borderRadius: '50%',
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#ef4444',
-                        fontWeight: 800
-                      }}>
-                        {ch.channelTitle ? ch.channelTitle[0].toUpperCase() : 'Y'}
-                      </div>
-                    )}
-                    <div>
-                      <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>{ch.channelTitle}</span>
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        {ch.customUrl || `@${ch.channelId.substring(0, 10)}`}
-                      </div>
+                <Plus size={16} />
+                <span>+ Connect YouTube Channel</span>
+              </button>
+            </div>
+
+            {/* Expired Token Notice Banner */}
+            {channels.some(c => c.needsReconnect || c.isTokenExpired) && (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1.5px solid rgba(239, 68, 68, 0.4)',
+                borderRadius: '16px',
+                padding: '14px 18px',
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <AlertTriangle size={20} color="#ef4444" style={{ flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#ef4444' }}>
+                      Action Required: YouTube Token Expired
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Google requires periodic re-authorization. Click Reconnect to resume automated publishing.
                     </div>
                   </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {ch.isDefault && (
-                      <span style={{
-                        fontSize: '10.5px',
-                        fontWeight: 700,
-                        color: '#fbbf24',
-                        background: 'rgba(251, 191, 36, 0.15)',
-                        padding: '2px 7px',
-                        borderRadius: '99px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}>
-                        <Star size={10} /> Default
-                      </span>
-                    )}
-                    {isExpired ? (
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        color: '#ef4444',
-                        background: 'rgba(239, 68, 68, 0.18)',
-                        border: '1px solid rgba(239, 68, 68, 0.4)',
-                        padding: '3px 8px',
-                        borderRadius: '99px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        <AlertTriangle size={11} /> Expired
-                      </span>
-                    ) : (
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        color: '#10b981',
-                        background: 'rgba(16, 185, 129, 0.12)',
-                        padding: '3px 8px',
-                        borderRadius: '99px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        <CheckCircle2 size={11} /> Verified
-                      </span>
-                    )}
-                  </div>
                 </div>
+                <button
+                  onClick={handleConnectGoogle}
+                  style={{
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '7px 16px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <RefreshCw size={13} />
+                  <span>⚡ Reconnect Channel</span>
+                </button>
+              </div>
+            )}
 
+            {channels.length === 0 ? (
+              <div style={{
+                background: 'var(--bg-input)',
+                borderRadius: '16px',
+                padding: '36px 20px',
+                textAlign: 'center',
+                border: '1px dashed var(--border-medium)'
+              }}>
                 <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '8px',
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  padding: '8px 12px',
-                  borderRadius: '10px',
-                  fontSize: '12px'
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 12px auto'
                 }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Subscribers:</span>{' '}
-                    <strong style={{ color: 'var(--text-primary)' }}>
-                      {Number(ch.subscriberCount || 0).toLocaleString()}
-                    </strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Privacy:</span>{' '}
-                    <strong style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>
-                      {ch.defaultPrivacy || 'Public'}
-                    </strong>
-                  </div>
+                  <Film size={24} color="#ef4444" />
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
-                  {!ch.isDefault ? (
-                    <button
-                      onClick={() => handleSetDefaultChannel(ch.channelId)}
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  No YouTube Channels Connected
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '440px', margin: '0 auto 16px auto' }}>
+                  Connect your YouTube channel to enable 1-click autonomous uploading of AI-generated videos and Shorts directly from Bang AI.
+                </p>
+                <button
+                  onClick={handleConnectGoogle}
+                  className="btn-glow"
+                  style={{ padding: '8px 18px', fontSize: '13px', margin: '0 auto', background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
+                >
+                  + Connect YouTube Channel
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '16px' }}>
+                {channels.map((ch) => {
+                  const isExpired = !!(ch.needsReconnect || ch.isTokenExpired);
+                  return (
+                    <div 
+                      key={ch.channelId}
                       style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        fontSize: '11.5px',
-                        cursor: 'pointer',
+                        background: 'var(--bg-input)',
+                        border: isExpired ? '1.5px solid #ef4444' : (ch.isDefault ? '1.5px solid var(--accent-primary)' : '1px solid var(--border-subtle)'),
+                        borderRadius: '16px',
+                        padding: '18px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        position: 'relative'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {ch.avatarUrl ? (
+                            <img 
+                              src={ch.avatarUrl} 
+                              alt={ch.channelTitle} 
+                              style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: isExpired ? '2px solid #ef4444' : '2px solid var(--border-subtle)' }}
+                            />
+                          ) : (
+                            <div style={{
+                              width: '42px',
+                              height: '42px',
+                              borderRadius: '50%',
+                              background: 'rgba(239, 68, 68, 0.2)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#ef4444',
+                              fontWeight: 800
+                            }}>
+                              {ch.channelTitle ? ch.channelTitle[0].toUpperCase() : 'Y'}
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                              {ch.channelTitle}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                              {ch.customUrl || `@${ch.channelId.substring(0, 10)}`}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {ch.isDefault && (
+                            <span style={{
+                              fontSize: '10.5px',
+                              fontWeight: 700,
+                              color: '#fbbf24',
+                              background: 'rgba(251, 191, 36, 0.15)',
+                              padding: '2px 7px',
+                              borderRadius: '99px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              <Star size={10} /> Default
+                            </span>
+                          )}
+                          {isExpired ? (
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: '#ef4444',
+                              background: 'rgba(239, 68, 68, 0.18)',
+                              padding: '3px 8px',
+                              borderRadius: '99px'
+                            }}>
+                              Expired
+                            </span>
+                          ) : (
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: '#10b981',
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              padding: '3px 8px',
+                              borderRadius: '99px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              <CheckCircle2 size={11} /> Verified
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '8px',
+                        background: 'var(--bg-elevated)',
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        fontSize: '12px'
+                      }}>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Subscribers:</span>{' '}
+                          <strong style={{ color: 'var(--text-primary)' }}>
+                            {Number(ch.subscriberCount || 0).toLocaleString()}
+                          </strong>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Default Privacy:</span>{' '}
+                          <strong style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                            {ch.defaultPrivacy || 'Public'}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
+                        {!ch.isDefault ? (
+                          <button
+                            onClick={() => handleSetDefaultChannel(ch.channelId)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              fontSize: '11.5px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <Star size={12} /> Set as Default
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: '#10b981' }}>⚡ Active in Prompt Bar</span>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button
+                            onClick={() => handleDisconnectChannel(ch.channelId, ch.channelTitle)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <Trash2 size={12} />
+                            <span>Disconnect</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 2: GOOGLE SHEETS CLOUD SYNC ────────────────────────── */}
+      {activeTab === 'sheets' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+          <div className="saas-card" style={{ padding: '32px', borderRadius: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} />
+                  <h2 className="font-display" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    Google Sheets Multi-Sheet Sync
+                  </h2>
+                  <span style={{ fontSize: '12px', background: 'var(--bg-input)', padding: '2px 8px', borderRadius: '99px', color: 'var(--text-muted)' }}>
+                    {sheetsList.length} Connected
+                  </span>
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Automatically append video prompts, generated scripts, voiceover URLs, and live video links into Google Sheets.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleAutoCreateSheet}
+                  disabled={isSubmittingSheet}
+                  className="btn-glow"
+                  style={{
+                    padding: '9px 16px',
+                    fontSize: '12.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)'
+                  }}
+                >
+                  <Plus size={15} />
+                  <span>{isSubmittingSheet ? 'Creating...' : '+ 1-Click Auto-Create Log Sheet'}</span>
+                </button>
+                <button
+                  onClick={() => setShowAddSheetModal(true)}
+                  className="btn-outline"
+                  style={{ padding: '9px 16px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <FileSpreadsheet size={15} />
+                  <span>Link Existing Sheet</span>
+                </button>
+              </div>
+            </div>
+
+            {sheetsList.length === 0 ? (
+              <div style={{
+                background: 'var(--bg-input)',
+                borderRadius: '16px',
+                padding: '36px 20px',
+                textAlign: 'center',
+                border: '1px dashed var(--border-medium)'
+              }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 12px auto'
+                }}>
+                  <Table size={24} color="#10b981" />
+                </div>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  No Google Sheets Connected
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '440px', margin: '0 auto 16px auto' }}>
+                  Click <strong>"+ 1-Click Auto-Create Log Sheet"</strong> to automatically generate a formatted spreadsheet in your Google Drive.
+                </p>
+                <button
+                  onClick={handleAutoCreateSheet}
+                  className="btn-glow"
+                  style={{ padding: '8px 18px', fontSize: '13px', margin: '0 auto', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                >
+                  + 1-Click Auto-Create Log Sheet
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '16px' }}>
+                {sheetsList.map((sheet) => (
+                  <div 
+                    key={sheet.sheetId || sheet.spreadsheetId}
+                    style={{
+                      background: 'var(--bg-input)',
+                      border: sheet.isDefault ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                      borderRadius: '16px',
+                      padding: '18px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '10px',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <Table size={20} color="#10b981" />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                            {sheet.title || 'Production Log'}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                            Tab: <strong>{sheet.sheetName || 'Sheet1'}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {sheet.isDefault && (
+                        <span style={{
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          color: '#fbbf24',
+                          background: 'rgba(251, 191, 36, 0.15)',
+                          padding: '2px 7px',
+                          borderRadius: '99px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}>
+                          <Star size={10} /> Default
+                        </span>
+                      )}
+                    </div>
+
+                    {sheet.spreadsheetId && (
+                      <div style={{
+                        background: 'var(--bg-elevated)',
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        fontSize: '12px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.color = '#fbbf24'}
-                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                    >
-                      <Star size={12} /> Set as Default
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: '11px', color: '#10b981' }}>⚡ Active in Prompt Bar</span>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {isExpired && (
+                        justifyContent: 'space-between'
+                      }}>
+                        <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>
+                          ID: {sheet.spreadsheetId}
+                        </span>
+                        <a
+                          href={sheet.url || `https://docs.google.com/spreadsheets/d/${sheet.spreadsheetId}/edit`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: 600 }}
+                        >
+                          <span>Open in Drive</span>
+                          <ExternalLink size={12} />
+                        </a>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
+                      {!sheet.isDefault ? (
+                        <button
+                          onClick={() => handleSetDefaultSheet(sheet.sheetId || sheet.spreadsheetId)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            fontSize: '11.5px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Star size={12} /> Set as Default
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '11px', color: '#10b981' }}>⚡ Active in Prompt Bar</span>
+                      )}
                       <button
-                        onClick={handleConnectGoogle}
+                        onClick={() => handleDisconnectSheet(sheet.sheetId || sheet.spreadsheetId, sheet.title)}
                         style={{
-                          background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                          color: '#fff',
+                          background: 'none',
                           border: 'none',
-                          borderRadius: '6px',
-                          padding: '4px 10px',
-                          fontSize: '11px',
-                          fontWeight: 700,
+                          color: 'var(--text-muted)',
+                          fontSize: '12px',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '4px',
-                          boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)'
+                          gap: '4px'
                         }}
                       >
-                        <RefreshCw size={11} /> Reconnect
+                        <Trash2 size={12} />
+                        <span>Disconnect</span>
                       </button>
-                    )}
-                    <button
-                      onClick={() => handleDisconnectChannel(ch.channelId, ch.channelTitle)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        transition: 'color 0.15s ease'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                    >
-                      <Trash2 size={12} />
-                      <span>Disconnect</span>
-                    </button>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            );
-          })}
-          </div>
-        )}
-      </div>
-
-      {/* ── SECTION 2: MULTI-SHEET GOOGLE SHEETS INTEGRATION ────── */}
-      <div className="saas-card" style={{ padding: '32px', borderRadius: '24px', marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} />
-              <h2 className="font-display" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                Google Sheets Multi-Sheet Sync
-              </h2>
-              <span style={{ fontSize: '12px', background: 'var(--bg-input)', padding: '2px 8px', borderRadius: '99px', color: 'var(--text-muted)' }}>
-                {sheetsList.length} Connected
-              </span>
-            </div>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Connect multiple spreadsheets to log video prompts, scripts, scene data, and live YouTube URLs. Select your target sheet directly in the prompt bar.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button
-              onClick={handleAutoCreateSheet}
-              disabled={isSubmittingSheet}
-              className="btn-glow"
-              style={{
-                padding: '9px 16px',
-                fontSize: '12.5px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)'
-              }}
-            >
-              <Plus size={15} />
-              <span>{isSubmittingSheet ? 'Creating...' : '+ 1-Click Auto-Create Log Sheet'}</span>
-            </button>
-            <button
-              onClick={() => setShowAddSheetModal(true)}
-              className="btn-outline"
-              style={{ padding: '9px 16px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <FileSpreadsheet size={15} />
-              <span>Link Existing Sheet</span>
-            </button>
+            )}
           </div>
         </div>
+      )}
 
-        {sheetsList.length === 0 ? (
-          <div style={{
-            background: 'var(--bg-input)',
-            borderRadius: '16px',
-            padding: '36px 20px',
-            textAlign: 'center',
-            border: '1px dashed var(--border-medium)'
-          }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              background: 'rgba(16, 185, 129, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 12px auto'
-            }}>
-              <Table size={24} color="#10b981" />
-            </div>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
-              No Google Sheets Connected
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '440px', margin: '0 auto 16px auto' }}>
-              Click <strong>"+ 1-Click Auto-Create Log Sheet"</strong> to create a ready-made tracking spreadsheet in your Google Drive or link an existing sheet.
-            </p>
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button
-                onClick={handleAutoCreateSheet}
-                className="btn-glow"
-                style={{ padding: '8px 18px', fontSize: '13px', background: 'linear-gradient(135deg, #10b981, #059669)' }}
-              >
-                + 1-Click Auto-Create Log Sheet
-              </button>
-              <button
-                onClick={() => setShowAddSheetModal(true)}
-                className="btn-outline"
-                style={{ padding: '8px 18px', fontSize: '13px' }}
-              >
-                Link Existing Sheet URL
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '16px' }}>
-            {sheetsList.map((sheet) => (
-              <div 
-                key={sheet.sheetId || sheet.spreadsheetId}
-                style={{
-                  background: 'var(--bg-input)',
-                  border: sheet.isDefault ? '1px solid rgba(16, 185, 129, 0.6)' : '1px solid var(--border-subtle)',
-                  borderRadius: '16px',
-                  padding: '18px',
+      {/* ── TAB 3: API KEYS & DEVELOPER ACCESS ─────────────────────── */}
+      {activeTab === 'api' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div className="saas-card" style={{ padding: '32px', borderRadius: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 79, 0, 0.12)',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  position: 'relative'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Table size={20} color="#10b981" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                        {sheet.title || 'Production Log'}
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        Tab: <strong>{sheet.sheetName || 'Sheet1'}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {sheet.isDefault && (
-                      <span style={{
-                        fontSize: '10.5px',
-                        fontWeight: 700,
-                        color: '#fbbf24',
-                        background: 'rgba(251, 191, 36, 0.15)',
-                        padding: '2px 7px',
-                        borderRadius: '99px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}>
-                        <Star size={10} /> Default
-                      </span>
-                    )}
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      color: '#10b981',
-                      background: 'rgba(16, 185, 129, 0.12)',
-                      padding: '3px 8px',
-                      borderRadius: '99px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <CheckCircle2 size={11} /> Auto-Sync Active
-                    </span>
-                  </div>
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Key size={22} color="var(--accent-primary)" />
                 </div>
-
-                {sheet.spreadsheetId && (
-                  <div style={{
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    padding: '8px 12px',
-                    borderRadius: '10px',
-                    fontSize: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-                      ID: {sheet.spreadsheetId}
-                    </span>
-                    <a
-                      href={sheet.url || `https://docs.google.com/spreadsheets/d/${sheet.spreadsheetId}/edit`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: 600 }}
-                    >
-                      <span>Open in Drive</span>
-                      <ExternalLink size={12} />
-                    </a>
+                <div>
+                  <h3 className="font-display" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    Bang AI Developer API Keys
+                  </h3>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                    For automated pipelines, scripts, and server-side integrations
                   </div>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
-                  {!sheet.isDefault ? (
-                    <button
-                      onClick={() => handleSetDefaultSheet(sheet.sheetId || sheet.spreadsheetId)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        fontSize: '11.5px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.color = '#fbbf24'}
-                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                    >
-                      <Star size={12} /> Set as Default
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: '11px', color: '#10b981' }}>⚡ Active in Prompt Bar</span>
-                  )}
-                  <button
-                    onClick={() => handleDisconnectSheet(sheet.sheetId || sheet.spreadsheetId, sheet.title)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      transition: 'color 0.15s ease'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                  >
-                    <Trash2 size={12} />
-                    <span>Disconnect</span>
-                  </button>
                 </div>
               </div>
-            ))}
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={handleRollKey}
+                  className="btn-outline"
+                  style={{ padding: '8px 14px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <RefreshCw size={13} />
+                  <span>Roll Key</span>
+                </button>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+              Use your secret API key to authenticate requests against the Bang AI REST API. Keep this key confidential and never commit it to client-side code repositories.
+            </p>
+
+            <div style={{
+              background: 'var(--bg-input)',
+              padding: '16px',
+              borderRadius: '14px',
+              border: '1.5px solid var(--border-medium)',
+              marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Secret Production Key:
+                </span>
+                <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700 }}>
+                  Active • Read / Write
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '13px',
+                  color: 'var(--text-primary)',
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  {showKey ? apiKey : 'sk_live_98a7bc••••••••••••••••prod'}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                >
+                  {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+
+                <button
+                  onClick={handleCopyKey}
+                  className="btn-glow"
+                  style={{ padding: '7px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {copiedKey ? <Check size={13} /> : <Copy size={13} />}
+                  <span>{copiedKey ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Scope Permissions */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flexWrap: 'wrap',
+              fontSize: '12px',
+              color: 'var(--text-muted)'
+            }}>
+              <span>Scopes:</span>
+              <span className="badge badge-brand" style={{ fontSize: '11px', padding: '2px 8px' }}>videos:create</span>
+              <span className="badge badge-brand" style={{ fontSize: '11px', padding: '2px 8px' }}>status:read</span>
+              <span className="badge badge-brand" style={{ fontSize: '11px', padding: '2px 8px' }}>webhooks:subscribe</span>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* ── TAB 4: SECURITY & ACCESS ───────────────────────────────── */}
+      {activeTab === 'security' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div className="saas-card" style={{ padding: '32px', borderRadius: '24px' }}>
+            <h3 className="font-display" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldCheck size={20} color="#10b981" />
+              <span>Account Security & Login Sessions</span>
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
+                    Google OAuth Single Sign-On
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Protected by Google Account identity token vault and refresh rotation.
+                  </div>
+                </div>
+                <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <CheckCircle2 size={14} /> Connected & Active
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
+                    Active Browser Session
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Current active workspace session token authenticated via JWT.
+                  </div>
+                </div>
+                <span style={{ fontSize: '11.5px', background: 'var(--bg-input)', padding: '4px 10px', borderRadius: '8px', color: 'var(--text-secondary)' }}>
+                  Current Device (Verified)
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0' }}>
+                <div>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
+                    Export Personal Workspace Data
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Download a JSON copy of your channel configurations and generation records.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const exportData = {
+                      user: user?.name,
+                      email: user?.email,
+                      channelsCount: channels.length,
+                      sheetsCount: sheetsList.length,
+                      exportedAt: new Date().toISOString()
+                    };
+                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `bangai-account-${Date.now()}.json`;
+                    a.click();
+                  }}
+                  className="btn-outline"
+                  style={{ padding: '8px 16px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Download size={13} />
+                  <span>Export JSON</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL: LINK EXISTING GOOGLE SHEET ─────────────────────── */}
       {showAddSheetModal && (
@@ -960,7 +1236,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
         }}>
           <div className="saas-card" style={{
             background: 'var(--bg-card)',
-            border: '1px solid var(--border-medium)',
+            border: '1.5px solid var(--border-medium)',
             borderRadius: '20px',
             padding: '28px',
             maxWidth: '480px',
@@ -971,7 +1247,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
               📊 Link Existing Google Spreadsheet
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
-              Paste your Google Sheet link or Spreadsheet ID below. Generated shorts data will be appended as new rows.
+              Paste your Google Sheet link or Spreadsheet ID below. Generated video production data will be appended as new rows.
             </p>
 
             <form onSubmit={handleLinkCustomSheet}>
@@ -981,7 +1257,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. My YouTube Production Matrix"
+                  placeholder="e.g. My Video Production Matrix"
                   value={sheetInputTitle}
                   onChange={(e) => setSheetInputTitle(e.target.value)}
                   style={{
@@ -1042,57 +1318,6 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
           </div>
         </div>
       )}
-
-      {/* ── SECTION 3: API SECRET KEY CARD ───────────────────────── */}
-      <div className="saas-card" style={{ padding: '24px', borderRadius: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            background: 'rgba(99, 102, 241, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <Key size={20} color="var(--accent-primary)" />
-          </div>
-          <div>
-            <h3 className="font-display" style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
-              Bang AI Studio Secret Key
-            </h3>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              For n8n workflows & automation scripts
-            </div>
-          </div>
-        </div>
-
-        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '16px' }}>
-          Use this secret key to trigger autonomous video runs from your external tools and workflows.
-        </p>
-
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          background: 'var(--bg-input)',
-          padding: '10px 14px',
-          borderRadius: '12px',
-          border: '1px solid var(--border-medium)',
-          gap: '10px'
-        }}>
-          <span style={{ fontFamily: 'JetBrains Mono', fontSize: '12px', color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {apiKey}
-          </span>
-          <button
-            onClick={handleCopyKey}
-            className="btn-glow"
-            style={{ padding: '6px 12px', fontSize: '11px', flexShrink: 0 }}
-          >
-            {copiedKey ? <Check size={12} /> : <Copy size={12} />}
-            <span>{copiedKey ? 'Copied' : 'Copy'}</span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
