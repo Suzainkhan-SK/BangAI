@@ -841,7 +841,7 @@ export default function ChatPromptBar({
         }}>
           {/* Left Mode Pill Badges & Model Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            {/* Model Selector Pill (Single Mode) or Fiesta Arena Badge */}
+            {/* Model Selector Pill (Single Mode) or Model Arena Badge */}
             {chatMode === 'fiesta' ? (
               <div style={{
                 display: 'flex',
@@ -856,7 +856,7 @@ export default function ChatPromptBar({
                 fontWeight: 700
               }}>
                 <Zap size={11} color="#a855f7" />
-                <span>Multi-Model Fiesta</span>
+                <span>Model Arena</span>
               </div>
             ) : (
               <div style={{ position: 'relative' }} ref={modelMenuRef}>

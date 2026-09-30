@@ -175,7 +175,7 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
   const [feedbackMap, setFeedbackMap] = useState({});
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Chat Mode: 'single' | 'fiesta' (AI Fiesta multi-model arena)
+  // Chat Mode: 'single' | 'fiesta' (Multi-model arena)
   const [chatMode, setChatMode] = useState(() => {
     try {
       return localStorage.getItem('bangai_chat_mode') || 'single';
@@ -184,7 +184,7 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
     }
   });
 
-  // Fiesta comparison models (default to 4.5 Ultra vs 4.5 Thinking)
+  // Arena comparison models (default to 4.5 Ultra vs 4.5 Thinking)
   const [fiestaModels, setFiestaModels] = useState(() => {
     try {
       const raw = localStorage.getItem('bangai_fiesta_models');
@@ -1626,7 +1626,7 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                 }}
               >
                 <Columns size={13} />
-                <span>AI Fiesta</span>
+                <span>Model Arena</span>
                 <span style={{
                   fontSize: '9px',
                   fontWeight: 800,
@@ -2130,7 +2130,7 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative', zIndex: 1 }}>
                 <h1 className="font-display" style={{ fontSize: 'clamp(24px, 3.8vw, 32px)', fontWeight: 850, letterSpacing: '-0.025em', margin: 0, color: 'var(--text-primary)' }}>
                   {chatMode === 'fiesta' ? (
-                    <>AI Fiesta <span className="grad-text">Multi-Model Arena</span></>
+                    <>Bang AI <span className="grad-text">Model Arena</span></>
                   ) : (
                     <>How can Bang AI <span className="grad-text">help you create today?</span></>
                   )}
