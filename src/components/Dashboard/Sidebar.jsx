@@ -4,7 +4,7 @@ import {
   Settings, LogOut, Search, Trash2, Video, Film, Clock,
   CheckCircle2, AlertCircle, XCircle, Loader2, Zap,
   Mic2, Music, Type, X, LayoutDashboard, User, CreditCard,
-  Bot
+  Bot, Palette
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
 
@@ -119,6 +119,9 @@ export default function Sidebar({
     if (!path) return currentRoutePath === '';
     if (path === 'dashboard') {
       return currentRoutePath === 'dashboard' || currentRoutePath.startsWith('dashboard/');
+    }
+    if (path === 'studio') {
+      return currentRoutePath === 'studio' || currentRoutePath.startsWith('studio/') || currentRoutePath.startsWith('studio-');
     }
     return currentRoutePath === path || currentRoutePath.startsWith(path + '/');
   };
@@ -351,6 +354,30 @@ export default function Sidebar({
             }}
           >
             <Bot size={16} />
+          </button>
+
+          {/* Design Studio */}
+          <button
+            type="button"
+            onClick={() => navigateTo('studio/voices')}
+            title="Design Studio (Voices, Subtitles & Music)"
+            aria-label="Design Studio"
+            aria-current={isItemActive('studio') ? 'page' : undefined}
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              background: isItemActive('studio') ? 'rgba(168,85,247,0.18)' : 'transparent',
+              border: `1.5px solid ${isItemActive('studio') ? '#a855f7' : 'transparent'}`,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: isItemActive('studio') ? '#c084fc' : 'var(--text-muted)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Palette size={16} />
           </button>
 
           <div style={{ width: '28px', height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
@@ -681,6 +708,37 @@ export default function Sidebar({
             </div>
             <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: 'linear-gradient(135deg, #10b981, #06b6d4)', color: '#fff' }}>
               4.0
+            </span>
+          </button>
+
+          {/* Design Studio */}
+          <button
+            type="button"
+            onClick={() => navigateTo('studio/voices')}
+            aria-label="Design Studio"
+            aria-current={isItemActive('studio') ? 'page' : undefined}
+            style={{
+              width: '100%',
+              padding: '6px 8px',
+              background: isItemActive('studio') ? 'rgba(168,85,247,0.18)' : 'transparent',
+              border: `1px solid ${isItemActive('studio') ? 'rgba(168,85,247,0.45)' : 'transparent'}`,
+              borderRadius: '7px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              color: isItemActive('studio') ? '#c084fc' : 'var(--text-secondary)',
+              fontSize: '12px',
+              fontWeight: isItemActive('studio') ? 700 : 500,
+              transition: 'all 0.12s ease'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Palette size={14} color={isItemActive('studio') ? '#c084fc' : 'var(--text-muted)'} />
+              <span>Design Studio</span>
+            </div>
+            <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: 'rgba(168,85,247,0.2)', color: '#c084fc' }}>
+              LAB
             </span>
           </button>
         </div>
