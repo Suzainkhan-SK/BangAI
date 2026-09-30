@@ -30,8 +30,10 @@ import {
 import { VOICES } from '../data/voices';
 import { VISUAL_STYLES } from '../data/visualStyles';
 import { audioEngine } from '../audio/audioEngine';
+import { useBreakpoint } from '../hooks/useMediaQuery';
 
 export default function SettingsPage({ user, onNavigateToDashboard }) {
+  const { isMobile, isTablet } = useBreakpoint();
   const [activeTab, setActiveTab] = useState('ai');
   
   // AI Defaults
@@ -121,7 +123,7 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
   };
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '40px 24px 80px 24px' }}>
+    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: isMobile ? '20px 12px 60px 12px' : '40px 24px 80px 24px' }}>
       {/* ── HEADER ────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex',
@@ -129,7 +131,7 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '16px',
-        marginBottom: '32px'
+        marginBottom: isMobile ? '24px' : '32px'
       }}>
         <div>
           <div className="glow-pill" style={{
@@ -148,10 +150,10 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
             </span>
           </div>
 
-          <h1 className="font-display" style={{ fontSize: 'clamp(24px, 4.5vw, 32px)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
+          <h1 className="font-display" style={{ fontSize: 'clamp(22px, 4.5vw, 32px)', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
             Studio Settings & Preferences
           </h1>
-          <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)' }}>
+          <p style={{ fontSize: isMobile ? '13.5px' : '14.5px', color: 'var(--text-secondary)' }}>
             Configure default AI generation models, video render options, audio ducking, and cloud event webhooks.
           </p>
         </div>
@@ -159,7 +161,15 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
         <button
           onClick={handleSave}
           className="btn-glow"
-          style={{ padding: '10px 22px', fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '8px' }}
+          style={{
+            padding: '10px 22px',
+            fontSize: '13.5px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            width: isMobile ? '100%' : 'auto'
+          }}
         >
           {saved ? <CheckCircle2 size={16} /> : <Save size={16} />}
           <span>{saved ? 'Settings Saved!' : 'Save Changes'}</span>
@@ -172,8 +182,9 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
         alignItems: 'center',
         gap: '8px',
         overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
         paddingBottom: '8px',
-        marginBottom: '28px',
+        marginBottom: isMobile ? '20px' : '28px',
         borderBottom: '1px solid var(--border-subtle)'
       }}>
         {[
@@ -196,12 +207,12 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '9px 16px',
+                padding: isMobile ? '8px 12px' : '9px 16px',
                 borderRadius: '10px',
                 background: isActive ? 'var(--accent-primary)' : 'transparent',
                 color: isActive ? '#ffffff' : 'var(--text-secondary)',
                 border: 'none',
-                fontSize: '13px',
+                fontSize: isMobile ? '12px' : '13px',
                 fontWeight: isActive ? 700 : 500,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
@@ -217,9 +228,9 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
 
       {/* ── TAB 1: AI & GENERATION DEFAULTS ───────────────────────── */}
       {activeTab === 'ai' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="saas-card" style={{ padding: '28px', borderRadius: '20px' }}>
-            <h3 className="font-display" style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '18px' : '24px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '28px', borderRadius: isMobile ? '18px' : '20px' }}>
+            <h3 className="font-display" style={{ fontSize: isMobile ? '16px' : '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Mic2 size={18} color="var(--accent-primary)" />
               <span>Default AI Engine Preferences</span>
             </h3>
@@ -317,7 +328,7 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                 Default Target Aspect Ratio:
               </label>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                 {[
                   { id: '9:16', title: '9:16 Vertical', desc: 'Shorts, Reels & TikTok', icon: <Smartphone size={16} /> },
                   { id: '16:9', title: '16:9 Cinema', desc: 'YouTube & Widescreen', icon: <Monitor size={16} /> },
@@ -358,15 +369,15 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
 
       {/* ── TAB 2: VIDEO & AUDIO ENGINE QUALITY ───────────────────── */}
       {activeTab === 'video' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="saas-card" style={{ padding: '28px', borderRadius: '20px' }}>
-            <h3 className="font-display" style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '18px' : '24px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '28px', borderRadius: isMobile ? '18px' : '20px' }}>
+            <h3 className="font-display" style={{ fontSize: isMobile ? '16px' : '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Sliders size={18} color="#06b6d4" />
               <span>Video Rendering & Visual Precision</span>
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-subtle)', gap: '12px' }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Enable Full HD 1080p Master Output
@@ -379,11 +390,11 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                   type="checkbox"
                   checked={auto4K}
                   onChange={(e) => setAuto4K(e.target.checked)}
-                  style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                  style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)', cursor: 'pointer', flexShrink: 0 }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-subtle)', gap: '12px' }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Dynamic Word-by-Word Kinetic Subtitle Burn
@@ -396,11 +407,11 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                   type="checkbox"
                   checked={autoSubtitles}
                   onChange={(e) => setAutoSubtitles(e.target.checked)}
-                  style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                  style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)', cursor: 'pointer', flexShrink: 0 }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', gap: '12px' }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Cinematic Sound FX & Audio Accents
@@ -413,15 +424,15 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                   type="checkbox"
                   checked={enableSfx}
                   onChange={(e) => setEnableSfx(e.target.checked)}
-                  style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                  style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)', cursor: 'pointer', flexShrink: 0 }}
                 />
               </div>
             </div>
           </div>
 
           {/* Audio Ducking Calibrator */}
-          <div className="saas-card" style={{ padding: '28px', borderRadius: '20px' }}>
-            <h3 className="font-display" style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '28px', borderRadius: isMobile ? '18px' : '20px' }}>
+            <h3 className="font-display" style={{ fontSize: isMobile ? '16px' : '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Volume2 size={18} color="#f59e0b" />
               <span>Smart Acoustic Speech Ducking</span>
             </h3>
@@ -430,7 +441,7 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
               Controls how deeply background music automatically lowers when the narrator speaks.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
               {[
                 { id: '-12', label: '-12 dB Mild', desc: 'Music stays punchy and energetic' },
                 { id: '-18', label: '-18 dB Standard (Recommended)', desc: 'Optimal studio balance between voice & score' },
@@ -466,15 +477,15 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
 
       {/* ── TAB 3: SOCIAL & SYNDICATION DEFAULTS ───────────────────── */}
       {activeTab === 'syndication' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="saas-card" style={{ padding: '28px', borderRadius: '20px' }}>
-            <h3 className="font-display" style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '18px' : '24px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '28px', borderRadius: isMobile ? '18px' : '20px' }}>
+            <h3 className="font-display" style={{ fontSize: isMobile ? '16px' : '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Share2 size={18} color="#ec4899" />
               <span>Automated Social Syndication & Metadata</span>
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-subtle)', gap: '12px' }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Auto-Generate High-CTR SEO Discovery Tags
@@ -487,11 +498,11 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                   type="checkbox"
                   checked={autoSeoTags}
                   onChange={(e) => setAutoSeoTags(e.target.checked)}
-                  style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                  style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)', cursor: 'pointer', flexShrink: 0 }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-subtle)', gap: '12px' }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Auto-Pin Curiosity Question Comment
@@ -504,11 +515,18 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                   type="checkbox"
                   checked={autoPinComment}
                   onChange={(e) => setAutoPinComment(e.target.checked)}
-                  style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                  style={{ width: '20px', height: '20px', accentColor: 'var(--accent-primary)', cursor: 'pointer', flexShrink: 0 }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '8px' : '0',
+                padding: '12px 0'
+              }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Default YouTube Privacy
@@ -528,7 +546,8 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                     fontSize: '12.5px',
                     color: 'var(--text-primary)',
                     outline: 'none',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    width: isMobile ? '100%' : 'auto'
                   }}
                 >
                   <option value="public">Public (Immediate Live)</option>
@@ -543,8 +562,8 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
 
       {/* ── TAB 4: CLOUD EVENT WEBHOOKS ───────────────────────────── */}
       {activeTab === 'webhooks' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="saas-card" style={{ padding: '28px', borderRadius: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '18px' : '24px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '28px', borderRadius: isMobile ? '18px' : '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{
@@ -554,12 +573,13 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                   background: 'rgba(56, 189, 248, 0.12)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  flexShrink: 0
                 }}>
                   <Webhook size={18} color="#38bdf8" />
                 </div>
                 <div>
-                  <h3 className="font-display" style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  <h3 className="font-display" style={{ fontSize: isMobile ? '16px' : '17px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                     Asynchronous Event Webhooks
                   </h3>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -573,7 +593,15 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                 onClick={handleSendWebhookTest}
                 disabled={isPingingWebhook}
                 className="btn-outline"
-                style={{ padding: '8px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                style={{
+                  padding: '8px 14px',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  width: isMobile ? '100%' : 'auto'
+                }}
               >
                 {isPingingWebhook ? <RefreshCw size={13} className="spin-animation" /> : <Send size={13} />}
                 <span>{isPingingWebhook ? 'Pinging...' : 'Send Test Ping'}</span>
@@ -700,15 +728,23 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
 
       {/* ── TAB 5: SYSTEM & DATA MANAGEMENT ───────────────────────── */}
       {activeTab === 'data' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="saas-card" style={{ padding: '28px', borderRadius: '20px' }}>
-            <h3 className="font-display" style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '18px' : '24px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '28px', borderRadius: isMobile ? '18px' : '20px' }}>
+            <h3 className="font-display" style={{ fontSize: isMobile ? '16px' : '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ShieldCheck size={18} color="var(--accent-primary)" />
               <span>Studio Maintenance & Diagnostics</span>
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid var(--border-subtle)', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                flexDirection: isMobile ? 'column' : 'row',
+                padding: '14px 0',
+                borderBottom: '1px solid var(--border-subtle)',
+                gap: isMobile ? '10px' : '12px'
+              }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Reset Studio Preferences
@@ -721,13 +757,26 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                   type="button"
                   onClick={handleResetDefaults}
                   className="btn-outline"
-                  style={{ padding: '8px 16px', fontSize: '12.5px', color: '#ef4444' }}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '12.5px',
+                    color: '#ef4444',
+                    width: isMobile ? '100%' : 'auto',
+                    justifyContent: 'center'
+                  }}
                 >
                   Reset Defaults
                 </button>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                flexDirection: isMobile ? 'column' : 'row',
+                padding: '14px 0',
+                gap: isMobile ? '10px' : '12px'
+              }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Clear Local Session Drafts
@@ -744,7 +793,12 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
                     alert('Local session cache cleared.');
                   }}
                   className="btn-outline"
-                  style={{ padding: '8px 16px', fontSize: '12.5px' }}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '12.5px',
+                    width: isMobile ? '100%' : 'auto',
+                    justifyContent: 'center'
+                  }}
                 >
                   Clear Session Cache
                 </button>

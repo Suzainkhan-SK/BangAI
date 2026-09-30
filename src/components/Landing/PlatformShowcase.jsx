@@ -175,14 +175,20 @@ export default function PlatformShowcase({ onSelectPreset }) {
         </div>
 
         {/* Platform Selector Buttons */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          flexWrap: 'wrap',
-          marginBottom: '36px'
-        }}>
+        <div 
+          className={isMobile ? 'rail' : undefined}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: isMobile ? 'flex-start' : 'center',
+            gap: '8px',
+            overflowX: isMobile ? 'auto' : 'visible',
+            flexWrap: isMobile ? 'nowrap' : 'wrap',
+            paddingBottom: isMobile ? '6px' : '0',
+            marginBottom: isMobile ? '24px' : '36px',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
           {platforms.map((p) => {
             const isSelected = activePlatform === p.id;
             return (
@@ -203,18 +209,21 @@ export default function PlatformShowcase({ onSelectPreset }) {
                   fontSize: isMobile ? '12.5px' : '14px',
                   fontWeight: isSelected ? 700 : 500,
                   transition: 'all 0.2s ease',
-                  boxShadow: isSelected ? `0 0 20px ${p.color}25` : 'none'
+                  boxShadow: isSelected ? `0 0 20px ${p.color}25` : 'none',
+                  flexShrink: 0
                 }}
               >
                 {p.icon}
                 <span>{p.name}</span>
-                <span style={{
-                  fontSize: '11px',
-                  color: isSelected ? p.color : 'var(--text-muted)',
-                  fontWeight: 600
-                }}>
-                  {p.tagline}
-                </span>
+                {!isMobile && (
+                  <span style={{
+                    fontSize: '11px',
+                    color: isSelected ? p.color : 'var(--text-muted)',
+                    fontWeight: 600
+                  }}>
+                    {p.tagline}
+                  </span>
+                )}
               </button>
             );
           })}

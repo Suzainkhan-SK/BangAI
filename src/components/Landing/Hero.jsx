@@ -237,9 +237,9 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
                 border: '1px solid var(--border-subtle)'
               }}>
                 {[
-                  { id: '9:16', label: '9:16 Vertical', icon: <Smartphone size={13} />, note: 'Reels / Shorts / TikTok' },
-                  { id: '16:9', label: '16:9 Cinema', icon: <Monitor size={13} />, note: 'YouTube / TV / Web' },
-                  { id: '1:1', label: '1:1 Square', icon: <Square size={13} />, note: 'Feed & Ads' }
+                  { id: '9:16', label: isMobile ? '9:16' : '9:16 Vertical', icon: <Smartphone size={13} />, note: 'Reels / Shorts / TikTok' },
+                  { id: '16:9', label: isMobile ? '16:9' : '16:9 Cinema', icon: <Monitor size={13} />, note: 'YouTube / TV / Web' },
+                  { id: '1:1', label: isMobile ? '1:1' : '1:1 Square', icon: <Square size={13} />, note: 'Feed & Ads' }
                 ].map((fmt) => (
                   <button
                     key={fmt.id}

@@ -1221,18 +1221,41 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
       position: 'relative',
       fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
+      {/* Mobile Scrim / Backdrop */}
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            zIndex: 199,
+            animation: 'ds-overlay-in 0.2s ease'
+          }}
+        />
+      )}
+
       {/* ─── LEFT COLLAPSIBLE CHATGPT SIDEBAR ─── */}
       <aside style={{
-        width: sidebarOpen ? '260px' : '0px',
-        minWidth: sidebarOpen ? '260px' : '0px',
-        height: '100%',
+        position: isMobile ? 'fixed' : 'relative',
+        top: isMobile ? 'var(--nav-h, 58px)' : 'auto',
+        left: 0,
+        bottom: 0,
+        width: sidebarOpen ? (isMobile ? 'min(290px, 86vw)' : '260px') : '0px',
+        minWidth: sidebarOpen ? (isMobile ? 'min(290px, 86vw)' : '260px') : '0px',
+        maxWidth: isMobile ? '86vw' : 'none',
+        height: isMobile ? 'calc(100dvh - var(--nav-h, 58px))' : '100%',
         background: 'var(--bg-sidebar)',
         borderRight: sidebarOpen ? '1px solid var(--border-subtle)' : 'none',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'width 0.2s ease, min-width 0.2s ease',
+        transition: 'width 0.22s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
         overflow: 'hidden',
-        zIndex: 100
+        zIndex: isMobile ? 250 : 100,
+        boxShadow: isMobile && sidebarOpen ? '0 10px 40px rgba(0, 0, 0, 0.6)' : 'none'
       }}>
         {/* Sidebar Header & New Chat Button */}
         <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1626,18 +1649,20 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                 }}
               >
                 <Columns size={13} />
-                <span>Model Arena</span>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: 800,
-                  padding: '1px 5px',
-                  borderRadius: '4px',
-                  background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
-                  color: '#fff',
-                  letterSpacing: '0.03em'
-                }}>
-                  ARENA
-                </span>
+                <span>{isMobile ? 'Arena' : 'Model Arena'}</span>
+                {!isMobile && (
+                  <span style={{
+                    fontSize: '9px',
+                    fontWeight: 800,
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                    color: '#fff',
+                    letterSpacing: '0.03em'
+                  }}>
+                    ARENA
+                  </span>
+                )}
               </button>
             </div>
 

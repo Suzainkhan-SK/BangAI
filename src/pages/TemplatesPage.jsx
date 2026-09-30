@@ -14,6 +14,7 @@ import { VOICES, getVoiceById } from '../data/voices';
 import { getMusicTrackById } from '../data/musicTracks';
 import { useVideoSettings } from '../state/videoSettings';
 import { useVoiceCatalog } from '../hooks/useVoiceCatalog';
+import { useBreakpoint } from '../hooks/useMediaQuery';
 
 const YouTubeIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
@@ -108,6 +109,7 @@ export default function TemplatesPage({
   const [searchQuery, setSearchQuery]       = useState('');
   const [customizingId, setCustomizingId]   = useState(null); // id of template whose settings drawer is open
   const [previewTemplate, setPreviewTemplate] = useState(null); // template currently in preview modal
+  const { isMobile, isTablet }              = useBreakpoint();
 
   // Per-template custom topics map
   const [customTopics, setCustomTopics]     = useState({
@@ -556,7 +558,7 @@ export default function TemplatesPage({
       <div style={{
         flex: 1, width: '100%', minHeight: '100%',
         backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)',
-        padding: '36px 32px 80px 32px', overflowY: 'auto'
+        padding: isMobile ? '16px 12px 60px 12px' : '36px 32px 80px 32px', overflowY: 'auto'
       }}>
         <div style={{ maxWidth: '1180px', margin: '0 auto' }}>
 
@@ -637,12 +639,21 @@ export default function TemplatesPage({
           {/* ── Search & Filter Controls ── */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            flexWrap: 'wrap', gap: '14px', marginBottom: '28px',
-            padding: '12px 16px', borderRadius: '14px',
+            flexWrap: 'wrap', gap: '12px', marginBottom: isMobile ? '20px' : '28px',
+            padding: isMobile ? '10px 12px' : '12px 16px', borderRadius: '14px',
             background: 'var(--bg-card)', border: '1px solid var(--border-subtle)'
           }}>
             {/* Category pills */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <div
+              className={isMobile ? 'rail' : undefined}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                flexWrap: isMobile ? 'nowrap' : 'wrap',
+                overflowX: isMobile ? 'auto' : 'visible',
+                width: isMobile ? '100%' : 'auto',
+                paddingBottom: isMobile ? '4px' : '0'
+              }}
+            >
               {CATEGORIES.map(cat => {
                 const active = activeCategory === cat.id;
                 return (
@@ -654,7 +665,8 @@ export default function TemplatesPage({
                       border: `1px solid ${active ? 'var(--text-primary)' : 'transparent'}`,
                       background: active ? 'var(--text-primary)' : 'var(--bg-input)',
                       color: active ? 'var(--bg-app)' : 'var(--text-secondary)',
-                      fontSize: '12px', fontWeight: active ? 700 : 500, transition: 'all 0.15s ease'
+                      fontSize: '12px', fontWeight: active ? 700 : 500, transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap', flexShrink: 0
                     }}
                   >
                     {cat.label}
@@ -664,7 +676,7 @@ export default function TemplatesPage({
             </div>
 
             {/* Search Input */}
-            <div style={{ position: 'relative', minWidth: '220px', flex: '0 1 280px' }}>
+            <div style={{ position: 'relative', width: isMobile ? '100%' : 'auto', minWidth: isMobile ? '100%' : '220px', flex: isMobile ? '1 1 100%' : '0 1 280px' }}>
               <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
               <input
                 type="text"
@@ -873,8 +885,8 @@ export default function TemplatesPage({
             ) : (
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-                gap: '22px'
+                gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(340px, 1fr))',
+                gap: isMobile ? '16px' : '22px'
               }}>
                 {filteredActive.map(tpl => {
                   const isCurrentGenerating = isGenerating && generatingTemplateId === tpl.id;
@@ -1389,8 +1401,11 @@ export default function TemplatesPage({
 
             {/* Modal Body: Phone mockup + specs */}
             <div style={{
-              display: 'grid', gridTemplateColumns: '180px minmax(0, 1fr)',
-              gap: '24px', padding: '24px', alignItems: 'center'
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '180px minmax(0, 1fr)',
+              gap: isMobile ? '16px' : '24px',
+              padding: isMobile ? '16px' : '24px',
+              alignItems: 'center'
             }}>
               {/* Vertical Phone Screen */}
               <div style={{

@@ -24,6 +24,7 @@ import {
   FileCode
 } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
+import { useBreakpoint } from '../hooks/useMediaQuery';
 
 export default function ApiDocsPage({ onNavigateToDashboard }) {
   const [copiedKey, setCopiedKey] = useState(false);
@@ -31,6 +32,7 @@ export default function ApiDocsPage({ onNavigateToDashboard }) {
   const [showKey, setShowKey] = useState(false);
   const [activeLanguage, setActiveLanguage] = useState('curl');
   const [activeEndpoint, setActiveEndpoint] = useState('generate');
+  const { isMobile, isTablet } = useBreakpoint();
   
   // Interactive Console State
   const [isTesting, setIsTesting] = useState(false);
@@ -253,7 +255,7 @@ req.Header.Set("Authorization", "Bearer ${apiKey}")
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px 80px 24px' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: isMobile ? '20px 12px 60px 12px' : '40px 24px 80px 24px' }}>
       {/* ── HEADER ────────────────────────────────────────────────── */}
       <div style={{ marginBottom: '32px' }}>
         <div className="glow-pill" style={{
@@ -432,13 +434,13 @@ req.Header.Set("Authorization", "Bearer ${apiKey}")
       {/* ── ENDPOINT & PLAYGROUND DECK ─────────────────────────────── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(12, 1fr)',
-        gap: '24px',
+        gridTemplateColumns: isTablet || isMobile ? '1fr' : 'repeat(12, 1fr)',
+        gap: isMobile ? '16px' : '24px',
         marginBottom: '36px'
       }}>
-        {/* Left Column: Endpoints & Configurator (5 cols) */}
-        <div style={{ gridColumn: 'span 5' }}>
-          <div className="saas-card" style={{ padding: '22px', borderRadius: '20px', marginBottom: '20px' }}>
+        {/* Left Column: Endpoints & Configurator */}
+        <div style={{ gridColumn: isTablet || isMobile ? 'span 1' : 'span 5' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '16px 14px' : '22px', borderRadius: '20px', marginBottom: '20px' }}>
             <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '12px' }}>
               REST API Endpoints
             </div>
@@ -584,10 +586,10 @@ req.Header.Set("Authorization", "Bearer ${apiKey}")
           )}
         </div>
 
-        {/* Right Column: Code Generator & Response Preview (7 cols) */}
-        <div style={{ gridColumn: 'span 7' }}>
+        {/* Right Column: Code Generator & Response Preview */}
+        <div style={{ gridColumn: isTablet || isMobile ? 'span 1' : 'span 7' }}>
           {/* Language Switcher Bar */}
-          <div className="saas-card" style={{ padding: '24px', borderRadius: '20px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '16px 14px' : '24px', borderRadius: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-input)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
                 {[

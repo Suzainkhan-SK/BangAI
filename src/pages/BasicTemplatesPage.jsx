@@ -4,6 +4,7 @@ import {
   Terminal, Cpu, Zap, Globe, Cloud, ShieldCheck
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
+import { useBreakpoint } from '../hooks/useMediaQuery';
 
 export default function BasicTemplatesPage({
   user,
@@ -13,6 +14,7 @@ export default function BasicTemplatesPage({
   onToggleCollapse,
   onNavigate
 }) {
+  const { isMobile } = useBreakpoint();
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [mptStatus, setMptStatus] = useState('online');
   const [iframeKey, setIframeKey] = useState(0);
@@ -85,7 +87,7 @@ export default function BasicTemplatesPage({
         height: '100%',
         backgroundColor: 'var(--bg-app)',
         color: 'var(--text-primary)',
-        padding: '16px 20px 24px 20px',
+        padding: isMobile ? '10px 10px 18px 10px' : '16px 20px 24px 20px',
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column'
@@ -97,7 +99,9 @@ export default function BasicTemplatesPage({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '12px 18px',
+            flexWrap: isMobile ? 'wrap' : 'nowrap',
+            gap: isMobile ? '10px' : '12px',
+            padding: isMobile ? '10px 12px' : '12px 18px',
             marginBottom: '16px',
             background: 'var(--bg-card)',
             border: '1px solid var(--border-subtle)',
@@ -206,7 +210,7 @@ export default function BasicTemplatesPage({
             border: '1px solid var(--border-subtle)',
             overflow: 'hidden',
             boxShadow: 'var(--shadow-card)',
-            minHeight: '760px'
+            minHeight: isMobile ? 'calc(100dvh - 180px)' : '760px'
           }}>
             <iframe
               key={`studio-frame-${iframeKey}-${activeTheme}`}
@@ -215,7 +219,7 @@ export default function BasicTemplatesPage({
               style={{
                 width: '100%',
                 height: '100%',
-                minHeight: '760px',
+                minHeight: isMobile ? 'calc(100dvh - 180px)' : '760px',
                 flex: 1,
                 border: 'none',
                 display: 'block',

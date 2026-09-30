@@ -23,8 +23,10 @@ import {
   Minus
 } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
+import { useBreakpoint } from '../hooks/useMediaQuery';
 
 export default function PricingPage({ user, onNavigateToRegister, onNavigateToDashboard, onSelectPlan }) {
+  const { isMobile, isTablet } = useBreakpoint();
   const [isAnnual, setIsAnnual] = useState(true);
   const [openFaq, setOpenFaq] = useState(0);
 
@@ -190,9 +192,9 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
   ];
 
   return (
-    <div style={{ maxWidth: '1180px', margin: '0 auto', padding: '50px 24px 90px 24px' }}>
+    <div style={{ maxWidth: '1180px', margin: '0 auto', padding: isMobile ? '24px 12px 60px 12px' : '50px 24px 90px 24px' }}>
       {/* ── HEADER ────────────────────────────────────────────────── */}
-      <div style={{ textAlign: 'center', maxWidth: '780px', margin: '0 auto 48px auto' }}>
+      <div style={{ textAlign: 'center', maxWidth: '780px', margin: isMobile ? '0 auto 32px auto' : '0 auto 48px auto' }}>
         <div className="glow-pill" style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -210,7 +212,7 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
         </div>
 
         <h1 className="font-display" style={{
-          fontSize: 'clamp(30px, 6vw, 46px)',
+          fontSize: 'clamp(26px, 6vw, 46px)',
           fontWeight: 900,
           letterSpacing: '-0.03em',
           marginBottom: '16px',
@@ -218,7 +220,7 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
         }}>
           Simple Plans for <span className="grad-text">Every Creator & Studio</span>
         </h1>
-        <p style={{ fontSize: '16px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <p style={{ fontSize: isMobile ? '14.5px' : '16px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
           No hidden rendering fees. Zero watermarks. Full commercial rights. 
           Choose the plan that powers your multi-platform video output.
         </p>
@@ -227,12 +229,12 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: '6px',
           background: 'var(--bg-card)',
           border: '1px solid var(--border-medium)',
           borderRadius: '999px',
-          padding: '5px',
-          marginTop: '28px',
+          padding: '4px',
+          marginTop: isMobile ? '20px' : '28px',
           boxShadow: 'var(--shadow-card)'
         }}>
           <button
@@ -242,12 +244,12 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
               setIsAnnual(false);
             }}
             style={{
-              padding: '8px 20px',
+              padding: isMobile ? '7px 14px' : '8px 20px',
               borderRadius: '999px',
               border: 'none',
               background: !isAnnual ? 'var(--accent-primary)' : 'transparent',
               color: !isAnnual ? '#ffffff' : 'var(--text-secondary)',
-              fontSize: '13px',
+              fontSize: isMobile ? '12px' : '13px',
               fontWeight: 700,
               cursor: 'pointer',
               transition: 'all 0.15s ease'
@@ -262,26 +264,26 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
               setIsAnnual(true);
             }}
             style={{
-              padding: '8px 20px',
+              padding: isMobile ? '7px 14px' : '8px 20px',
               borderRadius: '999px',
               border: 'none',
               background: isAnnual ? 'var(--accent-primary)' : 'transparent',
               color: isAnnual ? '#ffffff' : 'var(--text-secondary)',
-              fontSize: '13px',
+              fontSize: isMobile ? '12px' : '13px',
               fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '6px',
               transition: 'all 0.15s ease'
             }}
           >
             <span>Annual Billing</span>
             <span style={{
-              fontSize: '11px',
+              fontSize: '10.5px',
               background: '#10b981',
               color: '#ffffff',
-              padding: '2px 8px',
+              padding: '2px 7px',
               borderRadius: '99px',
               fontWeight: 800,
               letterSpacing: '0.02em'
@@ -295,9 +297,9 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
       {/* ── PRICING CARDS GRID ────────────────────────────────────── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(min(310px, 100%), 1fr))',
-        gap: '24px',
-        marginBottom: '64px',
+        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(min(310px, 100%), 1fr))',
+        gap: isMobile ? '16px' : '24px',
+        marginBottom: isMobile ? '40px' : '64px',
         alignItems: 'stretch'
       }}>
         {plans.map((plan) => (
@@ -305,8 +307,8 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
             key={plan.id}
             className="saas-card"
             style={{
-              borderRadius: '24px',
-              padding: '36px 30px',
+              borderRadius: isMobile ? '20px' : '24px',
+              padding: isMobile ? '24px 18px' : '36px 30px',
               position: 'relative',
               display: 'flex',
               flexDirection: 'column',
@@ -349,7 +351,7 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
                 )}
               </div>
 
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '22px', minHeight: '38px', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '22px', minHeight: isMobile ? 'auto' : '38px', lineHeight: 1.5 }}>
                 {plan.description}
               </p>
 
@@ -376,7 +378,7 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
             <button
               onClick={() => handleAction(plan.id)}
               className={plan.popular ? 'btn-glow' : 'btn-outline'}
-              style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: '14px', fontWeight: 700, marginTop: '32px' }}
+              style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: '14px', fontWeight: 700, marginTop: isMobile ? '22px' : '32px' }}
             >
               <span>{plan.btnText}</span>
               <ArrowRight size={16} />
@@ -388,9 +390,9 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
       {/* ── TRUST & SATISFACTION BANNER ────────────────────────────── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: '16px',
-        marginBottom: '64px'
+        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(240px, 1fr))',
+        gap: isMobile ? '12px' : '16px',
+        marginBottom: isMobile ? '40px' : '64px'
       }}>
         {[
           { icon: <HeartHandshake size={20} color="var(--accent-primary)" />, title: '14-Day Money-Back Guarantee', desc: 'Risk-free trial. Full refund if not completely satisfied.' },
@@ -402,7 +404,7 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
             key={idx}
             className="saas-card"
             style={{
-              padding: '20px',
+              padding: isMobile ? '16px' : '20px',
               borderRadius: '16px',
               display: 'flex',
               alignItems: 'flex-start',
@@ -436,30 +438,46 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
       </div>
 
       {/* ── DETAILED FEATURE COMPARISON TABLE ──────────────────────── */}
-      <div className="saas-card" style={{ padding: '36px', borderRadius: '24px', marginBottom: '64px' }}>
-        <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 36px auto' }}>
-          <h2 className="font-display" style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
+      <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '36px', borderRadius: isMobile ? '18px' : '24px', marginBottom: isMobile ? '40px' : '64px' }}>
+        <div style={{ textAlign: 'center', maxWidth: '640px', margin: isMobile ? '0 auto 20px auto' : '0 auto 36px auto' }}>
+          <h2 className="font-display" style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
             Compare Plan Capabilities
           </h2>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+          <p style={{ fontSize: isMobile ? '13px' : '14px', color: 'var(--text-secondary)' }}>
             Deep-dive into technical features, export quotas, and automation tools across every tier.
           </p>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
+        {isMobile && (
+          <div style={{
+            fontSize: '11.5px',
+            color: 'var(--text-muted)',
+            marginBottom: '12px',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px'
+          }}>
+            <span>👉</span>
+            <span>Swipe horizontally to compare all features</span>
+          </div>
+        )}
+
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: isMobile ? '560px' : '600px' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-medium)' }}>
-                <th style={{ padding: '14px 16px', fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)', width: '40%' }}>
+                <th style={{ padding: isMobile ? '12px 10px' : '14px 16px', fontSize: isMobile ? '13px' : '14px', fontWeight: 800, color: 'var(--text-primary)', width: '40%' }}>
                   Features & Capabilities
                 </th>
-                <th style={{ padding: '14px 16px', fontSize: '13.5px', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', width: '20%' }}>
+                <th style={{ padding: isMobile ? '12px 10px' : '14px 16px', fontSize: isMobile ? '12.5px' : '13.5px', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', width: '20%' }}>
                   Free Starter
                 </th>
-                <th style={{ padding: '14px 16px', fontSize: '13.5px', fontWeight: 800, color: 'var(--accent-primary)', textAlign: 'center', width: '20%' }}>
+                <th style={{ padding: isMobile ? '12px 10px' : '14px 16px', fontSize: isMobile ? '12.5px' : '13.5px', fontWeight: 800, color: 'var(--accent-primary)', textAlign: 'center', width: '20%' }}>
                   Creator Pro
                 </th>
-                <th style={{ padding: '14px 16px', fontSize: '13.5px', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', width: '20%' }}>
+                <th style={{ padding: isMobile ? '12px 10px' : '14px 16px', fontSize: isMobile ? '12.5px' : '13.5px', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', width: '20%' }}>
                   Studio Agency
                 </th>
               </tr>
@@ -471,8 +489,8 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
                     <td
                       colSpan={4}
                       style={{
-                        padding: '10px 16px',
-                        fontSize: '12px',
+                        padding: isMobile ? '8px 10px' : '10px 16px',
+                        fontSize: isMobile ? '11px' : '12px',
                         fontWeight: 800,
                         color: 'var(--text-muted)',
                         textTransform: 'uppercase',
@@ -484,20 +502,20 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
                   </tr>
                   {sec.rows.map((row, rowIdx) => (
                     <tr key={rowIdx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500 }}>
+                      <td style={{ padding: isMobile ? '10px 10px' : '12px 16px', fontSize: isMobile ? '12px' : '13px', color: 'var(--text-primary)', fontWeight: 500 }}>
                         {row.name}
                       </td>
-                      <td style={{ padding: '12px 16px', fontSize: '12.5px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <td style={{ padding: isMobile ? '10px 8px' : '12px 16px', fontSize: isMobile ? '11.5px' : '12.5px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                         {typeof row.starter === 'boolean' ? (
                           row.starter ? <Check size={16} color="#10b981" style={{ margin: '0 auto' }} /> : <Minus size={16} color="var(--text-muted)" style={{ margin: '0 auto' }} />
                         ) : row.starter}
                       </td>
-                      <td style={{ padding: '12px 16px', fontSize: '12.5px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: 600 }}>
+                      <td style={{ padding: isMobile ? '10px 8px' : '12px 16px', fontSize: isMobile ? '11.5px' : '12.5px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: 600 }}>
                         {typeof row.pro === 'boolean' ? (
                           row.pro ? <Check size={16} color="#10b981" style={{ margin: '0 auto' }} /> : <Minus size={16} color="var(--text-muted)" style={{ margin: '0 auto' }} />
                         ) : row.pro}
                       </td>
-                      <td style={{ padding: '12px 16px', fontSize: '12.5px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: 700 }}>
+                      <td style={{ padding: isMobile ? '10px 8px' : '12px 16px', fontSize: isMobile ? '11.5px' : '12.5px', textAlign: 'center', color: 'var(--text-primary)', fontWeight: 700 }}>
                         {typeof row.agency === 'boolean' ? (
                           row.agency ? <Check size={16} color="#10b981" style={{ margin: '0 auto' }} /> : <Minus size={16} color="var(--text-muted)" style={{ margin: '0 auto' }} />
                         ) : row.agency}
@@ -512,18 +530,18 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
       </div>
 
       {/* ── PRICING FAQ ACCORDION ──────────────────────────────────── */}
-      <div className="saas-card" style={{ padding: '36px', borderRadius: '24px' }}>
-        <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 32px auto' }}>
+      <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '36px', borderRadius: isMobile ? '18px' : '24px' }}>
+        <div style={{ textAlign: 'center', maxWidth: '640px', margin: isMobile ? '0 auto 24px auto' : '0 auto 32px auto' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '12px', fontWeight: 700, marginBottom: '8px' }}>
             <HelpCircle size={15} />
             <span>PRICING & BILLING QUESTIONS</span>
           </div>
-          <h2 className="font-display" style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+          <h2 className="font-display" style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
             Frequently Asked Billing Questions
           </h2>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '820px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '820px', margin: '0 auto' }}>
           {faqs.map((faq, idx) => {
             const isOpen = openFaq === idx;
             return (
@@ -536,21 +554,21 @@ export default function PricingPage({ user, onNavigateToRegister, onNavigateToDa
                 style={{
                   background: isOpen ? 'var(--bg-elevated)' : 'var(--bg-input)',
                   border: `1.5px solid ${isOpen ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
-                  borderRadius: '16px',
-                  padding: '18px 20px',
+                  borderRadius: isMobile ? '14px' : '16px',
+                  padding: isMobile ? '14px 14px' : '18px 20px',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
-                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: isOpen ? 'var(--accent-primary)' : 'var(--text-primary)', margin: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                  <h3 style={{ fontSize: isMobile ? '14px' : '15px', fontWeight: 700, color: isOpen ? 'var(--accent-primary)' : 'var(--text-primary)', margin: 0 }}>
                     {faq.q}
                   </h3>
-                  {isOpen ? <ChevronUp size={18} color="var(--accent-primary)" /> : <ChevronDown size={18} color="var(--text-muted)" />}
+                  {isOpen ? <ChevronUp size={18} color="var(--accent-primary)" style={{ flexShrink: 0 }} /> : <ChevronDown size={18} color="var(--text-muted)" style={{ flexShrink: 0 }} />}
                 </div>
 
                 {isOpen && (
-                  <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: '12px', marginBottom: 0 }}>
+                  <p style={{ fontSize: isMobile ? '13px' : '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: '12px', marginBottom: 0 }}>
                     {faq.a}
                   </p>
                 )}

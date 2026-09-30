@@ -34,8 +34,10 @@ import {
 } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
 import { getAuthToken } from '../utils/authClient';
+import { useBreakpoint } from '../hooks/useMediaQuery';
 
 export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToSettings }) {
+  const { isMobile, isTablet } = useBreakpoint();
   const [activeTab, setActiveTab] = useState('overview');
   const [copiedKey, setCopiedKey] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -301,7 +303,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px 80px 24px' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: isMobile ? '20px 12px 60px 12px' : '40px 24px 80px 24px' }}>
       {/* ── NOTIFICATION TOAST ─────────────────────────────────────── */}
       {oauthNotice && (
         <div style={{
@@ -333,9 +335,9 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
 
       {/* ── HEADER HERO ACCOUNT CARD ───────────────────────────────── */}
       <div className="saas-card" style={{
-        padding: '36px',
-        borderRadius: '24px',
-        marginBottom: '28px',
+        padding: isMobile ? '20px 16px' : '36px',
+        borderRadius: isMobile ? '18px' : '24px',
+        marginBottom: isMobile ? '20px' : '28px',
         position: 'relative',
         overflow: 'hidden',
         border: '1.5px solid var(--border-subtle)',
@@ -353,27 +355,28 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
           pointerEvents: 'none'
         }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '22px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: isMobile ? '16px' : '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '14px' : '22px' }}>
             <div style={{
-              width: '80px',
-              height: '80px',
+              width: isMobile ? '56px' : '80px',
+              height: isMobile ? '56px' : '80px',
               borderRadius: '50%',
               background: 'linear-gradient(135deg, var(--accent-primary), #ff7733)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '32px',
+              fontSize: isMobile ? '22px' : '32px',
               fontWeight: 800,
               color: '#ffffff',
               boxShadow: '0 0 28px rgba(255, 79, 0, 0.35)',
-              border: '3px solid var(--bg-card)'
+              border: '3px solid var(--bg-card)',
+              flexShrink: 0
             }}>
               {user?.name ? user.name[0].toUpperCase() : 'B'}
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <h1 className="font-display" style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h1 className="font-display" style={{ fontSize: isMobile ? '18px' : '24px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                   {user?.name || 'Bang AI Studio Creator'}
                 </h1>
                 <span style={{
@@ -381,33 +384,41 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                   color: 'var(--accent-primary)',
                   border: '1px solid rgba(255, 79, 0, 0.3)',
                   borderRadius: '99px',
-                  padding: '3px 10px',
-                  fontSize: '11px',
+                  padding: '2px 8px',
+                  fontSize: '10.5px',
                   fontWeight: 800,
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
                   letterSpacing: '0.04em'
                 }}>
-                  <Crown size={12} /> {(user?.plan || 'PRO').toUpperCase()} TIER
+                  <Crown size={11} /> {(user?.plan || 'PRO').toUpperCase()} TIER
                 </span>
               </div>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '8px' }}>
+              <p style={{ fontSize: isMobile ? '13px' : '14px', color: 'var(--text-muted)', marginTop: '4px', marginBottom: '6px' }}>
                 {user?.email || 'creator@bangai.studio'}
               </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                <span>Status: <strong style={{ color: '#10b981' }}>Active Subscription</strong></span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11.5px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                <span>Status: <strong style={{ color: '#10b981' }}>Active</strong></span>
                 <span>•</span>
-                <span>Renewal: <strong>Monthly Cycle</strong></span>
+                <span>Renewal: <strong>Monthly</strong></span>
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
             <button
               onClick={onNavigateToDashboard}
               className="btn-glow"
-              style={{ padding: '10px 20px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
+              style={{
+                padding: '10px 20px',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                flex: isMobile ? '1' : 'none'
+              }}
             >
               <Film size={15} />
               <span>Launch Studio</span>
@@ -426,12 +437,12 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
 
         {/* ── RESOURCE USAGE GAUGES ───────────────────────────────── */}
         <div style={{
-          marginTop: '28px',
-          paddingTop: '24px',
+          marginTop: isMobile ? '18px' : '28px',
+          paddingTop: isMobile ? '16px' : '24px',
           borderTop: '1px solid var(--border-subtle)',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '16px'
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: isMobile ? '10px' : '16px'
         }}>
           <div style={{
             background: 'var(--bg-input)',
@@ -486,8 +497,9 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
         alignItems: 'center',
         gap: '8px',
         overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
         paddingBottom: '8px',
-        marginBottom: '28px',
+        marginBottom: isMobile ? '20px' : '28px',
         borderBottom: '1px solid var(--border-subtle)'
       }}>
         {[
@@ -509,12 +521,12 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '9px 16px',
+                padding: isMobile ? '8px 12px' : '9px 16px',
                 borderRadius: '10px',
                 background: isActive ? 'var(--accent-primary)' : 'transparent',
                 color: isActive ? '#ffffff' : 'var(--text-secondary)',
                 border: 'none',
-                fontSize: '13px',
+                fontSize: isMobile ? '12px' : '13px',
                 fontWeight: isActive ? 700 : 500,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
@@ -541,13 +553,13 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
 
       {/* ── TAB 1: YOUTUBE & PLATFORMS ─────────────────────────────── */}
       {activeTab === 'overview' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-          <div className="saas-card" style={{ padding: '32px', borderRadius: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '18px' : '28px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '32px', borderRadius: isMobile ? '18px' : '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 10px #ef4444' }} />
-                  <h2 className="font-display" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  <h2 className="font-display" style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                     Connected YouTube Channels
                   </h2>
                   <span style={{ fontSize: '12px', background: 'var(--bg-input)', padding: '2px 8px', borderRadius: '99px', color: 'var(--text-muted)' }}>
@@ -567,7 +579,9 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                   fontSize: '13px',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '6px',
+                  width: isMobile ? '100%' : 'auto',
                   background: 'linear-gradient(135deg, #ef4444, #dc2626)',
                   boxShadow: '0 0 20px rgba(239, 68, 68, 0.4)'
                 }}
@@ -659,7 +673,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                 </button>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '16px' }}>
                 {channels.map((ch) => {
                   const isExpired = !!(ch.needsReconnect || ch.isTokenExpired);
                   return (
@@ -827,13 +841,13 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
 
       {/* ── TAB 2: GOOGLE SHEETS CLOUD SYNC ────────────────────────── */}
       {activeTab === 'sheets' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-          <div className="saas-card" style={{ padding: '32px', borderRadius: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '18px' : '28px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '32px', borderRadius: isMobile ? '18px' : '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} />
-                  <h2 className="font-display" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  <h2 className="font-display" style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                     Google Sheets Multi-Sheet Sync
                   </h2>
                   <span style={{ fontSize: '12px', background: 'var(--bg-input)', padding: '2px 8px', borderRadius: '99px', color: 'var(--text-muted)' }}>
@@ -845,7 +859,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                 </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
                 <button
                   onClick={handleAutoCreateSheet}
                   disabled={isSubmittingSheet}
@@ -855,7 +869,9 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                     fontSize: '12.5px',
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: '6px',
+                    width: isMobile ? '100%' : 'auto',
                     background: 'linear-gradient(135deg, #10b981, #059669)',
                     boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)'
                   }}
@@ -866,7 +882,15 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                 <button
                   onClick={() => setShowAddSheetModal(true)}
                   className="btn-outline"
-                  style={{ padding: '9px 16px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{
+                    padding: '9px 16px',
+                    fontSize: '12.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    width: isMobile ? '100%' : 'auto'
+                  }}
                 >
                   <FileSpreadsheet size={15} />
                   <span>Link Existing Sheet</span>
@@ -909,7 +933,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                 </button>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '16px' }}>
                 {sheetsList.map((sheet) => (
                   <div 
                     key={sheet.sheetId || sheet.spreadsheetId}
@@ -1036,8 +1060,8 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
 
       {/* ── TAB 3: API KEYS & DEVELOPER ACCESS ─────────────────────── */}
       {activeTab === 'api' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="saas-card" style={{ padding: '32px', borderRadius: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '18px' : '24px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '32px', borderRadius: isMobile ? '18px' : '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
@@ -1047,25 +1071,34 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                   background: 'rgba(255, 79, 0, 0.12)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  flexShrink: 0
                 }}>
                   <Key size={22} color="var(--accent-primary)" />
                 </div>
                 <div>
-                  <h3 className="font-display" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  <h3 className="font-display" style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                     Bang AI Developer API Keys
                   </h3>
-                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
-                    For automated pipelines, scripts, and server-side integrations
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    For automated pipelines and scripts
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', width: isMobile ? '100%' : 'auto' }}>
                 <button
                   onClick={handleRollKey}
                   className="btn-outline"
-                  style={{ padding: '8px 14px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{
+                    padding: '8px 14px',
+                    fontSize: '12.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    width: isMobile ? '100%' : 'auto'
+                  }}
                 >
                   <RefreshCw size={13} />
                   <span>Roll Key</span>
@@ -1073,19 +1106,19 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
               </div>
             </div>
 
-            <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
               Use your secret API key to authenticate requests against the Bang AI REST API. Keep this key confidential and never commit it to client-side code repositories.
             </p>
 
             <div style={{
               background: 'var(--bg-input)',
-              padding: '16px',
+              padding: isMobile ? '14px 12px' : '16px',
               borderRadius: '14px',
               border: '1.5px solid var(--border-medium)',
               marginBottom: '20px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Secret Production Key:
                 </span>
                 <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700 }}>
@@ -1093,34 +1126,39 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                 <span style={{
                   fontFamily: 'JetBrains Mono, monospace',
-                  fontSize: '13px',
+                  fontSize: isMobile ? '12px' : '13px',
                   color: 'var(--text-primary)',
-                  flex: 1,
+                  flex: isMobile ? '1 1 100%' : 1,
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis'
+                  textOverflow: 'ellipsis',
+                  wordBreak: 'break-all',
+                  marginBottom: isMobile ? '6px' : '0'
                 }}>
                   {showKey ? apiKey : 'sk_live_98a7bc••••••••••••••••prod'}
                 </span>
 
-                <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
-                >
-                  {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'flex-end' : 'flex-start' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                    title={showKey ? 'Hide key' : 'Show key'}
+                  >
+                    {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
 
-                <button
-                  onClick={handleCopyKey}
-                  className="btn-glow"
-                  style={{ padding: '7px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  {copiedKey ? <Check size={13} /> : <Copy size={13} />}
-                  <span>{copiedKey ? 'Copied' : 'Copy'}</span>
-                </button>
+                  <button
+                    onClick={handleCopyKey}
+                    className="btn-glow"
+                    style={{ padding: '7px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    {copiedKey ? <Check size={13} /> : <Copy size={13} />}
+                    <span>{copiedKey ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1128,7 +1166,7 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
+              gap: '8px',
               flexWrap: 'wrap',
               fontSize: '12px',
               color: 'var(--text-muted)'
@@ -1144,15 +1182,23 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
 
       {/* ── TAB 4: SECURITY & ACCESS ───────────────────────────────── */}
       {activeTab === 'security' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="saas-card" style={{ padding: '32px', borderRadius: '24px' }}>
-            <h3 className="font-display" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '18px' : '24px' }}>
+          <div className="saas-card" style={{ padding: isMobile ? '20px 14px' : '32px', borderRadius: isMobile ? '18px' : '24px' }}>
+            <h3 className="font-display" style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ShieldCheck size={20} color="#10b981" />
               <span>Account Security & Login Sessions</span>
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '8px' : '0',
+                padding: '14px 0',
+                borderBottom: '1px solid var(--border-subtle)'
+              }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Google OAuth Single Sign-On
@@ -1166,7 +1212,15 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '8px' : '0',
+                padding: '14px 0',
+                borderBottom: '1px solid var(--border-subtle)'
+              }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Active Browser Session
@@ -1180,7 +1234,14 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '10px' : '0',
+                padding: '14px 0'
+              }}>
                 <div>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
                     Export Personal Workspace Data
@@ -1207,7 +1268,15 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                     a.click();
                   }}
                   className="btn-outline"
-                  style={{ padding: '8px 16px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '12.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    width: isMobile ? '100%' : 'auto'
+                  }}
                 >
                   <Download size={13} />
                   <span>Export JSON</span>
@@ -1232,13 +1301,13 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
-          padding: '20px'
+          padding: '16px'
         }}>
           <div className="saas-card" style={{
             background: 'var(--bg-card)',
             border: '1.5px solid var(--border-medium)',
-            borderRadius: '20px',
-            padding: '28px',
+            borderRadius: isMobile ? '18px' : '20px',
+            padding: isMobile ? '20px 16px' : '28px',
             maxWidth: '480px',
             width: '100%',
             position: 'relative'
