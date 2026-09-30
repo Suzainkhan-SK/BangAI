@@ -89,6 +89,8 @@ export default function ChatPromptBar({
   theme = 'dark',
   selectedModelKey = 'bang-ai-auto',
   onSelectModelKey,
+  chatMode = 'single',
+  fiestaModels = [],
   onSendMessage,
   onStopGeneration,
   isLoading = false,
@@ -475,47 +477,6 @@ export default function ChatPromptBar({
         onChange={handleFileUpload}
       />
 
-      {/* ─── QUICK INSPIRATION PILLS TRAY ─── */}
-      {text.length === 0 && attachments.length === 0 && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          overflowX: 'auto',
-          paddingBottom: '8px',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none'
-        }} className="thin-scroll">
-          {[
-            { icon: <Sparkles size={12} color="#ec4899" />, label: 'Viral Hooks', prompt: 'Generate 5 high-retention 3-second opening hooks for multi-platform videos (Shorts, Reels, TikTok).' },
-            { icon: <Film size={12} color="#8b5cf6" />, label: 'Video Screenplay', prompt: 'Write a high-retention 5-scene viral video screenplay with scene timings, camera direction, and narrative pacing.' },
-            { icon: <Globe size={12} color="#0284c7" />, label: 'Live Web Research', prompt: 'Search the live web for the fastest-growing viral video trends and algorithmic patterns happening right now.', webSearch: true },
-            { icon: <Wand2 size={12} color="#10b981" />, label: 'Full-Stack Web App', prompt: 'Build a complete, modern, interactive web application in HTML, CSS, and Vanilla JavaScript with sleek dark mode.' },
-            { icon: <Brain size={12} color="#a855f7" />, label: 'Deep Reasoning', prompt: 'Solve this challenging logic problem with step-by-step reasoning: ', reasoning: true }
-          ].map((pill, pIdx) => (
-            <button
-              key={pIdx}
-              type="button"
-              className="chat-quick-pill"
-              onClick={() => {
-                try { audioEngine.playSfx('click'); } catch (e) {}
-                if (pill.webSearch && typeof onToggleWebSearch === 'function' && !webSearchEnabled) {
-                  onToggleWebSearch(true);
-                }
-                if (pill.reasoning && typeof onToggleReasoning === 'function' && !reasoningEnabled) {
-                  onToggleReasoning(true);
-                }
-                setText(pill.prompt);
-                textareaRef.current?.focus();
-              }}
-            >
-              {pill.icon}
-              <span>{pill.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* ─── MAIN CHATGPT CAPSULE CONTAINER ─── */}
       <div
         onDragOver={handleDragOver}
@@ -767,7 +728,13 @@ export default function ChatPromptBar({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={isRecording ? 'Listening... Speak now...' : 'Ask Bang AI anything, or search the web...'}
+            placeholder={
+              isRecording
+                ? 'Listening... Speak now...'
+                : chatMode === 'fiesta'
+                  ? 'Ask both models simultaneously... (Enter to send)'
+                  : 'Ask Bang AI anything, or search the web...'
+            }
             rows={1}
             style={{
               flex: 1,
@@ -874,31 +841,48 @@ export default function ChatPromptBar({
         }}>
           {/* Left Mode Pill Badges & Model Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            {/* Model Selector Pill (Claude Desktop / ChatGPT Style) */}
-            <div style={{ position: 'relative' }} ref={modelMenuRef}>
-              <button
-                type="button"
-                onClick={() => setModelMenuOpen(!modelMenuOpen)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '3px 9px',
-                  borderRadius: '99px',
-                  background: modelMenuOpen ? 'var(--bg-card-hover)' : 'var(--bg-input)',
-                  border: `1px solid ${modelMenuOpen ? 'var(--accent-primary, #6366f1)' : 'var(--border-subtle)'}`,
-                  color: 'var(--text-primary)',
-                  fontSize: '11px',
-                  fontWeight: 650,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-                title="Select Bang AI Model"
-              >
-                <ActiveIcon size={12} color="#6366f1" />
-                <span>{currentModel.shortName}</span>
-                <ChevronDown size={11} style={{ transform: modelMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease', opacity: 0.7 }} />
-              </button>
+            {/* Model Selector Pill (Single Mode) or Fiesta Arena Badge */}
+            {chatMode === 'fiesta' ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '3px 9px',
+                borderRadius: '99px',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
+                border: '1px solid rgba(168, 85, 247, 0.35)',
+                color: 'var(--text-primary)',
+                fontSize: '11px',
+                fontWeight: 700
+              }}>
+                <Zap size={11} color="#a855f7" />
+                <span>Multi-Model Fiesta</span>
+              </div>
+            ) : (
+              <div style={{ position: 'relative' }} ref={modelMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setModelMenuOpen(!modelMenuOpen)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '3px 9px',
+                    borderRadius: '99px',
+                    background: modelMenuOpen ? 'var(--bg-card-hover)' : 'var(--bg-input)',
+                    border: `1px solid ${modelMenuOpen ? 'var(--accent-primary, #6366f1)' : 'var(--border-subtle)'}`,
+                    color: 'var(--text-primary)',
+                    fontSize: '11px',
+                    fontWeight: 650,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Select Bang AI Model"
+                >
+                  <ActiveIcon size={12} color="#6366f1" />
+                  <span>{currentModel.shortName}</span>
+                  <ChevronDown size={11} style={{ transform: modelMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease', opacity: 0.7 }} />
+                </button>
 
               {/* Claude Desktop Floating Popover */}
               {modelMenuOpen && (
@@ -1008,6 +992,7 @@ export default function ChatPromptBar({
                 </div>
               )}
             </div>
+            )}
 
             {/* Search Pill */}
             <button
@@ -1073,7 +1058,9 @@ export default function ChatPromptBar({
           <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span>Bang AI 4.5</span>
             <span style={{ opacity: 0.5 }}>•</span>
-            <span style={{ color: '#818cf8', fontWeight: 600 }}>1M Context • 65K Output</span>
+            <span style={{ color: '#818cf8', fontWeight: 600 }}>
+              {chatMode === 'fiesta' ? 'Multi-Model Arena' : '1M Context • 65K Output'}
+            </span>
           </div>
         </div>
       </div>

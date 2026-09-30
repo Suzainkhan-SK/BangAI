@@ -30,7 +30,9 @@ import {
   Sun,
   Moon,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Trophy,
+  Columns
 } from 'lucide-react';
 import ChatPromptBar from '../components/Chat/ChatPromptBar';
 import ChatMessageContent from '../components/Chat/ChatMessageContent';
@@ -173,6 +175,29 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
   const [feedbackMap, setFeedbackMap] = useState({});
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Chat Mode: 'single' | 'fiesta' (AI Fiesta multi-model arena)
+  const [chatMode, setChatMode] = useState(() => {
+    try {
+      return localStorage.getItem('bangai_chat_mode') || 'single';
+    } catch (e) {
+      return 'single';
+    }
+  });
+
+  // Fiesta comparison models (default to 4.5 Ultra vs 4.5 Thinking)
+  const [fiestaModels, setFiestaModels] = useState(() => {
+    try {
+      const raw = localStorage.getItem('bangai_fiesta_models');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length >= 2) return parsed;
+      }
+    } catch (e) {}
+    return ['bang-ai-ultra', 'bang-ai-thinking'];
+  });
+
+  const [fiestaDropdownSlot, setFiestaDropdownSlot] = useState(null); // null | 0 | 1
+
   // Model Selection state (defaults to Smart Auto-Router)
   const [selectedModelKey, setSelectedModelKey] = useState(() => {
     try {
@@ -255,6 +280,36 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
     setModelDropdownOpen(false);
   };
 
+  const handleUpdateFiestaModel = (slotIdx, newKey) => {
+    try { audioEngine.playSfx('click'); } catch (e) {}
+    const updated = [...fiestaModels];
+    updated[slotIdx] = newKey;
+    setFiestaModels(updated);
+    try {
+      localStorage.setItem('bangai_fiesta_models', JSON.stringify(updated));
+    } catch (e) {}
+    setFiestaDropdownSlot(null);
+  };
+
+  const handleSelectWinner = (msgId, modelKey) => {
+    try { audioEngine.playSfx('boom'); } catch (e) {}
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeSessionId
+          ? {
+              ...s,
+              messages: s.messages.map((m) =>
+                m.id === msgId ? { ...m, winnerKey: m.winnerKey === modelKey ? null : modelKey } : m
+              )
+            }
+          : s
+      )
+    );
+    const mObj = CHAT_MODELS.find((m) => m.key === modelKey);
+    setToastMessage(`🏆 ${mObj?.name || 'Model'} marked as Best Answer!`);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
+
   // ─── SESSION CREATION & SWITCHING ───
   const handleNewChat = () => {
     try { audioEngine.playSfx('click'); } catch (e) {}
@@ -314,6 +369,246 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
     setIsLoading(false);
   };
 
+  // ─── AI FIESTA MULTI-MODEL STREAMING WORKER ───
+  const streamSingleFiestaModel = async ({
+    currentId,
+    assistantMsgId,
+    modelKey,
+    combinedPrompt,
+    historyPayload,
+    imageAttachments,
+    webSearch,
+    reasoning,
+    token
+  }) => {
+    const startTime = Date.now();
+    let streamSucceeded = false;
+    let fullText = '';
+    let routingMeta = null;
+    let actualReasoning = '';
+
+    const requestPayload = {
+      mode: 'CHAT',
+      modelKey,
+      message: combinedPrompt,
+      messages: historyPayload,
+      images: imageAttachments.map((img) => img.data),
+      webSearch: !!webSearch,
+      reasoning: !!reasoning,
+      threadId: currentId
+    };
+
+    try {
+      // 1. Try real-time Edge SSE streaming (/api/chat)
+      try {
+        const streamRes = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify(requestPayload)
+        });
+
+        if (streamRes.ok && streamRes.body) {
+          const routingHeader = streamRes.headers.get('x-bangai-routing');
+          if (routingHeader) {
+            try { routingMeta = JSON.parse(decodeURIComponent(routingHeader)); } catch (e) {}
+          }
+
+          const reader = streamRes.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let firstChunkArrived = false;
+
+          while (true) {
+            if (stopStreamingRef.current) {
+              await reader.cancel();
+              break;
+            }
+
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || trimmed.startsWith(':')) continue;
+              if (trimmed === 'data: [DONE]') continue;
+
+              if (trimmed.startsWith('data: ')) {
+                try {
+                  const json = JSON.parse(trimmed.slice(6));
+                  const delta = json.choices?.[0]?.delta?.content || '';
+                  const reasoningDelta = json.choices?.[0]?.delta?.reasoning_content || '';
+                  if (reasoningDelta) actualReasoning += reasoningDelta;
+
+                  if (delta) {
+                    fullText += delta;
+                    if (!firstChunkArrived) {
+                      firstChunkArrived = true;
+                      streamSucceeded = true;
+                    }
+
+                    setSessions((prev) =>
+                      prev.map((s) =>
+                        s.id === currentId
+                          ? {
+                              ...s,
+                              messages: s.messages.map((m) =>
+                                m.id === assistantMsgId && m.responses?.[modelKey]
+                                  ? {
+                                      ...m,
+                                      responses: {
+                                        ...m.responses,
+                                        [modelKey]: {
+                                          ...m.responses[modelKey],
+                                          content: fullText,
+                                          isStreaming: true,
+                                          isThinking: false,
+                                          routing: routingMeta,
+                                          reasoningContent: actualReasoning
+                                        }
+                                      }
+                                    }
+                                  : m
+                              )
+                            }
+                          : s
+                      )
+                    );
+                    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+
+          if (streamSucceeded) {
+            const totalThoughtSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === currentId
+                  ? {
+                      ...s,
+                      messages: s.messages.map((m) =>
+                        m.id === assistantMsgId && m.responses?.[modelKey]
+                          ? {
+                              ...m,
+                              responses: {
+                                ...m.responses,
+                                [modelKey]: {
+                                  ...m.responses[modelKey],
+                                  isStreaming: false,
+                                  isThinking: false,
+                                  thoughtDuration: `${totalThoughtSec}s`,
+                                  reasoningContent: actualReasoning || m.responses[modelKey].reasoningContent
+                                }
+                              }
+                            }
+                          : m
+                      )
+                    }
+                  : s
+              )
+            );
+          }
+        }
+      } catch (streamErr) {
+        console.warn(`[Fiesta ${modelKey}] Edge streaming unavailable, falling back:`, streamErr);
+      }
+
+      // 2. Fallback to standard Netlify function if streaming did not start
+      if (!streamSucceeded) {
+        const res = await fetch('/.netlify/functions/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify(requestPayload)
+        });
+
+        const rawText = await res.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (jsonErr) {
+          throw new Error(`Server returned HTTP ${res.status}`);
+        }
+
+        if (!res.ok || data.error) {
+          throw new Error(data.message || data.error || `Server responded with ${res.status}`);
+        }
+
+        const totalThoughtSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+        fullText = data.message || 'No response returned.';
+        actualReasoning = data.reasoningContent || '';
+
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === currentId
+              ? {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === assistantMsgId && m.responses?.[modelKey]
+                      ? {
+                          ...m,
+                          responses: {
+                            ...m.responses,
+                            [modelKey]: {
+                              ...m.responses[modelKey],
+                              content: fullText,
+                              isStreaming: false,
+                              isThinking: false,
+                              thoughtDuration: `${totalThoughtSec}s`,
+                              reasoningContent: actualReasoning,
+                              webSearch: data.webSearch || null,
+                              routing: data.routing || null
+                            }
+                          }
+                        }
+                      : m
+                  )
+                }
+              : s
+          )
+        );
+      }
+    } catch (err) {
+      console.error(`[Fiesta ${modelKey}] Error:`, err);
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === currentId
+            ? {
+                ...s,
+                messages: s.messages.map((m) =>
+                  m.id === assistantMsgId && m.responses?.[modelKey]
+                    ? {
+                        ...m,
+                        responses: {
+                          ...m.responses,
+                          [modelKey]: {
+                            ...m.responses[modelKey],
+                            content: `⚠️ **Error generating response:** ${err.message}`,
+                            isError: true,
+                            isStreaming: false,
+                            isThinking: false
+                          }
+                        }
+                      }
+                    : m
+                )
+              }
+            : s
+        )
+      );
+    }
+  };
+
   // ─── MESSAGE DISPATCH ───
   const handleSendMessage = async ({ text, attachments = [], webSearch, reasoning }) => {
     let currentId = activeSessionId;
@@ -362,7 +657,110 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
 
     const assistantMsgId = 'msg-' + (Date.now() + 1);
     const startTime = Date.now();
+    const token = localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || '';
 
+    // Build conversation history for API payload with full multi-turn vision memory
+    const historyPayload = [
+      ...(targetSession.messages || []).map((m) => {
+        if (m.role === 'user' && m.attachments && m.attachments.some((a) => a.type === 'image')) {
+          const priorImgs = m.attachments.filter((a) => a.type === 'image');
+          return {
+            role: 'user',
+            content: [
+              { type: 'text', text: m.content || 'Analyze this image.' },
+              ...priorImgs.map((img) => ({
+                type: 'image_url',
+                image_url: { url: img.data }
+              }))
+            ]
+          };
+        }
+        return {
+          role: m.role,
+          content: m.content || (m.responses ? Object.values(m.responses).map((r) => r.content).filter(Boolean).join('\n\n') : '')
+        };
+      }),
+      {
+        role: 'user',
+        content: imageAttachments.length > 0
+          ? [
+              { type: 'text', text: combinedPrompt },
+              ...imageAttachments.map((img) => ({
+                type: 'image_url',
+                image_url: { url: img.data }
+              }))
+            ]
+          : combinedPrompt
+      }
+    ];
+
+    // ─── AI FIESTA MULTI-MODEL MODE DISPATCH ───
+    if (chatMode === 'fiesta') {
+      const activeModels = fiestaModels && fiestaModels.length >= 2 ? fiestaModels : ['bang-ai-ultra', 'bang-ai-thinking'];
+      const initialResponses = {};
+      activeModels.forEach((mKey) => {
+        initialResponses[mKey] = {
+          modelKey: mKey,
+          content: '',
+          isStreaming: true,
+          isThinking: !!reasoning,
+          thinkingTime: 1,
+          thoughtDuration: '2s',
+          reasoningContent: '',
+          webSearch: null,
+          routing: null,
+          isError: false
+        };
+      });
+
+      const fiestaAssistantMsg = {
+        id: assistantMsgId,
+        role: 'assistant',
+        isMultiModel: true,
+        fiestaModels: [...activeModels],
+        responses: initialResponses,
+        winnerKey: null,
+        timestamp: Date.now() + 1
+      };
+
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === currentId
+            ? {
+                ...s,
+                title: s.messages.length === 0 ? ((text || combinedPrompt).substring(0, 35) || 'New conversation') : s.title,
+                updatedAt: Date.now(),
+                messages: [...s.messages, userMessage, fiestaAssistantMsg]
+              }
+            : s
+        )
+      );
+
+      setIsLoading(true);
+      stopStreamingRef.current = false;
+
+      const streamPromises = activeModels.map((mKey) =>
+        streamSingleFiestaModel({
+          currentId,
+          assistantMsgId,
+          modelKey: mKey,
+          combinedPrompt,
+          historyPayload,
+          imageAttachments,
+          webSearch,
+          reasoning,
+          token
+        })
+      );
+
+      await Promise.allSettled(streamPromises);
+      setIsLoading(false);
+      stopStreamingRef.current = false;
+      try { audioEngine.playSfx('boom'); } catch (e) {}
+      return;
+    }
+
+    // ─── SINGLE MODEL MODE DISPATCH ───
     // Placeholder message for live streaming and authentic thinking process
     const assistantPlaceholder = {
       id: assistantMsgId,
@@ -417,46 +815,10 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
     }
 
     try {
-      // Build conversation history for API payload with full multi-turn vision memory!
-      const historyPayload = [
-        ...(targetSession.messages || []).map((m) => {
-          if (m.role === 'user' && m.attachments && m.attachments.some((a) => a.type === 'image')) {
-            const priorImgs = m.attachments.filter((a) => a.type === 'image');
-            return {
-              role: 'user',
-              content: [
-                { type: 'text', text: m.content || 'Analyze this image.' },
-                ...priorImgs.map((img) => ({
-                  type: 'image_url',
-                  image_url: { url: img.data }
-                }))
-              ]
-            };
-          }
-          return {
-            role: m.role,
-            content: m.content
-          };
-        }),
-        {
-          role: 'user',
-          content: imageAttachments.length > 0
-            ? [
-                { type: 'text', text: combinedPrompt },
-                ...imageAttachments.map((img) => ({
-                  type: 'image_url',
-                  image_url: { url: img.data }
-                }))
-              ]
-            : combinedPrompt
-        }
-      ];
-
       let streamSucceeded = false;
       let fullText = '';
       let routingMeta = null;
       let actualReasoning = '';
-      const token = localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || '';
 
       // Auto-route to vision if image attachment is present and auto mode selected
       const effectiveModelKey = (imageAttachments.length > 0 && selectedModelKey === 'bang-ai-auto')
@@ -1200,143 +1562,387 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
               </button>
             )}
 
-            {/* Model Selector Pill in Header */}
-            <div style={{ position: 'relative' }} ref={dropdownRef}>
+            {/* Segmented Mode Switcher: Single vs AI Fiesta Arena */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: 'var(--bg-input)',
+              padding: '3px',
+              borderRadius: '10px',
+              border: '1px solid var(--border-subtle)'
+            }}>
               <button
                 type="button"
                 onClick={() => {
-                  try { audioEngine.playSfx('click'); } catch (e) {}
-                  setModelDropdownOpen(!modelDropdownOpen);
+                  setChatMode('single');
+                  try {
+                    localStorage.setItem('bangai_chat_mode', 'single');
+                    audioEngine.playSfx('click');
+                  } catch (e) {}
                 }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '7px',
-                  padding: '5px 12px',
-                  borderRadius: '10px',
-                  background: modelDropdownOpen ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-                  border: `1px solid ${modelDropdownOpen ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
-                  color: 'var(--text-primary)',
-                  fontSize: '13px',
-                  fontWeight: 650,
+                  gap: '5px',
+                  padding: '4px 10px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: chatMode === 'single' ? 'var(--bg-card)' : 'transparent',
+                  color: chatMode === 'single' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  fontWeight: chatMode === 'single' ? 700 : 500,
+                  fontSize: '12px',
                   cursor: 'pointer',
+                  boxShadow: chatMode === 'single' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
                   transition: 'all 0.15s ease'
                 }}
-                title="Select Active Bang AI Model"
               >
-                <span style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: currentModelConfig.badgeColor,
-                  boxShadow: '0 0 8px rgba(99, 102, 241, 0.45)'
-                }} />
-                <span>{currentModelConfig.name}</span>
-                <span style={{
-                  fontSize: '9.5px',
-                  fontWeight: 800,
-                  padding: '1px 6px',
-                  borderRadius: '4px',
-                  background: 'var(--bg-pill)',
-                  color: 'var(--accent-primary)',
-                  letterSpacing: '0.04em'
-                }}>
-                  {currentModelConfig.badge}
-                </span>
-                <ChevronDown size={13} style={{ transform: modelDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease', opacity: 0.6 }} />
+                <MessageSquare size={13} />
+                <span>Single</span>
               </button>
 
-              {/* Floating Model Popover in Header */}
-              {modelDropdownOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 8px)',
-                    left: 0,
-                    width: '300px',
-                    maxHeight: '380px',
-                    overflowY: 'auto',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-medium)',
-                    borderRadius: '16px',
-                    boxShadow: 'var(--shadow-card)',
-                    padding: '6px',
-                    zIndex: 250,
-                    backdropFilter: 'blur(20px)'
+              <button
+                type="button"
+                onClick={() => {
+                  setChatMode('fiesta');
+                  try {
+                    localStorage.setItem('bangai_chat_mode', 'fiesta');
+                    audioEngine.playSfx('click');
+                  } catch (e) {}
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '4px 10px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: chatMode === 'fiesta' ? 'var(--bg-card)' : 'transparent',
+                  color: chatMode === 'fiesta' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  fontWeight: chatMode === 'fiesta' ? 700 : 500,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  boxShadow: chatMode === 'fiesta' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Columns size={13} />
+                <span>AI Fiesta</span>
+                <span style={{
+                  fontSize: '9px',
+                  fontWeight: 800,
+                  padding: '1px 5px',
+                  borderRadius: '4px',
+                  background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                  color: '#fff',
+                  letterSpacing: '0.03em'
+                }}>
+                  ARENA
+                </span>
+              </button>
+            </div>
+
+            {/* Model Selector based on Mode */}
+            {chatMode === 'single' ? (
+              <div style={{ position: 'relative' }} ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try { audioEngine.playSfx('click'); } catch (e) {}
+                    setModelDropdownOpen(!modelDropdownOpen);
                   }}
-                  className="thin-scroll"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '5px 12px',
+                    borderRadius: '10px',
+                    background: modelDropdownOpen ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+                    border: `1px solid ${modelDropdownOpen ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                    color: 'var(--text-primary)',
+                    fontSize: '12.5px',
+                    fontWeight: 650,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Select Active Bang AI Model"
                 >
-                  <div style={{
-                    padding: '6px 8px 4px 8px',
-                    fontSize: '10.5px',
-                    fontWeight: 750,
-                    color: 'var(--text-muted)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: currentModelConfig.badgeColor,
+                    boxShadow: '0 0 8px rgba(99, 102, 241, 0.45)'
+                  }} />
+                  <span>{currentModelConfig.name}</span>
+                  <span style={{
+                    fontSize: '9.5px',
+                    fontWeight: 800,
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    background: 'var(--bg-pill)',
+                    color: 'var(--accent-primary)',
+                    letterSpacing: '0.04em'
                   }}>
-                    Select AI Model
-                  </div>
-                  {CHAT_MODELS.map((m) => {
-                    const isSelected = m.key === selectedModelKey;
-                    return (
-                      <div
-                        key={m.key}
-                        onClick={() => handleSelectModel(m.key)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '8px 10px',
-                          borderRadius: '10px',
-                          cursor: 'pointer',
-                          background: isSelected ? 'var(--bg-input)' : 'transparent',
-                          border: `1px solid ${isSelected ? 'var(--border-subtle)' : 'transparent'}`,
-                          marginBottom: '3px',
-                          transition: 'background 0.12s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isSelected) e.currentTarget.style.background = 'var(--bg-card-hover)';
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isSelected) e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            background: m.badgeColor,
-                            flexShrink: 0
-                          }} />
-                          <div>
-                            <div style={{ fontSize: '12.5px', fontWeight: isSelected ? 750 : 600, color: 'var(--text-primary)' }}>
-                              {m.name}
-                            </div>
-                            <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', lineHeight: 1.25 }}>
-                              {m.desc}
+                    {currentModelConfig.badge}
+                  </span>
+                  <ChevronDown size={13} style={{ transform: modelDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease', opacity: 0.6 }} />
+                </button>
+
+                {/* Floating Model Popover in Header */}
+                {modelDropdownOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 8px)',
+                      left: 0,
+                      width: '300px',
+                      maxHeight: '380px',
+                      overflowY: 'auto',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-medium)',
+                      borderRadius: '16px',
+                      boxShadow: 'var(--shadow-card)',
+                      padding: '6px',
+                      zIndex: 250,
+                      backdropFilter: 'blur(20px)'
+                    }}
+                    className="thin-scroll"
+                  >
+                    <div style={{
+                      padding: '6px 8px 4px 8px',
+                      fontSize: '10.5px',
+                      fontWeight: 750,
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>
+                      Select AI Model
+                    </div>
+                    {CHAT_MODELS.map((m) => {
+                      const isSelected = m.key === selectedModelKey;
+                      return (
+                        <div
+                          key={m.key}
+                          onClick={() => handleSelectModel(m.key)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 10px',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            background: isSelected ? 'var(--bg-input)' : 'transparent',
+                            border: `1px solid ${isSelected ? 'var(--border-subtle)' : 'transparent'}`,
+                            marginBottom: '3px',
+                            transition: 'background 0.12s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) e.currentTarget.style.background = 'var(--bg-card-hover)';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              background: m.badgeColor,
+                              flexShrink: 0
+                            }} />
+                            <div>
+                              <div style={{ fontSize: '12.5px', fontWeight: isSelected ? 750 : 600, color: 'var(--text-primary)' }}>
+                                {m.name}
+                              </div>
+                              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', lineHeight: 1.25 }}>
+                                {m.desc}
+                              </div>
                             </div>
                           </div>
+                          <span style={{
+                            fontSize: '9px',
+                            fontWeight: 800,
+                            padding: '2px 5px',
+                            borderRadius: '4px',
+                            background: m.badgeColor,
+                            color: '#fff',
+                            letterSpacing: '0.02em',
+                            whiteSpace: 'nowrap',
+                            marginLeft: '6px'
+                          }}>
+                            {m.badge}
+                          </span>
                         </div>
-                        <span style={{
-                          fontSize: '9px',
-                          fontWeight: 800,
-                          padding: '2px 5px',
-                          borderRadius: '4px',
-                          background: m.badgeColor,
-                          color: '#fff',
-                          letterSpacing: '0.02em',
-                          whiteSpace: 'nowrap',
-                          marginLeft: '6px'
-                        }}>
-                          {m.badge}
-                        </span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Fiesta Dual Model Picker */
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} ref={dropdownRef}>
+                {/* Slot 0 Picker */}
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try { audioEngine.playSfx('click'); } catch (e) {}
+                      setFiestaDropdownSlot(fiestaDropdownSlot === 0 ? null : 0);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '5px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      border: `1px solid ${fiestaDropdownSlot === 0 ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                      color: 'var(--text-primary)',
+                      fontSize: '12px',
+                      fontWeight: 650,
+                      cursor: 'pointer'
+                    }}
+                    title="Change Model 1"
+                  >
+                    <span style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: CHAT_MODELS.find((m) => m.key === fiestaModels[0])?.badgeColor || '#6366f1'
+                    }} />
+                    <span>{CHAT_MODELS.find((m) => m.key === fiestaModels[0])?.name || fiestaModels[0]}</span>
+                    <ChevronDown size={12} />
+                  </button>
+                  {fiestaDropdownSlot === 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 6px)',
+                      left: 0,
+                      width: '260px',
+                      maxHeight: '320px',
+                      overflowY: 'auto',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-medium)',
+                      borderRadius: '12px',
+                      boxShadow: 'var(--shadow-card)',
+                      padding: '5px',
+                      zIndex: 250
+                    }} className="thin-scroll">
+                      {CHAT_MODELS.map((m) => (
+                        <div
+                          key={m.key}
+                          onClick={() => handleUpdateFiestaModel(0, m.key)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '7px 9px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            background: m.key === fiestaModels[0] ? 'var(--bg-input)' : 'transparent',
+                            fontSize: '12px',
+                            fontWeight: m.key === fiestaModels[0] ? 700 : 500
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: m.badgeColor }} />
+                            <span>{m.name}</span>
+                          </div>
+                          <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', background: m.badgeColor, color: '#fff' }}>{m.badge}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+
+                <span style={{
+                  fontSize: '9.5px',
+                  fontWeight: 850,
+                  padding: '2px 5px',
+                  borderRadius: '5px',
+                  background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                  color: '#fff',
+                  letterSpacing: '0.04em'
+                }}>
+                  VS
+                </span>
+
+                {/* Slot 1 Picker */}
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try { audioEngine.playSfx('click'); } catch (e) {}
+                      setFiestaDropdownSlot(fiestaDropdownSlot === 1 ? null : 1);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '5px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      border: `1px solid ${fiestaDropdownSlot === 1 ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                      color: 'var(--text-primary)',
+                      fontSize: '12px',
+                      fontWeight: 650,
+                      cursor: 'pointer'
+                    }}
+                    title="Change Model 2"
+                  >
+                    <span style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: CHAT_MODELS.find((m) => m.key === fiestaModels[1])?.badgeColor || '#a855f7'
+                    }} />
+                    <span>{CHAT_MODELS.find((m) => m.key === fiestaModels[1])?.name || fiestaModels[1]}</span>
+                    <ChevronDown size={12} />
+                  </button>
+                  {fiestaDropdownSlot === 1 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 6px)',
+                      left: 0,
+                      width: '260px',
+                      maxHeight: '320px',
+                      overflowY: 'auto',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-medium)',
+                      borderRadius: '12px',
+                      boxShadow: 'var(--shadow-card)',
+                      padding: '5px',
+                      zIndex: 250
+                    }} className="thin-scroll">
+                      {CHAT_MODELS.map((m) => (
+                        <div
+                          key={m.key}
+                          onClick={() => handleUpdateFiestaModel(1, m.key)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '7px 9px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            background: m.key === fiestaModels[1] ? 'var(--bg-input)' : 'transparent',
+                            fontSize: '12px',
+                            fontWeight: m.key === fiestaModels[1] ? 700 : 500
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: m.badgeColor }} />
+                            <span>{m.name}</span>
+                          </div>
+                          <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '3px', background: m.badgeColor, color: '#fff' }}>{m.badge}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Conversation Title pill */}
             {activeSession && (
@@ -1500,56 +2106,40 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
               {/* Radial ambient glow */}
               <div className="chat-glow-aura" />
 
-              {/* Bang AI Glowing Icon */}
+              {/* Glowing Icon */}
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '20px',
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  width: '58px',
+                  height: '58px',
+                  borderRadius: '18px',
+                  background: chatMode === 'fiesta'
+                    ? 'linear-gradient(135deg, #f59e0b, #ef4444)'
+                    : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 8px 30px rgba(99, 102, 241, 0.45)',
+                  boxShadow: chatMode === 'fiesta'
+                    ? '0 8px 30px rgba(245, 158, 11, 0.4)'
+                    : '0 8px 30px rgba(99, 102, 241, 0.45)',
                   border: '1px solid rgba(255, 255, 255, 0.2)'
                 }}>
-                  <Sparkles size={32} color="#fff" />
+                  {chatMode === 'fiesta' ? <Columns size={28} color="#fff" /> : <Sparkles size={28} color="#fff" />}
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative', zIndex: 1 }}>
-                <h1 className="font-display" style={{ fontSize: 'clamp(26px, 4vw, 34px)', fontWeight: 850, letterSpacing: '-0.025em', margin: 0, color: 'var(--text-primary)' }}>
-                  How can Bang AI <span className="grad-text">help you create today?</span>
+                <h1 className="font-display" style={{ fontSize: 'clamp(24px, 3.8vw, 32px)', fontWeight: 850, letterSpacing: '-0.025em', margin: 0, color: 'var(--text-primary)' }}>
+                  {chatMode === 'fiesta' ? (
+                    <>AI Fiesta <span className="grad-text">Multi-Model Arena</span></>
+                  ) : (
+                    <>How can Bang AI <span className="grad-text">help you create today?</span></>
+                  )}
                 </h1>
                 <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', margin: '0 auto', maxWidth: '560px', lineHeight: 1.55 }}>
-                  Autonomous multi-format video creation, 1M context reasoning, live web search citations, and full-stack software development.
+                  {chatMode === 'fiesta'
+                    ? 'Prompt two AI models simultaneously in real time. Compare reasoning, code accuracy, and speed side-by-side, then vote the best answer.'
+                    : 'Autonomous multi-format video creation, 1M context reasoning, and real-time intelligence.'}
                 </p>
-
-                {/* 4 Feature capability pills */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginTop: '6px' }}>
-                  {[
-                    { label: 'Sub-Second Latency', icon: '⚡' },
-                    { label: 'Deep Reasoning Engine', icon: '🧠' },
-                    { label: 'Live Web Citations', icon: '🌐' },
-                    { label: 'Video Studio Integration', icon: '🎬' }
-                  ].map((feat, fIdx) => (
-                    <span key={fIdx} style={{
-                      fontSize: '11px',
-                      fontWeight: 650,
-                      padding: '3px 9px',
-                      borderRadius: '99px',
-                      background: 'var(--bg-card)',
-                      border: '1px solid var(--border-subtle)',
-                      color: 'var(--text-secondary)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <span>{feat.icon}</span>
-                      <span>{feat.label}</span>
-                    </span>
-                  ))}
-                </div>
               </div>
 
               {/* Starter Cards Grid */}
@@ -1603,7 +2193,14 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
 
           {/* Active Messages Feed */}
           {activeSession && activeSession.messages.length > 0 && (
-            <div style={{ width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{
+              width: '100%',
+              maxWidth: (chatMode === 'fiesta' || activeSession.messages.some((m) => m.isMultiModel)) ? '1060px' : '820px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '24px',
+              transition: 'max-width 0.2s ease'
+            }}>
               {activeSession.messages.map((msg, idx) => {
                 const isUser = msg.role === 'user';
                 const isAssistant = msg.role === 'assistant';
@@ -1625,14 +2222,18 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                         width: '32px',
                         height: '32px',
                         borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                        background: msg.isMultiModel
+                          ? 'linear-gradient(135deg, #f59e0b, #ef4444)'
+                          : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
-                        boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)'
+                        boxShadow: msg.isMultiModel
+                          ? '0 4px 14px rgba(245, 158, 11, 0.35)'
+                          : '0 4px 14px rgba(99, 102, 241, 0.35)'
                       }}>
-                        <Sparkles size={16} color="#fff" />
+                        {msg.isMultiModel ? <Columns size={16} color="#fff" /> : <Sparkles size={16} color="#fff" />}
                       </div>
                     )}
 
@@ -1642,7 +2243,8 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                       flex: isAssistant ? 1 : undefined,
                       display: 'flex',
                       flexDirection: 'column',
-                      alignItems: isUser ? 'flex-end' : 'flex-start'
+                      alignItems: isUser ? 'flex-end' : 'flex-start',
+                      width: isAssistant ? '100%' : undefined
                     }}>
                       {/* Attached Images & Files on User Messages */}
                       {isUser && msg.attachments && msg.attachments.length > 0 && (
@@ -1704,166 +2306,374 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                         </div>
                       )}
 
-                      {/* Message Content Bubble */}
-                      <div style={{
-                        padding: isUser ? '10px 16px' : '0',
-                        borderRadius: isUser ? '20px' : '0',
-                        background: isUser ? 'var(--bg-input)' : 'transparent',
-                        color: 'var(--text-primary)',
-                        border: isUser ? '1px solid var(--border-subtle)' : 'none',
-                        width: '100%'
-                      }}>
-                        {/* Thinking Accordion if reasoning requested or thinking in progress or reasoningContent available */}
-                        {isAssistant && (msg.reasoning || msg.isThinking || msg.reasoningContent) && (
-                          <ThinkingAccordion
-                            duration={msg.thoughtDuration || "3s"}
-                            isThinking={msg.isThinking}
-                            thinkingTime={msg.thinkingTime}
-                            thoughtText={msg.reasoningContent}
-                          />
-                        )}
-
-                        {/* Web Search Sources Cards */}
-                        {isAssistant && msg.webSearch && (
-                          <WebSearchSources
-                            webSearch={msg.webSearch}
-                            highlightedIndex={highlightedCitation}
-                          />
-                        )}
-
-                        {/* Main Body */}
-                        {isUser ? (
-                          <div style={{ fontSize: '15px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                            {msg.rawText || msg.content}
-                          </div>
-                        ) : (
-                          <ChatMessageContent
-                            content={msg.content}
-                            isStreaming={msg.isStreaming}
-                            onCitationClick={(num) => setHighlightedCitation(num)}
-                          />
-                        )}
-                      </div>
-
-                      {/* Assistant Action Buttons Toolbar */}
-                      {isAssistant && !msg.isStreaming && msg.content && (
+                      {/* Message Content Bubble / Multi-Model Arena */}
+                      {isAssistant && msg.isMultiModel ? (
                         <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          marginTop: '8px'
+                          width: '100%',
+                          display: 'grid',
+                          gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                          gap: '14px',
+                          marginTop: '4px'
                         }}>
-                          {/* Copy Message */}
-                          <button
-                            type="button"
-                            onClick={() => handleCopyMessage(msg.id, msg.content)}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: copiedMessageId === msg.id ? '#10b981' : 'var(--text-muted)',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              borderRadius: '4px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '11px'
-                            }}
-                            title="Copy response"
-                          >
-                            {copiedMessageId === msg.id ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
-                            {copiedMessageId === msg.id && <span>Copied</span>}
-                          </button>
+                          {(msg.fiestaModels || fiestaModels).map((mKey, slotIdx) => {
+                            const mConfig = CHAT_MODELS.find((m) => m.key === mKey) || {
+                              name: mKey,
+                              badge: 'MODEL',
+                              badgeColor: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                              tag: 'AI Model'
+                            };
+                            const resp = msg.responses?.[mKey] || { content: '', isStreaming: false };
+                            const isWinner = msg.winnerKey === mKey;
+                            const respId = `${msg.id}-${mKey}`;
 
-                          {/* Read Aloud */}
-                          <button
-                            type="button"
-                            onClick={() => handleToggleSpeak(msg.id, msg.content)}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: speakingMessageId === msg.id ? '#818cf8' : 'var(--text-muted)',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              borderRadius: '4px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '11px'
-                            }}
-                            title={speakingMessageId === msg.id ? 'Stop reading' : 'Read aloud'}
-                          >
-                            {speakingMessageId === msg.id ? <VolumeX size={13} /> : <Volume2 size={13} />}
-                          </button>
+                            return (
+                              <div
+                                key={mKey + '-' + slotIdx}
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  background: 'var(--bg-card)',
+                                  border: `1.5px solid ${isWinner ? '#f59e0b' : 'var(--border-subtle)'}`,
+                                  borderRadius: '16px',
+                                  padding: '14px 16px',
+                                  boxShadow: isWinner ? '0 0 24px rgba(245, 158, 11, 0.18)' : 'var(--shadow-card)',
+                                  transition: 'all 0.2s ease',
+                                  position: 'relative'
+                                }}
+                              >
+                                {/* Model Card Top Header */}
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  marginBottom: '10px',
+                                  paddingBottom: '8px',
+                                  borderBottom: '1px solid var(--border-subtle)'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{
+                                      width: '9px',
+                                      height: '9px',
+                                      borderRadius: '50%',
+                                      background: mConfig.badgeColor,
+                                      boxShadow: `0 0 8px rgba(99, 102, 241, 0.5)`
+                                    }} />
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ fontSize: '13px', fontWeight: 750, color: 'var(--text-primary)' }}>
+                                          {mConfig.name}
+                                        </span>
+                                        <span style={{
+                                          fontSize: '9px',
+                                          fontWeight: 800,
+                                          padding: '1px 5px',
+                                          borderRadius: '3px',
+                                          background: mConfig.badgeColor,
+                                          color: '#fff'
+                                        }}>
+                                          {mConfig.badge}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
 
-                          {/* Regenerate */}
-                          <button
-                            type="button"
-                            onClick={() => handleRegenerate(idx)}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: 'var(--text-muted)',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              borderRadius: '4px'
-                            }}
-                            title="Regenerate response"
-                          >
-                            <RotateCcw size={13} />
-                          </button>
+                                  {/* Vote Best Answer Trophy Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectWinner(msg.id, mKey)}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      padding: '3px 8px',
+                                      borderRadius: '7px',
+                                      background: isWinner ? 'rgba(245, 158, 11, 0.2)' : 'var(--bg-input)',
+                                      border: `1px solid ${isWinner ? '#f59e0b' : 'var(--border-subtle)'}`,
+                                      color: isWinner ? '#f59e0b' : 'var(--text-muted)',
+                                      fontSize: '11px',
+                                      fontWeight: 750,
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                    title="Vote this response as best answer"
+                                  >
+                                    <Trophy size={12} fill={isWinner ? '#f59e0b' : 'none'} />
+                                    <span>{isWinner ? 'Best Answer 🏆' : 'Vote Best'}</span>
+                                  </button>
+                                </div>
 
-                          {/* Feedback Thumbs Up / Down */}
-                          <button
-                            type="button"
-                            onClick={() => handleFeedback(msg.id, 'like')}
-                            className="chat-action-btn"
-                            style={{
-                              color: feedbackMap[msg.id] === 'like' ? '#10b981' : 'var(--text-muted)'
-                            }}
-                            title="Helpful response"
-                          >
-                            <ThumbsUp size={13} fill={feedbackMap[msg.id] === 'like' ? '#10b981' : 'none'} />
-                          </button>
+                                {/* Thinking Accordion if reasoning */}
+                                {(resp.isThinking || resp.reasoningContent) && (
+                                  <ThinkingAccordion
+                                    duration={resp.thoughtDuration || '2s'}
+                                    isThinking={resp.isThinking}
+                                    thinkingTime={resp.thinkingTime}
+                                    thoughtText={resp.reasoningContent}
+                                  />
+                                )}
 
-                          <button
-                            type="button"
-                            onClick={() => handleFeedback(msg.id, 'dislike')}
-                            className="chat-action-btn"
-                            style={{
-                              color: feedbackMap[msg.id] === 'dislike' ? '#ef4444' : 'var(--text-muted)'
-                            }}
-                            title="Needs improvement"
-                          >
-                            <ThumbsDown size={13} fill={feedbackMap[msg.id] === 'dislike' ? '#ef4444' : 'none'} />
-                          </button>
+                                {/* Web Search Sources */}
+                                {resp.webSearch && (
+                                  <WebSearchSources
+                                    webSearch={resp.webSearch}
+                                    highlightedIndex={highlightedCitation}
+                                  />
+                                )}
 
-                          {/* Send to Video Studio */}
-                          <button
-                            type="button"
-                            onClick={() => handleConvertToVideo(msg.content)}
-                            style={{
-                              marginLeft: '8px',
+                                {/* Main Response Content */}
+                                <div style={{ flex: 1, minHeight: '60px' }}>
+                                  <ChatMessageContent
+                                    content={resp.content}
+                                    isStreaming={resp.isStreaming}
+                                    onCitationClick={(num) => setHighlightedCitation(num)}
+                                  />
+                                </div>
+
+                                {/* Bottom Model Actions */}
+                                {!resp.isStreaming && resp.content && (
+                                  <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginTop: '10px',
+                                    paddingTop: '8px',
+                                    borderTop: '1px solid var(--border-subtle)',
+                                    flexWrap: 'wrap',
+                                    gap: '6px'
+                                  }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyMessage(respId, resp.content)}
+                                        style={{
+                                          background: 'transparent',
+                                          border: 'none',
+                                          color: copiedMessageId === respId ? '#10b981' : 'var(--text-muted)',
+                                          cursor: 'pointer',
+                                          padding: '3px',
+                                          borderRadius: '4px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          fontSize: '11px'
+                                        }}
+                                        title="Copy response"
+                                      >
+                                        {copiedMessageId === respId ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleSpeak(respId, resp.content)}
+                                        style={{
+                                          background: 'transparent',
+                                          border: 'none',
+                                          color: speakingMessageId === respId ? '#818cf8' : 'var(--text-muted)',
+                                          cursor: 'pointer',
+                                          padding: '3px',
+                                          borderRadius: '4px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          fontSize: '11px'
+                                        }}
+                                        title={speakingMessageId === respId ? 'Stop reading' : 'Read aloud'}
+                                      >
+                                        {speakingMessageId === respId ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                                      </button>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleConvertToVideo(resp.content)}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        padding: '3px 8px',
+                                        borderRadius: '6px',
+                                        background: 'rgba(255, 79, 0, 0.08)',
+                                        border: '1px solid rgba(255, 79, 0, 0.22)',
+                                        color: 'var(--accent-primary)',
+                                        fontSize: '11px',
+                                        fontWeight: 650,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                      title="Send to Bang AI Video Studio"
+                                    >
+                                      <Film size={11} />
+                                      <span>To Studio</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{
+                            padding: isUser ? '10px 16px' : '0',
+                            borderRadius: isUser ? '20px' : '0',
+                            background: isUser ? 'var(--bg-input)' : 'transparent',
+                            color: 'var(--text-primary)',
+                            border: isUser ? '1px solid var(--border-subtle)' : 'none',
+                            width: '100%'
+                          }}>
+                            {/* Thinking Accordion if reasoning requested or thinking in progress or reasoningContent available */}
+                            {isAssistant && (msg.reasoning || msg.isThinking || msg.reasoningContent) && (
+                              <ThinkingAccordion
+                                duration={msg.thoughtDuration || "3s"}
+                                isThinking={msg.isThinking}
+                                thinkingTime={msg.thinkingTime}
+                                thoughtText={msg.reasoningContent}
+                              />
+                            )}
+
+                            {/* Web Search Sources Cards */}
+                            {isAssistant && msg.webSearch && (
+                              <WebSearchSources
+                                webSearch={msg.webSearch}
+                                highlightedIndex={highlightedCitation}
+                              />
+                            )}
+
+                            {/* Main Body */}
+                            {isUser ? (
+                              <div style={{ fontSize: '15px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                                {msg.rawText || msg.content}
+                              </div>
+                            ) : (
+                              <ChatMessageContent
+                                content={msg.content}
+                                isStreaming={msg.isStreaming}
+                                onCitationClick={(num) => setHighlightedCitation(num)}
+                              />
+                            )}
+                          </div>
+
+                          {/* Assistant Action Buttons Toolbar */}
+                          {isAssistant && !msg.isStreaming && msg.content && (
+                            <div style={{
                               display: 'flex',
                               alignItems: 'center',
                               gap: '6px',
-                              padding: '4px 10px',
-                              borderRadius: '8px',
-                              background: 'rgba(255, 79, 0, 0.1)',
-                              border: '1px solid rgba(255, 79, 0, 0.28)',
-                              color: 'var(--accent-primary)',
-                              fontSize: '11.5px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease'
-                            }}
-                            title="Send this screenplay to Bang AI Studio to produce the video"
-                          >
-                            <Film size={12} />
-                            <span>Send to Video Studio</span>
-                            <ArrowRight size={11} />
-                          </button>
-                        </div>
+                              marginTop: '8px'
+                            }}>
+                              {/* Copy Message */}
+                              <button
+                                type="button"
+                                onClick={() => handleCopyMessage(msg.id, msg.content)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: copiedMessageId === msg.id ? '#10b981' : 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  padding: '4px',
+                                  borderRadius: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px'
+                                }}
+                                title="Copy response"
+                              >
+                                {copiedMessageId === msg.id ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
+                                {copiedMessageId === msg.id && <span>Copied</span>}
+                              </button>
+
+                              {/* Read Aloud */}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSpeak(msg.id, msg.content)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: speakingMessageId === msg.id ? '#818cf8' : 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  padding: '4px',
+                                  borderRadius: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px'
+                                }}
+                                title={speakingMessageId === msg.id ? 'Stop reading' : 'Read aloud'}
+                              >
+                                {speakingMessageId === msg.id ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                              </button>
+
+                              {/* Regenerate */}
+                              <button
+                                type="button"
+                                onClick={() => handleRegenerate(idx)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  padding: '4px',
+                                  borderRadius: '4px'
+                                }}
+                                title="Regenerate response"
+                              >
+                                <RotateCcw size={13} />
+                              </button>
+
+                              {/* Feedback Thumbs Up / Down */}
+                              <button
+                                type="button"
+                                onClick={() => handleFeedback(msg.id, 'like')}
+                                className="chat-action-btn"
+                                style={{
+                                  color: feedbackMap[msg.id] === 'like' ? '#10b981' : 'var(--text-muted)'
+                                }}
+                                title="Helpful response"
+                              >
+                                <ThumbsUp size={13} fill={feedbackMap[msg.id] === 'like' ? '#10b981' : 'none'} />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleFeedback(msg.id, 'dislike')}
+                                className="chat-action-btn"
+                                style={{
+                                  color: feedbackMap[msg.id] === 'dislike' ? '#ef4444' : 'var(--text-muted)'
+                                }}
+                                title="Needs improvement"
+                              >
+                                <ThumbsDown size={13} fill={feedbackMap[msg.id] === 'dislike' ? '#ef4444' : 'none'} />
+                              </button>
+
+                              {/* Send to Video Studio */}
+                              <button
+                                type="button"
+                                onClick={() => handleConvertToVideo(msg.content)}
+                                style={{
+                                  marginLeft: '8px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '4px 10px',
+                                  borderRadius: '8px',
+                                  background: 'rgba(255, 79, 0, 0.1)',
+                                  border: '1px solid rgba(255, 79, 0, 0.28)',
+                                  color: 'var(--accent-primary)',
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title="Send this screenplay to Bang AI Studio to produce the video"
+                              >
+                                <Film size={12} />
+                                <span>Send to Video Studio</span>
+                                <ArrowRight size={11} />
+                              </button>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -1909,6 +2719,8 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
           <ChatPromptBar
             theme={theme}
             selectedModelKey={selectedModelKey}
+            chatMode={chatMode}
+            fiestaModels={fiestaModels}
             onSelectModelKey={(key) => {
               setSelectedModelKey(key);
               try {
