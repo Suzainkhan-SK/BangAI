@@ -137,6 +137,7 @@ export default function SubtitleLivePreview({
         ref={containerRef}
         style={{
           width: `${frameWidth}px`,
+          maxWidth: '100%',
           height: `${Math.round(frameWidth * (16 / 9))}px`,
           background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)',
           borderRadius: '24px',

@@ -579,20 +579,24 @@ export default function StudioLab({
 
   // ─── TABS CONFIG ────────────────────────────────────────────────
   const tabs = [
-    { id: 'voices',    label: `Voice Matrix (${voices.length})`, icon: Mic2,  color: '#10b981' },
-    { id: 'subtitles', label: 'Subtitle Studio',                 icon: Type,  color: '#f59e0b' },
-    { id: 'music',     label: `Music Library (${musicTracks.length})`, icon: Music, color: '#06b6d4' },
+    { id: 'voices',    label: `Voice Matrix (${voices.length.toLocaleString()})`, icon: Mic2,  color: '#10b981' },
+    { id: 'subtitles', label: 'Subtitle Studio',                                 icon: Type,  color: '#f59e0b' },
+    { id: 'music',     label: `Music Library (${musicTracks.length})`,           icon: Music, color: '#06b6d4' },
   ];
+
+  const selectedVoice = voices.find(v => v.id === selectedVoiceId || v.elevenLabsId === selectedVoiceId) || getVoiceById(selectedVoiceId) || STATIC_VOICES[0];
+  const selectedMusic = musicTracks.find(m => m.id === selectedMusicId) || getMusicTrackById(selectedMusicId);
+  const currentPresetName = SUBTITLE_STYLES.find(s => s.id === currentSubtitleSettings.presetId)?.name || 'MrBeast Viral';
 
   return (
     <div style={{
-      maxWidth: '1200px',
+      maxWidth: '1240px',
       width: '100%',
       minWidth: 0,
       margin: '0 auto',
       paddingTop: isMobile ? '16px' : '24px',
-      paddingLeft: isMobile ? '14px' : '20px',
-      paddingRight: isMobile ? '14px' : '20px',
+      paddingLeft: isMobile ? '12px' : '24px',
+      paddingRight: isMobile ? '12px' : '24px',
       paddingBottom: isMobile ? 'calc(64px + var(--safe-b, 0px))' : '80px',
       display: 'flex',
       flexDirection: 'column',
@@ -603,29 +607,26 @@ export default function StudioLab({
         background: 'var(--bg-card)',
         borderRadius: '20px',
         border: '1.5px solid var(--border-medium)',
-        paddingTop: isMobile ? '16px' : '20px',
-        paddingBottom: isMobile ? '16px' : '20px',
-        paddingLeft: isMobile ? '16px' : '24px',
-        paddingRight: isMobile ? '16px' : '24px',
+        padding: isMobile ? '16px 14px' : '20px 24px',
         display: 'flex',
-        alignItems: isMobile ? 'flex-start' : 'center',
-        justifyContent: 'space-between',
         flexDirection: isMobile ? 'column' : 'row',
-        flexWrap: 'wrap',
-        gap: isMobile ? '12px' : '16px'
+        alignItems: isMobile ? 'stretch' : 'center',
+        justifyContent: 'space-between',
+        gap: isMobile ? '14px' : '18px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{
             width: '44px', height: '44px', borderRadius: '14px',
             background: 'linear-gradient(135deg, #6366f1, #ec4899)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)'
+            boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)',
+            flexShrink: 0
           }}>
             <Sparkles size={22} color="#fff" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em', margin: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h2 style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em', margin: 0 }}>
                 Design Studio
               </h2>
               <span style={{
@@ -636,42 +637,68 @@ export default function StudioLab({
                 LIVE SANDBOX
               </span>
             </div>
-            <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-              Test voices, render subtitles, and audition background music — all before generating.
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '3px 0 0 0', lineHeight: 1.4 }}>
+              Audition 9,650+ voices, customize animated subtitles, and fine-tune background audio.
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: isMobile ? '100%' : 'auto' }}>
-          <button type="button" onClick={handleApplyToVideo}
-            style={{
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              paddingTop: '9px', paddingBottom: '9px', paddingLeft: '18px', paddingRight: '18px',
-              borderRadius: '10px',
-              fontSize: '12.5px', fontWeight: 800, gap: '6px',
-              border: 'none', color: '#fff', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flex: isMobile ? '1 1 auto' : '0 0 auto',
-              boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
-              transition: 'all 0.2s ease'
+        {/* Current Stack Quick Badges & Apply Actions */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          flexWrap: 'wrap',
+          justifyContent: isMobile ? 'space-between' : 'flex-end'
+        }}>
+          {/* Quick Config Badges */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap',
+            fontSize: '11px', color: 'var(--text-secondary)'
+          }}>
+            <span style={{
+              background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+              padding: '3px 8px', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px'
             }}>
-            <Check size={14} /> Apply to Video
-          </button>
-          {typeof onClose === 'function' && (
-            <button type="button" onClick={onClose}
+              <Mic2 size={11} color="#10b981" />
+              <span>{selectedVoice?.name || 'Adam'} ({currentVoiceSpeed}x)</span>
+            </span>
+            <span style={{
+              background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+              padding: '3px 8px', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px'
+            }}>
+              <Type size={11} color="#f59e0b" />
+              <span>{currentPresetName}</span>
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: isMobile ? '100%' : 'auto' }}>
+            <button type="button" onClick={handleApplyToVideo}
               style={{
-                background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-                borderRadius: '10px',
-                paddingTop: '9px', paddingBottom: '9px', paddingLeft: '14px', paddingRight: '14px',
-                cursor: 'pointer',
-                color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                flexShrink: 0,
-                transition: 'all 0.15s ease'
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                padding: '9px 18px', borderRadius: '10px',
+                fontSize: '12.5px', fontWeight: 800, gap: '6px',
+                border: 'none', color: '#fff', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flex: isMobile ? '1 1 auto' : '0 0 auto',
+                boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
+                transition: 'all 0.2s ease'
               }}>
-              <X size={14} /> Close
+              <Check size={14} /> Apply to Video
             </button>
-          )}
+            {typeof onClose === 'function' && (
+              <button type="button" onClick={onClose}
+                style={{
+                  background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                  borderRadius: '10px', padding: '9px 14px',
+                  cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                  flexShrink: 0, transition: 'all 0.15s ease'
+                }}>
+                <X size={14} /> Close
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -680,7 +707,9 @@ export default function StudioLab({
         className={isMobile ? 'rail' : undefined}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
-          borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px'
+          borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px',
+          overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
+          width: '100%'
         }}
       >
         {tabs.map(tab => {
@@ -690,15 +719,15 @@ export default function StudioLab({
             <button key={tab.id} type="button" onClick={() => handleTabClick(tab.id)}
               style={{
                 paddingTop: '9px', paddingBottom: '9px',
-                paddingLeft: isMobile ? '13px' : '18px',
-                paddingRight: isMobile ? '13px' : '18px',
+                paddingLeft: isMobile ? '14px' : '18px',
+                paddingRight: isMobile ? '14px' : '18px',
                 borderRadius: '10px',
                 border: `1.5px solid ${isActive ? tab.color : 'var(--border-subtle)'}`,
                 background: isActive ? `${tab.color}18` : 'var(--bg-input)',
                 color: isActive ? tab.color : 'var(--text-muted)',
                 fontSize: isMobile ? '12px' : '13px', fontWeight: 800, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: '7px',
-                whiteSpace: 'nowrap',
+                whiteSpace: 'nowrap', flexShrink: 0,
                 transition: 'all 0.2s ease',
                 boxShadow: isActive ? `0 0 14px ${tab.color}25` : 'none'
               }}>
@@ -780,11 +809,11 @@ export default function StudioLab({
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
               {[
-                { val: 1.10, label: '1.10x Calibrated (Recommended)' },
-                { val: 1.20, label: '1.20x Dynamic' },
-                { val: 1.30, label: '1.30x Viral' },
-                { val: 1.40, label: '1.40x High Energy' },
-                { val: 1.50, label: '1.50x Ultra Fast' }
+                { val: 1.10, label: isMobile ? '1.10x' : '1.10x Calibrated' },
+                { val: 1.20, label: isMobile ? '1.20x' : '1.20x Dynamic' },
+                { val: 1.30, label: isMobile ? '1.30x' : '1.30x Viral' },
+                { val: 1.40, label: isMobile ? '1.40x' : '1.40x Fast' },
+                { val: 1.50, label: isMobile ? '1.50x' : '1.50x Ultra' }
               ].map(s => {
                 const isSelected = Math.abs(currentVoiceSpeed - s.val) < 0.01;
                 return (
@@ -799,7 +828,7 @@ export default function StudioLab({
                       background: isSelected ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'var(--bg-input)',
                       border: `1px solid ${isSelected ? '#6366f1' : 'var(--border-subtle)'}`,
                       color: isSelected ? '#ffffff' : 'var(--text-muted)',
-                      padding: '4px 10px',
+                      padding: isMobile ? '4px 8px' : '4px 10px',
                       borderRadius: '7px',
                       fontSize: '11px',
                       fontWeight: isSelected ? 800 : 600,
@@ -1381,12 +1410,6 @@ export default function StudioLab({
               </div>
             </div>
 
-            {/* Real-time Subtitle Live Preview Frame (No Network Call) */}
-            <SubtitleLivePreview
-              subtitleSettings={currentSubtitleSettings}
-              text={subtitleCustomText}
-            />
-
             {/* Render Button */}
             <button type="button" onClick={handleRenderSubtitlePreview}
               disabled={isSubtitleRendering}
@@ -1398,21 +1421,24 @@ export default function StudioLab({
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 gap: '8px', cursor: isSubtitleRendering ? 'not-allowed' : 'pointer',
                 boxShadow: isSubtitleRendering ? 'none' : '0 4px 14px rgba(245,158,11,0.3)',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease', marginTop: '4px'
               }}>
               {isSubtitleRendering ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} fill="#000" />}
               <span>{isSubtitleRendering ? 'Rendering via json2video API...' : 'Render Live Subtitle Video Clip'}</span>
             </button>
           </div>
 
-          {/* Video Preview Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Video / Live Preview Column */}
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: '12px',
+            position: isTablet ? 'relative' : 'sticky', top: '20px', alignSelf: 'start'
+          }}>
             <div style={{
               background: '#000', borderRadius: '16px',
               border: '2px solid rgba(245,158,11,0.3)',
               overflow: 'hidden', display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center',
-              minHeight: '400px', position: 'relative'
+              minHeight: '380px', position: 'relative', padding: '16px 12px'
             }}>
               {isSubtitleRendering ? (
                 <div style={{ padding: '40px', textAlign: 'center', color: '#fbbf24' }}>
@@ -1428,14 +1454,14 @@ export default function StudioLab({
                 <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <video ref={subtitleVideoRef} src={renderedSubtitleVideoUrl}
                     autoPlay loop controls playsInline
-                    style={{ width: '100%', maxHeight: '440px', objectFit: 'contain' }} />
+                    style={{ width: '100%', maxHeight: '440px', objectFit: 'contain', borderRadius: '12px' }} />
                   <div style={{
-                    width: '100%', padding: '8px 14px', background: 'rgba(0,0,0,0.8)',
+                    width: '100%', padding: '10px 14px', background: 'rgba(0,0,0,0.85)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    borderTop: '1px solid rgba(255,255,255,0.1)'
+                    borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '8px', borderRadius: '8px'
                   }}>
                     <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 700 }}>
-                      ✅ Real json2video Rendered MP4
+                      ✅ Real Rendered MP4
                     </span>
                     <a href={renderedSubtitleVideoUrl} target="_blank" rel="noopener noreferrer"
                       style={{ fontSize: '11px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
@@ -1445,14 +1471,11 @@ export default function StudioLab({
                   </div>
                 </div>
               ) : (
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  <Type size={36} color="rgba(245,158,11,0.3)" style={{ margin: '0 auto 12px' }} />
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                    Live Subtitle Preview
-                  </div>
-                  <div style={{ fontSize: '12px', maxWidth: '240px', margin: '0 auto' }}>
-                    Select your style, then click <strong>"Render Live Subtitle Video Clip"</strong> to preview.
-                  </div>
+                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <SubtitleLivePreview
+                    subtitleSettings={currentSubtitleSettings}
+                    text={subtitleCustomText}
+                  />
                 </div>
               )}
             </div>
@@ -1556,26 +1579,41 @@ export default function StudioLab({
               ))}
             </div>
 
-            {/* Volume + Ducking */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Volume2 size={14} color="#06b6d4" />
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Volume:</span>
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#06b6d4', background: 'rgba(6,182,212,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
+            {/* Volume + Ducking Responsive Cards */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(290px, 1fr))',
+              gap: '12px'
+            }}>
+              {/* Music Volume Sub-card */}
+              <div style={{
+                background: 'var(--bg-input)',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                border: '1px solid var(--border-subtle)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Volume2 size={14} color="#06b6d4" />
+                    <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)' }}>Master Music Volume</span>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#06b6d4', background: 'rgba(6,182,212,0.15)', padding: '2px 7px', borderRadius: '5px' }}>
                     {Math.round(currentMusicVolume * 100)}%
                   </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={currentMusicVolume}
-                    onChange={(e) => handleMusicVolumeChange(e.target.value)}
-                    style={{ width: '90px', accentColor: '#06b6d4', cursor: 'pointer' }}
-                  />
                 </div>
-                <div style={{ display: 'flex', gap: '3px' }}>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={currentMusicVolume}
+                  onChange={(e) => handleMusicVolumeChange(e.target.value)}
+                  style={{ width: '100%', accentColor: '#06b6d4', cursor: 'pointer' }}
+                />
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                   {[
                     { l: 'Mute', v: 0 },
                     { l: '10%', v: 0.10 },
@@ -1588,10 +1626,11 @@ export default function StudioLab({
                       type="button"
                       onClick={() => handleMusicVolumeChange(p.v)}
                       style={{
-                        background: Math.abs(currentMusicVolume - p.v) < 0.03 ? 'rgba(6,182,212,0.25)' : 'var(--bg-input)',
+                        flex: '1 1 auto',
+                        background: Math.abs(currentMusicVolume - p.v) < 0.03 ? 'rgba(6,182,212,0.25)' : 'var(--bg-card)',
                         border: `1px solid ${Math.abs(currentMusicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--border-subtle)'}`,
                         color: Math.abs(currentMusicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--text-muted)',
-                        borderRadius: '4px', padding: '1px 5px', fontSize: '9.5px', fontWeight: 700, cursor: 'pointer'
+                        borderRadius: '5px', padding: '3px 6px', fontSize: '10px', fontWeight: 700, cursor: 'pointer'
                       }}
                     >
                       {p.l}
@@ -1599,19 +1638,38 @@ export default function StudioLab({
                   ))}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Radio size={14} color="#06b6d4" />
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '80px' }}>Ducking: -{duckingLevel}dB</span>
-                <input type="range" min="0" max="30" step="2"
+
+              {/* Auto Voice-over Ducking Sub-card */}
+              <div style={{
+                background: 'var(--bg-input)',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                border: '1px solid var(--border-subtle)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Radio size={14} color="#06b6d4" />
+                    <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)' }}>Voice Ducking</span>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#06b6d4', background: 'rgba(6,182,212,0.15)', padding: '2px 7px', borderRadius: '5px' }}>
+                    -{duckingLevel}dB ({Math.round(currentMusicVolume * duckGain * 100)}% under voice)
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  step="2"
                   value={duckingLevel}
                   onChange={(e) => handleDuckingChange(e.target.value)}
                   title={`While a voiceover plays, music drops to ${Math.round(duckGain * 100)}% of its level`}
-                  style={{ width: '90px', accentColor: '#06b6d4', cursor: 'pointer' }} />
-                <span style={{
-                  fontSize: '10px', fontWeight: 800, color: '#06b6d4',
-                  background: 'rgba(6,182,212,0.15)', padding: '1px 6px', borderRadius: '4px'
-                }}>
-                  → {Math.round(currentMusicVolume * duckGain * 100)}% under voice
+                  style={{ width: '100%', accentColor: '#06b6d4', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                  Automatically softens music track whenever narration plays for studio clarity.
                 </span>
               </div>
             </div>
@@ -1716,18 +1774,21 @@ export default function StudioLab({
 // Color Picker Helper Component
 function ColorPicker({ label, value, onChange }) {
   return (
-    <div>
-      <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>{label}</label>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+    <div style={{ minWidth: '85px', flex: '1 1 85px' }}>
+      <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>{label}</label>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '6px',
+        background: 'var(--bg-card)', padding: '3px 6px', borderRadius: '6px',
+        border: '1px solid var(--border-subtle)'
+      }}>
         <input type="color" value={value || '#FFFFFF'}
           onChange={(e) => onChange(e.target.value)}
           style={{
-            width: '26px', height: '22px',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '4px', background: 'transparent',
+            width: '22px', height: '20px',
+            border: 'none', borderRadius: '4px', background: 'transparent',
             cursor: 'pointer', padding: 0
           }} />
-        <span style={{ fontSize: '10px', color: 'var(--text-primary)', fontFamily: 'monospace' }}>{value || '#FFFFFF'}</span>
+        <span style={{ fontSize: '10.5px', color: 'var(--text-primary)', fontFamily: 'monospace', fontWeight: 600 }}>{value || '#FFFFFF'}</span>
       </div>
     </div>
   );
