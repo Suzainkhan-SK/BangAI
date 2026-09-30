@@ -167,6 +167,11 @@ function AppContent() {
         }
       }
     } catch (e) {}
+
+    // Ensure document body scroll lock is always cleared on route change
+    if (typeof document !== 'undefined') {
+      document.body.classList.remove('no-scroll');
+    }
   }, [currentRoute]);
 
   // Listen to browser Back/Forward (Hash Change)
@@ -258,7 +263,7 @@ function AppContent() {
   const currentRoutePath = currentRoute?.path || '';
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', width: '100%', overflowX: 'hidden' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', width: '100%' }}>
       {/* Universal Full-Width Navbar */}
       <Navbar
         theme={theme}

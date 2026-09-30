@@ -558,7 +558,9 @@ export default function TemplatesPage({
       <div style={{
         flex: 1, width: '100%', minHeight: '100%',
         backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)',
-        padding: isMobile ? '16px 12px 60px 12px' : '36px 32px 80px 32px', overflowY: 'auto'
+        padding: isMobile ? '16px 12px 60px 12px' : '36px 32px 80px 32px',
+        overflowY: isMobile ? 'visible' : 'auto',
+        WebkitOverflowScrolling: 'touch'
       }}>
         <div style={{ maxWidth: '1180px', margin: '0 auto' }}>
 

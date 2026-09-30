@@ -1214,7 +1214,8 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
     <div style={{
       display: 'flex',
       height: 'calc(100vh - var(--nav-h, 58px))',
-      width: '100vw',
+      width: '100%',
+      maxWidth: '100%',
       background: 'var(--bg-app)',
       color: 'var(--text-primary)',
       overflow: 'hidden',
@@ -2109,6 +2110,7 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
         <div style={{
           flex: 1,
           overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',

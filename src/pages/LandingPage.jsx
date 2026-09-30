@@ -49,7 +49,7 @@ export default function LandingPage({
   };
 
   return (
-    <main style={{ flex: 1, width: '100%', overflowX: 'hidden' }}>
+    <main style={{ flex: 1, width: '100%' }}>
       {/* 1. Hero Command Center with Live Preset & Adaptive Player */}
       <Hero
         onStartCreation={onStartCreation}

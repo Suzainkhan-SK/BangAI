@@ -84,11 +84,13 @@ export default function BasicTemplatesPage({
       <div style={{
         flex: 1,
         width: '100%',
-        height: '100%',
+        height: isMobile ? 'auto' : '100%',
+        minHeight: '100%',
         backgroundColor: 'var(--bg-app)',
         color: 'var(--text-primary)',
         padding: isMobile ? '10px 10px 18px 10px' : '16px 20px 24px 20px',
-        overflowY: 'auto',
+        overflowY: isMobile ? 'visible' : 'auto',
+        WebkitOverflowScrolling: 'touch',
         display: 'flex',
         flexDirection: 'column'
       }}>

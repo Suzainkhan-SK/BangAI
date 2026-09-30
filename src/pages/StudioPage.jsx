@@ -2,6 +2,7 @@ import React from 'react';
 import StudioLab from '../components/Studio/StudioLab';
 import AppShell from '../components/Layout/AppShell';
 import { useVideoSettings } from '../state/videoSettings';
+import { useBreakpoint } from '../hooks/useMediaQuery';
 
 import { getVoiceById, getAllVoices } from '../data/voices';
 
@@ -14,6 +15,7 @@ export default function StudioPage({
   onNavigate
 }) {
   const { settings, updateSettings } = useVideoSettings();
+  const { isMobile } = useBreakpoint();
 
   const handleApplySettings = (newSettings) => {
     updateSettings(newSettings);
@@ -42,7 +44,14 @@ export default function StudioPage({
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
     >
-      <div style={{ flex: 1, width: '100%', height: '100%', overflowY: 'auto' }}>
+      <div style={{
+        flex: 1,
+        width: '100%',
+        height: isMobile ? 'auto' : '100%',
+        minHeight: '100%',
+        overflowY: isMobile ? 'visible' : 'auto',
+        WebkitOverflowScrolling: 'touch'
+      }}>
         <StudioLab
           initialTab={tab}
           onTabChange={handleTabChange}

@@ -141,7 +141,7 @@ body {
   letter-spacing: -0.005em;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
   text-rendering: optimizeLegibility;
-  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Numbers align in tables, timers, counters, specs */
@@ -695,7 +695,7 @@ input[type='radio'] {
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.sidebar-mobile-overlay {
+.sidebar-mobile-overlay.visible {
   background: var(--scrim);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);

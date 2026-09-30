@@ -1534,6 +1534,7 @@ export default function DashboardApp({
         flex: 1,
         height: '100%',
         overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',

@@ -56,9 +56,15 @@ export function useBreakpoint() {
 /** Lock background scrolling while a drawer/modal is open. */
 export function useBodyScrollLock(locked) {
   useEffect(() => {
-    if (!locked || typeof document === 'undefined') return undefined;
-    document.body.classList.add('no-scroll');
-    return () => document.body.classList.remove('no-scroll');
+    if (typeof document === 'undefined') return undefined;
+    if (locked) {
+      document.body.classList.add('no-scroll');
+      return () => {
+        document.body.classList.remove('no-scroll');
+      };
+    } else {
+      document.body.classList.remove('no-scroll');
+    }
   }, [locked]);
 }
 

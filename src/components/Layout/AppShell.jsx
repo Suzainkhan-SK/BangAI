@@ -12,10 +12,11 @@ export default function AppShell({ user, currentRoutePath, onNavigate, collapsed
     <div style={{
       flex: 1,
       display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
       width: '100%',
-      height: 'calc(100dvh - var(--nav-h, 58px))',
-      minHeight: 'calc(100dvh - var(--nav-h, 58px))',
-      overflow: 'hidden',
+      height: isMobile ? 'auto' : 'calc(100dvh - var(--nav-h, 58px))',
+      minHeight: isMobile ? 'calc(100vh - var(--nav-h, 58px))' : 'calc(100dvh - var(--nav-h, 58px))',
+      overflow: isMobile ? 'visible' : 'hidden',
       position: 'relative'
     }}>
       {/* Mobile Sidebar Overlay */}
@@ -50,7 +51,16 @@ export default function AppShell({ user, currentRoutePath, onNavigate, collapsed
         />
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <div style={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        height: isMobile ? 'auto' : '100%',
+        minHeight: 0,
+        overflow: isMobile ? 'visible' : 'hidden',
+        WebkitOverflowScrolling: 'touch'
+      }}>
         {children}
       </div>
     </div>
