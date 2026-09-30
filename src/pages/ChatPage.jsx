@@ -28,7 +28,9 @@ import {
   Eye,
   Sliders,
   Sun,
-  Moon
+  Moon,
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
 import ChatPromptBar from '../components/Chat/ChatPromptBar';
 import ChatMessageContent from '../components/Chat/ChatMessageContent';
@@ -124,32 +126,33 @@ export const CHAT_MODELS = [
 
 const STARTER_PROMPTS = [
   {
-    icon: '💻',
-    title: 'Build a Portfolio Website',
-    desc: 'Generate a complete, modern, responsive portfolio website in HTML, CSS & JavaScript',
-    prompt: 'Build me a complete, modern, and beautiful developer portfolio website in HTML, CSS, and Vanilla JavaScript with a sleek dark mode and interactive projects section.',
+    icon: '🎬',
+    title: 'Multi-Platform Video Screenplay',
+    desc: '5-scene high-retention script with visual camera cues & voiceover pacing for YouTube, Reels & TikTok',
+    prompt: 'Write a high-retention 5-scene viral video screenplay about the mystery of the Bermuda Triangle with scene timings, visual camera direction, and narrative pacing across 9:16 and 16:9 formats.',
     webSearch: false
   },
   {
-    icon: '🎬',
-    title: '75s Golden Short Blueprint',
-    desc: 'Full 5-scene high-retention script with hooks, camera prompts & loop CTA',
-    prompt: 'Write a full 75-second 5-scene golden blueprint YouTube Short script about the mystery of the Mariana Trench with scene timings, visual camera cues, and voiceover pacing.',
+    icon: '💻',
+    title: 'Interactive Web Dashboard',
+    desc: 'Complete, modern, responsive web application in HTML, CSS & JavaScript with charts and filters',
+    prompt: 'Build me a complete, modern, and beautiful developer analytics dashboard in HTML, CSS, and Vanilla JavaScript with a sleek dark mode and interactive live charts.',
     webSearch: false
   },
   {
     icon: '🌐',
-    title: 'Live Web Trend Research',
-    desc: 'Real-time search for trending topics, algorithm shifts & live citations',
-    prompt: 'Search the live web and tell me the biggest viral trends and algorithm updates happening on YouTube Shorts right now.',
+    title: 'Live Web Trend Intelligence',
+    desc: 'Real-time search for trending content formats, algorithm shifts & live web citations',
+    prompt: 'Search the live web and summarize the fastest-growing viral video trends and algorithmic patterns happening across YouTube, Instagram Reels, and TikTok right now.',
     webSearch: true
   },
   {
     icon: '🧠',
-    title: 'Deep Thinking & Logic',
-    desc: 'Tackle a multi-step logic problem or complex architecture with deep reasoning',
+    title: 'Deep Reasoning & Architecture',
+    desc: 'Tackle a complex technical architecture, algorithm, or multi-step logic problem with deep reasoning',
     prompt: 'Solve this riddle with high reasoning effort: A farmer has 17 sheep, and all but 9 die. How many are left? Think step by step.',
-    webSearch: false
+    webSearch: false,
+    reasoning: true
   }
 ];
 
@@ -167,6 +170,8 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
   const [speakingMessageId, setSpeakingMessageId] = useState(null);
   const [highlightedCitation, setHighlightedCitation] = useState(null);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [feedbackMap, setFeedbackMap] = useState({});
+  const [toastMessage, setToastMessage] = useState(null);
 
   // Model Selection state (defaults to Smart Auto-Router)
   const [selectedModelKey, setSelectedModelKey] = useState(() => {
@@ -799,7 +804,20 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
       .map((m) => `### ${m.role === 'user' ? 'User' : 'Bang AI'}\n\n${m.content}\n`)
       .join('\n---\n\n');
     navigator.clipboard.writeText(transcript);
-    alert('Conversation transcript copied to clipboard!');
+    try { audioEngine.playSfx('click'); } catch (e) {}
+    setToastMessage('Conversation transcript copied to clipboard!');
+    setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  // Feedback thumbs up/down
+  const handleFeedback = (msgId, type) => {
+    try { audioEngine.playSfx('click'); } catch (e) {}
+    setFeedbackMap((prev) => ({
+      ...prev,
+      [msgId]: prev[msgId] === type ? null : type
+    }));
+    setToastMessage(type === 'like' ? 'Thanks for your feedback!' : 'Feedback recorded.');
+    setTimeout(() => setToastMessage(null), 2500);
   };
 
   // ─── FILTER & GROUP SESSIONS ───
@@ -1182,28 +1200,181 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
               </button>
             )}
 
-            {/* Claude Desktop / Modern Clean App Header Title */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '26px',
-                height: '26px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)'
-              }}>
-                <Sparkles size={14} />
-              </div>
-              <span style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                {activeSession?.title || 'Bang AI 4.5'}
-              </span>
+            {/* Model Selector Pill in Header */}
+            <div style={{ position: 'relative' }} ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  try { audioEngine.playSfx('click'); } catch (e) {}
+                  setModelDropdownOpen(!modelDropdownOpen);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  padding: '5px 12px',
+                  borderRadius: '10px',
+                  background: modelDropdownOpen ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+                  border: `1px solid ${modelDropdownOpen ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  fontWeight: 650,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Select Active Bang AI Model"
+              >
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: currentModelConfig.badgeColor,
+                  boxShadow: '0 0 8px rgba(99, 102, 241, 0.45)'
+                }} />
+                <span>{currentModelConfig.name}</span>
+                <span style={{
+                  fontSize: '9.5px',
+                  fontWeight: 800,
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  background: 'var(--bg-pill)',
+                  color: 'var(--accent-primary)',
+                  letterSpacing: '0.04em'
+                }}>
+                  {currentModelConfig.badge}
+                </span>
+                <ChevronDown size={13} style={{ transform: modelDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease', opacity: 0.6 }} />
+              </button>
+
+              {/* Floating Model Popover in Header */}
+              {modelDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: 0,
+                    width: '300px',
+                    maxHeight: '380px',
+                    overflowY: 'auto',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: '16px',
+                    boxShadow: 'var(--shadow-card)',
+                    padding: '6px',
+                    zIndex: 250,
+                    backdropFilter: 'blur(20px)'
+                  }}
+                  className="thin-scroll"
+                >
+                  <div style={{
+                    padding: '6px 8px 4px 8px',
+                    fontSize: '10.5px',
+                    fontWeight: 750,
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    Select AI Model
+                  </div>
+                  {CHAT_MODELS.map((m) => {
+                    const isSelected = m.key === selectedModelKey;
+                    return (
+                      <div
+                        key={m.key}
+                        onClick={() => handleSelectModel(m.key)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 10px',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          background: isSelected ? 'var(--bg-input)' : 'transparent',
+                          border: `1px solid ${isSelected ? 'var(--border-subtle)' : 'transparent'}`,
+                          marginBottom: '3px',
+                          transition: 'background 0.12s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'var(--bg-card-hover)';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: m.badgeColor,
+                            flexShrink: 0
+                          }} />
+                          <div>
+                            <div style={{ fontSize: '12.5px', fontWeight: isSelected ? 750 : 600, color: 'var(--text-primary)' }}>
+                              {m.name}
+                            </div>
+                            <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', lineHeight: 1.25 }}>
+                              {m.desc}
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: '9px',
+                          fontWeight: 800,
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          background: m.badgeColor,
+                          color: '#fff',
+                          letterSpacing: '0.02em',
+                          whiteSpace: 'nowrap',
+                          marginLeft: '6px'
+                        }}>
+                          {m.badge}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
+
+            {/* Conversation Title pill */}
+            {activeSession && (
+              <span style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '220px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                • {activeSession.title}
+              </span>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Quick Link to Video Studio */}
+            <button
+              type="button"
+              onClick={() => {
+                try { audioEngine.playSfx('click'); } catch (e) {}
+                if (typeof onNavigate === 'function') onNavigate('dashboard');
+                else window.location.hash = '#/dashboard';
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                background: 'rgba(255, 79, 0, 0.08)',
+                border: '1px solid rgba(255, 79, 0, 0.25)',
+                color: 'var(--accent-primary)',
+                fontSize: '12px',
+                fontWeight: 650,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Open Bang AI Video Studio"
+            >
+              <Film size={13} />
+              <span>Video Studio</span>
+            </button>
+
             {activeSession && activeSession.messages.length > 0 && (
               <button
                 type="button"
@@ -1277,6 +1448,32 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
           </div>
         </header>
 
+        {/* Floating Toast Notification */}
+        {toastMessage && (
+          <div style={{
+            position: 'absolute',
+            top: '62px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--bg-card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-medium)',
+            borderRadius: '99px',
+            padding: '7px 18px',
+            fontSize: '12.5px',
+            fontWeight: 650,
+            boxShadow: 'var(--shadow-card)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            zIndex: 1000,
+            animation: 'fadeIn 0.2s ease'
+          }}>
+            <Sparkles size={14} color="var(--accent-primary)" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
         {/* Message Feed / Conversation Container */}
         <div style={{
           flex: 1,
@@ -1290,35 +1487,69 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
           {(!activeSession || activeSession.messages.length === 0) && (
             <div style={{
               width: '100%',
-              maxWidth: '800px',
+              maxWidth: '820px',
               margin: 'auto 0',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               textAlign: 'center',
-              gap: '24px'
+              gap: '24px',
+              position: 'relative',
+              padding: '20px 0'
             }}>
+              {/* Radial ambient glow */}
+              <div className="chat-glow-aura" />
+
               {/* Bang AI Glowing Icon */}
-              <div style={{
-                width: '60px',
-                height: '60px',
-                borderRadius: '18px',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: 'var(--shadow-glow)'
-              }}>
-                <Sparkles size={30} color="#fff" />
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '20px',
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 30px rgba(99, 102, 241, 0.45)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                }}>
+                  <Sparkles size={32} color="#fff" />
+                </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <h1 style={{ fontSize: '26px', fontWeight: 750, letterSpacing: '-0.02em', margin: 0, color: 'var(--text-primary)' }}>
-                  What will we create today?
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative', zIndex: 1 }}>
+                <h1 className="font-display" style={{ fontSize: 'clamp(26px, 4vw, 34px)', fontWeight: 850, letterSpacing: '-0.025em', margin: 0, color: 'var(--text-primary)' }}>
+                  How can Bang AI <span className="grad-text">help you create today?</span>
                 </h1>
-                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, maxWidth: '520px', lineHeight: 1.5 }}>
-                  Supercharged with 1M context, 65K max output tokens, multi-modal vision analysis, 5-scene golden scripts, and live web citations.
+                <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', margin: '0 auto', maxWidth: '560px', lineHeight: 1.55 }}>
+                  Autonomous multi-format video creation, 1M context reasoning, live web search citations, and full-stack software development.
                 </p>
+
+                {/* 4 Feature capability pills */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginTop: '6px' }}>
+                  {[
+                    { label: 'Sub-Second Latency', icon: '⚡' },
+                    { label: 'Deep Reasoning Engine', icon: '🧠' },
+                    { label: 'Live Web Citations', icon: '🌐' },
+                    { label: 'Video Studio Integration', icon: '🎬' }
+                  ].map((feat, fIdx) => (
+                    <span key={fIdx} style={{
+                      fontSize: '11px',
+                      fontWeight: 650,
+                      padding: '3px 9px',
+                      borderRadius: '99px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-secondary)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <span>{feat.icon}</span>
+                      <span>{feat.label}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
 
               {/* Starter Cards Grid */}
@@ -1327,18 +1558,21 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                 gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                 gap: '12px',
                 width: '100%',
-                marginTop: '8px'
+                marginTop: '10px',
+                position: 'relative',
+                zIndex: 1
               }}>
                 {STARTER_PROMPTS.map((starter, idx) => (
                   <button
                     key={idx}
                     type="button"
+                    className="chat-starter-card"
                     onClick={() => {
                       handleSendMessage({
                         text: starter.prompt,
                         attachments: [],
-                        webSearch: true,
-                        reasoning: false
+                        webSearch: starter.webSearch !== undefined ? starter.webSearch : false,
+                        reasoning: starter.reasoning !== undefined ? starter.reasoning : false
                       });
                     }}
                     style={{
@@ -1346,30 +1580,19 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                       flexDirection: 'column',
                       alignItems: 'flex-start',
                       gap: '6px',
-                      padding: '14px 16px',
-                      borderRadius: '16px',
+                      padding: '16px 18px',
+                      borderRadius: '18px',
                       background: 'var(--bg-card)',
                       border: '1px solid var(--border-subtle)',
                       color: 'var(--text-primary)',
                       cursor: 'pointer',
                       textAlign: 'left',
-                      boxShadow: 'var(--shadow-card)',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--bg-card-hover)';
-                      e.currentTarget.style.borderColor = 'var(--border-medium)';
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'var(--bg-card)';
-                      e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                      e.currentTarget.style.transform = 'none';
+                      boxShadow: 'var(--shadow-card)'
                     }}
                   >
-                    <div style={{ fontSize: '20px' }}>{starter.icon}</div>
-                    <div style={{ fontSize: '14px', fontWeight: 650, color: 'var(--text-primary)' }}>{starter.title}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.35 }}>
+                    <div style={{ fontSize: '22px', marginBottom: '2px' }}>{starter.icon}</div>
+                    <div style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--text-primary)' }}>{starter.title}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
                       {starter.desc}
                     </div>
                   </button>
@@ -1590,7 +1813,32 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                             <RotateCcw size={13} />
                           </button>
 
-                          {/* Convert to Short */}
+                          {/* Feedback Thumbs Up / Down */}
+                          <button
+                            type="button"
+                            onClick={() => handleFeedback(msg.id, 'like')}
+                            className="chat-action-btn"
+                            style={{
+                              color: feedbackMap[msg.id] === 'like' ? '#10b981' : 'var(--text-muted)'
+                            }}
+                            title="Helpful response"
+                          >
+                            <ThumbsUp size={13} fill={feedbackMap[msg.id] === 'like' ? '#10b981' : 'none'} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleFeedback(msg.id, 'dislike')}
+                            className="chat-action-btn"
+                            style={{
+                              color: feedbackMap[msg.id] === 'dislike' ? '#ef4444' : 'var(--text-muted)'
+                            }}
+                            title="Needs improvement"
+                          >
+                            <ThumbsDown size={13} fill={feedbackMap[msg.id] === 'dislike' ? '#ef4444' : 'none'} />
+                          </button>
+
+                          {/* Send to Video Studio */}
                           <button
                             type="button"
                             onClick={() => handleConvertToVideo(msg.content)}
@@ -1598,21 +1846,22 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
                               marginLeft: '8px',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '5px',
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                              background: 'rgba(99, 102, 241, 0.12)',
-                              border: '1px solid rgba(99, 102, 241, 0.28)',
-                              color: 'var(--accent-primary, #6366f1)',
-                              fontSize: '11px',
-                              fontWeight: 650,
-                              cursor: 'pointer'
+                              gap: '6px',
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              background: 'rgba(255, 79, 0, 0.1)',
+                              border: '1px solid rgba(255, 79, 0, 0.28)',
+                              color: 'var(--accent-primary)',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
                             }}
-                            title="Send this script to Bang AI Studio to render into a Short"
+                            title="Send this screenplay to Bang AI Studio to produce the video"
                           >
-                            <Film size={11} />
-                            <span>Convert to Short</span>
-                            <ArrowRight size={10} />
+                            <Film size={12} />
+                            <span>Send to Video Studio</span>
+                            <ArrowRight size={11} />
                           </button>
                         </div>
                       )}
@@ -1676,14 +1925,14 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
             onSelectQuickAction={(type) => {
               if (type === 'hook') {
                 handleSendMessage({
-                  text: 'Give me 5 viral 3-second opening hooks in English for a YouTube Short.',
+                  text: 'Generate 5 high-retention 3-second opening hooks for multi-platform videos (YouTube Shorts, Instagram Reels, and TikTok).',
                   attachments: [],
                   webSearch: webSearchEnabled,
                   reasoning: reasoningEnabled
                 });
               } else if (type === 'script') {
                 handleSendMessage({
-                  text: 'Write a full 75-second 5-scene golden blueprint script for my YouTube Short.',
+                  text: 'Write a high-retention 5-scene viral video screenplay with scene timings, visual camera direction, and narrative pacing across 9:16 and 16:9 formats.',
                   attachments: [],
                   webSearch: webSearchEnabled,
                   reasoning: reasoningEnabled

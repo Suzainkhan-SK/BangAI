@@ -71,7 +71,7 @@ const AVAILABLE_MODELS = [
     shortName: '4.5 Coder',
     badge: 'CODE & APPS',
     badgeBg: 'linear-gradient(135deg, #059669, #10b981)',
-    desc: 'Portfolio sites, web apps, scripts & n8n automations',
+    desc: 'Portfolio sites, web apps, scripts & autonomous workflows',
     icon: Wand2
   },
   {
@@ -475,6 +475,47 @@ export default function ChatPromptBar({
         onChange={handleFileUpload}
       />
 
+      {/* ─── QUICK INSPIRATION PILLS TRAY ─── */}
+      {text.length === 0 && attachments.length === 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          overflowX: 'auto',
+          paddingBottom: '8px',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
+        }} className="thin-scroll">
+          {[
+            { icon: <Sparkles size={12} color="#ec4899" />, label: 'Viral Hooks', prompt: 'Generate 5 high-retention 3-second opening hooks for multi-platform videos (Shorts, Reels, TikTok).' },
+            { icon: <Film size={12} color="#8b5cf6" />, label: 'Video Screenplay', prompt: 'Write a high-retention 5-scene viral video screenplay with scene timings, camera direction, and narrative pacing.' },
+            { icon: <Globe size={12} color="#0284c7" />, label: 'Live Web Research', prompt: 'Search the live web for the fastest-growing viral video trends and algorithmic patterns happening right now.', webSearch: true },
+            { icon: <Wand2 size={12} color="#10b981" />, label: 'Full-Stack Web App', prompt: 'Build a complete, modern, interactive web application in HTML, CSS, and Vanilla JavaScript with sleek dark mode.' },
+            { icon: <Brain size={12} color="#a855f7" />, label: 'Deep Reasoning', prompt: 'Solve this challenging logic problem with step-by-step reasoning: ', reasoning: true }
+          ].map((pill, pIdx) => (
+            <button
+              key={pIdx}
+              type="button"
+              className="chat-quick-pill"
+              onClick={() => {
+                try { audioEngine.playSfx('click'); } catch (e) {}
+                if (pill.webSearch && typeof onToggleWebSearch === 'function' && !webSearchEnabled) {
+                  onToggleWebSearch(true);
+                }
+                if (pill.reasoning && typeof onToggleReasoning === 'function' && !reasoningEnabled) {
+                  onToggleReasoning(true);
+                }
+                setText(pill.prompt);
+                textareaRef.current?.focus();
+              }}
+            >
+              {pill.icon}
+              <span>{pill.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ─── MAIN CHATGPT CAPSULE CONTAINER ─── */}
       <div
         onDragOver={handleDragOver}
@@ -710,7 +751,7 @@ export default function ChatPromptBar({
                       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
                       <Film size={16} color="#8b5cf6" />
-                      <span>75s Golden Blueprint</span>
+                      <span>Viral Video Screenplay</span>
                     </button>
                   </>
                 )}

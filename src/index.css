@@ -1068,6 +1068,76 @@ body {
   animation: cursorBlink 0.8s infinite ease-in-out;
 }
 
+/* Chat Page 2026 Polish Utilities */
+.chat-glow-aura {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.05) 45%, transparent 70%);
+  pointer-events: none;
+  filter: blur(40px);
+  animation: pulse 6s ease-in-out infinite alternate;
+  z-index: 0;
+}
+
+[data-theme='light'] .chat-glow-aura {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, rgba(255, 79, 0, 0.04) 50%, transparent 70%);
+}
+
+.chat-starter-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease, background 0.15s ease !important;
+}
+
+.chat-starter-card:hover {
+  transform: translateY(-3px) !important;
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.2) !important;
+  background: var(--bg-card-hover) !important;
+}
+
+.chat-action-btn {
+  transition: all 0.15s ease;
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+}
+
+.chat-action-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+.chat-quick-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.chat-quick-pill:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
 /* ═══════════════════════════════════════════════════════════
    MODERN 2026 LANDING PAGE UTILITIES & ANIMATIONS
    ═══════════════════════════════════════════════════════════ */

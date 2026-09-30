@@ -76,10 +76,11 @@ export default function Navbar({
         { label: 'Dashboard', view: 'dashboard', icon: LayoutDashboard },
         { label: 'AI Templates', view: 'templates', icon: Zap, badge: 'PRO' },
         { label: 'Stock Studio', view: 'basic-templates', icon: Film, badge: 'STOCK' },
-        { label: 'Chat', view: 'chat', icon: Bot, badge: '4.0' },
+        { label: 'Chat', view: 'chat', icon: Bot, badge: '4.5' },
       ]
     : [
         { label: 'Home', view: 'landing' },
+        { label: 'AI Chat', view: 'chat', icon: Bot, badge: '4.5' },
         { label: 'Features', view: 'landing', anchor: '#features' },
         { label: 'Showcase', view: 'landing', anchor: '#showcase' },
         { label: 'Pricing', view: 'pricing' },
