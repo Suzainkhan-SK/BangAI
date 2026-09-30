@@ -81,7 +81,8 @@ function sanitizeUser(userDoc) {
     credits: typeof userDoc.credits === 'number' ? userDoc.credits : 100,
     avatar: userDoc.avatar || null,
     authProvider: userDoc.authProvider || (userDoc.hash ? 'email' : 'google'),
-    createdAt: userDoc.createdAt || new Date().toISOString()
+    createdAt: userDoc.createdAt || new Date().toISOString(),
+    settings: userDoc.settings || null
   };
 }
 
@@ -593,6 +594,9 @@ export const handler = async (event, context) => {
       if (body.channel) updateFields.channel = String(body.channel).trim();
       if (body.niche) updateFields.niche = String(body.niche).trim();
       if (body.avatar) updateFields.avatar = String(body.avatar).trim();
+      if (body.settings && typeof body.settings === 'object') {
+        updateFields.settings = body.settings;
+      }
       updateFields.updatedAt = new Date().toISOString();
 
       await usersCol.updateOne(

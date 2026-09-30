@@ -67,11 +67,16 @@ export default function DashboardApp({
   onOpenStudio,
   onLogout
 }) {
+  const currentUid = user?.id || user?.userId || user?._id || '';
+  const getThreadCacheKey = (uid) => uid ? `shortsai_threads_${uid}` : 'shortsai_all_threads';
+
   const [sessionId] = useState(getOrCreateSessionId);
   const [pastShorts, setPastShorts] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem('shortsai_all_threads');
+        const uid = user?.id || user?.userId || user?._id || '';
+        const key = getThreadCacheKey(uid);
+        const cached = localStorage.getItem(key) || (!uid ? localStorage.getItem('shortsai_all_threads') : null);
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -92,12 +97,14 @@ export default function DashboardApp({
     if (!routeThreadId && activeThreadId) setActiveThreadId(null);
   }, [routeThreadId]);
 
-  // Sync all thread changes to localStorage immediately on every change
+  // Sync all thread changes to user-isolated localStorage immediately on every change
   useEffect(() => {
     if (typeof window !== 'undefined' && Array.isArray(pastShorts)) {
-      localStorage.setItem('shortsai_all_threads', JSON.stringify(pastShorts));
+      const uid = user?.id || user?.userId || user?._id || '';
+      const key = getThreadCacheKey(uid);
+      localStorage.setItem(key, JSON.stringify(pastShorts));
     }
-  }, [pastShorts]);
+  }, [pastShorts, user?.id, user?.userId, user?._id]);
 
   const { settings: videoSettings, updateSettings: updateVideoSettings } = useVideoSettings();
   const voiceId = videoSettings.voiceId;
@@ -296,7 +303,9 @@ export default function DashboardApp({
             // Replace with user's verified threads (clean isolation)
             setPastShorts(data.threads);
             try {
-              localStorage.setItem('shortsai_all_threads', JSON.stringify(data.threads));
+              const uid = user?.id || user?.userId || user?._id || '';
+              const key = getThreadCacheKey(uid);
+              localStorage.setItem(key, JSON.stringify(data.threads));
             } catch (e) {}
           }
         }
@@ -755,7 +764,9 @@ export default function DashboardApp({
     setPastShorts(prev => {
       const updated = prev.filter(x => x.id !== id && x.threadId !== id);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('shortsai_all_threads', JSON.stringify(updated));
+        const uid = user?.id || user?.userId || user?._id || '';
+        const key = getThreadCacheKey(uid);
+        localStorage.setItem(key, JSON.stringify(updated));
       }
       return updated;
     });

@@ -31,11 +31,16 @@ export async function registerUser({ name, email, password, channel, niche, plan
     localStorage.setItem('shortsai_user', JSON.stringify(data.user));
   }
   // Clear any stale thread cache from prior sessions
-  try {
-    localStorage.removeItem('shortsai_all_threads');
-    localStorage.removeItem('shortsai_active_thread_id');
-    localStorage.removeItem('shortsai_session_id');
-  } catch (e) {}
+  clearUserSessionData();
+
+  if (data.token) {
+    localStorage.setItem('bangai_token', data.token);
+    localStorage.setItem('shortsai_token', data.token);
+  }
+  if (data.user) {
+    localStorage.setItem('bangai_user', JSON.stringify(data.user));
+    localStorage.setItem('shortsai_user', JSON.stringify(data.user));
+  }
 
   return data;
 }
@@ -57,6 +62,9 @@ export async function loginUser(email, password) {
     throw new Error(data.error || 'Invalid email or password');
   }
 
+  // Clear any stale thread/chat cache from prior sessions
+  clearUserSessionData();
+
   if (data.token) {
     localStorage.setItem('bangai_token', data.token);
     localStorage.setItem('shortsai_token', data.token);
@@ -65,12 +73,6 @@ export async function loginUser(email, password) {
     localStorage.setItem('bangai_user', JSON.stringify(data.user));
     localStorage.setItem('shortsai_user', JSON.stringify(data.user));
   }
-  // Clear any stale thread cache from prior sessions
-  try {
-    localStorage.removeItem('shortsai_all_threads');
-    localStorage.removeItem('shortsai_active_thread_id');
-    localStorage.removeItem('shortsai_session_id');
-  } catch (e) {}
 
   return data;
 }
@@ -81,6 +83,7 @@ export async function verifySession() {
     // Purge any stale demo user from previous sessions
     localStorage.removeItem('bangai_user');
     localStorage.removeItem('shortsai_user');
+    clearUserSessionData();
     return null;
   }
 
@@ -98,9 +101,7 @@ export async function verifySession() {
       localStorage.removeItem('bangai_user');
       localStorage.removeItem('shortsai_token');
       localStorage.removeItem('shortsai_user');
-      localStorage.removeItem('shortsai_all_threads');
-      localStorage.removeItem('shortsai_session_id');
-      localStorage.removeItem('shortsai_active_thread_id');
+      clearUserSessionData();
       return null;
     }
 
@@ -117,14 +118,60 @@ export async function verifySession() {
   return null;
 }
 
+export function clearUserSessionData() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem('shortsai_all_threads');
+    localStorage.removeItem('shortsai_active_thread_id');
+    localStorage.removeItem('shortsai_session_id');
+    localStorage.removeItem('bangai_chat_sessions');
+
+    // Remove any user-namespaced storage keys
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('shortsai_threads_') || key.startsWith('bangai_chat_sessions_'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
+}
+
 export function logoutUser() {
   localStorage.removeItem('bangai_token');
   localStorage.removeItem('bangai_user');
   localStorage.removeItem('shortsai_token');
   localStorage.removeItem('shortsai_user');
-  localStorage.removeItem('shortsai_all_threads');
-  localStorage.removeItem('shortsai_session_id');
-  localStorage.removeItem('shortsai_active_thread_id');
+  clearUserSessionData();
+}
+
+export async function updateUserSettings(settings) {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  try {
+    const res = await fetch(`${AUTH_ENDPOINT}?action=update-profile`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ settings })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.user) {
+        localStorage.setItem('bangai_user', JSON.stringify(data.user));
+        localStorage.setItem('shortsai_user', JSON.stringify(data.user));
+        return data.user;
+      }
+    }
+  } catch (e) {
+    console.warn('[authClient] updateUserSettings error:', e.message);
+  }
+  return null;
 }
 
 export const GOOGLE_CLIENT_ID = '332704127629-qeh7u7cvkjdpieluefmpcef85q64khin.apps.googleusercontent.com';

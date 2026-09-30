@@ -139,6 +139,9 @@ export default function TemplatesPage({
     ? Math.max(SPEED_MIN, Math.min(SPEED_MAX, videoSettings.voiceSpeed))
     : SPEED_DEF;
 
+  const uid = user?.id || user?.userId || user?._id || '';
+  const threadCacheKey = uid ? `shortsai_threads_${uid}` : 'shortsai_all_threads';
+
   const activeVoiceObj = getVoiceById(voiceId) || VOICES.find(v => v.id === voiceId || v.elevenLabsId === voiceId) || VOICES[0];
   const isCustomVoice = !VOICES.some(v => v.id === voiceId || v.elevenLabsId === voiceId);
 
@@ -258,7 +261,7 @@ export default function TemplatesPage({
             const vidTitle = data.title || data.story?.title || currentCustomTopic || currentTpl.title;
 
             try {
-              const stored = JSON.parse(localStorage.getItem('shortsai_all_threads') || '[]');
+              const stored = JSON.parse(localStorage.getItem(threadCacheKey) || '[]');
               const updated = stored.map(t => {
                 if ((t.threadId || t.id) === generatingThreadId) {
                   return {
@@ -280,7 +283,7 @@ export default function TemplatesPage({
                 }
                 return t;
               });
-              localStorage.setItem('shortsai_all_threads', JSON.stringify(updated));
+              localStorage.setItem(threadCacheKey, JSON.stringify(updated));
             } catch (e) {
               console.warn('[TemplatesPage] localStorage update error:', e);
             }
@@ -362,8 +365,8 @@ export default function TemplatesPage({
             }
           ]
         };
-        const stored = JSON.parse(localStorage.getItem('shortsai_all_threads') || '[]');
-        localStorage.setItem('shortsai_all_threads', JSON.stringify([provisional, ...stored.filter(t => (t.threadId || t.id) !== newThreadId)]));
+        const stored = JSON.parse(localStorage.getItem(threadCacheKey) || '[]');
+        localStorage.setItem(threadCacheKey, JSON.stringify([provisional, ...stored.filter(t => (t.threadId || t.id) !== newThreadId)]));
       } catch (e) {
         console.warn('[TemplatesPage] localStorage write error:', e);
       }
@@ -428,7 +431,7 @@ export default function TemplatesPage({
 
     if (targetThreadId) {
       try {
-        const stored = JSON.parse(localStorage.getItem('shortsai_all_threads') || '[]');
+        const stored = JSON.parse(localStorage.getItem(threadCacheKey) || '[]');
         const updated = stored.map(t => {
           if ((t.threadId || t.id) === targetThreadId) {
             return {
@@ -443,7 +446,7 @@ export default function TemplatesPage({
           }
           return t;
         });
-        localStorage.setItem('shortsai_all_threads', JSON.stringify(updated));
+        localStorage.setItem(threadCacheKey, JSON.stringify(updated));
       } catch (e) {
         console.warn('[TemplatesPage] Cancel localStorage error:', e);
       }

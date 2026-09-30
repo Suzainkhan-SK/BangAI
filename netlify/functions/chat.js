@@ -299,10 +299,128 @@ export const handler = async (event, context) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+        'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS'
       },
       body: ''
     };
+  }
+
+  const action = event.queryStringParameters?.action || '';
+
+  // ─── Multi-Tenant Chat Sessions Endpoint (MongoDB Atlas) ─────────
+  if (action === 'sessions' || action === 'delete-session') {
+    const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
+    const userToken = authHeader.replace(/^Bearer\s+/i, '').trim() || event.queryStringParameters?.token;
+    const user = verifyToken(userToken);
+
+    if (!user) {
+      return {
+        statusCode: 401,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Unauthorized. Please sign in.' })
+      };
+    }
+
+    const resolvedUserId = user.userId || user.id || '';
+    const resolvedEmail = (user.email || '').toLowerCase();
+
+    try {
+      const db = await getDb();
+      if (!db) {
+        return {
+          statusCode: 200,
+          headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessions: [] })
+        };
+      }
+
+      // GET: Retrieve user's isolated chat sessions
+      if (event.httpMethod === 'GET' && action === 'sessions') {
+        const queryOr = [];
+        if (resolvedUserId) queryOr.push({ userId: resolvedUserId });
+        if (resolvedEmail) queryOr.push({ userEmail: resolvedEmail });
+
+        const sessions = await db.collection('chat_sessions')
+          .find(queryOr.length > 0 ? { $or: queryOr } : { userId: resolvedUserId })
+          .sort({ updatedAt: -1 })
+          .limit(100)
+          .toArray();
+
+        return {
+          statusCode: 200,
+          headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ success: true, sessions })
+        };
+      }
+
+      // POST: Upsert user's chat sessions
+      if (event.httpMethod === 'POST' && action === 'sessions') {
+        const body = JSON.parse(event.body || '{}');
+        const sessionList = Array.isArray(body.sessions) ? body.sessions : (body.session ? [body.session] : []);
+
+        for (const s of sessionList) {
+          if (!s || !s.id) continue;
+          await db.collection('chat_sessions').updateOne(
+            { id: s.id, $or: [{ userId: resolvedUserId }, { userEmail: resolvedEmail }] },
+            {
+              $set: {
+                id: s.id,
+                userId: resolvedUserId,
+                userEmail: resolvedEmail,
+                title: s.title || 'New Chat',
+                model: s.model || 'bang-ai-auto',
+                messages: s.messages || [],
+                updatedAt: new Date(s.updatedAt || Date.now())
+              },
+              $setOnInsert: {
+                createdAt: new Date(s.createdAt || Date.now())
+              }
+            },
+            { upsert: true }
+          );
+        }
+
+        return {
+          statusCode: 200,
+          headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ success: true, count: sessionList.length })
+        };
+      }
+
+      // DELETE: Delete a user's chat session
+      if (event.httpMethod === 'DELETE' || action === 'delete-session') {
+        const sessionId = event.queryStringParameters?.id || event.queryStringParameters?.sessionId;
+        if (!sessionId) {
+          return {
+            statusCode: 400,
+            headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ error: 'Missing session ID to delete' })
+          };
+        }
+
+        const deleteQuery = {
+          id: sessionId,
+          $or: [
+            ...(resolvedUserId ? [{ userId: resolvedUserId }] : []),
+            ...(resolvedEmail ? [{ userEmail: resolvedEmail }] : [])
+          ]
+        };
+
+        await db.collection('chat_sessions').deleteOne(deleteQuery);
+        return {
+          statusCode: 200,
+          headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ success: true, deletedId: sessionId })
+        };
+      }
+    } catch (sessionErr) {
+      console.error('[chat.js] Chat sessions error:', sessionErr);
+      return {
+        statusCode: 500,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: sessionErr.message })
+      };
+    }
   }
 
   if (event.httpMethod !== 'POST') {
@@ -366,12 +484,10 @@ export const handler = async (event, context) => {
     }
 
     let db = null;
-    if (mode !== 'CHAT') {
-      try {
-        db = await getDb();
-      } catch (e) {
-        console.warn('MongoDB connection notice:', e.message);
-      }
+    try {
+      db = await getDb();
+    } catch (e) {
+      console.warn('MongoDB connection notice:', e.message);
     }
 
     if (db && mode !== 'CHAT') {
@@ -687,6 +803,52 @@ CRITICAL RULES:
         timestamp: now
       };
 
+      // Multi-tenant: Persist chat session to MongoDB for this authenticated user
+      if (db && (resolvedUserId || resolvedEmail)) {
+        try {
+          const userMsg = {
+            id: 'msg-' + Date.now() + '-u',
+            role: 'user',
+            content: cleanMessage,
+            images: incomingImages,
+            timestamp: now.toISOString()
+          };
+          const assistantMsg = {
+            id: 'msg-' + Date.now() + '-a',
+            role: 'assistant',
+            content: aiReplyText,
+            reasoningContent: aiResult.reasoningContent || null,
+            webSearch: aiResult.webSearch,
+            routing: routingInfo,
+            timestamp: new Date().toISOString()
+          };
+
+          await db.collection('chat_sessions').updateOne(
+            { id: currentSessionId },
+            {
+              $set: {
+                id: currentSessionId,
+                sessionId: currentSessionId,
+                userId: resolvedUserId,
+                userEmail: resolvedEmail,
+                model: requestedModelKey,
+                updatedAt: new Date()
+              },
+              $push: {
+                messages: { $each: [userMsg, assistantMsg] }
+              },
+              $setOnInsert: {
+                createdAt: now,
+                title: cleanMessage.length > 35 ? (cleanMessage.substring(0, 35) + '...') : cleanMessage
+              }
+            },
+            { upsert: true }
+          );
+        } catch (saveChatErr) {
+          console.warn('[chat.js] Failed to save chat session:', saveChatErr.message);
+        }
+      }
+
       return {
         statusCode: 200,
         headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
@@ -827,6 +989,8 @@ CRITICAL RULES:
       callbackUrl,
       threadId: currentThreadId,
       sessionId: currentSessionId,
+      userId: resolvedUserId || 'anonymous',
+      userEmail: resolvedEmail || '',
       webhookSecret: webhookSecret,
       timestamp: now.toISOString()
     };

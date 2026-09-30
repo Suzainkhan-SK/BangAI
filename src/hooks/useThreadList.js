@@ -1,15 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAuthToken, getStoredUser } from '../utils/authClient';
 
-const CACHE_KEY = 'shortsai_all_threads';
+function getThreadCacheKey(uid) {
+  return uid ? `shortsai_threads_${uid}` : 'shortsai_all_threads';
+}
 const SESSION_ID_KEY = 'shortsai_session_id';
 
 // Read-only view of the user's threads, for chrome (sidebar) rendered outside DashboardApp.
 // DashboardApp keeps owning the live/mutable copy — this hook never writes threads back.
 export function useThreadList(customUser = null) {
+  const user = customUser || getStoredUser();
+  const uid = user?.id || user?.userId || user?._id || '';
+  const cacheKey = getThreadCacheKey(uid);
+
   const [threads, setThreads] = useState(() => {
     try {
-      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '[]');
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || (!uid ? localStorage.getItem('shortsai_all_threads') : null) || '[]');
       return Array.isArray(cached) ? cached : [];
     } catch (e) { return []; }
   });
@@ -18,16 +24,17 @@ export function useThreadList(customUser = null) {
   const refresh = useCallback(async () => {
     const sessionId = localStorage.getItem(SESSION_ID_KEY);
     const token = getAuthToken();
-    const user = customUser || getStoredUser();
-    const uid = user?.id || user?.userId || user?._id || '';
+    const currentUser = customUser || getStoredUser();
+    const currentUid = currentUser?.id || currentUser?.userId || currentUser?._id || '';
+    const currentCacheKey = getThreadCacheKey(currentUid);
 
     setLoading(true);
     try {
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const url = uid
-        ? `/.netlify/functions/threads?userId=${encodeURIComponent(uid)}&sessionId=${encodeURIComponent(sessionId || '')}`
+      const url = currentUid
+        ? `/.netlify/functions/threads?userId=${encodeURIComponent(currentUid)}&sessionId=${encodeURIComponent(sessionId || '')}`
         : (sessionId ? `/.netlify/functions/threads?sessionId=${encodeURIComponent(sessionId)}` : '');
 
       if (!url) {
@@ -42,7 +49,7 @@ export function useThreadList(customUser = null) {
         if (Array.isArray(data.threads)) {
           setThreads(data.threads);
           try {
-            localStorage.setItem(CACHE_KEY, JSON.stringify(data.threads));
+            localStorage.setItem(currentCacheKey, JSON.stringify(data.threads));
           } catch (e) {}
         }
       }

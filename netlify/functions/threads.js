@@ -47,13 +47,15 @@ export const handler = async (event, context) => {
 
         // Ownership verification: if thread is assigned to a user, ensure requester owns it
         if (thread.userId || thread.userEmail) {
-          const authUid = user?.userId || user?.id || paramUserId;
-          const authEmail = (user?.email || paramEmail || '').toLowerCase();
-          const isOwner = (thread.userId && thread.userId === authUid) ||
-                          (thread.userEmail && thread.userEmail.toLowerCase() === authEmail) ||
-                          (thread.email && thread.email.toLowerCase() === authEmail);
+          const authUid = user ? (user.userId || user.id) : null;
+          const authEmail = user?.email ? user.email.toLowerCase() : null;
+          const isOwner = (authUid && thread.userId === authUid) ||
+                          (authEmail && (
+                            (thread.userEmail && thread.userEmail.toLowerCase() === authEmail) ||
+                            (thread.email && thread.email.toLowerCase() === authEmail)
+                          ));
 
-          if (!isOwner && (thread.userId || thread.userEmail)) {
+          if (!isOwner) {
             return {
               statusCode: 403,
               headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
@@ -78,8 +80,9 @@ export const handler = async (event, context) => {
       }
 
       // B. Querying thread list for current user / session
-      const authUid = user?.userId || user?.id || paramUserId;
-      const authEmail = (user?.email || paramEmail || '').toLowerCase();
+      // Strictly derive user identity from verified JWT token to prevent data leakage across accounts
+      const authUid = user ? (user.userId || user.id) : null;
+      const authEmail = user?.email ? user.email.toLowerCase() : null;
 
       let query = null;
       if (authUid || authEmail) {
@@ -102,9 +105,9 @@ export const handler = async (event, context) => {
         };
       } else {
         return {
-          statusCode: 400,
+          statusCode: 401,
           headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: 'Authentication or sessionId required', threads: [] })
+          body: JSON.stringify({ error: 'Authentication required to view your threads', threads: [] })
         };
       }
 
@@ -151,16 +154,18 @@ export const handler = async (event, context) => {
         };
       }
 
-      const authUid = user?.userId || user?.id || data.userId || '';
-      const authEmail = (user?.email || data.userEmail || data.email || '').toLowerCase();
+      const authUid = user ? (user.userId || user.id) : '';
+      const authEmail = user?.email ? user.email.toLowerCase() : '';
 
       // Prevent unauthorized tampering of another user's existing thread
       const existing = await threadsCol.findOne({ threadId: data.threadId });
       if (existing && (existing.userId || existing.userEmail)) {
-        const isOwner = (existing.userId && existing.userId === authUid) ||
-                        (existing.userEmail && existing.userEmail.toLowerCase() === authEmail) ||
-                        (existing.email && existing.email.toLowerCase() === authEmail);
-        if (!isOwner && (authUid || authEmail)) {
+        const isOwner = (authUid && existing.userId === authUid) ||
+                        (authEmail && (
+                          (existing.userEmail && existing.userEmail.toLowerCase() === authEmail) ||
+                          (existing.email && existing.email.toLowerCase() === authEmail)
+                        ));
+        if (!isOwner) {
           return {
             statusCode: 403,
             headers: { 'Access-Control-Allow-Origin': '*' },
@@ -204,15 +209,18 @@ export const handler = async (event, context) => {
         };
       }
 
-      const authUid = user?.userId || user?.id || '';
+      const authUid = user ? (user.userId || user.id) : '';
       const authEmail = (user?.email || '').toLowerCase();
 
       const existing = await threadsCol.findOne({ threadId });
       if (existing) {
         if (existing.userId || existing.userEmail) {
-          const isOwner = (existing.userId && existing.userId === authUid) ||
-                          (existing.userEmail && existing.userEmail.toLowerCase() === authEmail);
-          if (!isOwner && (authUid || authEmail)) {
+          const isOwner = (authUid && existing.userId === authUid) ||
+                          (authEmail && (
+                            (existing.userEmail && existing.userEmail.toLowerCase() === authEmail) ||
+                            (existing.email && existing.email.toLowerCase() === authEmail)
+                          ));
+          if (!isOwner) {
             return {
               statusCode: 403,
               headers: { 'Access-Control-Allow-Origin': '*' },

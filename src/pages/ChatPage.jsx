@@ -40,17 +40,24 @@ import WebSearchSources from '../components/Chat/WebSearchSources';
 import ThinkingAccordion from '../components/Chat/ThinkingAccordion';
 import { audioEngine } from '../audio/audioEngine';
 import { useBreakpoint } from '../hooks/useMediaQuery';
-
-const STORAGE_KEY = 'bangai_chat_sessions';
+import { getAuthToken } from '../utils/authClient';
 
 function generateId() {
   return 'chat-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
 }
 
-function getStoredSessions() {
+function getStorageKey(uid) {
+  return uid ? `bangai_chat_sessions_${uid}` : 'bangai_chat_sessions_guest';
+}
+
+function getStoredSessions(uid) {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey(uid);
+    let raw = localStorage.getItem(key);
+    if (!raw && !uid) {
+      raw = localStorage.getItem('bangai_chat_sessions');
+    }
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed;
@@ -59,10 +66,11 @@ function getStoredSessions() {
   return [];
 }
 
-function saveSessions(sessions) {
+function saveSessions(sessions, uid) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    const key = getStorageKey(uid);
+    localStorage.setItem(key, JSON.stringify(sessions));
   } catch (e) {}
 }
 
@@ -159,7 +167,8 @@ const STARTER_PROMPTS = [
 ];
 
 export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
-  const [sessions, setSessions] = useState(getStoredSessions);
+  const uid = user?.id || user?._id || user?.userId || '';
+  const [sessions, setSessions] = useState(() => getStoredSessions(uid));
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchFilter, setSearchFilter] = useState('');
@@ -239,10 +248,47 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Save sessions to localStorage whenever they change
+  // On user change, re-read user-specific stored sessions
   useEffect(() => {
-    saveSessions(sessions);
-  }, [sessions]);
+    setSessions(getStoredSessions(uid));
+  }, [uid]);
+
+  // Sync remote chat sessions from MongoDB Atlas
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token || !uid) return;
+
+    let isMounted = true;
+    fetch('/.netlify/functions/chat?action=sessions', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data && Array.isArray(data.sessions) && data.sessions.length > 0) {
+          setSessions((prev) => {
+            const remoteMap = new Map(data.sessions.map((s) => [s.id, s]));
+            const merged = [...data.sessions];
+            for (const local of prev) {
+              if (!remoteMap.has(local.id)) {
+                merged.push(local);
+              }
+            }
+            saveSessions(merged, uid);
+            return merged;
+          });
+        }
+      })
+      .catch((err) => console.warn('[ChatPage] Remote sessions fetch error:', err.message));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [uid]);
+
+  // Save sessions to user-isolated localStorage whenever they change
+  useEffect(() => {
+    saveSessions(sessions, uid);
+  }, [sessions, uid]);
 
   // Keep active session ref updated
   const activeSession = useMemo(() => {
@@ -342,6 +388,14 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
         window.history.replaceState(null, '', window.location.pathname + '#/chat');
       }
     }
+
+    const token = getAuthToken();
+    if (token && uid) {
+      fetch(`/.netlify/functions/chat?action=delete-session&id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => {});
+    }
   };
 
   const handleStartRename = (e, s) => {
@@ -354,9 +408,24 @@ export default function ChatPage({ user, theme, onToggleTheme, onNavigate }) {
     e?.stopPropagation();
     if (!editingId) return;
     const title = editingTitle.trim() || 'Untitled Chat';
-    setSessions((prev) =>
-      prev.map((s) => (s.id === editingId ? { ...s, title, updatedAt: Date.now() } : s))
-    );
+    setSessions((prev) => {
+      const updated = prev.map((s) => (s.id === editingId ? { ...s, title, updatedAt: Date.now() } : s));
+      const renamedSession = updated.find((s) => s.id === editingId);
+      if (renamedSession && uid) {
+        const token = getAuthToken();
+        if (token) {
+          fetch('/.netlify/functions/chat?action=sessions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ session: renamedSession })
+          }).catch(() => {});
+        }
+      }
+      return updated;
+    });
     setEditingId(null);
     setEditingTitle('');
   };

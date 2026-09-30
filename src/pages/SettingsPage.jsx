@@ -31,35 +31,38 @@ import { VOICES } from '../data/voices';
 import { VISUAL_STYLES } from '../data/visualStyles';
 import { audioEngine } from '../audio/audioEngine';
 import { useBreakpoint } from '../hooks/useMediaQuery';
+import { updateUserSettings } from '../utils/authClient';
 
 export default function SettingsPage({ user, onNavigateToDashboard }) {
   const { isMobile, isTablet } = useBreakpoint();
   const [activeTab, setActiveTab] = useState('ai');
   
+  const userSettings = user?.settings || {};
+
   // AI Defaults
-  const [defaultVoice, setDefaultVoice] = useState('adam');
-  const [defaultStyle, setDefaultStyle] = useState('cinematic');
-  const [defaultLang, setDefaultLang] = useState('English');
-  const [defaultAspect, setDefaultAspect] = useState('9:16');
-  const [pacingMode, setPacingMode] = useState('viral');
+  const [defaultVoice, setDefaultVoice] = useState(userSettings.voiceId || 'adam');
+  const [defaultStyle, setDefaultStyle] = useState(userSettings.visualStyle || 'cinematic');
+  const [defaultLang, setDefaultLang] = useState(userSettings.language || 'English');
+  const [defaultAspect, setDefaultAspect] = useState(userSettings.aspectRatio || '9:16');
+  const [pacingMode, setPacingMode] = useState(userSettings.pacingMode || 'viral');
 
   // Video & Audio Settings
-  const [auto4K, setAuto4K] = useState(true);
-  const [frameRate, setFrameRate] = useState('60');
-  const [autoSubtitles, setAutoSubtitles] = useState(true);
-  const [subtitlePreset, setSubtitlePreset] = useState('punchy');
-  const [audioDuckingDepth, setAudioDuckingDepth] = useState('-18');
-  const [enableSfx, setEnableSfx] = useState(true);
+  const [auto4K, setAuto4K] = useState(userSettings.auto4K !== false);
+  const [frameRate, setFrameRate] = useState(userSettings.frameRate || '60');
+  const [autoSubtitles, setAutoSubtitles] = useState(userSettings.autoSubtitles !== false);
+  const [subtitlePreset, setSubtitlePreset] = useState(userSettings.subtitlePreset || 'punchy');
+  const [audioDuckingDepth, setAudioDuckingDepth] = useState(userSettings.audioDuckingDepth || '-18');
+  const [enableSfx, setEnableSfx] = useState(userSettings.enableSfx !== false);
 
   // Social & Syndication
-  const [defaultPrivacy, setDefaultPrivacy] = useState('public');
-  const [autoPinComment, setAutoPinComment] = useState(true);
-  const [autoSeoTags, setAutoSeoTags] = useState(true);
+  const [defaultPrivacy, setDefaultPrivacy] = useState(userSettings.defaultPrivacy || 'public');
+  const [autoPinComment, setAutoPinComment] = useState(userSettings.autoPinComment !== false);
+  const [autoSeoTags, setAutoSeoTags] = useState(userSettings.autoSeoTags !== false);
 
   // Cloud Event Webhook
-  const [webhookUrl, setWebhookUrl] = useState('https://api.yourdomain.com/webhooks/bangai-events');
-  const [webhookSecret, setWebhookSecret] = useState('whsec_8923bc41029e71ab48f');
-  const [subscribedEvents, setSubscribedEvents] = useState({
+  const [webhookUrl, setWebhookUrl] = useState(userSettings.webhookUrl || 'https://api.yourdomain.com/webhooks/bangai-events');
+  const [webhookSecret, setWebhookSecret] = useState(userSettings.webhookSecret || 'whsec_8923bc41029e71ab48f');
+  const [subscribedEvents, setSubscribedEvents] = useState(userSettings.subscribedEvents || {
     renderComplete: true,
     renderFailed: true,
     socialPublished: true
@@ -70,11 +73,42 @@ export default function SettingsPage({ user, onNavigateToDashboard }) {
 
   // Save State
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     if (e) e.preventDefault();
     audioEngine.playSfx('boom');
+    setIsSaving(true);
     setSaved(true);
+
+    const newSettings = {
+      voiceId: defaultVoice,
+      visualStyle: defaultStyle,
+      language: defaultLang,
+      aspectRatio: defaultAspect,
+      pacingMode,
+      auto4K,
+      frameRate,
+      autoSubtitles,
+      subtitlePreset,
+      audioDuckingDepth,
+      enableSfx,
+      defaultPrivacy,
+      autoPinComment,
+      autoSeoTags,
+      webhookUrl,
+      webhookSecret,
+      subscribedEvents
+    };
+
+    try {
+      await updateUserSettings(newSettings);
+    } catch (saveErr) {
+      console.warn('[SettingsPage] Save settings error:', saveErr.message);
+    } finally {
+      setIsSaving(false);
+    }
+
     setTimeout(() => setSaved(false), 3000);
   };
 

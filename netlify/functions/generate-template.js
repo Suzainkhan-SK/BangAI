@@ -178,22 +178,31 @@ export const handler = async (event) => {
     try {
       const db = await getDb();
       if (db && userId) {
-        await db.collection('threads').insertOne({
-          threadId,
-          userId,
-          title: meta.title,
-          templateId,
-          status: 'started',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          messages: [
-            {
-              role: 'system',
-              content: `1-Click Autonomous Generation started for template: ${meta.title}.${(payload.prompt || '').trim() ? ` Custom topic: "${payload.prompt.trim()}".` : ' Auto-selecting topic.'} Auto-uploading to YouTube channel: ${userYouTubeChannelTitle || 'Default'}.`,
-              timestamp: new Date().toISOString()
+        await db.collection('threads').updateOne(
+          { threadId },
+          {
+            $set: {
+              threadId,
+              userId,
+              userEmail: (userEmail || '').toLowerCase(),
+              title: meta.title,
+              templateId,
+              status: 'started',
+              updatedAt: new Date()
+            },
+            $setOnInsert: {
+              createdAt: new Date(),
+              messages: [
+                {
+                  role: 'system',
+                  content: `1-Click Autonomous Generation started for template: ${meta.title}.${(payload.prompt || '').trim() ? ` Custom topic: "${payload.prompt.trim()}".` : ' Auto-selecting topic.'} Auto-uploading to YouTube channel: ${userYouTubeChannelTitle || 'Default'}.`,
+                  timestamp: new Date().toISOString()
+                }
+              ]
             }
-          ]
-        });
+          },
+          { upsert: true }
+        );
       }
     } catch (dbSaveErr) {
       console.warn('[generate-template] Could not save initial thread:', dbSaveErr.message);
@@ -207,6 +216,7 @@ export const handler = async (event) => {
       threadId,
       sessionId,
       userId: userId || 'anonymous',
+      userEmail: (userEmail || '').toLowerCase(),
       webhookSecret,
       // Dynamic YouTube Settings
       autoUploadToYouTube,

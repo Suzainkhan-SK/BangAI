@@ -303,6 +303,13 @@ export const handler = async (event, context) => {
         updatedAt: now
       };
 
+      // Preserve or inherit multi-tenant user ownership
+      if (existing?.userId) updateDoc.userId = existing.userId;
+      else if (data.userId) updateDoc.userId = data.userId;
+
+      if (existing?.userEmail) updateDoc.userEmail = existing.userEmail;
+      else if (data.userEmail) updateDoc.userEmail = data.userEmail.toLowerCase();
+
       if (data.executionId) {
         updateDoc.executionId = String(data.executionId);
       }

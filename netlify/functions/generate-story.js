@@ -74,9 +74,10 @@ export const handler = async (event, context) => {
       };
     }
 
+    let db = null;
     if (user) {
       try {
-        const db = await getDb();
+        db = await getDb();
         if (db) {
           const uid = user.userId || user.id;
           const userDoc = await db.collection('users').findOne({
@@ -146,6 +147,46 @@ export const handler = async (event, context) => {
     const autoUploadToYouTube = payload.autoUploadToYouTube !== false && !!userYouTubeAccessToken;
     const autoLogToSheet = payload.autoLogToSheet !== false;
 
+    // Strict multi-tenant thread identity
+    const threadId = payload.threadId || `th_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const sessionId = payload.sessionId || `sess_${Date.now()}`;
+    const uid = user.userId || user.id;
+    const userEmail = (user.email || '').toLowerCase();
+
+    // Pre-seed thread in MongoDB so it belongs to the authenticated user from moment 0
+    if (db) {
+      try {
+        await db.collection('threads').updateOne(
+          { threadId },
+          {
+            $set: {
+              threadId,
+              sessionId,
+              userId: uid,
+              userEmail: userEmail,
+              title: prompt.trim().substring(0, 60),
+              status: 'generating',
+              prompt: prompt.trim(),
+              updatedAt: new Date()
+            },
+            $setOnInsert: {
+              createdAt: new Date(),
+              messages: [
+                {
+                  role: 'user',
+                  content: prompt.trim(),
+                  timestamp: new Date().toISOString()
+                }
+              ]
+            }
+          },
+          { upsert: true }
+        );
+      } catch (seedErr) {
+        console.warn('[generate-story] Pre-seed thread error:', seedErr.message);
+      }
+    }
+
     console.log(`[Netlify] Sending prompt to n8n cloud webhook: "${prompt.substring(0, 50)}..."`);
     console.log(`[Netlify] Dynamic YouTube Channel: "${userYouTubeChannelTitle || 'Master Default'}", Auto-Upload: ${autoUploadToYouTube}`);
     console.log(`[Netlify] Dynamic Google Sheet: "${userSpreadsheetId || 'Master Default'}", Auto-Log: ${autoLogToSheet}`);
@@ -168,8 +209,10 @@ export const handler = async (event, context) => {
       musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
       musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
       callbackUrl: callbackUrl,
-      threadId: payload.threadId || '',
-      sessionId: payload.sessionId || '',
+      threadId: threadId,
+      sessionId: sessionId,
+      userId: uid,
+      userEmail: userEmail,
       webhookSecret: webhookSecret,
       // Dynamic User YouTube Channel OAuth
       autoUploadToYouTube: autoUploadToYouTube,
@@ -205,6 +248,8 @@ export const handler = async (event, context) => {
         success: true,
         status: 'PROCESSING',
         message: 'Prompt dispatched to n8n autonomous video pipeline.',
+        threadId: threadId,
+        sessionId: sessionId,
         n8nStatus: res.status,
         callbackUrl: callbackUrl,
         selectedChannel: userYouTubeChannelTitle || null,

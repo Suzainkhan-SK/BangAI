@@ -3,6 +3,7 @@
 // Handles 2-Stage Approvals, Story & Scene Refinements, and Cancellations while preserving cryptographic tokens
 
 import { getDb } from './db.js';
+import { verifyToken } from './google-oauth.js';
 
 function buildResumeUrl(rawUrl, action, extraParams = {}) {
   if (!rawUrl) return null;
@@ -199,6 +200,24 @@ export const handler = async (event, context) => {
       try {
         const found = await db.collection('threads').findOne({ threadId });
         if (found) {
+          // Ownership verification
+          const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
+          const userToken = authHeader.replace(/^Bearer\s+/i, '').trim() || payload.token;
+          const user = verifyToken(userToken);
+          if (user) {
+            const reqUid = user.userId || user.id;
+            const reqEmail = (user.email || '').toLowerCase();
+            const ownerUid = found.userId;
+            const ownerEmail = (found.userEmail || found.email || '').toLowerCase();
+            if ((ownerUid && reqUid && ownerUid !== reqUid) && (ownerEmail && reqEmail && ownerEmail !== reqEmail)) {
+              return {
+                statusCode: 403,
+                headers: CORS,
+                body: JSON.stringify({ error: 'Access denied: You do not own this video project.' })
+              };
+            }
+          }
+
           // STALE_EXECUTION guard: runs regardless of where approveUrl came from
           if (payload.executionId && found.executionId && String(payload.executionId) !== String(found.executionId)) {
             console.warn(`[approve-story] Stale executionId: payload=${payload.executionId}, found=${found.executionId}`);
