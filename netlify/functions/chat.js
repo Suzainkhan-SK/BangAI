@@ -335,12 +335,20 @@ export const handler = async (event, context) => {
     const now = new Date();
 
     const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
-    const userToken = authHeader.replace('Bearer ', '') || settings.token;
+    const userToken = authHeader.replace(/^Bearer\s+/i, '').trim() || settings.token || payload.token;
     const user = verifyToken(userToken);
 
+    if (!user) {
+      return {
+        statusCode: 401,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ error: 'Unauthorized. Please sign in to create videos or use AI chat.' })
+      };
+    }
+
     const threadIdentity = {};
-    const resolvedUserId = user?.userId || user?.id || settings.userId || '';
-    const resolvedEmail  = (user?.email || settings.email || '').toLowerCase();
+    const resolvedUserId = user.userId || user.id || settings.userId || '';
+    const resolvedEmail  = (user.email || settings.email || '').toLowerCase();
     if (resolvedUserId) threadIdentity.userId = resolvedUserId;
     if (resolvedEmail)  { threadIdentity.email = resolvedEmail; threadIdentity.userEmail = resolvedEmail; }
 

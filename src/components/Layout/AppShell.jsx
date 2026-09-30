@@ -3,7 +3,7 @@ import Sidebar from '../Dashboard/Sidebar';
 import { useThreadList } from '../../hooks/useThreadList';
 
 export default function AppShell({ user, currentRoutePath, onNavigate, collapsed, onToggleCollapse, children }) {
-  const { threads } = useThreadList();
+  const { threads } = useThreadList(user);
 
   return (
     <div style={{

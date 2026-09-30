@@ -350,33 +350,57 @@ function AppContent() {
         )}
 
         {currentView === 'templates' && (
-          <TemplatesPage
-            user={user}
-            currentRoutePath={currentRoutePath}
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-            onNavigate={handleNavigate}
-          />
+          user ? (
+            <TemplatesPage
+              user={user}
+              currentRoutePath={currentRoutePath}
+              collapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+              onNavigate={handleNavigate}
+            />
+          ) : (
+            <LoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onNavigateToRegister={() => handleNavigate('register')}
+              onNavigateToLanding={() => handleNavigate('')}
+            />
+          )
         )}
 
         {currentView === 'basic-templates' && (
-          <BasicTemplatesPage
-            user={user}
-            theme={theme}
-            currentRoutePath={currentRoutePath}
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-            onNavigate={handleNavigate}
-          />
+          user ? (
+            <BasicTemplatesPage
+              user={user}
+              theme={theme}
+              currentRoutePath={currentRoutePath}
+              collapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+              onNavigate={handleNavigate}
+            />
+          ) : (
+            <LoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onNavigateToRegister={() => handleNavigate('register')}
+              onNavigateToLanding={() => handleNavigate('')}
+            />
+          )
         )}
 
         {currentView === 'chat' && (
-          <ChatPage
-            user={user}
-            theme={theme}
-            onToggleTheme={handleToggleTheme}
-            onNavigate={handleNavigate}
-          />
+          user ? (
+            <ChatPage
+              user={user}
+              theme={theme}
+              onToggleTheme={handleToggleTheme}
+              onNavigate={handleNavigate}
+            />
+          ) : (
+            <LoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onNavigateToRegister={() => handleNavigate('register')}
+              onNavigateToLanding={() => handleNavigate('')}
+            />
+          )
         )}
 
         {currentView === 'profile' && (

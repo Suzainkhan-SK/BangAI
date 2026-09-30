@@ -1,8 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, User, Mail, Lock, CheckCircle2, ArrowRight, ShieldCheck, AlertCircle, Eye, EyeOff, Loader2, Video } from 'lucide-react';
+import { Sparkles, User, Mail, Lock, CheckCircle2, ArrowRight, ShieldCheck, AlertCircle, Eye, EyeOff, Loader2, Video, ArrowLeft } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
 import { registerUser, initiateGoogleAuth } from '../utils/authClient';
 import GoogleAuthButton from '../components/Auth/GoogleAuthButton';
+
+function calculatePasswordStrength(pass) {
+  if (!pass) return { score: 0, label: '', color: 'transparent' };
+  let score = 0;
+  if (pass.length >= 6) score += 1;
+  if (pass.length >= 10) score += 1;
+  if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score += 1;
+  if (/[0-9]/.test(pass)) score += 1;
+  if (/[^A-Za-z0-9]/.test(pass)) score += 1;
+
+  if (score <= 1) return { score: 1, label: 'Weak', color: '#ef4444' };
+  if (score <= 3) return { score: 2, label: 'Fair', color: '#f59e0b' };
+  return { score: 3, label: 'Strong', color: '#10b981' };
+}
 
 export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onNavigateToLanding }) {
   const [name, setName] = useState('');
@@ -14,9 +28,13 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
   const [plan, setPlan] = useState('pro');
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isGoogleConflict, setIsGoogleConflict] = useState(false);
+
+  const passwordStrength = calculatePasswordStrength(password);
 
   // Check URL params for error messages from Google OAuth
   useEffect(() => {
@@ -24,9 +42,19 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
     const params = new URLSearchParams(search);
     const err = params.get('error');
     if (err) {
-      setErrorMessage(decodeURIComponent(err));
+      const decoded = decodeURIComponent(err);
+      setErrorMessage(decoded);
+      if (decoded.toLowerCase().includes('google')) {
+        setIsGoogleConflict(true);
+      }
     }
   }, []);
+
+  const handleKeyDown = (e) => {
+    if (e.getModifierState && typeof e.getModifierState === 'function') {
+      setCapsLockOn(e.getModifierState('CapsLock'));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -103,10 +131,10 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
         top: '25%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '650px',
-        height: '400px',
-        background: 'radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, rgba(6, 182, 212, 0.12) 40%, transparent 70%)',
-        filter: 'blur(70px)',
+        width: '680px',
+        height: '420px',
+        background: 'radial-gradient(circle, rgba(139, 92, 246, 0.22) 0%, rgba(6, 182, 212, 0.12) 42%, transparent 70%)',
+        filter: 'blur(75px)',
         pointerEvents: 'none'
       }} />
 
@@ -118,20 +146,54 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
         border: '1.5px solid var(--border-glow)',
         boxShadow: 'var(--shadow-glow)',
         position: 'relative',
-        zIndex: 10
+        zIndex: 10,
+        backdropFilter: 'blur(20px)',
+        background: 'var(--bg-card)'
       }}>
+        {/* Top Back Link */}
+        {typeof onNavigateToLanding === 'function' && (
+          <button
+            type="button"
+            onClick={() => {
+              audioEngine.playSfx('click');
+              onNavigateToLanding();
+            }}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              left: '22px',
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              fontSize: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 6px',
+              borderRadius: '6px',
+              transition: 'color 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+          >
+            <ArrowLeft size={13} />
+            <span>Home</span>
+          </button>
+        )}
+
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '24px', marginTop: '4px' }}>
           <div style={{
-            width: '46px',
-            height: '46px',
-            borderRadius: '14px',
+            width: '48px',
+            height: '48px',
+            borderRadius: '16px',
             background: 'var(--grad-primary)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: '12px',
-            boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)'
+            boxShadow: '0 0 24px rgba(99, 102, 241, 0.45)'
           }}>
             <Sparkles size={24} color="#ffffff" />
           </div>
@@ -139,15 +201,15 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
             Create Your Bang AI Account
           </h1>
           <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-            Join top creators scaling faceless YouTube channels with AI.
+            Join creators scaling faceless YouTube channels with autonomous AI.
           </p>
         </div>
 
         {/* Error Alert */}
         {errorMessage && (
           <div style={{
-            background: isGoogleConflict ? 'rgba(99, 102, 241, 0.15)' : 'rgba(239, 68, 68, 0.12)',
-            border: `1.5px solid ${isGoogleConflict ? 'rgba(99, 102, 241, 0.5)' : 'rgba(239, 68, 68, 0.35)'}`,
+            background: isGoogleConflict ? 'rgba(99, 102, 241, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+            border: `1.5px solid ${isGoogleConflict ? 'rgba(99, 102, 241, 0.4)' : 'rgba(239, 68, 68, 0.35)'}`,
             borderRadius: '14px',
             padding: '14px 16px',
             marginBottom: '20px',
@@ -181,21 +243,23 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
         )}
 
         {/* Unified Single Google 1-Click Sign-Up Button */}
-        <GoogleAuthButton
-          text="signup_with"
-          theme="filled_blue"
-          width={456}
-          onSuccess={(user) => {
-            audioEngine.playSfx('boom');
-            if (typeof onRegisterSuccess === 'function') {
-              onRegisterSuccess(user);
-            }
-          }}
-          onError={(err) => {
-            console.error('[RegisterPage] Google signup error:', err);
-            setErrorMessage(err.message || 'Google sign-up failed.');
-          }}
-        />
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <GoogleAuthButton
+            text="signup_with"
+            theme="filled_blue"
+            width={456}
+            onSuccess={(user) => {
+              audioEngine.playSfx('boom');
+              if (typeof onRegisterSuccess === 'function') {
+                onRegisterSuccess(user);
+              }
+            }}
+            onError={(err) => {
+              console.error('[RegisterPage] Google signup error:', err);
+              setErrorMessage(err.message || 'Google sign-up failed.');
+            }}
+          />
+        </div>
 
         {/* OR Divider */}
         <div style={{
@@ -229,6 +293,7 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
                 onChange={(e) => setName(e.target.value)}
                 required
                 disabled={isLoading}
+                autoComplete="name"
                 style={{
                   width: '100%',
                   background: 'var(--bg-input)',
@@ -237,8 +302,11 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
                   padding: '9px 12px 9px 36px',
                   fontSize: '13px',
                   color: 'var(--text-primary)',
-                  outline: 'none'
+                  outline: 'none',
+                  transition: 'border-color 0.2s ease'
                 }}
+                onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                onBlur={(e) => e.target.style.borderColor = 'var(--border-medium)'}
               />
             </div>
           </div>
@@ -257,6 +325,7 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
+                autoComplete="email"
                 style={{
                   width: '100%',
                   background: 'var(--bg-input)',
@@ -265,74 +334,124 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
                   padding: '9px 12px 9px 36px',
                   fontSize: '13px',
                   color: 'var(--text-primary)',
-                  outline: 'none'
+                  outline: 'none',
+                  transition: 'border-color 0.2s ease'
                 }}
+                onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                onBlur={(e) => e.target.style.borderColor = 'var(--border-medium)'}
               />
             </div>
           </div>
 
-          {/* Passwords in 2 Cols */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            <div>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
-                Password *
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="6+ chars"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-medium)',
-                    borderRadius: '10px',
-                    padding: '9px 32px 9px 34px',
-                    fontSize: '13px',
-                    color: 'var(--text-primary)',
-                    outline: 'none'
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: 'absolute', right: '8px', top: '9px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
-                >
-                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
+          {/* Passwords in 2 Columns */}
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                  Password *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="6+ chars"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onKeyUp={handleKeyDown}
+                    required
+                    disabled={isLoading}
+                    autoComplete="new-password"
+                    style={{
+                      width: '100%',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-medium)',
+                      borderRadius: '10px',
+                      padding: '9px 32px 9px 34px',
+                      fontSize: '13px',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      transition: 'border-color 0.2s ease'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                    onBlur={(e) => e.target.style.borderColor = 'var(--border-medium)'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{ position: 'absolute', right: '8px', top: '9px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                  Confirm Password *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="Repeat"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onKeyUp={handleKeyDown}
+                    required
+                    disabled={isLoading}
+                    autoComplete="new-password"
+                    style={{
+                      width: '100%',
+                      background: 'var(--bg-input)',
+                      border: '1px solid var(--border-medium)',
+                      borderRadius: '10px',
+                      padding: '9px 32px 9px 34px',
+                      fontSize: '13px',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      transition: 'border-color 0.2s ease'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                    onBlur={(e) => e.target.style.borderColor = 'var(--border-medium)'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={{ position: 'absolute', right: '8px', top: '9px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+                    title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
-                Confirm Password *
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '12px' }} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Repeat"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-medium)',
-                    borderRadius: '10px',
-                    padding: '9px 12px 9px 34px',
-                    fontSize: '13px',
-                    color: 'var(--text-primary)',
-                    outline: 'none'
-                  }}
-                />
+            {/* CapsLock Warning */}
+            {capsLockOn && (
+              <div style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 600, marginTop: '4px' }}>
+                ⚠️ Caps Lock is ON
               </div>
-            </div>
+            )}
+
+            {/* Password Strength Indicator */}
+            {password && (
+              <div style={{ marginTop: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Strength:</span>
+                  <span style={{ fontSize: '10.5px', fontWeight: 700, color: passwordStrength.color }}>
+                    {passwordStrength.label}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '4px', height: '4px', borderRadius: '2px', overflow: 'hidden', background: 'var(--border-subtle)' }}>
+                  <div style={{ flex: 1, background: passwordStrength.score >= 1 ? passwordStrength.color : 'transparent', transition: 'background 0.3s ease' }} />
+                  <div style={{ flex: 1, background: passwordStrength.score >= 2 ? passwordStrength.color : 'transparent', transition: 'background 0.3s ease' }} />
+                  <div style={{ flex: 1, background: passwordStrength.score >= 3 ? passwordStrength.color : 'transparent', transition: 'background 0.3s ease' }} />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* YouTube Channel & Niche */}
@@ -357,8 +476,11 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
                     padding: '9px 12px 9px 36px',
                     fontSize: '13px',
                     color: 'var(--text-primary)',
-                    outline: 'none'
+                    outline: 'none',
+                    transition: 'border-color 0.2s ease'
                   }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-medium)'}
                 />
               </div>
             </div>
@@ -379,7 +501,8 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
                   padding: '9px 10px',
                   fontSize: '13px',
                   color: 'var(--text-primary)',
-                  outline: 'none'
+                  outline: 'none',
+                  cursor: 'pointer'
                 }}
               >
                 <option value="mystery">Mysteries & True Crime</option>
@@ -402,10 +525,11 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
                 onClick={() => !isLoading && setPlan('free')}
                 style={{
                   padding: '10px',
-                  borderRadius: '10px',
+                  borderRadius: '12px',
                   border: `1.5px solid ${plan === 'free' ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
                   background: plan === 'free' ? 'var(--bg-card-hover)' : 'var(--bg-input)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
                 }}
               >
                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>Free Starter</div>
@@ -416,15 +540,16 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
                 onClick={() => !isLoading && setPlan('pro')}
                 style={{
                   padding: '10px',
-                  borderRadius: '10px',
+                  borderRadius: '12px',
                   border: `1.5px solid ${plan === 'pro' ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
                   background: plan === 'pro' ? 'var(--bg-card-hover)' : 'var(--bg-input)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
                 }}
               >
                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span>Creator Pro</span>
-                  <span style={{ fontSize: '9px', background: 'var(--grad-primary)', color: '#fff', padding: '1px 4px', borderRadius: '4px' }}>POPULAR</span>
+                  <span style={{ fontSize: '9px', background: 'var(--grad-primary)', color: '#fff', padding: '1px 5px', borderRadius: '4px' }}>POPULAR</span>
                 </div>
                 <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>100 Shorts + HD Export</div>
               </div>
@@ -452,15 +577,29 @@ export default function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onN
           </button>
         </form>
 
+        {/* Security Assurance Badge */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+          marginTop: '16px',
+          color: 'var(--text-muted)',
+          fontSize: '11px'
+        }}>
+          <ShieldCheck size={14} color="#10b981" />
+          <span>PBKDF2 Salted Hashing • Bank-Grade Security</span>
+        </div>
+
         {/* Footer */}
-        <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+        <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
           Already have an account?{' '}
           <button
             onClick={() => {
               audioEngine.playSfx('click');
               onNavigateToLogin();
             }}
-            style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+            style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
           >
             Sign in
           </button>

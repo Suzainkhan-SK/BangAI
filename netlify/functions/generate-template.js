@@ -85,9 +85,17 @@ export const handler = async (event) => {
     let userEmail = '';
     let userId = '';
 
-    const authHeader = event.headers.authorization || '';
-    const userToken = authHeader.replace('Bearer ', '') || payload.token;
+    const authHeader = event.headers.authorization || event.headers.Authorization || '';
+    const userToken = authHeader.replace(/^Bearer\s+/i, '').trim() || payload.token;
     const user = verifyToken(userToken);
+
+    if (!user) {
+      return {
+        statusCode: 401,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ error: 'Unauthorized. Please sign in to generate template videos.' })
+      };
+    }
 
     if (user) {
       userId = user.userId || user.id;

@@ -62,9 +62,17 @@ export const handler = async (event, context) => {
     let userSpreadsheetId = '';
     let userSheetName = 'Production Log';
 
-    const authHeader = event.headers.authorization || '';
-    const userToken = authHeader.replace('Bearer ', '') || payload.token;
+    const authHeader = event.headers.authorization || event.headers.Authorization || '';
+    const userToken = authHeader.replace(/^Bearer\s+/i, '').trim() || payload.token;
     const user = verifyToken(userToken);
+
+    if (!user) {
+      return {
+        statusCode: 401,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ error: 'Unauthorized. Please sign in to create videos.' })
+      };
+    }
 
     if (user) {
       try {

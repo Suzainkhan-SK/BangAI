@@ -23,11 +23,19 @@ export async function registerUser({ name, email, password, channel, niche, plan
   }
 
   if (data.token) {
+    localStorage.setItem('bangai_token', data.token);
     localStorage.setItem('shortsai_token', data.token);
   }
   if (data.user) {
+    localStorage.setItem('bangai_user', JSON.stringify(data.user));
     localStorage.setItem('shortsai_user', JSON.stringify(data.user));
   }
+  // Clear any stale thread cache from prior sessions
+  try {
+    localStorage.removeItem('shortsai_all_threads');
+    localStorage.removeItem('shortsai_active_thread_id');
+    localStorage.removeItem('shortsai_session_id');
+  } catch (e) {}
 
   return data;
 }
@@ -50,11 +58,19 @@ export async function loginUser(email, password) {
   }
 
   if (data.token) {
+    localStorage.setItem('bangai_token', data.token);
     localStorage.setItem('shortsai_token', data.token);
   }
   if (data.user) {
+    localStorage.setItem('bangai_user', JSON.stringify(data.user));
     localStorage.setItem('shortsai_user', JSON.stringify(data.user));
   }
+  // Clear any stale thread cache from prior sessions
+  try {
+    localStorage.removeItem('shortsai_all_threads');
+    localStorage.removeItem('shortsai_active_thread_id');
+    localStorage.removeItem('shortsai_session_id');
+  } catch (e) {}
 
   return data;
 }
@@ -82,6 +98,9 @@ export async function verifySession() {
       localStorage.removeItem('bangai_user');
       localStorage.removeItem('shortsai_token');
       localStorage.removeItem('shortsai_user');
+      localStorage.removeItem('shortsai_all_threads');
+      localStorage.removeItem('shortsai_session_id');
+      localStorage.removeItem('shortsai_active_thread_id');
       return null;
     }
 
@@ -103,6 +122,9 @@ export function logoutUser() {
   localStorage.removeItem('bangai_user');
   localStorage.removeItem('shortsai_token');
   localStorage.removeItem('shortsai_user');
+  localStorage.removeItem('shortsai_all_threads');
+  localStorage.removeItem('shortsai_session_id');
+  localStorage.removeItem('shortsai_active_thread_id');
 }
 
 export const GOOGLE_CLIENT_ID = '332704127629-qeh7u7cvkjdpieluefmpcef85q64khin.apps.googleusercontent.com';

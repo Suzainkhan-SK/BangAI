@@ -4,6 +4,7 @@
 // DELETE: Reset/clear thread
 
 import { getDb } from './db.js';
+import { verifyToken } from './google-oauth.js';
 
 const N8N_API_URL = 'https://cmpunktg25.app.n8n.cloud/api/v1';
 const N8N_API_KEY = process.env.N8N_API_KEY || 'n8n_api_d07ac84c49c0e4b37d0025c7d8cb5c6d773a14f0';
@@ -80,11 +81,24 @@ export const handler = async (event, context) => {
     const db = await getDb();
     const threadsCol = db.collection('threads');
 
-    // ── DELETE: Reset thread ──────────────────────────────────────────
-    if (event.httpMethod === 'DELETE' || event.queryStringParameters?.clear === 'true') {
+    // ── DELETE: Reset thread (Protected) ────────────────────────────────
+    if (event.httpMethod === 'DELETE') {
       const { threadId } = event.queryStringParameters || {};
-      if (threadId) {
-        await threadsCol.deleteOne({ threadId });
+      const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim() || event.queryStringParameters?.token;
+      const user = verifyToken(token);
+
+      if (threadId && user) {
+        const existing = await threadsCol.findOne({ threadId });
+        if (existing) {
+          const authUid = user.userId || user.id;
+          const authEmail = (user.email || '').toLowerCase();
+          const isOwner = (existing.userId && existing.userId === authUid) ||
+                          (existing.userEmail && existing.userEmail.toLowerCase() === authEmail);
+          if (isOwner) {
+            await threadsCol.deleteOne({ threadId });
+          }
+        }
       }
       return { statusCode: 200, headers: CORS, body: JSON.stringify({ cleared: true }) };
     }

@@ -1,8 +1,10 @@
 // Netlify Function: threads.js
 // Path: /.netlify/functions/threads
 // Full CRUD for persistent video threads & messages in MongoDB Atlas
+// Strictly partitioned by authenticated user identity to prevent cross-account history leaks
 
 import { getDb } from './db.js';
+import { verifyToken } from './google-oauth.js';
 
 export const handler = async (event, context) => {
   // CORS Preflight
@@ -23,10 +25,16 @@ export const handler = async (event, context) => {
     const threadsCol = db.collection('threads');
     const messagesCol = db.collection('messages');
 
+    // Extract & verify JWT token if present
+    const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim() || (event.queryStringParameters?.token || '');
+    const user = verifyToken(token);
+
     // 1. GET: Fetch threads list or single thread with messages
     if (event.httpMethod === 'GET') {
-      const { threadId, sessionId } = event.queryStringParameters || {};
+      const { threadId, sessionId, userId: paramUserId, email: paramEmail } = event.queryStringParameters || {};
 
+      // A. Querying single thread by threadId
       if (threadId) {
         const thread = await threadsCol.findOne({ threadId });
         if (!thread) {
@@ -36,6 +44,24 @@ export const handler = async (event, context) => {
             body: JSON.stringify({ error: 'Thread not found' })
           };
         }
+
+        // Ownership verification: if thread is assigned to a user, ensure requester owns it
+        if (thread.userId || thread.userEmail) {
+          const authUid = user?.userId || user?.id || paramUserId;
+          const authEmail = (user?.email || paramEmail || '').toLowerCase();
+          const isOwner = (thread.userId && thread.userId === authUid) ||
+                          (thread.userEmail && thread.userEmail.toLowerCase() === authEmail) ||
+                          (thread.email && thread.email.toLowerCase() === authEmail);
+
+          if (!isOwner && (thread.userId || thread.userEmail)) {
+            return {
+              statusCode: 403,
+              headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+              body: JSON.stringify({ error: 'Access denied: thread belongs to another user' })
+            };
+          }
+        }
+
         const messages = await messagesCol.find({ threadId }).sort({ timestamp: 1 }).toArray();
         return {
           statusCode: 200,
@@ -51,16 +77,37 @@ export const handler = async (event, context) => {
         };
       }
 
-      if (!sessionId) {
+      // B. Querying thread list for current user / session
+      const authUid = user?.userId || user?.id || paramUserId;
+      const authEmail = (user?.email || paramEmail || '').toLowerCase();
+
+      let query = null;
+      if (authUid || authEmail) {
+        // Authenticated user: strictly find threads created by this specific user
+        const userOr = [];
+        if (authUid) userOr.push({ userId: authUid });
+        if (authEmail) {
+          userOr.push({ userEmail: authEmail });
+          userOr.push({ email: authEmail });
+        }
+        query = { $or: userOr };
+      } else if (sessionId) {
+        // Guest/unauthenticated fallback: ONLY match exact sessionId with NO assigned user
+        query = {
+          sessionId: sessionId,
+          $and: [
+            { userId: { $in: [null, undefined, ''] } },
+            { userEmail: { $in: [null, undefined, ''] } }
+          ]
+        };
+      } else {
         return {
           statusCode: 400,
           headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: 'sessionId or threadId is required', threads: [] })
+          body: JSON.stringify({ error: 'Authentication or sessionId required', threads: [] })
         };
       }
 
-      // Fetch all threads
-      const query = { $or: [{ sessionId }, { sessionId: { $exists: false } }, { sessionId: null }] };
       const threads = await threadsCol.find(query).sort({ updatedAt: -1 }).limit(50).toArray();
 
       // Fetch all messages for these threads to guarantee 100% complete chat history
@@ -104,9 +151,29 @@ export const handler = async (event, context) => {
         };
       }
 
+      const authUid = user?.userId || user?.id || data.userId || '';
+      const authEmail = (user?.email || data.userEmail || data.email || '').toLowerCase();
+
+      // Prevent unauthorized tampering of another user's existing thread
+      const existing = await threadsCol.findOne({ threadId: data.threadId });
+      if (existing && (existing.userId || existing.userEmail)) {
+        const isOwner = (existing.userId && existing.userId === authUid) ||
+                        (existing.userEmail && existing.userEmail.toLowerCase() === authEmail) ||
+                        (existing.email && existing.email.toLowerCase() === authEmail);
+        if (!isOwner && (authUid || authEmail)) {
+          return {
+            statusCode: 403,
+            headers: { 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({ error: 'Forbidden: Cannot overwrite another user\'s thread' })
+          };
+        }
+      }
+
       const now = new Date();
       const doc = {
         ...data,
+        userId: authUid || existing?.userId || '',
+        userEmail: authEmail || existing?.userEmail || '',
         updatedAt: now
       };
 
@@ -137,8 +204,26 @@ export const handler = async (event, context) => {
         };
       }
 
-      await threadsCol.deleteOne({ threadId });
-      await messagesCol.deleteMany({ threadId });
+      const authUid = user?.userId || user?.id || '';
+      const authEmail = (user?.email || '').toLowerCase();
+
+      const existing = await threadsCol.findOne({ threadId });
+      if (existing) {
+        if (existing.userId || existing.userEmail) {
+          const isOwner = (existing.userId && existing.userId === authUid) ||
+                          (existing.userEmail && existing.userEmail.toLowerCase() === authEmail);
+          if (!isOwner && (authUid || authEmail)) {
+            return {
+              statusCode: 403,
+              headers: { 'Access-Control-Allow-Origin': '*' },
+              body: JSON.stringify({ error: 'Forbidden: You do not own this thread' })
+            };
+          }
+        }
+
+        await threadsCol.deleteOne({ threadId });
+        await messagesCol.deleteMany({ threadId });
+      }
 
       return {
         statusCode: 200,

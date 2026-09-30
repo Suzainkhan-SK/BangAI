@@ -276,35 +276,28 @@ export default function DashboardApp({
     scrollToBottom();
   }, [activeThread?.messages, isChatResponding, isGenerating]);
 
-  // ─── 1. FETCH THREADS FROM MONGODB ON LOAD ────────────────────────
+  // ─── 1. FETCH THREADS FROM MONGODB ON LOAD (STRICT USER ISOLATION) ──
   useEffect(() => {
     async function loadThreadsFromDatabase() {
       try {
-        const res = await fetch(`/.netlify/functions/threads?sessionId=${sessionId}`);
+        const token = getAuthToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const uid = user?.id || user?.userId || user?._id || '';
+        const url = uid 
+          ? `/.netlify/functions/threads?userId=${encodeURIComponent(uid)}&sessionId=${sessionId}`
+          : `/.netlify/functions/threads?sessionId=${sessionId}`;
+
+        const res = await fetch(url, { headers });
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data.threads) && data.threads.length > 0) {
-            setPastShorts(prev => {
-              const remoteMap = new Map(data.threads.map(t => [t.threadId || t.id, t]));
-              // Merge remote with local to preserve newest messages
-              const merged = data.threads.map(rt => {
-                const lt = prev.find(p => (p.threadId || p.id) === (rt.threadId || rt.id));
-                if (lt && lt.messages && lt.messages.length > (rt.messages || []).length) {
-                  return { ...rt, messages: lt.messages };
-                }
-                return rt;
-              });
-
-              // Add local-only threads that haven't synced yet
-              prev.forEach(lt => {
-                const id = lt.threadId || lt.id;
-                if (id && !remoteMap.has(id)) {
-                  merged.push(lt);
-                }
-              });
-
-              return merged;
-            });
+          if (Array.isArray(data.threads)) {
+            // Replace with user's verified threads (clean isolation)
+            setPastShorts(data.threads);
+            try {
+              localStorage.setItem('shortsai_all_threads', JSON.stringify(data.threads));
+            } catch (e) {}
           }
         }
       } catch (err) {
@@ -313,7 +306,7 @@ export default function DashboardApp({
     }
 
     loadThreadsFromDatabase();
-  }, [sessionId]);
+  }, [user?.id, user?.userId, user?._id, sessionId]);
 
   // Track distinct approval timestamps to prevent stale responses from interrupting active generation
   const lastStoryApprovalTimeRef = React.useRef(0);
@@ -768,7 +761,11 @@ export default function DashboardApp({
     });
 
     try {
-      fetch(`/.netlify/functions/threads?threadId=${id}`, { method: 'DELETE' }).catch(() => {});
+      const token = getAuthToken();
+      fetch(`/.netlify/functions/threads?threadId=${encodeURIComponent(id)}`, { 
+        method: 'DELETE',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      }).catch(() => {});
     } catch (e) {}
 
     if (activeThreadId === id) {
@@ -879,9 +876,13 @@ export default function DashboardApp({
     }
 
     try {
+      const authToken = getAuthToken();
       const res = await fetch('/.netlify/functions/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
         body: JSON.stringify({
           threadId: currentThreadId,
           sessionId: sessionId,

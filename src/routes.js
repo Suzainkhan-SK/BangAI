@@ -14,10 +14,10 @@ export const ROUTES = [
   { path: 'studio/subtitles',      view: 'studio-subtitles', private: true, tab: 'subtitles' },
   { path: 'studio/music',          view: 'studio-music',     private: true, tab: 'music' },
   { path: 'music',                 view: 'studio-music',     private: true, tab: 'music' },
-  { path: 'templates',             view: 'templates',        private: false },
+  { path: 'templates',             view: 'templates',        private: true  },
   { path: 'basic-templates',       view: 'basic-templates',  private: true  },
-  { path: 'chat',                  view: 'chat',             private: false },
-  { path: 'chat/:chatId',          view: 'chat',             private: false, param: 'chatId' },
+  { path: 'chat',                  view: 'chat',             private: true  },
+  { path: 'chat/:chatId',          view: 'chat',             private: true, param: 'chatId' },
   { path: 'profile',               view: 'profile',          private: true  },
   { path: 'settings',              view: 'settings',         private: true  }
 ];

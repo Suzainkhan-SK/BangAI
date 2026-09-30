@@ -48,9 +48,17 @@ export const handler = async (event, context) => {
   }
 
   try {
-    const authHeader = event.headers.authorization || '';
-    const userToken = authHeader.replace('Bearer ', '');
+    const authHeader = event.headers.authorization || event.headers.Authorization || '';
+    const userToken = authHeader.replace(/^Bearer\s+/i, '').trim();
     const user = verifyToken(userToken);
+
+    if (!user) {
+      return {
+        statusCode: 401,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ error: 'Unauthorized. Please sign in to upload to YouTube.' })
+      };
+    }
 
     const payload = JSON.parse(event.body || '{}');
     const { threadId, title, description, tags, videoUrl, sessionId, channelId, privacy } = payload;
