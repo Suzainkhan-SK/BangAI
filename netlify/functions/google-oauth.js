@@ -644,6 +644,101 @@ export const handler = async (event, context) => {
   }
 
   // -------------------------------------------------------------
+  // 3B. ACTION: GET FRESH ACCESS TOKEN FOR A SPECIFIC CHANNEL
+  // -------------------------------------------------------------
+  if (action === 'get-token' || action === 'channel-token') {
+    const authHeader = event.headers.authorization || event.headers.Authorization || '';
+    const token = authHeader.replace(/Bearer /i, '').trim() || query.token;
+    let user = verifyToken(token);
+
+    if (!user && (query.email || query.userId)) {
+      user = { email: query.email, id: query.userId, userId: query.userId };
+    }
+
+    if (!user) {
+      return {
+        statusCode: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Unauthorized' })
+      };
+    }
+
+    try {
+      const db = await getDb();
+      if (!db) {
+        return {
+          statusCode: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Database unavailable' })
+        };
+      }
+
+      const queryList = [];
+      const uid = user.userId || user.id;
+      if (uid) {
+        queryList.push({ id: uid }, { _id: uid }, { userId: uid });
+      }
+      if (user.email) {
+        queryList.push({ email: user.email.toLowerCase() }, { email: user.email });
+      }
+
+      const userDoc = queryList.length > 0
+        ? await db.collection('users').findOne({ $or: queryList })
+        : null;
+
+      const rawChannels = userDoc?.youtubeChannels || [];
+      const targetChannelId = query.channelId || (event.body ? JSON.parse(event.body || '{}').channelId : '');
+      let selectedChannel = null;
+      if (targetChannelId) {
+        selectedChannel = rawChannels.find(c => c.channelId === targetChannelId || c.id === targetChannelId);
+      }
+      if (!selectedChannel) {
+        selectedChannel = rawChannels.find(c => c.isDefault) || rawChannels[0] || null;
+      }
+
+      if (!selectedChannel) {
+        return {
+          statusCode: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'No connected YouTube channel found' })
+        };
+      }
+
+      const freshToken = await getFreshGoogleToken(selectedChannel, 'youtubeChannels');
+      if (!freshToken) {
+        return {
+          statusCode: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            error: 'TOKEN_EXPIRED',
+            message: 'Channel token expired or revoked. Please reconnect in Profile.',
+            needsReconnect: true
+          })
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: true,
+          accessToken: freshToken,
+          channelId: selectedChannel.channelId,
+          channelTitle: selectedChannel.channelTitle,
+          avatarUrl: selectedChannel.avatarUrl || '',
+          defaultPrivacy: selectedChannel.defaultPrivacy || 'public'
+        })
+      };
+    } catch (err) {
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: err.message })
+      };
+    }
+  }
+
+  // -------------------------------------------------------------
   // 4. ACTION: ADD / CONNECT GOOGLE SHEET (Multi-Sheet)
   // -------------------------------------------------------------
   if (action === 'add-sheet' || action === 'connect-sheet') {
