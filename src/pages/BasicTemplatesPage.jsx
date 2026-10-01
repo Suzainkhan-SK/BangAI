@@ -41,17 +41,29 @@ export default function BasicTemplatesPage({
   const LOCAL_MPT_URL = 'http://localhost:8501';
   const [useCloudEnv, setUseCloudEnv] = useState(true);
 
-  // Read authenticated user's JWT token & theme
+  // Read authenticated user's JWT token, user profile & theme
   const token = typeof window !== 'undefined'
     ? (localStorage.getItem('bangai_token') || localStorage.getItem('shortsai_token') || user?.token || '')
     : (user?.token || '');
+
+  const storedUserRaw = typeof window !== 'undefined'
+    ? (localStorage.getItem('bangai_user') || localStorage.getItem('shortsai_user'))
+    : null;
+  let parsedUser = null;
+  try {
+    parsedUser = storedUserRaw ? JSON.parse(storedUserRaw) : (user || null);
+  } catch {
+    parsedUser = user || null;
+  }
+  const userId = parsedUser?.id || parsedUser?._id || parsedUser?.userId || '';
+  const userEmail = parsedUser?.email || '';
 
   const activeTheme = theme || (typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : 'dark') || 'dark';
 
   const activeCluster = MODAL_CLUSTERS.find(c => c.id === activeClusterId) || MODAL_CLUSTERS[0];
   const baseUrl = useCloudEnv ? activeCluster.uiUrl : LOCAL_MPT_URL;
-  const embeddedUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&theme=${encodeURIComponent(activeTheme)}&embedded=1`;
-  const fullWindowUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&theme=${encodeURIComponent(activeTheme)}`;
+  const embeddedUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&user_id=${encodeURIComponent(userId)}&email=${encodeURIComponent(userEmail)}&theme=${encodeURIComponent(activeTheme)}&embedded=1`;
+  const fullWindowUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&user_id=${encodeURIComponent(userId)}&email=${encodeURIComponent(userEmail)}&theme=${encodeURIComponent(activeTheme)}`;
 
   // Probe connectivity with silent automatic backend failover
   const checkHealth = async () => {
