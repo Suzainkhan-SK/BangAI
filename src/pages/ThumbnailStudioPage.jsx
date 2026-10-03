@@ -35,9 +35,10 @@ export default function ThumbnailStudioPage({
   const { isMobile, isTablet } = useBreakpoint();
 
   // Active form state
-  const [generationMode, setGenerationMode] = useState('text-to-image'); // 'text-to-image' | 'image-to-image'
+  const [generationMode, setGenerationMode] = useState('all'); // 'all' | 'text-to-image' | 'image-to-image'
   const [selectedModelId, setSelectedModelId] = useState(TEXT_TO_IMAGE_MODELS[0].id);
   const [selectedStyleId, setSelectedStyleId] = useState('viral-high-ctr');
+  const [selectedPresetId, setSelectedPresetId] = useState('');
   const [prompt, setPrompt] = useState(TEXT_TO_IMAGE_MODELS[0].defaultPrompt);
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [resolution, setResolution] = useState('2K');
@@ -101,7 +102,7 @@ export default function ThumbnailStudioPage({
           setPrompt(nextM.defaultPrompt);
         }
       }
-    } else {
+    } else if (mode === 'image-to-image') {
       if (!IMAGE_TO_IMAGE_MODELS.some(m => m.id === selectedModelId)) {
         const nextM = IMAGE_TO_IMAGE_MODELS[0];
         setSelectedModelId(nextM.id);
@@ -118,23 +119,30 @@ export default function ThumbnailStudioPage({
     setSelectedModelId(modelId);
     const m = THUMBNAIL_MODELS.find(item => item.id === modelId);
     if (m) {
-      if (m.type) setGenerationMode(m.type);
+      if (generationMode !== 'all' && m.type && m.type !== generationMode) {
+        setGenerationMode(m.type);
+      }
       if (!prompt) {
         setPrompt(m.defaultPrompt);
       }
     }
   };
 
-  // Viral preset handler
-  const handleApplyPreset = (preset) => {
+  // Viral preset handler via dropdown
+  const handleSelectPresetById = (presetId) => {
     audioEngine.playSfx('click');
-    setPrompt(preset.prompt);
-    setAspectRatio(preset.aspectRatio);
-    if (preset.modelId) {
-      setSelectedModelId(preset.modelId);
-      const m = THUMBNAIL_MODELS.find(item => item.id === preset.modelId);
-      if (m?.type) {
-        setGenerationMode(m.type);
+    setSelectedPresetId(presetId);
+    if (!presetId) return;
+    const preset = VIRAL_PRESETS.find(p => p.id === presetId);
+    if (preset) {
+      setPrompt(preset.prompt);
+      setAspectRatio(preset.aspectRatio);
+      if (preset.modelId) {
+        setSelectedModelId(preset.modelId);
+        const m = THUMBNAIL_MODELS.find(item => item.id === preset.modelId);
+        if (m?.type && generationMode !== 'all' && generationMode !== m.type) {
+          setGenerationMode(m.type);
+        }
       }
     }
   };
@@ -150,6 +158,7 @@ export default function ThumbnailStudioPage({
   const handleClearForm = () => {
     audioEngine.playSfx('click');
     setPrompt('');
+    setSelectedPresetId('');
     setRefImageFile(null);
     setRefImagePreview(null);
     setRefImageUrl(null);
@@ -566,229 +575,199 @@ export default function ThumbnailStudioPage({
               ) : (
                 /* Form Controls */
                 <>
-                  {/* 1. Generation Mode Switcher (Text-to-Image vs Image-to-Image) */}
+                  {/* 1. Vision Model Dropdown List (Separated Text-to-Image vs Image-to-Image) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Creation Mode
-                    </label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Vision Model ({activeModel.type === 'text-to-image' ? 'Text-to-Image' : 'Image-to-Image'})
+                      </label>
+                      <span style={{ fontSize: '11px', color: '#ff4f00', fontWeight: 600 }}>
+                        {activeModel.badge} · {activeModel.credits} Credits
+                      </span>
+                    </div>
+
+                    {/* Mode Filter Pills */}
                     <div style={{
                       display: 'flex',
                       background: 'var(--bg-input)',
                       padding: '3px',
-                      borderRadius: '9px',
+                      borderRadius: '8px',
                       border: '1px solid var(--border-subtle)',
                       gap: '4px'
                     }}>
                       <button
                         type="button"
+                        onClick={() => handleSelectMode('all')}
+                        style={{
+                          flex: 1,
+                          padding: '5px 8px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: generationMode === 'all' ? 'var(--bg-card)' : 'transparent',
+                          color: generationMode === 'all' ? '#ff4f00' : 'var(--text-secondary)',
+                          fontWeight: generationMode === 'all' ? 700 : 500,
+                          fontSize: '11.5px',
+                          cursor: 'pointer',
+                          transition: 'all 0.12s ease'
+                        }}
+                      >
+                        All Models
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleSelectMode('text-to-image')}
                         style={{
                           flex: 1,
-                          padding: '7px 10px',
-                          borderRadius: '7px',
+                          padding: '5px 8px',
+                          borderRadius: '6px',
                           border: 'none',
                           background: generationMode === 'text-to-image' ? 'var(--bg-card)' : 'transparent',
                           color: generationMode === 'text-to-image' ? '#ff4f00' : 'var(--text-secondary)',
                           fontWeight: generationMode === 'text-to-image' ? 700 : 500,
-                          fontSize: '12px',
+                          fontSize: '11.5px',
                           cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          boxShadow: generationMode === 'text-to-image' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-                          transition: 'all 0.15s ease'
+                          transition: 'all 0.12s ease'
                         }}
                       >
-                        <Sparkles size={13} />
-                        <span>Text-to-Image (New)</span>
+                        🎨 Text-to-Image
                       </button>
                       <button
                         type="button"
                         onClick={() => handleSelectMode('image-to-image')}
                         style={{
                           flex: 1,
-                          padding: '7px 10px',
-                          borderRadius: '7px',
+                          padding: '5px 8px',
+                          borderRadius: '6px',
                           border: 'none',
                           background: generationMode === 'image-to-image' ? 'var(--bg-card)' : 'transparent',
                           color: generationMode === 'image-to-image' ? '#ff4f00' : 'var(--text-secondary)',
                           fontWeight: generationMode === 'image-to-image' ? 700 : 500,
-                          fontSize: '12px',
+                          fontSize: '11.5px',
                           cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          boxShadow: generationMode === 'image-to-image' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-                          transition: 'all 0.15s ease'
+                          transition: 'all 0.12s ease'
                         }}
                       >
-                        <Layers size={13} />
-                        <span>Image-to-Image (Edit)</span>
+                        🔄 Image-to-Image
                       </button>
                     </div>
+
+                    {/* Model Dropdown List */}
+                    <select
+                      value={selectedModelId}
+                      onChange={e => handleSelectModel(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        background: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        outline: 'none',
+                        cursor: 'pointer',
+                        colorScheme: isLight ? 'light' : 'dark'
+                      }}
+                    >
+                      {(generationMode === 'all' || generationMode === 'text-to-image') && (
+                        <optgroup label="── 🎨 TEXT-TO-IMAGE MODELS (Create from Scratch) ──">
+                          {TEXT_TO_IMAGE_MODELS.map(m => (
+                            <option key={m.id} value={m.id}>
+                              {m.name} ({m.badge} · {m.credits} Credits)
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {(generationMode === 'all' || generationMode === 'image-to-image') && (
+                        <optgroup label="── 🔄 IMAGE-TO-IMAGE MODELS (Edit & Restyle) ──">
+                          {IMAGE_TO_IMAGE_MODELS.map(m => (
+                            <option key={m.id} value={m.id}>
+                              {m.name} ({m.badge} · {m.credits} Credits)
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+
+                    <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                      {activeModel.description}
+                    </p>
                   </div>
 
-                  {/* 2. Separated Vision Model Cards */}
+                  {/* 2. Viral Presets Dropdown List */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        {generationMode === 'text-to-image' ? 'Text-to-Image Models' : 'Image-to-Image Edit Models'}
+                        Viral Presets
                       </label>
-                      <span style={{ fontSize: '11px', color: '#ff4f00', fontWeight: 600 }}>
-                        {activeModel.credits} Credits
+                      <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                        One-Click Preset
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {(generationMode === 'text-to-image' ? TEXT_TO_IMAGE_MODELS : IMAGE_TO_IMAGE_MODELS).map(m => {
-                        const isModelSelected = selectedModelId === m.id;
-                        return (
-                          <div
-                            key={m.id}
-                            onClick={() => handleSelectModel(m.id)}
-                            style={{
-                              padding: '8px 11px',
-                              borderRadius: '8px',
-                              border: `1.5px solid ${isModelSelected ? '#ff4f00' : 'var(--border-subtle)'}`,
-                              background: isModelSelected ? 'rgba(255, 79, 0, 0.08)' : 'var(--bg-card)',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '10px',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{
-                                  fontSize: '12.5px',
-                                  fontWeight: isModelSelected ? 700 : 600,
-                                  color: isModelSelected ? 'var(--text-primary)' : 'var(--text-secondary)'
-                                }}>
-                                  {m.name}
-                                </span>
-                                <span style={{
-                                  fontSize: '9.5px',
-                                  fontWeight: 800,
-                                  padding: '1px 5px',
-                                  borderRadius: '4px',
-                                  background: isModelSelected ? '#ff4f00' : 'rgba(255, 79, 0, 0.15)',
-                                  color: isModelSelected ? '#fff' : '#ff4f00'
-                                }}>
-                                  {m.badge}
-                                </span>
-                              </div>
-                              <div style={{
-                                fontSize: '11px',
-                                color: 'var(--text-muted)',
-                                marginTop: '2px',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                              }}>
-                                {m.description}
-                              </div>
-                            </div>
-                            <div style={{
-                              fontSize: '11.5px',
-                              fontWeight: 700,
-                              color: isModelSelected ? '#ff4f00' : 'var(--text-muted)',
-                              flexShrink: 0
-                            }}>
-                              {m.credits} Cr
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <select
+                      value={selectedPresetId}
+                      onChange={e => handleSelectPresetById(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        background: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        outline: 'none',
+                        cursor: 'pointer',
+                        colorScheme: isLight ? 'light' : 'dark'
+                      }}
+                    >
+                      <option value="">✨ Select a Viral Preset (or type your own prompt below)...</option>
+                      {VIRAL_PRESETS.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.emoji} {p.label} ({p.aspectRatio})
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  {/* 3. Thumbnail Vibe & Style Archetype */}
+                  {/* 3. Thumbnail Vibe & Style Archetype Dropdown List */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Thumbnail Vibe & Style
+                        Thumbnail Vibe & Style Archetype
                       </label>
                       <span style={{ fontSize: '10px', color: '#ff4f00', fontWeight: 600 }}>
                         ⚡ Auto-Conditioned
                       </span>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(115px, 1fr))', gap: '5px' }}>
-                      {THUMBNAIL_STYLES.map(s => {
-                        const isStyleActive = selectedStyleId === s.id;
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => {
-                              audioEngine.playSfx('click');
-                              setSelectedStyleId(s.id);
-                            }}
-                            style={{
-                              padding: '6px 7px',
-                              borderRadius: '7px',
-                              border: `1.5px solid ${isStyleActive ? '#ff4f00' : 'var(--border-subtle)'}`,
-                              background: isStyleActive ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
-                              color: isStyleActive ? '#ff4f00' : 'var(--text-secondary)',
-                              fontWeight: isStyleActive ? 700 : 500,
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              transition: 'all 0.12s ease'
-                            }}
-                          >
-                            <span>{s.emoji}</span>
-                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
 
-                  {/* 2. Viral Presets Chips */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Viral Presets
-                    </label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                      {VIRAL_PRESETS.map(p => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => handleApplyPreset(p)}
-                          style={{
-                            padding: '4px 9px',
-                            borderRadius: '6px',
-                            background: 'var(--bg-card)',
-                            border: '1px solid var(--border-subtle)',
-                            color: 'var(--text-secondary)',
-                            fontSize: '11px',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.12s ease'
-                          }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.borderColor = '#ff4f00';
-                            e.currentTarget.style.color = 'var(--text-primary)';
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                            e.currentTarget.style.color = 'var(--text-secondary)';
-                          }}
-                        >
-                          <span>{p.emoji}</span>
-                          <span>{p.label}</span>
-                        </button>
+                    <select
+                      value={selectedStyleId}
+                      onChange={e => {
+                        audioEngine.playSfx('click');
+                        setSelectedStyleId(e.target.value);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        background: 'var(--bg-input)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        outline: 'none',
+                        cursor: 'pointer',
+                        colorScheme: isLight ? 'light' : 'dark'
+                      }}
+                    >
+                      {THUMBNAIL_STYLES.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.emoji} {s.label} — {s.tagline}
+                        </option>
                       ))}
-                    </div>
+                    </select>
                   </div>
 
                   {/* 3. Thumbnail Prompt */}
