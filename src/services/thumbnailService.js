@@ -3,6 +3,7 @@
 // Multi-Key Rotating Pool with Automatic Failover & High-Performance CDN
 
 const API_KEYS = [
+  'bb19f8a8b94e785f7f8cf7955ed165a6',
   'c10776280a0f851f06aa637c09878770',
   '9fed938616d318963f3d30391789ba04',
   'd027fcf4e00e7c5e4b2717902016b5f7',
@@ -83,7 +84,7 @@ export const THUMBNAIL_MODELS = [
     requiresImage: false,
     description: 'Highly creative, prompt-adherent image generation with complex conceptual scene understanding.',
     defaultPrompt: 'Viral high-retention YouTube thumbnail: Extreme split comparison: $1 abandoned rusty shack island with dark stormy clouds on left vs $10,000,000 glowing ultra-luxury futuristic tropical island resort on right with yachts and neon pools, sharp vibrant divider beam with glowing 3D lightning, saturated viral colors, 8K render',
-    showcaseImage: '/showcases/gpt_flare_t2i.png'
+    showcaseImage: '/showcases/gpt_image_2_t2i.png'
   },
   {
     id: 'seedream/5-flash-text-to-image',
@@ -160,7 +161,7 @@ export const THUMBNAIL_MODELS = [
     requiresImage: true,
     description: 'Advanced multimodal image transformation and style transfer for viral thumbnail edits.',
     defaultPrompt: 'Cinematic YouTube thumbnail restyle: Transform subject into an ancient king crowned in ornate glowing gold and rubies inside a candlelit treasure chamber with towering gold coin mounds, intense volumetric rim lighting, photorealistic textures, dramatic viral contrast',
-    showcaseImage: '/showcases/gpt_flare_i2i.png'
+    showcaseImage: '/showcases/gpt_image_2_i2i.png'
   },
   {
     id: 'seedream/5-flash-image-to-image',
