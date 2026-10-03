@@ -118,6 +118,7 @@ export default function ThumbnailStudioPage({
   const handleSelectModel = (modelId) => {
     audioEngine.playSfx('click');
     setSelectedModelId(modelId);
+    setCurrentResult(null);
     const m = THUMBNAIL_MODELS.find(item => item.id === modelId);
     if (m) {
       if (generationMode !== 'all' && m.type && m.type !== generationMode) {
@@ -126,7 +127,7 @@ export default function ThumbnailStudioPage({
       if (m.supportedResolutions && m.supportedResolutions.length > 0 && !m.supportedResolutions.includes(resolution)) {
         setResolution(m.supportedResolutions[m.supportedResolutions.length - 1]);
       }
-      if (!prompt) {
+      if (!prompt || THUMBNAIL_MODELS.some(other => other.defaultPrompt === prompt)) {
         setPrompt(m.defaultPrompt);
       }
     }
@@ -143,6 +144,7 @@ export default function ThumbnailStudioPage({
       setAspectRatio(preset.aspectRatio);
       if (preset.modelId) {
         setSelectedModelId(preset.modelId);
+        setCurrentResult(null);
         const m = THUMBNAIL_MODELS.find(item => item.id === preset.modelId);
         if (m?.type && generationMode !== 'all' && generationMode !== m.type) {
           setGenerationMode(m.type);

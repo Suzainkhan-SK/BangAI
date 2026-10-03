@@ -3,12 +3,20 @@
 // Multi-Key Rotating Pool with Automatic Failover & High-Performance CDN
 
 const API_KEYS = [
+  'c10776280a0f851f06aa637c09878770',
+  '9fed938616d318963f3d30391789ba04',
+  'd027fcf4e00e7c5e4b2717902016b5f7',
+  '18609e3bdb8e6ac38de3c5c7469ede4f',
+  '4626f1626df64062f34aead8fae16bab',
+  '934c5d4c188c224c040d8e3f03696c92',
+  'b08b84a5a4007b96d7f64d999dc7a9fe',
+  '52b269d09aa3e629f5be27063286a5c7',
+  '027cb49edbfe6908faf141d773f5e189',
   '600b59d0630c57062ea2d359a6a6f64c',
   '448eb7672ebe6a1c6fe64c4db9e7edf0',
   '4125c81cab785b8b23474ce0b62c10ef',
   'dea4cecf44a3aec3b6a652bd485e172d',
-  '92d0de6f5552d358907b96d10349e68b',
-  '027cb49edbfe6908faf141d773f5e189'
+  '92d0de6f5552d358907b96d10349e68b'
 ];
 
 const BASE_API_URL = 'https://api.kie.ai/api/v1/jobs';
@@ -29,8 +37,8 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: true,
     requiresImage: false,
     description: 'Next-gen photorealistic thumbnails with text comprehension and 4K ultra-fine details.',
-    defaultPrompt: 'Dramatic high-contrast YouTube thumbnail: A gigantic glowing gold vault door cracked open with millions of 3D cash stacks bursting out into the camera, volumetric cinematic neon teal and orange lighting, hyper-detailed 8K octane render, ultra-wide angle, extreme viral retention style.',
-    showcaseImage: '/showcases/gpt_flare_t2i.png'
+    defaultPrompt: 'Ultra high-CTR YouTube thumbnail: Massive glowing steel bank vault door blown open in extreme slow motion with millions of 3D gold bullion bars and diamond cash stacks blasting toward camera, intense volumetric teal and vibrant orange rim lighting, cinematic 8K octane render, dynamic wide-angle lens, extreme viral retention style --no watermark, no blur',
+    showcaseImage: '/showcases/gpt_flare_2_5_ultra.png'
   },
   {
     id: 'nano-banana-2',
@@ -44,8 +52,8 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Flagship 4K visual synthesis with character consistency, photorealism, and sharp detail.',
-    defaultPrompt: 'Ultra-cinematic YouTube thumbnail: Giant ancient celestial star map engraved inside a deep underground cavern, glowing blue quantum ley-lines, searcher explorer with powerful headlamp illuminating intricate alien glyphs, 8K hyper-detailed render.',
-    showcaseImage: '/showcases/flux_t2i.jpg'
+    defaultPrompt: 'Cinematic 4K YouTube thumbnail: Shocked young explorer inside an ancient subterranean pyramid chamber gazing at a gigantic glowing holographic star map floating in mid-air, volumetric golden god rays piercing through stone ceiling, ultra photorealistic skin textures, wide-eyed awe expression, hyper-detailed Unreal Engine 5 render, cinematic masterwork',
+    showcaseImage: '/showcases/nano_banana_2_ultra.png'
   },
   {
     id: 'wan/2-7-image-pro',
@@ -59,8 +67,8 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Professional studio-grade visuals with superior texture resolution, lighting gradients, and multilingual text.',
-    defaultPrompt: 'Epic YouTube thumbnail: An ancient lost sunken city glowing deep beneath an emerald ocean, massive bioluminescent ruins, mysterious underwater beams of light, ultra photorealistic, unreal engine 5 render, cinematic masterwork.',
-    showcaseImage: '/showcases/flux_t2i.jpg'
+    defaultPrompt: 'Epic blockbuster documentary YouTube thumbnail: Mysterious gargantuan bioluminescent alien megastructure half-submerged in a turbulent stormy ocean at night, dramatic helicopter searchlight beams cutting through dark stormy sea mist, hyper-detailed water splashes, IMAX 70mm cinematography, 8K photorealistic textures, award-winning cover art',
+    showcaseImage: '/showcases/wan_2_7_pro.png'
   },
   {
     id: 'gpt-image-2-text-to-image',
@@ -74,7 +82,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Highly creative, prompt-adherent image generation with complex conceptual scene understanding.',
-    defaultPrompt: 'Eye-catching YouTube thumbnail: Giant holographic glowing Bitcoin and green ascending profit chart breaking through a luxury glass skyscraper floor, golden coins raining down, cinematic luxury lighting, high contrast.',
+    defaultPrompt: 'Viral high-retention YouTube thumbnail: Extreme split comparison: $1 abandoned rusty shack island with dark stormy clouds on left vs $10,000,000 glowing ultra-luxury futuristic tropical island resort on right with yachts and neon pools, sharp vibrant divider beam with glowing 3D lightning, saturated viral colors, 8K render',
     showcaseImage: '/showcases/gpt_flare_t2i.png'
   },
   {
@@ -89,8 +97,8 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Ultra-fast 2K visual rendering with vibrant colors, high dynamic range, and exceptional speed.',
-    defaultPrompt: 'High-energy breaking news thumbnail: Dramatic split-screen composition with bold glowing red alert border, flashing breaking news badges, high-contrast focal subject with vivid rim lights, crisp viral textures.',
-    showcaseImage: '/showcases/grok_t2i.jpg'
+    defaultPrompt: 'High-energy viral breaking news YouTube thumbnail: Giant molten meteor glowing neon crimson descending over a modern metropolis skyline, glowing red breaking news HUD warning border, intense warm rim lights, hyper-crisp 2K octane textures, dynamic action angle, scroll-stopping visual hierarchy',
+    showcaseImage: '/showcases/seedream_5_flash_t2i.png'
   },
   {
     id: 'nano-banana-2-lite',
@@ -104,8 +112,8 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'High-speed lightweight thumbnail engine with crisp text rendering and high contrast.',
-    defaultPrompt: 'YouTube thumbnail: High-contrast cyberpunk racer in sleek neon armor beside an electric hypercar on rain-slicked city streets, neon violet and amber rim lights, extreme wide angle.',
-    showcaseImage: '/showcases/grok_t2i.jpg'
+    defaultPrompt: 'High-contrast YouTube tech thumbnail: Transparent glowing quantum AI processor chip held by robotic chrome hand, blazing cyan and emerald neon circuit traces pulsing with data, clean dark studio backdrop, crisp macro photography, razor-sharp edge contrast, viral tech review aesthetics',
+    showcaseImage: '/showcases/nano_banana_2_lite.png'
   },
   {
     id: 'grok-imagine-image-2-0/text-to-image',
@@ -119,8 +127,8 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Vibrant, high-contrast, razor-sharp textures ideal for eye-catching YouTube video covers.',
-    defaultPrompt: 'YouTube thumbnail: Extreme close-up of a futuristic cyborg human face split with glowing blue holographic quantum circuitry, shocked expressive eyes looking straight into camera, dramatic rim lighting, vibrant 8k cinematic poster style.',
-    showcaseImage: '/showcases/grok_t2i.jpg'
+    defaultPrompt: 'YouTube thumbnail: Extreme close-up of a wide-eyed creator reaction with mouth open in disbelief looking directly into lens, vibrant neon electric violet and lime rim lighting, holding a floating mystery black cube emitting purple plasma lightning, sharp 3D particle embers, 8K cinematic poster style',
+    showcaseImage: '/showcases/grok_imagine_2_t2i.png'
   },
 
   // ── IMAGE-TO-IMAGE MODELS (Edit & Restyle) ─────────
@@ -136,7 +144,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: true,
     requiresImage: true,
     description: 'Transform or restyle any reference image into a viral thumbnail with custom lighting and style.',
-    defaultPrompt: 'Add fiery glowing laser eyes, an intense cosmic shockwave explosion behind, and vivid neon orange rim lighting, epic YouTube thumbnail composition.',
+    defaultPrompt: 'World-class YouTube thumbnail transformation: Turn subject into an ultra-powerful cybernetic superhero, intense blazing fiery glowing eyes, electric orange and blue energy aura radiating outwards, background replaced with a dramatic sci-fi city explosion, hyper-detailed 3D pop, viral cover art',
     showcaseImage: '/showcases/gpt_flare_i2i.png'
   },
   {
@@ -151,7 +159,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: true,
     description: 'Advanced multimodal image transformation and style transfer for viral thumbnail edits.',
-    defaultPrompt: 'Restyle the subject into an epic cinematic documentary cover with dramatic spotlights, high contrast, and dark mystery ambiance.',
+    defaultPrompt: 'Cinematic YouTube thumbnail restyle: Transform subject into an ancient king crowned in ornate glowing gold and rubies inside a candlelit treasure chamber with towering gold coin mounds, intense volumetric rim lighting, photorealistic textures, dramatic viral contrast',
     showcaseImage: '/showcases/gpt_flare_i2i.png'
   },
   {
@@ -166,8 +174,8 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: true,
     description: 'Fast reference image restyling, face/lighting adaptation, and thumbnail remixing.',
-    defaultPrompt: 'Transform the scene into a vibrant viral YouTube cover with neon rim lighting, dynamic background explosion, and 3D depth.',
-    showcaseImage: '/showcases/grok_edit.jpg'
+    defaultPrompt: 'Viral YouTube thumbnail edit: Dramatically enhance subject with intense neon crimson rim lights, add shocking volcanic eruption and fiery meteor shower in the background, sharp crisp outlines, scroll-stopping thumbnail visual hook',
+    showcaseImage: '/showcases/seedream_5_flash_i2i.png'
   },
   {
     id: 'grok-imagine-image-2-0/image-edit',
