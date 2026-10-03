@@ -4,7 +4,7 @@ import {
   Settings, LogOut, Search, Trash2, Video, Film, Clock,
   CheckCircle2, AlertCircle, XCircle, Loader2, Zap,
   Mic2, Music, Type, X, LayoutDashboard, User, CreditCard,
-  Bot, Palette
+  Bot, Palette, Image as ImageIcon
 } from 'lucide-react';
 import { audioEngine } from '../../audio/audioEngine';
 
@@ -122,6 +122,9 @@ export default function Sidebar({
     }
     if (path === 'studio') {
       return currentRoutePath === 'studio' || currentRoutePath.startsWith('studio/') || currentRoutePath.startsWith('studio-');
+    }
+    if (path === 'thumbnails') {
+      return currentRoutePath === 'thumbnails' || currentRoutePath === 'thumbnail-studio';
     }
     return currentRoutePath === path || currentRoutePath.startsWith(path + '/');
   };
@@ -330,6 +333,30 @@ export default function Sidebar({
             }}
           >
             <Film size={16} />
+          </button>
+
+          {/* Thumbnail Studio */}
+          <button
+            type="button"
+            onClick={() => navigateTo('thumbnails')}
+            title="Thumbnail Studio (Ultra HD)"
+            aria-label="Thumbnail Studio"
+            aria-current={isItemActive('thumbnails') ? 'page' : undefined}
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              background: isItemActive('thumbnails') ? 'rgba(255, 79, 0, 0.18)' : 'transparent',
+              border: `1.5px solid ${isItemActive('thumbnails') ? '#ff4f00' : 'transparent'}`,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: isItemActive('thumbnails') ? '#ff4f00' : 'var(--text-muted)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <ImageIcon size={16} />
           </button>
 
           {/* Bang AI Chat */}
@@ -678,6 +705,36 @@ export default function Sidebar({
             </div>
             <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: 'linear-gradient(135deg, #10b981, #06b6d4)', color: '#fff' }}>
               MODAL
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigateTo('thumbnails')}
+            aria-label="Thumbnail Studio"
+            aria-current={isItemActive('thumbnails') ? 'page' : undefined}
+            style={{
+              width: '100%',
+              padding: '6px 8px',
+              background: isItemActive('thumbnails') ? 'rgba(255, 79, 0, 0.15)' : 'transparent',
+              border: `1px solid ${isItemActive('thumbnails') ? 'rgba(255, 79, 0, 0.35)' : 'transparent'}`,
+              borderRadius: '7px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              color: isItemActive('thumbnails') ? '#ff4f00' : 'var(--text-secondary)',
+              fontSize: '12px',
+              fontWeight: isItemActive('thumbnails') ? 700 : 500,
+              transition: 'all 0.12s ease'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ImageIcon size={14} color={isItemActive('thumbnails') ? '#ff4f00' : 'var(--text-muted)'} />
+              <span>Thumbnail Studio</span>
+            </div>
+            <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: 'linear-gradient(135deg, #ff4f00, #ff7700)', color: '#fff' }}>
+              HD
             </span>
           </button>
 

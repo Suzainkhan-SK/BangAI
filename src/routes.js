@@ -16,6 +16,8 @@ export const ROUTES = [
   { path: 'music',                 view: 'studio-music',     private: true, tab: 'music' },
   { path: 'templates',             view: 'templates',        private: true  },
   { path: 'basic-templates',       view: 'basic-templates',  private: true  },
+  { path: 'thumbnails',            view: 'thumbnails',       private: true  },
+  { path: 'thumbnail-studio',      view: 'thumbnails',       private: true, redirect: 'thumbnails' },
   { path: 'chat',                  view: 'chat',             private: true  },
   { path: 'chat/:chatId',          view: 'chat',             private: true, param: 'chatId' },
   { path: 'profile',               view: 'profile',          private: true  },

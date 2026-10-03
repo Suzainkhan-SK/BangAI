@@ -7,6 +7,7 @@ import DashboardApp from './components/Dashboard/DashboardApp';
 import StudioPage from './pages/StudioPage';
 import TemplatesPage from './pages/TemplatesPage';
 import BasicTemplatesPage from './pages/BasicTemplatesPage';
+import ThumbnailStudioPage from './pages/ThumbnailStudioPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import ApiDocsPage from './pages/ApiDocsPage';
@@ -375,6 +376,25 @@ function AppContent() {
         {currentView === 'basic-templates' && (
           user ? (
             <BasicTemplatesPage
+              user={user}
+              theme={theme}
+              currentRoutePath={currentRoutePath}
+              collapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+              onNavigate={handleNavigate}
+            />
+          ) : (
+            <LoginPage
+              onLoginSuccess={handleLoginSuccess}
+              onNavigateToRegister={() => handleNavigate('register')}
+              onNavigateToLanding={() => handleNavigate('')}
+            />
+          )
+        )}
+
+        {currentView === 'thumbnails' && (
+          user ? (
+            <ThumbnailStudioPage
               user={user}
               theme={theme}
               currentRoutePath={currentRoutePath}

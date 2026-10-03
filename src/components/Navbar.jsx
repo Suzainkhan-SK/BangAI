@@ -3,7 +3,7 @@ import {
   Sparkles, Sun, Moon, Zap, User, ArrowRight,
   ChevronDown, Menu, LogOut, Settings as SettingsIcon,
   Video, LayoutDashboard, X, PanelLeft, Film, Bot,
-  Mic2, Type, Music, Code2, CreditCard
+  Mic2, Type, Music, Code2, CreditCard, Image as ImageIcon
 } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
 import { useBreakpoint, useBodyScrollLock } from '../hooks/useMediaQuery';
@@ -70,12 +70,13 @@ export default function Navbar({
     }
   };
 
-  // Streamlined 4 core primary items for clean minimal navbar
+  // Streamlined primary items with Thumbnail Studio
   const PRIMARY_LINKS = user
     ? [
         { label: 'Dashboard', view: 'dashboard', icon: LayoutDashboard },
         { label: 'AI Templates', view: 'templates', icon: Zap, badge: 'PRO' },
         { label: 'Stock Studio', view: 'basic-templates', icon: Film, badge: 'STOCK' },
+        { label: 'Thumbnail Studio', view: 'thumbnails', icon: ImageIcon, badge: 'HOT' },
         { label: 'Chat', view: 'chat', icon: Bot, badge: '4.5' },
       ]
     : [
@@ -433,6 +434,7 @@ export default function Navbar({
                       DESIGN STUDIOS
                     </div>
                     {[
+                      { icon: ImageIcon, label: 'Thumbnail Studio', view: 'thumbnails' },
                       { icon: Mic2, label: 'Voice Matrix', view: 'studio/voices' },
                       { icon: Type, label: 'Subtitle Studio', view: 'studio/subtitles' },
                       { icon: Music, label: 'Music Library', view: 'studio/music' },
@@ -672,6 +674,7 @@ export default function Navbar({
               <>
                 <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 2px' }} />
                 {[
+                  { label: 'Thumbnail Studio', view: 'thumbnails' },
                   { label: 'Voice Matrix', view: 'studio/voices' },
                   { label: 'Subtitle Studio', view: 'studio/subtitles' },
                   { label: 'Music Library', view: 'studio/music' },
