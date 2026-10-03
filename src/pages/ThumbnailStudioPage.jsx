@@ -17,6 +17,7 @@ import {
   RESOLUTIONS,
   BACKGROUND_MODES,
   VIRAL_PRESETS,
+  getModelCredits,
   uploadImageToCDN,
   createThumbnailTask,
   pollThumbnailTask,
@@ -121,6 +122,9 @@ export default function ThumbnailStudioPage({
     if (m) {
       if (generationMode !== 'all' && m.type && m.type !== generationMode) {
         setGenerationMode(m.type);
+      }
+      if (m.supportedResolutions && m.supportedResolutions.length > 0 && !m.supportedResolutions.includes(resolution)) {
+        setResolution(m.supportedResolutions[m.supportedResolutions.length - 1]);
       }
       if (!prompt) {
         setPrompt(m.defaultPrompt);
@@ -424,7 +428,7 @@ export default function ThumbnailStudioPage({
               color: 'var(--text-secondary)'
             }}>
               <Zap size={13} fill="#ff4f00" color="#ff4f00" />
-              <span>Cost: <strong style={{ color: 'var(--text-primary)' }}>{activeModel.credits} Credits</strong></span>
+              <span>Cost: <strong style={{ color: 'var(--text-primary)' }}>{getModelCredits(activeModel, resolution)} Credits</strong></span>
             </div>
 
             <button
@@ -582,7 +586,7 @@ export default function ThumbnailStudioPage({
                         Vision Model ({activeModel.type === 'text-to-image' ? 'Text-to-Image' : 'Image-to-Image'})
                       </label>
                       <span style={{ fontSize: '11px', color: '#ff4f00', fontWeight: 600 }}>
-                        {activeModel.badge} · {activeModel.credits} Credits
+                        {activeModel.badge} · {getModelCredits(activeModel, resolution)} Credits
                       </span>
                     </div>
 
@@ -673,7 +677,7 @@ export default function ThumbnailStudioPage({
                         <optgroup label="── 🎨 TEXT-TO-IMAGE MODELS (Create from Scratch) ──">
                           {TEXT_TO_IMAGE_MODELS.map(m => (
                             <option key={m.id} value={m.id}>
-                              {m.name} ({m.badge} · {m.credits} Credits)
+                              {m.name} ({m.badge} · {getModelCredits(m, resolution)} Credits)
                             </option>
                           ))}
                         </optgroup>
@@ -682,7 +686,7 @@ export default function ThumbnailStudioPage({
                         <optgroup label="── 🔄 IMAGE-TO-IMAGE MODELS (Edit & Restyle) ──">
                           {IMAGE_TO_IMAGE_MODELS.map(m => (
                             <option key={m.id} value={m.id}>
-                              {m.name} ({m.badge} · {m.credits} Credits)
+                              {m.name} ({m.badge} · {getModelCredits(m, resolution)} Credits)
                             </option>
                           ))}
                         </optgroup>
@@ -967,31 +971,48 @@ export default function ThumbnailStudioPage({
                   </div>
 
                   {/* 6. Dynamic Options: Resolution & Background (For Flare model) */}
+                  {/* 6. Dynamic Options: Resolution & Background */}
                   {activeModel.supportsResolution && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Render Resolution
-                      </label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Render Resolution
+                        </label>
+                        <span style={{ fontSize: '10.5px', color: '#ff4f00', fontWeight: 600 }}>
+                          {getModelCredits(activeModel, resolution)} Credits
+                        </span>
+                      </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                        {RESOLUTIONS.map(r => (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => { audioEngine.playSfx('click'); setResolution(r.id); }}
-                            style={{
-                              padding: '6px',
-                              borderRadius: '7px',
-                              border: `1px solid ${resolution === r.id ? '#ff4f00' : 'var(--border-subtle)'}`,
-                              background: resolution === r.id ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
-                              color: resolution === r.id ? '#ff4f00' : 'var(--text-secondary)',
-                              fontWeight: resolution === r.id ? 700 : 500,
-                              fontSize: '11px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {r.label.split(' ')[0]}
-                          </button>
-                        ))}
+                        {RESOLUTIONS.map(r => {
+                          const isSupported = !activeModel.supportedResolutions || activeModel.supportedResolutions.includes(r.id);
+                          const cost = getModelCredits(activeModel, r.id);
+                          return (
+                            <button
+                              key={r.id}
+                              type="button"
+                              disabled={!isSupported}
+                              onClick={() => { audioEngine.playSfx('click'); setResolution(r.id); }}
+                              style={{
+                                padding: '7px 6px',
+                                borderRadius: '7px',
+                                border: `1px solid ${resolution === r.id ? '#ff4f00' : 'var(--border-subtle)'}`,
+                                background: resolution === r.id ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
+                                color: !isSupported ? 'var(--text-muted)' : resolution === r.id ? '#ff4f00' : 'var(--text-secondary)',
+                                fontWeight: resolution === r.id ? 700 : 500,
+                                fontSize: '11px',
+                                cursor: isSupported ? 'pointer' : 'not-allowed',
+                                opacity: isSupported ? 1 : 0.45,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '1px'
+                              }}
+                            >
+                              <span style={{ fontWeight: 700 }}>{r.id}</span>
+                              <span style={{ fontSize: '9.5px', opacity: 0.85 }}>{cost} Cr</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -1083,7 +1104,7 @@ export default function ThumbnailStudioPage({
                     ) : (
                       <>
                         <Sparkles size={16} />
-                        <span>Generate Thumbnail ({activeModel.credits} Credits)</span>
+                        <span>Generate Thumbnail ({getModelCredits(activeModel, resolution)} Credits)</span>
                       </>
                     )}
                   </button>

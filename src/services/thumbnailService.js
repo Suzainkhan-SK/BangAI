@@ -7,7 +7,8 @@ const API_KEYS = [
   '448eb7672ebe6a1c6fe64c4db9e7edf0',
   '4125c81cab785b8b23474ce0b62c10ef',
   'dea4cecf44a3aec3b6a652bd485e172d',
-  '92d0de6f5552d358907b96d10349e68b'
+  '92d0de6f5552d358907b96d10349e68b',
+  '027cb49edbfe6908faf141d773f5e189'
 ];
 
 const BASE_API_URL = 'https://api.kie.ai/api/v1/jobs';
@@ -15,13 +16,16 @@ const CDN_UPLOAD_URL = 'https://kieai.redpandaai.co/api/file-base64-upload';
 
 // Supported top-tier vision models
 export const THUMBNAIL_MODELS = [
+  // ── TEXT-TO-IMAGE MODELS ──────────────────────────
   {
     id: 'gpt-image-2-5-flare-text-to-image',
     name: 'GPT Flare 2.5 Ultra',
     badge: 'VIRAL 4K',
     credits: 6,
+    creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
     type: 'text-to-image',
     supportsResolution: true,
+    supportedResolutions: ['1K', '2K', '4K'],
     supportsBackground: true,
     requiresImage: false,
     description: 'Next-gen photorealistic thumbnails with text comprehension and 4K ultra-fine details.',
@@ -29,38 +33,106 @@ export const THUMBNAIL_MODELS = [
     showcaseImage: '/showcases/gpt_flare_t2i.png'
   },
   {
+    id: 'nano-banana-2',
+    name: 'Nano Banana 2 Ultra (4K)',
+    badge: 'ULTRA 4K',
+    credits: 8,
+    creditsByResolution: { '1K': 8, '2K': 12, '4K': 18 },
+    type: 'text-to-image',
+    supportsResolution: true,
+    supportedResolutions: ['1K', '2K', '4K'],
+    supportsBackground: false,
+    requiresImage: false,
+    description: 'Flagship 4K visual synthesis with character consistency, photorealism, and sharp detail.',
+    defaultPrompt: 'Ultra-cinematic YouTube thumbnail: Giant ancient celestial star map engraved inside a deep underground cavern, glowing blue quantum ley-lines, searcher explorer with powerful headlamp illuminating intricate alien glyphs, 8K hyper-detailed render.',
+    showcaseImage: '/showcases/flux_t2i.jpg'
+  },
+  {
+    id: 'wan/2-7-image-pro',
+    name: 'Wan 2.7 Image Pro',
+    badge: 'PRO STUDIO',
+    credits: 12,
+    creditsByResolution: { '1K': 12, '2K': 12, '4K': 12 },
+    type: 'text-to-image',
+    supportsResolution: true,
+    supportedResolutions: ['1K', '2K', '4K'],
+    supportsBackground: false,
+    requiresImage: false,
+    description: 'Professional studio-grade visuals with superior texture resolution, lighting gradients, and multilingual text.',
+    defaultPrompt: 'Epic YouTube thumbnail: An ancient lost sunken city glowing deep beneath an emerald ocean, massive bioluminescent ruins, mysterious underwater beams of light, ultra photorealistic, unreal engine 5 render, cinematic masterwork.',
+    showcaseImage: '/showcases/flux_t2i.jpg'
+  },
+  {
+    id: 'gpt-image-2-text-to-image',
+    name: 'GPT Image 2 (Text-to-Image)',
+    badge: 'CREATIVE',
+    credits: 6,
+    creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
+    type: 'text-to-image',
+    supportsResolution: true,
+    supportedResolutions: ['1K', '2K', '4K'],
+    supportsBackground: false,
+    requiresImage: false,
+    description: 'Highly creative, prompt-adherent image generation with complex conceptual scene understanding.',
+    defaultPrompt: 'Eye-catching YouTube thumbnail: Giant holographic glowing Bitcoin and green ascending profit chart breaking through a luxury glass skyscraper floor, golden coins raining down, cinematic luxury lighting, high contrast.',
+    showcaseImage: '/showcases/gpt_flare_t2i.png'
+  },
+  {
+    id: 'seedream/5-flash-text-to-image',
+    name: 'Seedream 5.0 Flash (T2I)',
+    badge: 'FAST 2K',
+    credits: 3.24,
+    creditsByResolution: { '1K': 3.24, '2K': 3.24, '4K': 3.24 },
+    type: 'text-to-image',
+    supportsResolution: true,
+    supportedResolutions: ['1K', '2K'],
+    supportsBackground: false,
+    requiresImage: false,
+    description: 'Ultra-fast 2K visual rendering with vibrant colors, high dynamic range, and exceptional speed.',
+    defaultPrompt: 'High-energy breaking news thumbnail: Dramatic split-screen composition with bold glowing red alert border, flashing breaking news badges, high-contrast focal subject with vivid rim lights, crisp viral textures.',
+    showcaseImage: '/showcases/grok_t2i.jpg'
+  },
+  {
+    id: 'nano-banana-2-lite',
+    name: 'Nano Banana 2 Lite',
+    badge: 'LITE SPEED',
+    credits: 4,
+    creditsByResolution: { '1K': 4, '2K': 4, '4K': 4 },
+    type: 'text-to-image',
+    supportsResolution: false,
+    supportedResolutions: ['1K'],
+    supportsBackground: false,
+    requiresImage: false,
+    description: 'High-speed lightweight thumbnail engine with crisp text rendering and high contrast.',
+    defaultPrompt: 'YouTube thumbnail: High-contrast cyberpunk racer in sleek neon armor beside an electric hypercar on rain-slicked city streets, neon violet and amber rim lights, extreme wide angle.',
+    showcaseImage: '/showcases/grok_t2i.jpg'
+  },
+  {
     id: 'grok-imagine-image-2-0/text-to-image',
     name: 'Grok Imagine 2.0 (Text-to-Image)',
     badge: 'POPULAR',
     credits: 4,
+    creditsByResolution: { '1K': 4, '2K': 4, '4K': 4 },
     type: 'text-to-image',
     supportsResolution: false,
+    supportedResolutions: [],
     supportsBackground: false,
     requiresImage: false,
     description: 'Vibrant, high-contrast, razor-sharp textures ideal for eye-catching YouTube video covers.',
     defaultPrompt: 'YouTube thumbnail: Extreme close-up of a futuristic cyborg human face split with glowing blue holographic quantum circuitry, shocked expressive eyes looking straight into camera, dramatic rim lighting, vibrant 8k cinematic poster style.',
     showcaseImage: '/showcases/grok_t2i.jpg'
   },
-  {
-    id: 'flux1-kontext',
-    name: 'Flux.1 Kontext Pro',
-    badge: 'CINEMATIC',
-    credits: 4,
-    type: 'text-to-image',
-    supportsResolution: false,
-    supportsBackground: false,
-    requiresImage: false,
-    description: 'Deep cinematic composition, photorealistic color grading, and hyper-realistic depth of field.',
-    defaultPrompt: 'Epic YouTube thumbnail: An ancient lost sunken city glowing deep beneath an emerald ocean, massive bioluminescent ruins, mysterious underwater beams of light, ultra photorealistic, unreal engine 5 render, cinematic masterwork.',
-    showcaseImage: '/showcases/flux_t2i.jpg'
-  },
+
+  // ── IMAGE-TO-IMAGE MODELS (Edit & Restyle) ─────────
   {
     id: 'gpt-image-2-5-flare-image-to-image',
     name: 'GPT Flare 2.5 (Image-to-Image)',
     badge: 'RESTYLE',
     credits: 6,
+    creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
     type: 'image-to-image',
     supportsResolution: true,
+    supportedResolutions: ['1K', '2K', '4K'],
     supportsBackground: true,
     requiresImage: true,
     description: 'Transform or restyle any reference image into a viral thumbnail with custom lighting and style.',
@@ -68,12 +140,44 @@ export const THUMBNAIL_MODELS = [
     showcaseImage: '/showcases/gpt_flare_i2i.png'
   },
   {
+    id: 'gpt-image-2-image-to-image',
+    name: 'GPT Image 2 (Image-to-Image)',
+    badge: 'TRANSFORM',
+    credits: 6,
+    creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
+    type: 'image-to-image',
+    supportsResolution: true,
+    supportedResolutions: ['1K', '2K', '4K'],
+    supportsBackground: false,
+    requiresImage: true,
+    description: 'Advanced multimodal image transformation and style transfer for viral thumbnail edits.',
+    defaultPrompt: 'Restyle the subject into an epic cinematic documentary cover with dramatic spotlights, high contrast, and dark mystery ambiance.',
+    showcaseImage: '/showcases/gpt_flare_i2i.png'
+  },
+  {
+    id: 'seedream/5-flash-image-to-image',
+    name: 'Seedream 5.0 Flash (I2I)',
+    badge: 'FAST EDIT',
+    credits: 3.24,
+    creditsByResolution: { '1K': 3.24, '2K': 3.24, '4K': 3.24 },
+    type: 'image-to-image',
+    supportsResolution: true,
+    supportedResolutions: ['1K', '2K'],
+    supportsBackground: false,
+    requiresImage: true,
+    description: 'Fast reference image restyling, face/lighting adaptation, and thumbnail remixing.',
+    defaultPrompt: 'Transform the scene into a vibrant viral YouTube cover with neon rim lighting, dynamic background explosion, and 3D depth.',
+    showcaseImage: '/showcases/grok_edit.jpg'
+  },
+  {
     id: 'grok-imagine-image-2-0/image-edit',
     name: 'Grok Imagine 2.0 (Image Edit)',
     badge: 'EDIT',
     credits: 4,
+    creditsByResolution: { '1K': 4, '2K': 4, '4K': 4 },
     type: 'image-to-image',
     supportsResolution: false,
+    supportedResolutions: [],
     supportsBackground: false,
     requiresImage: true,
     description: 'Modify elements, swap backgrounds, and enhance existing scenes with generative precision.',
@@ -81,6 +185,19 @@ export const THUMBNAIL_MODELS = [
     showcaseImage: '/showcases/grok_edit.jpg'
   }
 ];
+
+// Helper to calculate exact model credits based on selected resolution
+export function getModelCredits(modelOrId, resolution = '1K') {
+  let model = modelOrId;
+  if (typeof modelOrId === 'string') {
+    model = THUMBNAIL_MODELS.find(m => m.id === modelOrId);
+  }
+  if (!model) return 4;
+  if (model.creditsByResolution && model.creditsByResolution[resolution] !== undefined) {
+    return model.creditsByResolution[resolution];
+  }
+  return model.credits;
+}
 
 export const TEXT_TO_IMAGE_MODELS = THUMBNAIL_MODELS.filter(m => m.type === 'text-to-image');
 export const IMAGE_TO_IMAGE_MODELS = THUMBNAIL_MODELS.filter(m => m.type === 'image-to-image');
@@ -153,6 +270,14 @@ export const VIRAL_PRESETS = [
     modelId: 'gpt-image-2-5-flare-text-to-image'
   },
   {
+    id: 'deep-lore',
+    emoji: '🌌',
+    label: '4K Deep Lore / Cosmic Discovery',
+    prompt: 'Ultra-cinematic YouTube thumbnail: Giant ancient celestial star map engraved inside a deep underground cavern, glowing blue quantum ley-lines, searcher explorer with powerful headlamp illuminating intricate alien glyphs, 8K hyper-detailed render.',
+    aspectRatio: '16:9',
+    modelId: 'nano-banana-2'
+  },
+  {
     id: 'shock',
     emoji: '😱',
     label: 'Shocked Face + Neon 3D Glow',
@@ -166,23 +291,31 @@ export const VIRAL_PRESETS = [
     label: 'Dark Mystery / Unsolved Anomaly',
     prompt: 'Cinematic documentary thumbnail: Mysterious glowing cosmic anomaly hovering over the ocean at night, stormy turbulent dark waves, search spotlights cutting through heavy ocean mist, ultra photorealistic, unreal engine 5 render, cinematic masterwork.',
     aspectRatio: '16:9',
-    modelId: 'flux1-kontext'
+    modelId: 'wan/2-7-image-pro'
   },
   {
     id: 'wealth',
     emoji: '💰',
-    label: '$1M Crypto / Wealth',
+    label: '$1M Crypto / Wealth Breakthrough',
     prompt: 'Eye-catching YouTube thumbnail: Giant holographic glowing Bitcoin and green ascending profit chart breaking through a luxury glass skyscraper floor, golden coins raining down, cinematic luxury lighting, high contrast.',
     aspectRatio: '16:9',
-    modelId: 'gpt-image-2-5-flare-text-to-image'
+    modelId: 'gpt-image-2-text-to-image'
+  },
+  {
+    id: 'fast-trend',
+    emoji: '⚡',
+    label: 'Fast Trend / Breaking News (2K)',
+    prompt: 'High-energy breaking news thumbnail: Dramatic split-screen composition with bold glowing red alert border, flashing breaking news badges, high-contrast focal subject with vivid rim lights, crisp viral textures.',
+    aspectRatio: '16:9',
+    modelId: 'seedream/5-flash-text-to-image'
   },
   {
     id: 'tech',
-    emoji: '⚡',
-    label: 'Tech Breakdown / Cyberpunk',
+    emoji: '🦾',
+    label: 'Tech Breakdown / Cyberpunk AI',
     prompt: 'YouTube thumbnail: Exploded transparent view of a glowing next-generation AI brain processor with neon circuits, floating holographic data chips, clean dark studio backdrop, razor-sharp macro photography.',
     aspectRatio: '16:9',
-    modelId: 'grok-imagine-image-2-0/text-to-image'
+    modelId: 'nano-banana-2-lite'
   },
   {
     id: 'shorts',
@@ -286,6 +419,7 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
   const isImageToImage = modelId.includes('image-edit') || modelId.includes('image-to-image');
   const conditionedPrompt = conditionThumbnailPrompt(prompt, { styleId, isEdit: isImageToImage });
 
+  // 1. Grok Imagine 2.0 T2I
   if (modelId === 'grok-imagine-image-2-0/text-to-image') {
     return {
       prompt: conditionedPrompt,
@@ -293,6 +427,7 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
     };
   }
 
+  // 2. Grok Imagine 2.0 Image Edit
   if (modelId === 'grok-imagine-image-2-0/image-edit') {
     if (!imageUrl) throw new Error('A reference image is required for Grok Image Edit.');
     return {
@@ -302,6 +437,7 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
     };
   }
 
+  // 3. GPT Flare 2.5 Ultra T2I
   if (modelId === 'gpt-image-2-5-flare-text-to-image') {
     return {
       prompt: conditionedPrompt,
@@ -311,6 +447,7 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
     };
   }
 
+  // 4. GPT Flare 2.5 I2I
   if (modelId === 'gpt-image-2-5-flare-image-to-image') {
     if (!imageUrl) throw new Error('A reference image is required for GPT Flare Image-to-Image.');
     return {
@@ -322,11 +459,81 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
     };
   }
 
-  if (modelId === 'flux1-kontext') {
+  // 5. GPT Image 2 T2I
+  if (modelId === 'gpt-image-2-text-to-image') {
     return {
       prompt: conditionedPrompt,
-      aspect_ratio: aspectRatio
+      aspect_ratio: aspectRatio,
+      resolution
     };
+  }
+
+  // 6. GPT Image 2 I2I
+  if (modelId === 'gpt-image-2-image-to-image') {
+    if (!imageUrl) throw new Error('A reference image is required for GPT Image 2 Image-to-Image.');
+    return {
+      prompt: conditionedPrompt,
+      aspect_ratio: aspectRatio,
+      resolution,
+      input_urls: [imageUrl]
+    };
+  }
+
+  // 7. Seedream 5.0 Flash T2I
+  if (modelId === 'seedream/5-flash-text-to-image') {
+    return {
+      prompt: conditionedPrompt,
+      aspect_ratio: aspectRatio,
+      resolution: resolution === '4K' ? '2K' : resolution,
+      output_format: 'png'
+    };
+  }
+
+  // 8. Seedream 5.0 Flash I2I
+  if (modelId === 'seedream/5-flash-image-to-image') {
+    if (!imageUrl) throw new Error('A reference image is required for Seedream Image-to-Image.');
+    return {
+      prompt: conditionedPrompt,
+      aspect_ratio: aspectRatio,
+      resolution: resolution === '4K' ? '2K' : resolution,
+      image_urls: [imageUrl],
+      output_format: 'png'
+    };
+  }
+
+  // 9. Nano Banana 2 Ultra (4K)
+  if (modelId === 'nano-banana-2') {
+    const payload = {
+      prompt: conditionedPrompt,
+      aspect_ratio: aspectRatio,
+      resolution,
+      output_format: 'png'
+    };
+    if (imageUrl) payload.image_urls = [imageUrl];
+    return payload;
+  }
+
+  // 10. Nano Banana 2 Lite
+  if (modelId === 'nano-banana-2-lite') {
+    const payload = {
+      prompt: conditionedPrompt,
+      aspect_ratio: aspectRatio,
+      resolution: '1K',
+      output_format: 'png'
+    };
+    if (imageUrl) payload.image_urls = [imageUrl];
+    return payload;
+  }
+
+  // 11. Wan 2.7 Image Pro
+  if (modelId === 'wan/2-7-image-pro') {
+    const payload = {
+      prompt: conditionedPrompt,
+      aspect_ratio: aspectRatio,
+      resolution
+    };
+    if (imageUrl) payload.input_urls = [imageUrl];
+    return payload;
   }
 
   return { prompt: conditionedPrompt, aspect_ratio: aspectRatio };
