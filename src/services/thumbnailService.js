@@ -82,6 +82,9 @@ export const THUMBNAIL_MODELS = [
   }
 ];
 
+export const TEXT_TO_IMAGE_MODELS = THUMBNAIL_MODELS.filter(m => m.type === 'text-to-image');
+export const IMAGE_TO_IMAGE_MODELS = THUMBNAIL_MODELS.filter(m => m.type === 'image-to-image');
+
 export const ASPECT_RATIOS = [
   { id: '16:9', label: '16:9 YouTube', sub: '1280 × 720 (Standard Thumbnail)', icon: 'landscape' },
   { id: '9:16', label: '9:16 Shorts / TikTok', sub: '720 × 1280 (Vertical Short)', icon: 'portrait' },
@@ -100,6 +103,44 @@ export const BACKGROUND_MODES = [
   { id: 'auto', label: 'Auto (Intelligent Blend)' },
   { id: 'opaque', label: 'Opaque (Solid Visuals)' },
   { id: 'transparent', label: 'Transparent (PNG Cutout)' }
+];
+
+export const THUMBNAIL_STYLES = [
+  {
+    id: 'viral-high-ctr',
+    label: 'Viral High-CTR',
+    emoji: '🔥',
+    tagline: 'MrBeast Style · 3D Pop · Extreme Rim Light',
+    keywords: 'Ultra high-CTR professional YouTube thumbnail: Explosive 3D foreground pop, intense cinematic teal and vibrant orange rim lighting, extreme contrast, crisp edges, dynamic wide-angle composition, hyper-detailed 8K octane render, photorealistic textures, scroll-stopping viral retention aesthetics --no watermark, no blur, no low resolution, no artifacts'
+  },
+  {
+    id: 'dark-mystery',
+    label: 'Dark Mystery',
+    emoji: '🛸',
+    tagline: 'Documentary · Eerie Spotlights · Unsolved Lore',
+    keywords: 'Cinematic documentary YouTube thumbnail: Eerie cosmic and supernatural mystery atmosphere, dramatic volumetric spotlight cutting through dark mist, deep shadowy contrast, high visual hierarchy, razor-sharp textures, Unreal Engine 5 cinematic render, suspenseful thriller cover art masterwork --no watermark, no blur, no low resolution'
+  },
+  {
+    id: 'tech-cyber',
+    label: 'Futuristic Tech',
+    emoji: '⚡',
+    tagline: 'Cyberpunk · Holographic · Glassmorphism',
+    keywords: 'High-tech YouTube thumbnail: Exploded transparent glowing cybernetic architecture, neon blue and emerald holographic data circuits, clean sleek dark studio backdrop, razor-sharp macro photography, modern tech review cover style, 8K octane render --no watermark, no blur'
+  },
+  {
+    id: 'cinematic-epic',
+    label: 'Cinematic Movie',
+    emoji: '🎬',
+    tagline: 'Blockbuster · IMAX 8K · Volumetric God Rays',
+    keywords: 'Epic cinematic blockbuster YouTube thumbnail: Dramatic IMAX widescreen framing, golden hour volumetric god rays, intense atmospheric storytelling, photorealistic 8K textures, award-winning cinematography, ultra-detailed focal character, Hollywood poster quality --no watermark, no blur'
+  },
+  {
+    id: 'shock-drama',
+    label: 'Shock & Drama',
+    emoji: '😱',
+    tagline: 'Emotional Hook · Neon Pop · Particle Embers',
+    keywords: 'High-emotion viral YouTube thumbnail: Extreme expressive reaction focal subject looking directly into camera with intense wide-eyed drama, vibrant purple and electric lime rim lights, floating 3D particle embers, bold retention hierarchy, hyper-detailed skin pores and eye reflections --no watermark, no blur'
+  }
 ];
 
 export const VIRAL_PRESETS = [
@@ -217,11 +258,37 @@ export async function uploadImageToCDN(file) {
   return cdnUrl;
 }
 
-// Build model-specific input payload
-export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolution = '1K', background = 'auto', imageUrl = null }) {
+// Pre-condition any prompt or topic to strictly act as a world-class YouTube thumbnail
+export function conditionThumbnailPrompt(rawPrompt, { styleId = 'viral-high-ctr', isEdit = false } = {}) {
+  const p = (rawPrompt || '').trim();
+  const activeStyle = THUMBNAIL_STYLES.find(s => s.id === styleId) || THUMBNAIL_STYLES[0];
+
+  if (!p) {
+    return activeStyle.keywords;
+  }
+
+  // If this is an Image-to-Image / Image Edit task:
+  if (isEdit) {
+    return `World-class YouTube thumbnail transformation & restyle: Preserve the primary focal subject from reference image, but dramatically transform the composition into an ultra high-CTR viral YouTube thumbnail: ${p}. ${activeStyle.keywords}. Bold visual hierarchy, high contrast, vibrant cinematic saturation, professional YouTube cover masterwork.`;
+  }
+
+  // If the prompt already has detailed YouTube thumbnail specifications:
+  if (p.length > 220 && /youtube thumbnail/i.test(p)) {
+    return `${p} --no watermark, no blur, no distorted faces, no low resolution, no artifacts`;
+  }
+
+  // Pre-condition short or standard topics into a complete world-class YouTube thumbnail specification:
+  return `Ultra high-CTR professional YouTube thumbnail composition: ${p}. ${activeStyle.keywords}`;
+}
+
+// Build model-specific input payload with automated backend pre-conditioning
+export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolution = '1K', background = 'auto', imageUrl = null, styleId = 'viral-high-ctr' }) {
+  const isImageToImage = modelId.includes('image-edit') || modelId.includes('image-to-image');
+  const conditionedPrompt = conditionThumbnailPrompt(prompt, { styleId, isEdit: isImageToImage });
+
   if (modelId === 'grok-imagine-image-2-0/text-to-image') {
     return {
-      prompt,
+      prompt: conditionedPrompt,
       aspect_ratio: aspectRatio
     };
   }
@@ -229,7 +296,7 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
   if (modelId === 'grok-imagine-image-2-0/image-edit') {
     if (!imageUrl) throw new Error('A reference image is required for Grok Image Edit.');
     return {
-      prompt,
+      prompt: conditionedPrompt,
       aspect_ratio: aspectRatio,
       image_urls: [imageUrl]
     };
@@ -237,7 +304,7 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
 
   if (modelId === 'gpt-image-2-5-flare-text-to-image') {
     return {
-      prompt,
+      prompt: conditionedPrompt,
       aspect_ratio: aspectRatio,
       resolution,
       background
@@ -247,7 +314,7 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
   if (modelId === 'gpt-image-2-5-flare-image-to-image') {
     if (!imageUrl) throw new Error('A reference image is required for GPT Flare Image-to-Image.');
     return {
-      prompt,
+      prompt: conditionedPrompt,
       aspect_ratio: aspectRatio,
       resolution,
       background,
@@ -257,12 +324,12 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
 
   if (modelId === 'flux1-kontext') {
     return {
-      prompt,
+      prompt: conditionedPrompt,
       aspect_ratio: aspectRatio
     };
   }
 
-  return { prompt, aspect_ratio: aspectRatio };
+  return { prompt: conditionedPrompt, aspect_ratio: aspectRatio };
 }
 
 // Generate thumbnail task with multi-key rotation and automatic failover
@@ -391,22 +458,20 @@ export async function pollThumbnailTask(taskId, keyUsed, { onProgress, maxSecond
   throw new Error(`Generation timed out after ${maxSeconds} seconds.`);
 }
 
-// Prompt enhancer helper for high-retention thumbnails
-export function enhanceThumbnailPrompt(rawPrompt) {
+// Prompt enhancer helper for high-retention thumbnails (transforms short topics into full thumbnail prompts)
+export function enhanceThumbnailPrompt(rawPrompt, styleId = 'viral-high-ctr') {
   const p = (rawPrompt || '').trim();
-  if (!p) return 'High-CTR YouTube thumbnail, extreme shock face, dramatic volumetric lighting, vibrant colors, 8k octane render, hyper-detailed viral composition';
+  const activeStyle = THUMBNAIL_STYLES.find(s => s.id === styleId) || THUMBNAIL_STYLES[0];
 
-  const enhancements = [
-    'vibrant high-contrast lighting',
-    'volumetric neon rim light',
-    'extreme viral retention composition',
-    'hyper-detailed 8K octane render',
-    'unreal engine 5 photorealistic textures'
-  ];
+  if (!p) {
+    return 'Ultra high-CTR professional YouTube thumbnail: Epic viral mystery scene with glowing 3D depth, extreme cinematic lighting, volumetric neon rim lights, hyper-detailed 8K octane render, photorealistic textures, Unreal Engine 5 cinematic masterwork';
+  }
 
-  // Avoid duplicates
-  const additions = enhancements.filter(e => !p.toLowerCase().includes(e.toLowerCase()));
-  if (!additions.length) return p;
+  // If already detailed, add polish
+  if (p.length > 150 && /youtube thumbnail/i.test(p)) {
+    return `${p}, dramatic volumetric rim light, hyper-detailed 8K octane render, photorealistic textures, Unreal Engine 5 quality`;
+  }
 
-  return `${p}, ${additions.slice(0, 3).join(', ')}`;
+  // Transform short topic into an elite YouTube thumbnail prompt
+  return `Ultra high-CTR professional YouTube thumbnail: ${p}, dramatic cinematic lighting with volumetric neon rim light, deep rich contrast, bold focal point with dynamic 3D depth, vibrant saturated color grading, hyper-detailed 8K octane render, photorealistic textures, Unreal Engine 5 cinematic blockbuster quality, clean sharp edges --no watermark, no blur`;
 }

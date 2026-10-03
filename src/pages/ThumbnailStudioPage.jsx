@@ -10,6 +10,9 @@ import { audioEngine } from '../audio/audioEngine';
 import { useBreakpoint } from '../hooks/useMediaQuery';
 import {
   THUMBNAIL_MODELS,
+  THUMBNAIL_STYLES,
+  TEXT_TO_IMAGE_MODELS,
+  IMAGE_TO_IMAGE_MODELS,
   ASPECT_RATIOS,
   RESOLUTIONS,
   BACKGROUND_MODES,
@@ -32,8 +35,10 @@ export default function ThumbnailStudioPage({
   const { isMobile, isTablet } = useBreakpoint();
 
   // Active form state
-  const [selectedModelId, setSelectedModelId] = useState(THUMBNAIL_MODELS[0].id);
-  const [prompt, setPrompt] = useState(THUMBNAIL_MODELS[0].defaultPrompt);
+  const [generationMode, setGenerationMode] = useState('text-to-image'); // 'text-to-image' | 'image-to-image'
+  const [selectedModelId, setSelectedModelId] = useState(TEXT_TO_IMAGE_MODELS[0].id);
+  const [selectedStyleId, setSelectedStyleId] = useState('viral-high-ctr');
+  const [prompt, setPrompt] = useState(TEXT_TO_IMAGE_MODELS[0].defaultPrompt);
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [resolution, setResolution] = useState('2K');
   const [background, setBackground] = useState('auto');
@@ -84,13 +89,39 @@ export default function ThumbnailStudioPage({
     } catch {}
   }, [history]);
 
+  // Mode switcher handler
+  const handleSelectMode = (mode) => {
+    audioEngine.playSfx('click');
+    setGenerationMode(mode);
+    if (mode === 'text-to-image') {
+      if (!TEXT_TO_IMAGE_MODELS.some(m => m.id === selectedModelId)) {
+        const nextM = TEXT_TO_IMAGE_MODELS[0];
+        setSelectedModelId(nextM.id);
+        if (!prompt || IMAGE_TO_IMAGE_MODELS.some(im => im.defaultPrompt === prompt)) {
+          setPrompt(nextM.defaultPrompt);
+        }
+      }
+    } else {
+      if (!IMAGE_TO_IMAGE_MODELS.some(m => m.id === selectedModelId)) {
+        const nextM = IMAGE_TO_IMAGE_MODELS[0];
+        setSelectedModelId(nextM.id);
+        if (!prompt || TEXT_TO_IMAGE_MODELS.some(tm => tm.defaultPrompt === prompt)) {
+          setPrompt(nextM.defaultPrompt);
+        }
+      }
+    }
+  };
+
   // Model change handler
   const handleSelectModel = (modelId) => {
     audioEngine.playSfx('click');
     setSelectedModelId(modelId);
     const m = THUMBNAIL_MODELS.find(item => item.id === modelId);
-    if (m && !prompt) {
-      setPrompt(m.defaultPrompt);
+    if (m) {
+      if (m.type) setGenerationMode(m.type);
+      if (!prompt) {
+        setPrompt(m.defaultPrompt);
+      }
     }
   };
 
@@ -101,13 +132,17 @@ export default function ThumbnailStudioPage({
     setAspectRatio(preset.aspectRatio);
     if (preset.modelId) {
       setSelectedModelId(preset.modelId);
+      const m = THUMBNAIL_MODELS.find(item => item.id === preset.modelId);
+      if (m?.type) {
+        setGenerationMode(m.type);
+      }
     }
   };
 
-  // Enhance prompt
+  // Enhance prompt with active style archetype
   const handleEnhancePrompt = () => {
     audioEngine.playSfx('click');
-    const enhanced = enhanceThumbnailPrompt(prompt);
+    const enhanced = enhanceThumbnailPrompt(prompt, selectedStyleId);
     setPrompt(enhanced);
   };
 
@@ -131,9 +166,10 @@ export default function ThumbnailStudioPage({
     const localUrl = URL.createObjectURL(file);
     setRefImagePreview(localUrl);
 
-    // If active model does not require/support image, switch to GPT Flare Image-to-Image for convenience
-    if (!activeModel.requiresImage) {
-      setSelectedModelId('gpt-image-2-5-flare-image-to-image');
+    // Auto-switch to Image-to-Image mode when a reference photo is uploaded
+    setGenerationMode('image-to-image');
+    if (!IMAGE_TO_IMAGE_MODELS.some(m => m.id === selectedModelId)) {
+      setSelectedModelId(IMAGE_TO_IMAGE_MODELS[0].id);
     }
 
     // Upload to CDN
@@ -185,14 +221,15 @@ export default function ThumbnailStudioPage({
         setRefImageUrl(finalImageUrl);
       }
 
-      // 2. Create task with multi-key failover
+      // 2. Create task with multi-key failover and automated thumbnail conditioning
       setGenerationStep('Dispatching neural generation job...');
       const taskRes = await createThumbnailTask(activeModel.id, {
         prompt,
         aspectRatio,
         resolution,
         background,
-        imageUrl: finalImageUrl
+        imageUrl: finalImageUrl,
+        styleId: selectedStyleId
       });
 
       // 3. Poll for result
@@ -269,7 +306,8 @@ export default function ThumbnailStudioPage({
           aspectRatio,
           resolution,
           background,
-          imageUrl: refImageUrl || (refImageFile ? 'https://cdn.bangai.internal/user_upload.png' : null)
+          imageUrl: refImageUrl || (refImageFile ? 'https://cdn.bangai.internal/user_upload.png' : null),
+          styleId: selectedStyleId
         }),
         null,
         2
@@ -528,43 +566,188 @@ export default function ThumbnailStudioPage({
               ) : (
                 /* Form Controls */
                 <>
-                  {/* 1. Model Selector */}
+                  {/* 1. Generation Mode Switcher (Text-to-Image vs Image-to-Image) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Creation Mode
+                    </label>
+                    <div style={{
+                      display: 'flex',
+                      background: 'var(--bg-input)',
+                      padding: '3px',
+                      borderRadius: '9px',
+                      border: '1px solid var(--border-subtle)',
+                      gap: '4px'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectMode('text-to-image')}
+                        style={{
+                          flex: 1,
+                          padding: '7px 10px',
+                          borderRadius: '7px',
+                          border: 'none',
+                          background: generationMode === 'text-to-image' ? 'var(--bg-card)' : 'transparent',
+                          color: generationMode === 'text-to-image' ? '#ff4f00' : 'var(--text-secondary)',
+                          fontWeight: generationMode === 'text-to-image' ? 700 : 500,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          boxShadow: generationMode === 'text-to-image' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <Sparkles size={13} />
+                        <span>Text-to-Image (New)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectMode('image-to-image')}
+                        style={{
+                          flex: 1,
+                          padding: '7px 10px',
+                          borderRadius: '7px',
+                          border: 'none',
+                          background: generationMode === 'image-to-image' ? 'var(--bg-card)' : 'transparent',
+                          color: generationMode === 'image-to-image' ? '#ff4f00' : 'var(--text-secondary)',
+                          fontWeight: generationMode === 'image-to-image' ? 700 : 500,
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          boxShadow: generationMode === 'image-to-image' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <Layers size={13} />
+                        <span>Image-to-Image (Edit)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Separated Vision Model Cards */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Vision Model
+                      <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {generationMode === 'text-to-image' ? 'Text-to-Image Models' : 'Image-to-Image Edit Models'}
                       </label>
                       <span style={{ fontSize: '11px', color: '#ff4f00', fontWeight: 600 }}>
-                        {activeModel.badge} · {activeModel.credits} Credits
+                        {activeModel.credits} Credits
                       </span>
                     </div>
 
-                    <select
-                      value={selectedModelId}
-                      onChange={e => handleSelectModel(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '9px 12px',
-                        borderRadius: '8px',
-                        background: 'var(--bg-input)',
-                        border: '1px solid var(--border-subtle)',
-                        color: 'var(--text-primary)',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        outline: 'none',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {THUMBNAIL_MODELS.map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} ({m.badge} - {m.credits} Credits)
-                        </option>
-                      ))}
-                    </select>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {(generationMode === 'text-to-image' ? TEXT_TO_IMAGE_MODELS : IMAGE_TO_IMAGE_MODELS).map(m => {
+                        const isModelSelected = selectedModelId === m.id;
+                        return (
+                          <div
+                            key={m.id}
+                            onClick={() => handleSelectModel(m.id)}
+                            style={{
+                              padding: '8px 11px',
+                              borderRadius: '8px',
+                              border: `1.5px solid ${isModelSelected ? '#ff4f00' : 'var(--border-subtle)'}`,
+                              background: isModelSelected ? 'rgba(255, 79, 0, 0.08)' : 'var(--bg-card)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '10px',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{
+                                  fontSize: '12.5px',
+                                  fontWeight: isModelSelected ? 700 : 600,
+                                  color: isModelSelected ? 'var(--text-primary)' : 'var(--text-secondary)'
+                                }}>
+                                  {m.name}
+                                </span>
+                                <span style={{
+                                  fontSize: '9.5px',
+                                  fontWeight: 800,
+                                  padding: '1px 5px',
+                                  borderRadius: '4px',
+                                  background: isModelSelected ? '#ff4f00' : 'rgba(255, 79, 0, 0.15)',
+                                  color: isModelSelected ? '#fff' : '#ff4f00'
+                                }}>
+                                  {m.badge}
+                                </span>
+                              </div>
+                              <div style={{
+                                fontSize: '11px',
+                                color: 'var(--text-muted)',
+                                marginTop: '2px',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}>
+                                {m.description}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              color: isModelSelected ? '#ff4f00' : 'var(--text-muted)',
+                              flexShrink: 0
+                            }}>
+                              {m.credits} Cr
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                    <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                      {activeModel.description}
-                    </p>
+                  {/* 3. Thumbnail Vibe & Style Archetype */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Thumbnail Vibe & Style
+                      </label>
+                      <span style={{ fontSize: '10px', color: '#ff4f00', fontWeight: 600 }}>
+                        ⚡ Auto-Conditioned
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(115px, 1fr))', gap: '5px' }}>
+                      {THUMBNAIL_STYLES.map(s => {
+                        const isStyleActive = selectedStyleId === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              audioEngine.playSfx('click');
+                              setSelectedStyleId(s.id);
+                            }}
+                            style={{
+                              padding: '6px 7px',
+                              borderRadius: '7px',
+                              border: `1.5px solid ${isStyleActive ? '#ff4f00' : 'var(--border-subtle)'}`,
+                              background: isStyleActive ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
+                              color: isStyleActive ? '#ff4f00' : 'var(--text-secondary)',
+                              fontWeight: isStyleActive ? 700 : 500,
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              transition: 'all 0.12s ease'
+                            }}
+                          >
+                            <span>{s.emoji}</span>
+                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {/* 2. Viral Presets Chips */}
@@ -665,102 +848,110 @@ export default function ThumbnailStudioPage({
                     </div>
                   </div>
 
-                  {/* 4. Reference Image (Image-to-Image / Edit) */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Reference Image {activeModel.requiresImage ? <span style={{ color: '#ef4444' }}>*Required</span> : <span style={{ color: 'var(--text-muted)' }}>(Optional)</span>}
-                      </label>
-                      {refImagePreview && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveRefImage}
+                  {/* 4. Reference Image (Context-Adaptive: Required for Image-to-Image, Optional for Text-to-Image) */}
+                  {(generationMode === 'image-to-image' || refImagePreview) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Reference Source Image {generationMode === 'image-to-image' ? <span style={{ color: '#ff4f00' }}>*Required for Restyle</span> : <span style={{ color: 'var(--text-muted)' }}>(Optional)</span>}
+                        </label>
+                        {refImagePreview && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveRefImage}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#ef4444',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}
+                          >
+                            <X size={11} />
+                            <span>Remove</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        style={{ display: 'none' }}
+                      />
+
+                      {refImagePreview ? (
+                        <div style={{
+                          position: 'relative',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          border: '1.5px solid #ff4f00',
+                          background: 'var(--bg-card)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          gap: '12px'
+                        }}>
+                          <img
+                            src={refImagePreview}
+                            alt="Reference"
+                            style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {refImageFile?.name || 'Selected Reference Image'}
+                            </div>
+                            <div style={{ fontSize: '11px', color: isUploadingRef ? '#ff8c00' : '#10b981', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                              {isUploadingRef ? (
+                                <>
+                                  <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />
+                                  <span>Uploading asset to CDN...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 size={11} />
+                                  <span>Ready for vision engine restyling</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => fileInputRef.current?.click()}
                           style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#ef4444',
-                            fontSize: '11px',
+                            border: '1.5px dashed rgba(255, 79, 0, 0.5)',
+                            borderRadius: '9px',
+                            padding: '16px 12px',
+                            textAlign: 'center',
                             cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px'
+                            background: 'rgba(255, 79, 0, 0.04)',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.borderColor = '#ff4f00';
+                            e.currentTarget.style.background = 'rgba(255, 79, 0, 0.08)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.borderColor = 'rgba(255, 79, 0, 0.5)';
+                            e.currentTarget.style.background = 'rgba(255, 79, 0, 0.04)';
                           }}
                         >
-                          <X size={11} />
-                          <span>Remove</span>
-                        </button>
+                          <Upload size={18} color="#ff4f00" style={{ margin: '0 auto 4px auto' }} />
+                          <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            Upload image to edit or restyle
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            PNG, JPG, WebP supported · High resolution recommended
+                          </div>
+                        </div>
                       )}
                     </div>
-
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      style={{ display: 'none' }}
-                    />
-
-                    {refImagePreview ? (
-                      <div style={{
-                        position: 'relative',
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        border: '1px solid var(--border-subtle)',
-                        background: 'var(--bg-card)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '6px 10px',
-                        gap: '10px'
-                      }}>
-                        <img
-                          src={refImagePreview}
-                          alt="Reference"
-                          style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px' }}
-                        />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {refImageFile?.name || 'Reference Image'}
-                          </div>
-                          <div style={{ fontSize: '11px', color: isUploadingRef ? '#ff8c00' : '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            {isUploadingRef ? (
-                              <>
-                                <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />
-                                <span>Uploading to CDN...</span>
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 size={11} />
-                                <span>Ready for vision engine</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        style={{
-                          border: `1.5px dashed ${activeModel.requiresImage ? 'rgba(255, 79, 0, 0.45)' : 'var(--border-subtle)'}`,
-                          borderRadius: '8px',
-                          padding: '12px',
-                          textAlign: 'center',
-                          cursor: 'pointer',
-                          background: 'var(--bg-card)',
-                          transition: 'all 0.15s ease'
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = '#ff4f00')}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = activeModel.requiresImage ? 'rgba(255, 79, 0, 0.45)' : 'var(--border-subtle)')}
-                      >
-                        <Upload size={16} color="#ff4f00" style={{ margin: '0 auto 4px auto' }} />
-                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                          Click to select a reference photo
-                        </div>
-                        <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                          PNG, JPG, WebP supported
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  )}
 
                   {/* 5. Aspect Ratio */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
