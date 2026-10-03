@@ -43,7 +43,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: true,
     requiresImage: false,
     description: 'Next-gen photorealistic thumbnails with text comprehension and 4K ultra-fine details.',
-    defaultPrompt: 'Ultra high-CTR YouTube thumbnail: In foreground, an expressive young male creator with an extreme shocked, wide-eyed mouth-open reaction looking directly into camera lens with intense cyan and hot-orange rim lighting on his face. On the right, a massive glowing 10-foot steel bank vault door exploding open with millions of 3D gold bullion bars and bundles of cash blasting out. Floating near the top corner is a glossy, reflective 3D metallic red and white YouTube play button logo badge. Dynamic wide-angle lens, cinematic 8K octane render, ultra-crisp photorealistic skin textures, intense saturated viral colors --no watermark, no blur, no distorted faces',
+    defaultPrompt: 'Ultra high-CTR YouTube thumbnail: In foreground, an expressive young male creator with an extreme shocked, wide-eyed mouth-open reaction looking directly into camera lens with intense cyan and hot-orange rim lighting on his face. On the right, a massive glowing 10-foot steel bank vault door exploding open with millions of 3D gold bullion bars and bundles of cash blasting out. Dynamic wide-angle lens, cinematic 8K octane render, ultra-crisp photorealistic skin textures, intense saturated viral colors --no watermark, no blur, no distorted faces',
     showcaseImage: '/showcases/gpt_flare_2_5_ultra.png'
   },
   {
@@ -58,7 +58,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Flagship 4K visual synthesis with character consistency, photorealism, and sharp detail.',
-    defaultPrompt: 'Cinematic 4K YouTube thumbnail: Shocked adventurer creator in rugged expedition gear on left third with intense wide-eyed disbelief expression staring straight at camera with golden rim light, holding an ancient glowing golden artifact that projects a floating holographic 3D YouTube logo badge in mid-air. In background, a mysterious illuminated subterranean pyramid chamber with giant pharaoh statues and volumetric golden god rays. Sharp photorealistic skin pores, 8K Unreal Engine 5 render, award-winning viral documentary cover art --no blur, no watermark',
+    defaultPrompt: 'Cinematic 4K YouTube thumbnail: Shocked adventurer creator in rugged expedition gear on left third with intense wide-eyed disbelief expression staring straight at camera with golden rim light, holding an ancient glowing golden artifact that illuminates a subterranean pyramid chamber with giant pharaoh statues and volumetric golden god rays. Sharp photorealistic skin pores, 8K Unreal Engine 5 render, award-winning viral documentary cover art --no blur, no watermark',
     showcaseImage: '/showcases/nano_banana_2_ultra.png'
   },
   {
@@ -73,7 +73,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Professional studio-grade visuals with superior texture resolution, lighting gradients, and multilingual text.',
-    defaultPrompt: 'Epic viral YouTube thumbnail: Excited creator with hands on head in disbelief looking into camera on right, wearing modern tactical hoodie with vivid neon blue edge lighting. On left, a gigantic futuristic underground luxury bunker with neon swimming pools, helicopters, and transparent glass tunnels. Floating beside the creator is a polished 3D YouTube icon with glowing red neon aura. IMAX 70mm cinematography, razor-sharp hyper-detailed 8K textures, saturated viral colors, blockbuster YouTube production aesthetic --no blur, no low resolution',
+    defaultPrompt: 'Epic viral YouTube thumbnail: Excited creator with hands on head in disbelief looking into camera on right, wearing modern tactical hoodie with vivid neon blue edge lighting. On left, a gigantic futuristic underground luxury bunker with neon swimming pools, helicopters, and transparent glass tunnels. IMAX 70mm cinematography, razor-sharp hyper-detailed 8K textures, saturated viral colors, blockbuster YouTube production aesthetic --no blur, no low resolution',
     showcaseImage: '/showcases/wan_2_7_pro.png'
   },
   {
@@ -88,7 +88,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Highly creative, prompt-adherent image generation with complex conceptual scene understanding.',
-    defaultPrompt: 'Viral high-retention YouTube thumbnail: Close-up of an exhausted but amazed male explorer with frost on eyebrows, shivering with an intense wide-eyed reaction directly into lens, warm orange lantern light contrasting with freezing icy cyan blizzard winds. In the background, an enormous glowing neon survival shelter and a floating glossy 3D metallic YouTube logo badge partially dusted in snow. Saturated high contrast, crisp macro textures, viral challenge thumbnail hierarchy --no watermark, no blur',
+    defaultPrompt: 'Viral high-retention YouTube thumbnail: Close-up of an exhausted but amazed male explorer with frost on eyebrows, shivering with an intense wide-eyed reaction directly into lens, warm orange lantern light contrasting with freezing icy cyan blizzard winds. In the background, an enormous glowing neon survival shelter glowing in the snow. Saturated high contrast, crisp macro textures, viral challenge thumbnail hierarchy --no watermark, no blur',
     showcaseImage: '/showcases/gpt_image_2_t2i.png'
   },
   {
@@ -103,7 +103,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Ultra-fast 2K visual rendering with vibrant colors, high dynamic range, and exceptional speed.',
-    defaultPrompt: 'High-energy viral YouTube thumbnail: Screaming creator with mouth open in wild thrill looking into camera from roller coaster front seat, wind blowing hair, glowing electric violet and lime green rim lights. In background, an impossible 500-foot vertical drop track plunging into a glowing neon canyon, with a prominent 3D glossy red YouTube play button badge floating in sky. Hyper-crisp 2K octane render, scroll-stopping saturated colors, dynamic action angle --no watermark, no blur',
+    defaultPrompt: 'High-energy viral YouTube thumbnail: Screaming creator with mouth open in wild thrill looking into camera from roller coaster front seat, wind blowing hair, glowing electric violet and lime green rim lights. In background, an impossible 500-foot vertical drop track plunging into a glowing neon canyon. Hyper-crisp 2K octane render, scroll-stopping saturated colors, dynamic action angle --no watermark, no blur',
     showcaseImage: '/showcases/seedream_5_flash_t2i.png'
   },
   {
@@ -118,7 +118,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'High-speed lightweight thumbnail engine with crisp text rendering and high contrast.',
-    defaultPrompt: 'High-contrast YouTube tech thumbnail: Shocked tech creator staring in awe into camera lens on right with blazing cyan rim light, pointing directly at a sleek humanoid robot holding a glowing holographic AI core. Beside the robot floats a glossy 3D red YouTube channel verified badge. Clean dark studio background, razor-sharp edge contrast, crisp 1K macro photography, viral tech review aesthetics --no watermark, no blur',
+    defaultPrompt: 'High-contrast YouTube tech thumbnail: Shocked tech creator staring in awe into camera lens on right with blazing cyan rim light, pointing directly at a sleek humanoid robot holding a glowing holographic AI core. Clean dark studio background, razor-sharp edge contrast, crisp 1K macro photography, viral tech review aesthetics --no watermark, no blur',
     showcaseImage: '/showcases/nano_banana_2_lite.png'
   },
   {
@@ -133,7 +133,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Vibrant, high-contrast, razor-sharp textures ideal for eye-catching YouTube video covers.',
-    defaultPrompt: 'Extreme viral YouTube thumbnail: Close-up of creator with eyes wide open and jaw dropped in shock looking directly into lens, intense neon electric magenta and lime rim lighting, holding open an ornate mystery crate emitting blinding golden rays, diamonds, and a floating glossy 3D golden YouTube play button trophy. 8K cinematic poster style, 3D particle sparks, ultra-high CTR visual hierarchy --no blur, no watermark',
+    defaultPrompt: 'Extreme viral YouTube thumbnail: Close-up of creator with eyes wide open and jaw dropped in shock looking directly into lens, intense neon electric magenta and lime rim lighting, holding open an ornate mystery crate emitting blinding golden rays, diamonds, and glowing energy. 8K cinematic poster style, 3D particle sparks, ultra-high CTR visual hierarchy --no blur, no watermark',
     showcaseImage: '/showcases/grok_imagine_2_t2i.png'
   },
 
@@ -150,7 +150,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: true,
     requiresImage: true,
     description: 'Transform or restyle any reference image into a viral thumbnail with custom lighting and style.',
-    defaultPrompt: 'World-class YouTube thumbnail transformation: Turn subject into an ultra-powerful cybernetic superhero, intense blazing fiery glowing eyes, electric orange and blue energy aura radiating outwards, floating glossy 3D YouTube logo badge beside subject, background replaced with a dramatic sci-fi city explosion, hyper-detailed 3D pop, viral cover art',
+    defaultPrompt: 'World-class YouTube thumbnail transformation: Turn subject into an ultra-powerful cybernetic superhero, intense blazing fiery glowing eyes, electric orange and blue energy aura radiating outwards, background replaced with a dramatic sci-fi city explosion, hyper-detailed 3D pop, viral cover art',
     showcaseImage: '/showcases/gpt_flare_i2i.png'
   },
   {
@@ -165,7 +165,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: true,
     description: 'Advanced multimodal image transformation and style transfer for viral thumbnail edits.',
-    defaultPrompt: 'Cinematic YouTube thumbnail restyle: Transform subject into a viral wilderness survivor with intense determined expression, dynamic golden sunset rim lighting, holding a high-tech glowing compass, with a glossy 3D metallic YouTube icon badge floating in the upper corner, background featuring a dramatic volcanic island and rescue helicopter, photorealistic textures, viral YouTube cover art',
+    defaultPrompt: 'Cinematic YouTube thumbnail restyle: Transform subject into a viral wilderness survivor with intense determined expression, dynamic golden sunset rim lighting, holding a high-tech glowing compass, background featuring a dramatic volcanic island and rescue helicopter, photorealistic textures, viral YouTube cover art',
     showcaseImage: '/showcases/gpt_image_2_i2i.png'
   },
   {
@@ -180,7 +180,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: true,
     description: 'Fast reference image restyling, face/lighting adaptation, and thumbnail remixing.',
-    defaultPrompt: 'Viral YouTube thumbnail edit: Dramatically transform the subject into a high-stakes YouTube creator with intense neon cyan and hot orange rim lighting, shocked wide-eyed expression, adding a massive floating 3D red YouTube play button badge next to them, and an explosive futuristic sci-fi laboratory background with sparks and emergency sirens, razor-sharp outlines, viral CTR cover art',
+    defaultPrompt: 'Viral YouTube thumbnail edit: Dramatically transform the subject into a high-stakes YouTube creator with intense neon cyan and hot orange rim lighting, shocked wide-eyed expression, and an explosive futuristic sci-fi laboratory background with sparks and emergency sirens, razor-sharp outlines, viral CTR cover art',
     showcaseImage: '/showcases/seedream_5_flash_i2i.png'
   },
   {
@@ -241,36 +241,36 @@ export const THUMBNAIL_STYLES = [
     id: 'viral-high-ctr',
     label: 'Viral High-CTR',
     emoji: '🔥',
-    tagline: 'MrBeast Style · Real Shocked Face · 3D YouTube Badge · Extreme Rim Light',
-    keywords: 'MrBeast viral challenge thumbnail aesthetics: Expressive real human face with jaw-dropping wide-eyed reaction looking directly into lens, intense dual rim lighting (electric cyan and neon orange), floating glossy 3D reflective YouTube logo icon badge, explosive 3D props bursting toward viewer, hyper-saturated colors, razor-sharp edge contrast, 8K octane render --no watermark, no blur, no low resolution, no artifacts'
+    tagline: 'High Impact · Bold Pop · Dynamic Lighting',
+    keywords: 'High-CTR thumbnail aesthetics: Explosive visual pop, vibrant dual-color rim lighting, high contrast, crisp edge definition, dynamic wide-angle composition, hyper-detailed 8K octane render, photorealistic textures --no watermark, no blur, no low resolution, no artifacts'
   },
   {
     id: 'dark-mystery',
     label: 'Dark Mystery',
     emoji: '🛸',
-    tagline: 'Documentary · Eerie Spotlights · Unsolved Lore',
-    keywords: 'Cinematic documentary YouTube thumbnail: Eerie cosmic and supernatural mystery atmosphere, intense investigative creator expression looking into lens, floating 3D red YouTube channel emblem, dramatic volumetric spotlight cutting through dark mist, deep shadowy contrast, high visual hierarchy, razor-sharp textures, Unreal Engine 5 cinematic render --no watermark, no blur'
+    tagline: 'Documentary · Eerie Spotlights · Deep Contrast',
+    keywords: 'Cinematic documentary thumbnail style: Eerie suspenseful atmosphere, dramatic volumetric spotlight cutting through dark mist, deep shadowy contrast, high visual hierarchy, razor-sharp textures, Unreal Engine 5 cinematic render --no watermark, no blur'
   },
   {
     id: 'tech-cyber',
     label: 'Futuristic Tech',
     emoji: '⚡',
-    tagline: 'MKBHD Style · Glowing Gadgets · 3D Verified Badge',
-    keywords: 'High-tech YouTube thumbnail: Tech creator holding glowing futuristic product with blazing cyan and lime rim lights, floating 3D YouTube channel verified badge, exploded transparent glowing cybernetic architecture, sleek dark studio backdrop, crisp macro photography, modern viral tech review cover style, 8K render --no watermark, no blur'
+    tagline: 'Clean Studio · Neon Accents · Macro Clarity',
+    keywords: 'High-tech YouTube thumbnail style: Sleek modern aesthetic, vibrant neon blue and emerald accent lighting, clean dark studio backdrop, razor-sharp macro photography, modern tech review cover style, 8K render --no watermark, no blur'
   },
   {
     id: 'cinematic-epic',
     label: 'Cinematic Movie',
     emoji: '🎬',
-    tagline: 'Blockbuster · IMAX 8K · Volumetric God Rays',
-    keywords: 'Epic cinematic blockbuster YouTube thumbnail: Dramatic IMAX widescreen framing, golden hour volumetric god rays, intense atmospheric storytelling, photorealistic 8K textures, award-winning cinematography, prominent focal character with 3D YouTube badge accent, Hollywood poster quality --no watermark, no blur'
+    tagline: 'Blockbuster · IMAX Scale · Volumetric Rays',
+    keywords: 'Epic cinematic blockbuster thumbnail style: Dramatic IMAX widescreen framing, golden hour volumetric god rays, intense atmospheric storytelling, photorealistic 8K textures, award-winning cinematography, Hollywood poster quality --no watermark, no blur'
   },
   {
     id: 'shock-drama',
     label: 'Shock & Drama',
     emoji: '😱',
-    tagline: 'Extreme Emotion · Neon Pop · 3D Glowing Icons',
-    keywords: 'High-emotion viral YouTube thumbnail: Extreme expressive reaction creator looking directly into camera with intense wide-eyed drama, vibrant purple and electric lime rim lights, floating 3D metallic YouTube logo badge, bold retention hierarchy, hyper-detailed skin pores and eye reflections --no watermark, no blur'
+    tagline: 'High Energy · Vivid Contrast · Neon Glow',
+    keywords: 'High-emotion dramatic thumbnail style: Intense expressive focal subject, vibrant purple and electric lime rim lights, bold retention hierarchy, hyper-detailed skin pores and eye reflections, 8K render --no watermark, no blur'
   }
 ];
 
@@ -279,7 +279,7 @@ export const VIRAL_PRESETS = [
     id: 'mrbeast',
     emoji: '🔥',
     label: 'High-CTR MrBeast Challenge',
-    prompt: 'Ultra high-CTR YouTube thumbnail: In foreground, an expressive young male creator with an extreme shocked, wide-eyed mouth-open reaction looking directly into camera lens with intense cyan and hot-orange rim lighting on his face. On the right, a massive glowing 10-foot steel bank vault door exploding open with millions of 3D gold bullion bars and bundles of cash blasting out. Floating near the top corner is a glossy, reflective 3D metallic red and white YouTube play button logo badge. Dynamic wide-angle lens, cinematic 8K octane render.',
+    prompt: 'Ultra high-CTR YouTube thumbnail: In foreground, an expressive young male creator with an extreme shocked, wide-eyed mouth-open reaction looking directly into camera lens with intense cyan and hot-orange rim lighting on his face. On the right, a massive glowing 10-foot steel bank vault door exploding open with millions of 3D gold bullion bars and bundles of cash blasting out. Dynamic wide-angle lens, cinematic 8K octane render, ultra-crisp textures.',
     aspectRatio: '16:9',
     modelId: 'gpt-image-2-5-flare-text-to-image'
   },
@@ -287,15 +287,15 @@ export const VIRAL_PRESETS = [
     id: 'deep-lore',
     emoji: '🌌',
     label: '4K Deep Lore / Ancient Secret',
-    prompt: 'Cinematic 4K YouTube thumbnail: Shocked adventurer creator in rugged expedition gear on left third with intense wide-eyed disbelief expression staring straight at camera with golden rim light, holding an ancient glowing golden artifact that projects a floating holographic 3D YouTube logo badge in mid-air. In background, an illuminated subterranean pyramid chamber with giant pharaoh statues and volumetric golden god rays.',
+    prompt: 'Cinematic 4K YouTube thumbnail: Shocked adventurer creator in rugged expedition gear on left third with intense wide-eyed disbelief expression staring straight at camera with golden rim light, holding an ancient glowing golden artifact that illuminates a subterranean pyramid chamber with giant pharaoh statues and volumetric golden god rays.',
     aspectRatio: '16:9',
     modelId: 'nano-banana-2'
   },
   {
     id: 'shock',
     emoji: '😱',
-    label: 'Shocked Face + 3D YouTube Trophy',
-    prompt: 'Extreme viral YouTube thumbnail: Close-up of creator with eyes wide open and jaw dropped in shock looking directly into lens, intense neon electric magenta and lime rim lighting, holding open an ornate mystery crate emitting blinding golden rays, diamonds, and a floating glossy 3D golden YouTube play button trophy. 8K cinematic poster style, 3D particle sparks.',
+    label: 'Shocked Face + Glowing Mystery',
+    prompt: 'Extreme viral YouTube thumbnail: Close-up of creator with eyes wide open and jaw dropped in shock looking directly into lens, intense neon electric magenta and lime rim lighting, holding open an ornate mystery crate emitting blinding golden rays, diamonds, and glowing energy. 8K cinematic poster style, 3D particle sparks.',
     aspectRatio: '16:9',
     modelId: 'grok-imagine-image-2-0/text-to-image'
   },
@@ -303,15 +303,15 @@ export const VIRAL_PRESETS = [
     id: 'mystery',
     emoji: '🛸',
     label: 'Dark Mystery / Megastructure',
-    prompt: 'Epic viral YouTube thumbnail: Excited creator with hands on head in disbelief looking into camera on right, wearing modern tactical hoodie with vivid neon blue edge lighting. On left, a gigantic futuristic underground luxury bunker with neon swimming pools, helicopters, and transparent glass tunnels. Floating beside the creator is a polished 3D YouTube icon with glowing red neon aura. IMAX 70mm cinematography.',
+    prompt: 'Epic viral YouTube thumbnail: Excited creator with hands on head in disbelief looking into camera on right, wearing modern tactical hoodie with vivid neon blue edge lighting. On left, a gigantic futuristic underground luxury bunker with neon swimming pools, helicopters, and transparent glass tunnels. IMAX 70mm cinematography, razor-sharp textures.',
     aspectRatio: '16:9',
     modelId: 'wan/2-7-image-pro'
   },
   {
     id: 'wealth',
     emoji: '💰',
-    label: '$1M Crypto / Island Split Challenge',
-    prompt: 'Viral high-retention YouTube thumbnail: Close-up of an exhausted but amazed male explorer with frost on eyebrows, shivering with an intense wide-eyed reaction directly into lens, warm orange lantern light contrasting with freezing icy cyan blizzard winds. In the background, an enormous glowing neon survival shelter and a floating glossy 3D metallic YouTube logo badge partially dusted in snow.',
+    label: 'Extreme Survival / Island Split',
+    prompt: 'Viral high-retention YouTube thumbnail: Close-up of an exhausted but amazed male explorer with frost on eyebrows, shivering with an intense wide-eyed reaction directly into lens, warm orange lantern light contrasting with freezing icy cyan blizzard winds. In the background, an enormous glowing neon survival shelter glowing in the snow.',
     aspectRatio: '16:9',
     modelId: 'gpt-image-2-text-to-image'
   },
@@ -319,7 +319,7 @@ export const VIRAL_PRESETS = [
     id: 'fast-trend',
     emoji: '⚡',
     label: 'Fast Trend / Thrill Ride (2K)',
-    prompt: 'High-energy viral YouTube thumbnail: Screaming creator with mouth open in wild thrill looking into camera from roller coaster front seat, wind blowing hair, glowing electric violet and lime green rim lights. In background, an impossible 500-foot vertical drop track plunging into a glowing neon canyon, with a prominent 3D glossy red YouTube play button badge floating in sky. Hyper-crisp 2K octane render.',
+    prompt: 'High-energy viral YouTube thumbnail: Screaming creator with mouth open in wild thrill looking into camera from roller coaster front seat, wind blowing hair, glowing electric violet and lime green rim lights. In background, an impossible 500-foot vertical drop track plunging into a glowing neon canyon. Hyper-crisp 2K octane render.',
     aspectRatio: '16:9',
     modelId: 'seedream/5-flash-text-to-image'
   },
@@ -327,7 +327,7 @@ export const VIRAL_PRESETS = [
     id: 'tech',
     emoji: '🦾',
     label: 'Tech Breakdown / Illegal AI Robot',
-    prompt: 'High-contrast YouTube tech thumbnail: Shocked tech creator staring in awe into camera lens on right with blazing cyan rim light, pointing directly at a sleek humanoid robot holding a glowing holographic AI core. Beside the robot floats a glossy 3D red YouTube channel verified badge. Clean dark studio background, razor-sharp edge contrast.',
+    prompt: 'High-contrast YouTube tech thumbnail: Shocked tech creator staring in awe into camera lens on right with blazing cyan rim light, pointing directly at a sleek humanoid robot holding a glowing holographic AI core. Clean dark studio background, razor-sharp edge contrast.',
     aspectRatio: '16:9',
     modelId: 'nano-banana-2-lite'
   },
@@ -335,7 +335,7 @@ export const VIRAL_PRESETS = [
     id: 'shorts',
     emoji: '📱',
     label: 'Vertical Viral Short (9:16)',
-    prompt: 'Vertical 9:16 mobile YouTube Short thumbnail: Shocked creator face close-up looking at camera with mouth agape, holding a floating glowing 3D red YouTube play button icon emitting neon spark embers, bold yellow warning arrow pointing downward, intense high-contrast rim lighting.',
+    prompt: 'Vertical 9:16 mobile YouTube Short thumbnail: Shocked creator face close-up looking at camera with mouth agape, holding a glowing mystery device emitting neon spark embers, bold contrasting lighting, high-energy viral retention style.',
     aspectRatio: '9:16',
     modelId: 'gpt-image-2-5-flare-text-to-image'
   }
@@ -405,27 +405,27 @@ export async function uploadImageToCDN(file) {
   return cdnUrl;
 }
 
-// Pre-condition any prompt or topic to strictly act as a world-class high-CTR YouTube thumbnail
+// Naturally adapt any prompt or topic to adopt proper YouTube thumbnail qualities
 export function conditionThumbnailPrompt(rawPrompt, { styleId = 'viral-high-ctr', isEdit = false } = {}) {
   const p = (rawPrompt || '').trim();
   const activeStyle = THUMBNAIL_STYLES.find(s => s.id === styleId) || THUMBNAIL_STYLES[0];
 
   if (!p) {
-    return activeStyle.keywords;
+    return `YouTube thumbnail: ${activeStyle.keywords}`;
   }
 
-  // If this is an Image-to-Image / Image Edit task:
+  // If user already wrote detailed thumbnail instructions or negative flags:
+  if (p.toLowerCase().includes('--no') || (p.length > 200 && p.toLowerCase().includes('youtube thumbnail'))) {
+    return `${p} --no watermark, no blur, no low resolution, no artifacts`;
+  }
+
+  // For image-to-image / restyle tasks:
   if (isEdit) {
-    return `World-class viral YouTube thumbnail edit & restyle: Transform reference subject into a top-tier YouTube creator cover for topic: "${p}". Incorporate high-emotion wide-eyed expression, intense neon edge rim lighting (electric cyan and vibrant orange), a prominent floating glossy 3D metallic YouTube logo badge, high-contrast background props related to "${p}", razor-sharp edges, viral retention layout, 8K octane render quality --no watermark, no blur, no distorted face, no low resolution`;
+    return `YouTube thumbnail restyle: ${p}. Enhance focal subject with crisp thumbnail lighting, sharp foreground separation, cinematic depth, and vibrant colors. ${activeStyle.keywords}`;
   }
 
-  // If user already wrote a comprehensive thumbnail prompt with YouTube elements:
-  if (p.length > 250 && /youtube/i.test(p) && /thumbnail/i.test(p)) {
-    return `${p} --no watermark, no blur, no distorted faces, no low resolution, no low quality, no artifacts`;
-  }
-
-  // Pre-condition short or standard topics into a complete world-class YouTube thumbnail specification:
-  return `Professional viral YouTube thumbnail: "${p}". Focal Subject: High-energy real creator with an intense shocked, wide-eyed mouth-open reaction expression looking directly into the camera lens on one third of the frame, with vibrant electric rim lighting. Key Elements: Dramatic focal prop representing "${p}", floating glossy 3D metallic red YouTube play button badge with specular reflections, high-contrast graphic separation, deliberate negative space for headline readability. Style & Lighting: ${activeStyle.keywords}. Hyper-detailed 8K octane render, photorealistic skin textures, viral CTR visual hierarchy --no watermark, no blur, no low resolution, no deformed hands, no distorted faces`;
+  // Standard text-to-image: adapt user topic into proper thumbnail framing & aesthetics
+  return `YouTube thumbnail: ${p}. ${activeStyle.keywords}`;
 }
 
 // Build model-specific input payload with automated backend pre-conditioning
@@ -679,20 +679,20 @@ export async function pollThumbnailTask(taskId, keyUsed, { onProgress, maxSecond
   throw new Error(`Generation timed out after ${maxSeconds} seconds.`);
 }
 
-// Prompt enhancer helper for high-retention thumbnails (transforms short topics into full thumbnail prompts)
+// Prompt enhancer helper: naturally adapts any prompt or topic into proper thumbnail aesthetics
 export function enhanceThumbnailPrompt(rawPrompt, styleId = 'viral-high-ctr') {
   const p = (rawPrompt || '').trim();
   const activeStyle = THUMBNAIL_STYLES.find(s => s.id === styleId) || THUMBNAIL_STYLES[0];
 
   if (!p) {
-    return 'Ultra high-CTR professional YouTube thumbnail: Epic viral mystery scene with glowing 3D depth, extreme cinematic lighting, volumetric neon rim lights, hyper-detailed 8K octane render, photorealistic textures, Unreal Engine 5 cinematic masterwork';
+    return `YouTube thumbnail composition: Bold focal subject, dynamic rim lighting, high contrast, crisp edge definition, 8K cinematic render --no watermark, no blur`;
   }
 
-  // If already detailed, add polish
-  if (p.length > 150 && /youtube thumbnail/i.test(p)) {
-    return `${p}, dramatic volumetric rim light, hyper-detailed 8K octane render, photorealistic textures, Unreal Engine 5 quality`;
+  // If already detailed with negative prompt, just ensure thumbnail framing
+  if (p.toLowerCase().includes('--no')) {
+    return p.toLowerCase().includes('thumbnail') ? p : `YouTube thumbnail: ${p}`;
   }
 
-  // Transform short topic into an elite YouTube thumbnail prompt
-  return `Ultra high-CTR professional YouTube thumbnail: ${p}, dramatic cinematic lighting with volumetric neon rim light, deep rich contrast, bold focal point with dynamic 3D depth, vibrant saturated color grading, hyper-detailed 8K octane render, photorealistic textures, Unreal Engine 5 cinematic blockbuster quality, clean sharp edges --no watermark, no blur`;
+  // Enhance user topic with thumbnail visual impact: contrast, lighting, depth, clarity
+  return `YouTube thumbnail: ${p}. High contrast, sharp focal subject, vibrant cinematic lighting, crisp depth of field, 8K visual clarity --no watermark, no blur, no low resolution`;
 }
