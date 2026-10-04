@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import ApiDocsPage from './pages/ApiDocsPage';
 import PricingPage from './pages/PricingPage';
 import ChatPage from './pages/ChatPage';
+import AdminApp from './admin/AdminApp';
 import { audioEngine } from './audio/audioEngine';
 import { getStoredUser, verifySession, logoutUser } from './utils/authClient';
 import { ROUTES, matchRoute } from './routes';
@@ -265,17 +266,19 @@ function AppContent() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', width: '100%' }}>
-      {/* Universal Full-Width Navbar */}
-      <Navbar
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        currentView={currentRoutePath || currentView}
-        onNavigate={handleNavigate}
-        user={user}
-        onLogout={handleLogout}
-        sidebarCollapsed={sidebarCollapsed}
-        onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-      />
+      {/* Universal Full-Width Navbar (hidden on admin control plane) */}
+      {currentView !== 'admin' && (
+        <Navbar
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          currentView={currentRoutePath || currentView}
+          onNavigate={handleNavigate}
+          user={user}
+          onLogout={handleLogout}
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
+      )}
 
       {/* Main View Router with Strict Auth Enforcement */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -470,6 +473,14 @@ function AppContent() {
             user={user}
             onNavigateToRegister={() => handleNavigate('register')}
             onNavigateToDashboard={() => handleNavigate('dashboard')}
+          />
+        )}
+
+        {currentView === 'admin' && (
+          <AdminApp
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
+            onExitToApp={() => handleNavigate('')}
           />
         )}
       </main>

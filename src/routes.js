@@ -21,7 +21,9 @@ export const ROUTES = [
   { path: 'chat',                  view: 'chat',             private: true  },
   { path: 'chat/:chatId',          view: 'chat',             private: true, param: 'chatId' },
   { path: 'profile',               view: 'profile',          private: true  },
-  { path: 'settings',              view: 'settings',         private: true  }
+  { path: 'settings',              view: 'settings',         private: true  },
+  { path: 'admin',                 view: 'admin',            private: false },
+  { path: 'admin/:adminPage',      view: 'admin',            private: false, param: 'adminPage' }
 ];
 
 export function normalizeRoutePath(rawHash) {
