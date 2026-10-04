@@ -125,6 +125,18 @@ export const adminService = {
   getUsers: async (limit = 100) => adminFetch('get-users', 'GET', null, { limit }),
   updateUserQuota: async (email, tier, credits, isBanned) =>
     adminFetch('update-user-quota', 'POST', { email, tier, credits, isBanned }),
+  updateUser: async (userData) =>
+    adminFetch('update-user', 'POST', userData),
+  disconnectUserChannel: async (email, channelId) =>
+    adminFetch('disconnect-user-channel', 'POST', { email, channelId }),
+  setPrimaryUserChannel: async (email, channelId) =>
+    adminFetch('set-primary-user-channel', 'POST', { email, channelId }),
+  disconnectUserSheets: async (email) =>
+    adminFetch('disconnect-user-sheets', 'POST', { email }),
+  resetUserPassword: async (email, newPassword) =>
+    adminFetch('reset-user-password', 'POST', { email, newPassword }),
+  deleteUser: async (email) =>
+    adminFetch('delete-user', 'POST', { email }),
 
   // 10. Telemetry & 6-Webhook Latency Ping & Telegram
   pingWebhooks: async () => adminFetch('ping-webhooks', 'POST'),

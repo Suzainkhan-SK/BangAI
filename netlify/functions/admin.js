@@ -661,55 +661,235 @@ export async function handler(event) {
       // ----------------------------------------------------
       // [6] USER MANAGEMENT & QUOTAS (REAL ATLAS DATA)
       // ----------------------------------------------------
+      // ----------------------------------------------------
+      // [6] USER MANAGEMENT & QUOTAS (REAL ATLAS DATA)
+      // ----------------------------------------------------
       case 'get-users': {
         const usersCol = db.collection('users');
-        const limit = Number(query.limit) || 50;
+        const limit = Number(query.limit) || 100;
         const rawUsers = await usersCol.find({}).sort({ createdAt: -1 }).limit(limit).toArray();
-        const users = rawUsers.map(u => ({
-          id: u.id || u._id?.toString(),
-          name: u.name || 'Creator',
-          email: u.email || 'user@bangai.com',
-          avatar: u.avatar || '',
-          tier: u.plan || u.tier || 'Creator Pro',
-          creditsRemaining: u.credits !== undefined ? u.credits : 100,
-          youtubeConnected: Array.isArray(u.youtubeChannels) && u.youtubeChannels.length > 0,
-          youtubeChannels: u.youtubeChannels || [],
-          googleSheetsConnected: Boolean(u.googleSheets?.connected),
-          isBanned: Boolean(u.isBanned),
-          createdAt: u.createdAt || ''
-        }));
+        const users = rawUsers.map(u => {
+          const channels = Array.isArray(u.youtubeChannels) ? u.youtubeChannels : [];
+          return {
+            id: u.id || u._id?.toString(),
+            name: u.name || 'Creator',
+            email: u.email || 'user@bangai.com',
+            avatar: u.avatar || '',
+            tier: u.plan || u.tier || 'Creator Pro Plan',
+            plan: u.plan || u.tier || 'Creator Pro Plan',
+            creditsRemaining: u.credits !== undefined ? u.credits : 100,
+            credits: u.credits !== undefined ? u.credits : 100,
+            unlimitedCredits: Boolean(u.unlimitedCredits),
+            channel: u.channel || '',
+            niche: u.niche || '',
+            authProvider: u.authProvider || 'email',
+            isBanned: Boolean(u.isBanned),
+            banReason: u.banReason || '',
+            createdAt: u.createdAt || '',
+            updatedAt: u.updatedAt || '',
+            lastLoginAt: u.lastLoginAt || '',
+            youtubeConnected: channels.length > 0,
+            youtubeChannelCount: channels.length,
+            youtubeChannels: channels.map(ch => ({
+              channelId: ch.channelId || '',
+              channelTitle: ch.channelTitle || '',
+              customUrl: ch.customUrl || '',
+              subscriberCount: ch.subscriberCount || 0,
+              videoCount: ch.videoCount || 0,
+              viewCount: ch.viewCount || 0,
+              thumbnailUrl: ch.thumbnailUrl || '',
+              isDefault: Boolean(ch.isDefault),
+              connectedAt: ch.connectedAt || '',
+              googleAccountEmail: ch.googleAccountEmail || '',
+              scope: ch.tokens?.scope || '',
+              expiresAt: ch.tokens?.expiresAt || null,
+              tokenValid: Boolean(ch.tokens?.refreshToken || (ch.tokens?.expiresAt && ch.tokens.expiresAt > Date.now()))
+            })),
+            googleSheetsConnected: Boolean(u.googleSheets?.connected),
+            googleSheets: u.googleSheets ? {
+              connected: Boolean(u.googleSheets.connected),
+              email: u.googleSheets.email || '',
+              autoLog: Boolean(u.googleSheets.autoLog),
+              connectedAt: u.googleSheets.connectedAt || '',
+              scope: u.googleSheets.tokens?.scope || ''
+            } : { connected: false }
+          };
+        });
 
         return {
           statusCode: 200,
           headers: corsHeaders,
-          body: JSON.stringify({ success: true, data: users })
+          body: JSON.stringify({ success: true, count: users.length, data: users })
         };
       }
 
+      case 'update-user':
       case 'update-user-quota': {
-        const { email, tier, credits, isBanned } = body;
+        const {
+          email,
+          name,
+          tier,
+          plan,
+          credits,
+          creditsRemaining,
+          unlimitedCredits,
+          channel,
+          niche,
+          isBanned,
+          banReason
+        } = body;
+
         if (!email) {
           return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'email is required' }) };
         }
         const usersCol = db.collection('users');
         const updateObj = { updatedAt: new Date().toISOString() };
-        if (tier) {
-          updateObj.plan = tier;
-          updateObj.tier = tier;
+        
+        if (name !== undefined) updateObj.name = String(name).trim();
+        if (tier || plan) {
+          const chosenPlan = tier || plan;
+          updateObj.plan = chosenPlan;
+          updateObj.tier = chosenPlan;
         }
-        if (credits !== undefined) {
-          updateObj.credits = Number(credits);
-          updateObj.creditsRemaining = Number(credits);
+        if (credits !== undefined || creditsRemaining !== undefined) {
+          const credsNum = Number(credits !== undefined ? credits : creditsRemaining);
+          updateObj.credits = credsNum;
+          updateObj.creditsRemaining = credsNum;
         }
+        if (unlimitedCredits !== undefined) updateObj.unlimitedCredits = Boolean(unlimitedCredits);
+        if (channel !== undefined) updateObj.channel = String(channel).trim();
+        if (niche !== undefined) updateObj.niche = String(niche).trim();
         if (isBanned !== undefined) updateObj.isBanned = Boolean(isBanned);
+        if (banReason !== undefined) updateObj.banReason = String(banReason).trim();
 
         await usersCol.updateOne({ email }, { $set: updateObj });
-        await logAdminAction(db, 'USER_QUOTA_UPDATE', { email, ...updateObj }, clientIp);
+        await logAdminAction(db, 'USER_MODIFICATION', { email, ...updateObj }, clientIp);
 
         return {
           statusCode: 200,
           headers: corsHeaders,
-          body: JSON.stringify({ success: true, message: `Updated user ${email}` })
+          body: JSON.stringify({ success: true, message: `Creator ${email} updated successfully in Atlas` })
+        };
+      }
+
+      case 'disconnect-user-channel': {
+        const { email, channelId } = body;
+        if (!email || !channelId) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'email and channelId required' }) };
+        }
+        const usersCol = db.collection('users');
+        const userDoc = await usersCol.findOne({ email });
+        if (!userDoc) {
+          return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'User not found' }) };
+        }
+
+        const updatedChannels = (userDoc.youtubeChannels || []).filter(c => c.channelId !== channelId);
+        // If removed channel was default, make the first remaining channel default
+        if (updatedChannels.length > 0 && !updatedChannels.some(c => c.isDefault)) {
+          updatedChannels[0].isDefault = true;
+        }
+
+        await usersCol.updateOne(
+          { email },
+          { $set: { youtubeChannels: updatedChannels, updatedAt: new Date().toISOString() } }
+        );
+        await logAdminAction(db, 'USER_CHANNEL_DISCONNECTED', { email, channelId }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: `YouTube channel ${channelId} disconnected from ${email}`, youtubeChannels: updatedChannels })
+        };
+      }
+
+      case 'set-primary-user-channel': {
+        const { email, channelId } = body;
+        if (!email || !channelId) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'email and channelId required' }) };
+        }
+        const usersCol = db.collection('users');
+        const userDoc = await usersCol.findOne({ email });
+        if (!userDoc) {
+          return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'User not found' }) };
+        }
+
+        const updatedChannels = (userDoc.youtubeChannels || []).map(c => ({
+          ...c,
+          isDefault: c.channelId === channelId
+        }));
+
+        await usersCol.updateOne(
+          { email },
+          { $set: { youtubeChannels: updatedChannels, updatedAt: new Date().toISOString() } }
+        );
+        await logAdminAction(db, 'USER_PRIMARY_CHANNEL_CHANGED', { email, channelId }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: `Primary channel set to ${channelId} for ${email}` })
+        };
+      }
+
+      case 'disconnect-user-sheets': {
+        const { email } = body;
+        if (!email) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'email required' }) };
+        }
+        const usersCol = db.collection('users');
+        await usersCol.updateOne(
+          { email },
+          { $set: { 'googleSheets.connected': false, updatedAt: new Date().toISOString() } }
+        );
+        await logAdminAction(db, 'USER_SHEETS_DISCONNECTED', { email }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: `Google Sheets integration disconnected for ${email}` })
+        };
+      }
+
+      case 'reset-user-password': {
+        const { email, newPassword } = body;
+        if (!email || !newPassword || newPassword.length < 6) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'email and password (min 6 chars) required' }) };
+        }
+        const usersCol = db.collection('users');
+        const userDoc = await usersCol.findOne({ email });
+        if (!userDoc) {
+          return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'User not found' }) };
+        }
+
+        const salt = crypto.randomBytes(16).toString('hex');
+        const hash = crypto.pbkdf2Sync(newPassword, salt, 100000, 64, 'sha512').toString('hex');
+
+        await usersCol.updateOne(
+          { email },
+          { $set: { salt, hash, updatedAt: new Date().toISOString() } }
+        );
+        await logAdminAction(db, 'USER_PASSWORD_RESET_ADMIN', { email }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: `Password for ${email} has been updated in MongoDB Atlas` })
+        };
+      }
+
+      case 'delete-user': {
+        const { email } = body;
+        if (!email) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'email is required' }) };
+        }
+        const usersCol = db.collection('users');
+        await usersCol.deleteOne({ email });
+        await logAdminAction(db, 'USER_DELETED_PERMANENTLY', { email }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: `Creator ${email} permanently deleted from MongoDB Atlas` })
         };
       }
 
