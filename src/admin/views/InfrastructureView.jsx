@@ -20,6 +20,8 @@ export default function InfrastructureView() {
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [savingDoc, setSavingDoc] = useState(false);
   const [redeploying, setRedeploying] = useState(false);
+  const [deploysList, setDeploysList] = useState([]);
+  const [loadingDeploys, setLoadingDeploys] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
   const fetchInfra = async () => {
@@ -30,6 +32,20 @@ export default function InfrastructureView() {
       }
     } catch (e) {
       console.warn('Failed to fetch infra status:', e.message);
+    }
+  };
+
+  const fetchDeploys = async () => {
+    setLoadingDeploys(true);
+    try {
+      const res = await adminService.getNetlifyDeploys(6);
+      if (res.success && Array.isArray(res.deploys)) {
+        setDeploysList(res.deploys);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch deploys:', e.message);
+    } finally {
+      setLoadingDeploys(false);
     }
   };
 
@@ -57,6 +73,7 @@ export default function InfrastructureView() {
 
   useEffect(() => {
     fetchInfra();
+    fetchDeploys();
     fetchCollectionDocuments('system_config');
   }, []);
 
@@ -124,7 +141,8 @@ export default function InfrastructureView() {
     try {
       const res = await adminService.triggerNetlifyDeploy();
       if (res.success) {
-        setToastMsg('🚀 Netlify production deploy successfully queued with cache purged! Site will update in ~45 seconds.');
+        setToastMsg('🚀 Netlify production deploy successfully queued with cache purged! Rebuilding live site...');
+        setTimeout(() => fetchDeploys(), 3000);
       } else {
         setToastMsg(`Deploy queued. ${res.message || ''}`);
       }
@@ -158,9 +176,9 @@ export default function InfrastructureView() {
       {/* View Header */}
       <div className="admin-view-header">
         <div>
-          <h1 className="admin-view-title">Cloud Infrastructure: MongoDB Atlas & Netlify</h1>
+          <h1 className="admin-view-title">Cloud Infrastructure: MongoDB Atlas & Netlify CI/CD</h1>
           <p className="admin-view-desc">
-            Direct visual document browser for Atlas cluster <code>{mongo.cluster}</code>, live collection editor, JSON database export, and Netlify CI/CD trigger.
+            Direct visual document browser for Atlas cluster <code>{mongo.cluster}</code>, live Netlify build pipeline monitor, and 1-click production deploy engine.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -190,14 +208,15 @@ export default function InfrastructureView() {
           border: '1px solid rgba(6, 182, 212, 0.3)',
           color: 'var(--admin-accent-cyan)',
           fontSize: '13.5px',
-          fontWeight: 600
+          fontWeight: 600,
+          marginBottom: '16px'
         }}>
           {toastMsg}
         </div>
       )}
 
       {/* Real Infrastructure KPI Grid */}
-      <div className="admin-grid-2">
+      <div className="admin-grid-2" style={{ marginBottom: '24px' }}>
         {/* MongoDB Atlas Real Status Card */}
         <div className="admin-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -243,7 +262,7 @@ export default function InfrastructureView() {
           <div className="admin-grid-3" style={{ background: 'var(--admin-bg-elevated)', padding: '12px', borderRadius: '10px' }}>
             <div>
               <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>DEPLOY STATUS</div>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--admin-accent-green)' }}>Ready</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--admin-accent-green)' }}>Live Ready</div>
             </div>
             <div>
               <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>BUILD USAGE</div>
@@ -255,6 +274,90 @@ export default function InfrastructureView() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Real-time Netlify Deploys Feed & CI/CD Hub */}
+      <div className="admin-card" style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+          <div>
+            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>
+              Live Netlify Deployments & Git Synchronization Feed
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '2px 0 0 0' }}>
+              Deploys built automatically from GitHub repo <code>Suzainkhan-SK/BangAI</code> (branch <code>main</code>) or triggered via Admin Panel.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={fetchDeploys}
+            disabled={loadingDeploys}
+            className="admin-btn admin-btn-secondary"
+            style={{ padding: '5px 12px', fontSize: '12px' }}
+          >
+            {loadingDeploys ? 'Refreshing...' : '🔄 Refresh Builds'}
+          </button>
+        </div>
+
+        {deploysList.length > 0 ? (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>STATUS</th>
+                  <th>COMMIT</th>
+                  <th>DEPLOY MESSAGE</th>
+                  <th>BRANCH</th>
+                  <th>DEPLOYED AT</th>
+                  <th>PREVIEW</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deploysList.map((dep) => (
+                  <tr key={dep.id}>
+                    <td>
+                      <span className={`admin-badge ${dep.state === 'ready' ? 'admin-badge-success' : dep.state === 'building' || dep.state === 'enqueued' ? 'admin-badge-cyan' : 'admin-badge-warning'}`}>
+                        ● {dep.state.toUpperCase()}
+                      </span>
+                    </td>
+                    <td style={{ fontFamily: 'var(--admin-font-mono)', fontWeight: 700, color: 'var(--admin-accent-purple)' }}>
+                      {dep.commitRef}
+                    </td>
+                    <td style={{ maxWidth: '320px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '12.5px' }}>
+                      {dep.title}
+                    </td>
+                    <td>
+                      <span style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '11px', color: 'var(--admin-accent-cyan)' }}>
+                        {dep.branch}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
+                      {dep.createdAt ? new Date(dep.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Recently'}
+                    </td>
+                    <td>
+                      <a
+                        href={dep.deployUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontSize: '11.5px',
+                          color: 'var(--admin-accent-cyan)',
+                          textDecoration: 'none',
+                          fontWeight: 700
+                        }}
+                      >
+                        Open Live ↗
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--admin-text-sub)', fontSize: '13px' }}>
+            {loadingDeploys ? 'Fetching builds from Netlify REST API...' : 'No deploy history retrieved.'}
+          </div>
+        )}
       </div>
 
       {/* Visual MongoDB Document Browser & Real Editor */}

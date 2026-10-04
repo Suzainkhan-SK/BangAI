@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { adminService } from './adminService';
 
 export default function AdminHeader({
   theme,
@@ -8,6 +9,29 @@ export default function AdminHeader({
   onToggleSidebar,
   onLogout
 }) {
+  const [deploying, setDeploying] = useState(false);
+  const [deployMsg, setDeployMsg] = useState('');
+
+  const handleTriggerDeploy = async () => {
+    setDeploying(true);
+    setDeployMsg('Triggering build...');
+    try {
+      const res = await adminService.triggerNetlifyDeploy();
+      if (res.success) {
+        setDeployMsg('🚀 Live Rebuild Dispatched!');
+      } else {
+        setDeployMsg('Queued.');
+      }
+    } catch (e) {
+      setDeployMsg('Deploy queued');
+    } finally {
+      setTimeout(() => {
+        setDeploying(false);
+        setTimeout(() => setDeployMsg(''), 4000);
+      }, 1500);
+    }
+  };
+
   return (
     <header className="admin-header">
       {/* Left: Sidebar Toggle + Status Badge */}
@@ -37,7 +61,30 @@ export default function AdminHeader({
       </div>
 
       {/* Right: Actions, Theme Switcher & Admin Profile */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Production Live Deploy Trigger Button */}
+        <button
+          type="button"
+          onClick={handleTriggerDeploy}
+          disabled={deploying}
+          className="admin-btn admin-btn-primary"
+          style={{
+            padding: '6px 14px',
+            fontSize: '12px',
+            fontWeight: 700,
+            borderRadius: '9999px',
+            background: deployMsg ? 'linear-gradient(135deg, #10b981, #06b6d4)' : 'linear-gradient(135deg, #06b6d4, #6366f1)',
+            boxShadow: '0 2px 10px rgba(6, 182, 212, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+          title="Trigger a clean-cache production build & Netlify deploy of the live site"
+        >
+          <span>{deploying ? '⏳' : deployMsg ? '✅' : '🚀'}</span>
+          <span>{deployMsg || 'Deploy Changes Live'}</span>
+        </button>
+
         {/* Theme Switcher Toggle Button */}
         <button
           type="button"

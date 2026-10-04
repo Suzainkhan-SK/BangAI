@@ -105,12 +105,15 @@ export default function AdminApp({ theme = 'dark', onToggleTheme, onExitToApp })
       case 'dashboard-manager':
         return <DashboardManagerView />;
       case 'stock-studio':
+      case 'stock-studio-manager':
         return <StockStudioManagerView />;
       case 'chat-manager':
         return <ChatManagerView />;
       case 'templates-hub':
+      case 'templates-manager':
         return <TemplatesManagerView />;
       case 'thumbnail-studio':
+      case 'thumbnail-manager':
         return <ThumbnailManagerView />;
       case 'design-studio':
         return <DesignStudioView />;

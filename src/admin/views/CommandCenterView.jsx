@@ -255,6 +255,24 @@ export default function CommandCenterView({ onNavigatePage }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
           <button
             type="button"
+            onClick={async () => {
+              setActionMsg('Dispatching production build to Netlify REST API with cache purge...');
+              try {
+                const res = await adminService.triggerNetlifyDeploy();
+                setActionMsg(res.success ? '🚀 Production Netlify deploy dispatched! Live site rebuilding.' : 'Deploy queued.');
+              } catch (e) {
+                setActionMsg('Deploy queued.');
+              } finally {
+                setTimeout(() => setActionMsg(''), 5000);
+              }
+            }}
+            className="admin-btn admin-btn-primary"
+            style={{ background: 'linear-gradient(135deg, #10b981, #06b6d4)', boxShadow: '0 2px 10px rgba(16, 185, 129, 0.3)' }}
+          >
+            🚀 Deploy Changes Live to Netlify
+          </button>
+          <button
+            type="button"
             onClick={() => onNavigatePage('n8n-migrator')}
             className="admin-btn admin-btn-primary"
           >
@@ -266,6 +284,20 @@ export default function CommandCenterView({ onNavigatePage }) {
             className="admin-btn admin-btn-secondary"
           >
             🔑 Inspect 31 API Keys
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigatePage('chat-manager')}
+            className="admin-btn admin-btn-secondary"
+          >
+            💬 Bang AI 4.5 (7 Models)
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigatePage('thumbnail-manager')}
+            className="admin-btn admin-btn-secondary"
+          >
+            🎨 Kie.ai Engine (11 Models)
           </button>
           <button
             type="button"

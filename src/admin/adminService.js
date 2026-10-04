@@ -121,6 +121,7 @@ export const adminService = {
     adminFetch('save-collection-doc', 'POST', { collection, document }),
   exportDatabaseJson: async () => adminFetch('export-database-json', 'GET'),
   triggerNetlifyDeploy: async () => adminFetch('trigger-netlify-deploy', 'POST'),
+  getNetlifyDeploys: async (perPage = 6) => adminFetch(`get-netlify-deploys&per_page=${perPage}`, 'GET'),
 
   // 13. Chat LLM Live Testing
   testChatPrompt: async (model, systemPrompt, userPrompt, temperature) =>
