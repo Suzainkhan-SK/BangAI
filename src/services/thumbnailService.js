@@ -3,15 +3,11 @@
 // Multi-Key Rotating Pool with Automatic Failover & High-Performance CDN
 
 const API_KEYS = [
-  'bb19f8a8b94e785f7f8cf7955ed165a6',
-  'a12309554b342ed9d3d5577d4079cae0',
   '05ac939d323c2500f085f9b9ba235e85',
   'e69cdf52c51effcfebfeb44e508c8e40',
+  'bb19f8a8b94e785f7f8cf7955ed165a6',
+  'a12309554b342ed9d3d5577d4079cae0',
   '2157c9fa712b2064b7a781139c8122d0',
-  '38c31083ef91b785609e8963ec3986f9',
-  'c10776280a0f851f06aa637c09878770',
-  '9fed938616d318963f3d30391789ba04',
-  'd027fcf4e00e7c5e4b2717902016b5f7',
   '18609e3bdb8e6ac38de3c5c7469ede4f',
   '4626f1626df64062f34aead8fae16bab',
   '934c5d4c188c224c040d8e3f03696c92',
@@ -43,7 +39,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: true,
     requiresImage: false,
     description: 'Next-gen photorealistic thumbnails with text comprehension and 4K ultra-fine details.',
-    defaultPrompt: 'Ultra high-CTR YouTube thumbnail: In foreground, an expressive young male creator with an extreme shocked, wide-eyed mouth-open reaction looking directly into camera lens with intense cyan and hot-orange rim lighting on his face. On the right, a massive glowing 10-foot steel bank vault door exploding open with millions of 3D gold bullion bars and bundles of cash blasting out. Dynamic wide-angle lens, cinematic 8K octane render, ultra-crisp photorealistic skin textures, intense saturated viral colors --no watermark, no blur, no distorted faces',
+    defaultPrompt: 'Viral YouTube thumbnail in MrBeast challenge style: Prominently displaying large, ultra-bold 3D extruded title text reading "$10,000,000 VAULT" in radiant yellow and white with thick black outline and drop shadow across the top. On the left third, an expressive young male creator with wide eyes and open mouth in extreme disbelief looking directly into the camera lens with vivid cyan and warm gold rim lighting. On the right, a massive 12-foot stainless steel bank vault door exploding open with millions of 3D gold bullion bars and cash stacks flying outward. Razor-sharp foreground, high contrast, 8K octane render --no watermark, no blur, no low resolution',
     showcaseImage: '/showcases/gpt_flare_2_5_ultra.png'
   },
   {
@@ -58,7 +54,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Flagship 4K visual synthesis with character consistency, photorealism, and sharp detail.',
-    defaultPrompt: 'Cinematic 4K YouTube thumbnail: Shocked adventurer creator in rugged expedition gear on left third with intense wide-eyed disbelief expression staring straight at camera with golden rim light, holding an ancient glowing golden artifact that illuminates a subterranean pyramid chamber with giant pharaoh statues and volumetric golden god rays. Sharp photorealistic skin pores, 8K Unreal Engine 5 render, award-winning viral documentary cover art --no blur, no watermark',
+    defaultPrompt: 'Professional YouTube documentary thumbnail in World Mysteries style: Prominent bold high-contrast title text across the top reading "12,000 YEAR SECRET" in solid white and glowing gold capital letters with black outline. In a colossal subterranean cavern, a shocked archaeologist holding a bright lantern looks up in awe at an ancient glowing blue alien monolith covered in glowing runes. Volumetric atmospheric god rays, cinematic 4K Unreal Engine render, high visual hierarchy --no watermark, no blur',
     showcaseImage: '/showcases/nano_banana_2_ultra.png'
   },
   {
@@ -73,7 +69,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Professional studio-grade visuals with superior texture resolution, lighting gradients, and multilingual text.',
-    defaultPrompt: 'Epic viral YouTube thumbnail: Excited creator with hands on head in disbelief looking into camera on right, wearing modern tactical hoodie with vivid neon blue edge lighting. On left, a gigantic futuristic underground luxury bunker with neon swimming pools, helicopters, and transparent glass tunnels. IMAX 70mm cinematography, razor-sharp hyper-detailed 8K textures, saturated viral colors, blockbuster YouTube production aesthetic --no blur, no low resolution',
+    defaultPrompt: 'Professional Hindi YouTube investigative thumbnail in Dhruv Rathee documentary style: On the right, a serious Indian investigative journalist in a dark polo looking directly into the camera with studio rim lighting. Prominent bold high-contrast Hindi and English typography across the top reading "काला सच: UNDERSEA CABLES" with yellow subtitle "भारत का डेटा खतरे में!". In the background, a dark illuminated 3D globe showing glowing fiber optic submarine cables connecting India and global ports, with a red alert circle pinpointing deep ocean sabotage. Crisp newsroom grading, razor-sharp contrast --no watermark, no blur',
     showcaseImage: '/showcases/wan_2_7_pro.png'
   },
   {
@@ -88,7 +84,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Highly creative, prompt-adherent image generation with complex conceptual scene understanding.',
-    defaultPrompt: 'Viral high-retention YouTube thumbnail: Close-up of an exhausted but amazed male explorer with frost on eyebrows, shivering with an intense wide-eyed reaction directly into lens, warm orange lantern light contrasting with freezing icy cyan blizzard winds. In the background, an enormous glowing neon survival shelter glowing in the snow. Saturated high contrast, crisp macro textures, viral challenge thumbnail hierarchy --no watermark, no blur',
+    defaultPrompt: 'Viral Hindi YouTube horror thumbnail in Khooni Monday and 3-AM Horror style: Large bold blood-red and white Hindi typography across the upper third reading "रात 3 बजे मत जाना!" with glowing yellow outline. In an eerie dark abandoned Indian palace haveli at night, a glowing red digital clock clearly displays "03:00 AM". A sharp flashlight beam cuts through thick sinister fog illuminating a terrifying shadowy supernatural ghost silhouette near an ancient carved wooden door. Intense dark horror atmosphere, cinematic grading --no watermark, no blur',
     showcaseImage: '/showcases/gpt_image_2_t2i.png'
   },
   {
@@ -103,7 +99,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Ultra-fast 2K visual rendering with vibrant colors, high dynamic range, and exceptional speed.',
-    defaultPrompt: 'High-energy viral YouTube thumbnail: Screaming creator with mouth open in wild thrill looking into camera from roller coaster front seat, wind blowing hair, glowing electric violet and lime green rim lights. In background, an impossible 500-foot vertical drop track plunging into a glowing neon canyon. Hyper-crisp 2K octane render, scroll-stopping saturated colors, dynamic action angle --no watermark, no blur',
+    defaultPrompt: 'Viral Hindi YouTube vlog thumbnail in Gaurav Taneja Flying Beast style: Large bold slanted Hindi action typography across the top reading "24 घंटे ट्रेन में फंसे!" in high-voltage electric yellow and fire-red with heavy black shadow. An energetic Indian creator looking directly into the camera with wide eyes and windblown hair, illuminated by neon purple and warm orange rim lights. In the background, an Indian Railways train speeding on tracks during a dramatic lightning thunderstorm. Fast-motion blur on background, hyper-sharp foreground subject, saturated viral colors, 2K octane render --no watermark, no blur on subject',
     showcaseImage: '/showcases/seedream_5_flash_t2i.png'
   },
   {
@@ -118,7 +114,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'High-speed lightweight thumbnail engine with crisp text rendering and high contrast.',
-    defaultPrompt: 'High-contrast YouTube tech thumbnail: Shocked tech creator staring in awe into camera lens on right with blazing cyan rim light, pointing directly at a sleek humanoid robot holding a glowing holographic AI core. Clean dark studio background, razor-sharp edge contrast, crisp 1K macro photography, viral tech review aesthetics --no watermark, no blur',
+    defaultPrompt: 'Viral YouTube tech thumbnail in Technical Guruji tech review style: Bold glowing cybernetic title text at the top reading "BANNED IN 2026!" in luminous neon cyan and white with red alert badge. An amazed tech creator pointing directly at a floating, transparent glowing quantum AI processor chip in a dark studio. Pulsing neon cyan and emerald circuit traces, razor-sharp macro reflections, clean dark studio backdrop, crisp edge separation --no watermark, no blur',
     showcaseImage: '/showcases/nano_banana_2_lite.png'
   },
   {
@@ -133,7 +129,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: false,
     description: 'Vibrant, high-contrast, razor-sharp textures ideal for eye-catching YouTube video covers.',
-    defaultPrompt: 'Extreme viral YouTube thumbnail: Close-up of creator with eyes wide open and jaw dropped in shock looking directly into lens, intense neon electric magenta and lime rim lighting, holding open an ornate mystery crate emitting blinding golden rays, diamonds, and glowing energy. 8K cinematic poster style, 3D particle sparks, ultra-high CTR visual hierarchy --no blur, no watermark',
+    defaultPrompt: 'Dramatic YouTube investigative thumbnail in Last 24 Hours mystery style: Bold high-contrast documentary headline text reading "BERMUDA TRIANGLE: WHAT HAPPENED?" in bold white and hazard yellow lettering on top. Split scene of a vintage aircraft vanishing into an enormous spiraling dark oceanic vortex over green lightning, with dramatic searchlight beams and a glowing cockpit radar screen. Cinematic 35mm film grading, rich deep contrast --no watermark, no blur',
     showcaseImage: '/showcases/grok_imagine_2_t2i.png'
   },
 
@@ -150,7 +146,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: true,
     requiresImage: true,
     description: 'Transform or restyle any reference image into a viral thumbnail with custom lighting and style.',
-    defaultPrompt: 'World-class YouTube thumbnail transformation: Turn subject into an ultra-powerful cybernetic superhero, intense blazing fiery glowing eyes, electric orange and blue energy aura radiating outwards, background replaced with a dramatic sci-fi city explosion, hyper-detailed 3D pop, viral cover art',
+    defaultPrompt: 'Viral YouTube thumbnail restyle: Transform reference subject into a triumphant MrBeast challenge winner. Feature large bold 3D golden title text on top reading "$1,000,000 WINNER!" with glowing sparkle accents. Creator has joyful triumphant expression, holding a giant ceremonial check surrounded by confetti bursts, stacks of money, and glowing golden spotlights. High contrast, 8K octane render --no watermark, no blur',
     showcaseImage: '/showcases/gpt_flare_i2i.png'
   },
   {
@@ -165,7 +161,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: true,
     description: 'Advanced multimodal image transformation and style transfer for viral thumbnail edits.',
-    defaultPrompt: 'Cinematic YouTube thumbnail restyle: Transform subject into a viral wilderness survivor with intense determined expression, dynamic golden sunset rim lighting, holding a high-tech glowing compass, background featuring a dramatic volcanic island and rescue helicopter, photorealistic textures, viral YouTube cover art',
+    defaultPrompt: 'Cinematic YouTube horror thumbnail transformation: Restyle reference subject into a terrified investigator inside a haunted asylum. Bold ominous title text reading "THE 3 AM HAUNTING" in glowing ghostly green typography at the top. Subject has wide-eyed fear expression illuminated by an intense green night-vision flashlight beam, with shadowy supernatural apparitions behind them. Chilling horror color grading, sharp textures --no watermark, no blur',
     showcaseImage: '/showcases/gpt_image_2_i2i.png'
   },
   {
@@ -180,7 +176,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: true,
     description: 'Fast reference image restyling, face/lighting adaptation, and thumbnail remixing.',
-    defaultPrompt: 'Viral YouTube thumbnail edit: Dramatically transform the subject into a high-stakes YouTube creator with intense neon cyan and hot orange rim lighting, shocked wide-eyed expression, and an explosive futuristic sci-fi laboratory background with sparks and emergency sirens, razor-sharp outlines, viral CTR cover art',
+    defaultPrompt: 'Investigative documentary YouTube thumbnail: Transform subject into a serious investigative journalist with bold red banner typography reading "THE SECRET EXPOSED" across the top. Studio background features a dark holographic world map with glowing classified evidence files, connecting red string diagrams, and sharp dramatic directional studio lighting. Razor-sharp outlines, high visual contrast --no watermark, no blur',
     showcaseImage: '/showcases/seedream_5_flash_i2i.png'
   },
   {
@@ -195,7 +191,7 @@ export const THUMBNAIL_MODELS = [
     supportsBackground: false,
     requiresImage: true,
     description: 'Modify elements, swap backgrounds, and enhance existing scenes with generative precision.',
-    defaultPrompt: 'Transform the scene into a luxurious modern penthouse bedroom with floor-to-ceiling panoramic glass windows overlooking a neon cyberpunk city skyline at sunset.',
+    defaultPrompt: 'YouTube tech thriller thumbnail edit: Place subject inside a high-security subterranean military research facility with emergency flashing red lights and glowing holographic status screens. Bold futuristic title text on top reading "SECRET PROTOCOL 9" in bright warning orange and white letters. Cinematic depth of field, sharp edge contrast --no watermark, no blur',
     showcaseImage: '/showcases/grok_edit.jpg'
   }
 ];
@@ -278,64 +274,64 @@ export const VIRAL_PRESETS = [
   {
     id: 'mrbeast',
     emoji: '🔥',
-    label: 'High-CTR MrBeast Challenge',
-    prompt: 'Ultra high-CTR YouTube thumbnail: In foreground, an expressive young male creator with an extreme shocked, wide-eyed mouth-open reaction looking directly into camera lens with intense cyan and hot-orange rim lighting on his face. On the right, a massive glowing 10-foot steel bank vault door exploding open with millions of 3D gold bullion bars and bundles of cash blasting out. Dynamic wide-angle lens, cinematic 8K octane render, ultra-crisp textures.',
+    label: '$10M Vault Challenge (MrBeast Style)',
+    prompt: 'Viral YouTube thumbnail in MrBeast challenge style: Prominently displaying large, ultra-bold 3D extruded title text reading "$10,000,000 VAULT" in radiant yellow and white with thick black outline and drop shadow across the top. On the left third, an expressive young male creator with wide eyes and open mouth in extreme disbelief looking directly into the camera lens with vivid cyan and warm gold rim lighting. On the right, a massive 12-foot stainless steel bank vault door exploding open with millions of 3D gold bullion bars and cash stacks flying outward. Razor-sharp foreground, high contrast, 8K octane render --no watermark, no blur, no low resolution',
     aspectRatio: '16:9',
     modelId: 'gpt-image-2-5-flare-text-to-image'
   },
   {
-    id: 'deep-lore',
-    emoji: '🌌',
-    label: '4K Deep Lore / Ancient Secret',
-    prompt: 'Cinematic 4K YouTube thumbnail: Shocked adventurer creator in rugged expedition gear on left third with intense wide-eyed disbelief expression staring straight at camera with golden rim light, holding an ancient glowing golden artifact that illuminates a subterranean pyramid chamber with giant pharaoh statues and volumetric golden god rays.',
-    aspectRatio: '16:9',
-    modelId: 'nano-banana-2'
-  },
-  {
-    id: 'shock',
-    emoji: '😱',
-    label: 'Shocked Face + Glowing Mystery',
-    prompt: 'Extreme viral YouTube thumbnail: Close-up of creator with eyes wide open and jaw dropped in shock looking directly into lens, intense neon electric magenta and lime rim lighting, holding open an ornate mystery crate emitting blinding golden rays, diamonds, and glowing energy. 8K cinematic poster style, 3D particle sparks.',
-    aspectRatio: '16:9',
-    modelId: 'grok-imagine-image-2-0/text-to-image'
-  },
-  {
-    id: 'mystery',
-    emoji: '🛸',
-    label: 'Dark Mystery / Megastructure',
-    prompt: 'Epic viral YouTube thumbnail: Excited creator with hands on head in disbelief looking into camera on right, wearing modern tactical hoodie with vivid neon blue edge lighting. On left, a gigantic futuristic underground luxury bunker with neon swimming pools, helicopters, and transparent glass tunnels. IMAX 70mm cinematography, razor-sharp textures.',
-    aspectRatio: '16:9',
-    modelId: 'wan/2-7-image-pro'
-  },
-  {
-    id: 'wealth',
-    emoji: '💰',
-    label: 'Extreme Survival / Island Split',
-    prompt: 'Viral high-retention YouTube thumbnail: Close-up of an exhausted but amazed male explorer with frost on eyebrows, shivering with an intense wide-eyed reaction directly into lens, warm orange lantern light contrasting with freezing icy cyan blizzard winds. In the background, an enormous glowing neon survival shelter glowing in the snow.',
+    id: 'khooni-monday',
+    emoji: '👻',
+    label: 'रात 3 बजे मत जाना! (Khooni Monday Horror)',
+    prompt: 'Viral Hindi YouTube horror thumbnail in Khooni Monday and 3-AM Horror style: Large bold blood-red and white Hindi typography across the upper third reading "रात 3 बजे मत जाना!" with glowing yellow outline. In an eerie dark abandoned Indian palace haveli at night, a glowing red digital clock clearly displays "03:00 AM". A sharp flashlight beam cuts through thick sinister fog illuminating a terrifying shadowy supernatural ghost silhouette near an ancient carved wooden door. Intense dark horror atmosphere, cinematic grading --no watermark, no blur',
     aspectRatio: '16:9',
     modelId: 'gpt-image-2-text-to-image'
   },
   {
-    id: 'fast-trend',
+    id: 'dhruv-rathee',
+    emoji: '🔍',
+    label: 'काला सच: Undersea Cables (Dhruv Rathee Style)',
+    prompt: 'Professional Hindi YouTube investigative thumbnail in Dhruv Rathee documentary style: On the right, a serious Indian investigative journalist in a dark polo looking directly into the camera with studio rim lighting. Prominent bold high-contrast Hindi and English typography across the top reading "काला सच: UNDERSEA CABLES" with yellow subtitle "भारत का डेटा खतरे में!". In the background, a dark illuminated 3D globe showing glowing fiber optic submarine cables connecting India and global ports, with a red alert circle pinpointing deep ocean sabotage. Crisp newsroom grading, razor-sharp contrast --no watermark, no blur',
+    aspectRatio: '16:9',
+    modelId: 'wan/2-7-image-pro'
+  },
+  {
+    id: 'flying-beast',
     emoji: '⚡',
-    label: 'Fast Trend / Thrill Ride (2K)',
-    prompt: 'High-energy viral YouTube thumbnail: Screaming creator with mouth open in wild thrill looking into camera from roller coaster front seat, wind blowing hair, glowing electric violet and lime green rim lights. In background, an impossible 500-foot vertical drop track plunging into a glowing neon canyon. Hyper-crisp 2K octane render.',
+    label: '24 घंटे ट्रेन में फंसे! (Flying Beast / Gaurav Taneja)',
+    prompt: 'Viral Hindi YouTube vlog thumbnail in Gaurav Taneja Flying Beast style: Large bold slanted Hindi action typography across the top reading "24 घंटे ट्रेन में फंसे!" in high-voltage electric yellow and fire-red with heavy black shadow. An energetic Indian creator looking directly into the camera with wide eyes and windblown hair, illuminated by neon purple and warm orange rim lights. In the background, an Indian Railways train speeding on tracks during a dramatic lightning thunderstorm. Fast-motion blur on background, hyper-sharp foreground subject, saturated viral colors, 2K octane render --no watermark, no blur on subject',
     aspectRatio: '16:9',
     modelId: 'seedream/5-flash-text-to-image'
   },
   {
-    id: 'tech',
+    id: 'tech-guruji',
     emoji: '🦾',
-    label: 'Tech Breakdown / Illegal AI Robot',
-    prompt: 'High-contrast YouTube tech thumbnail: Shocked tech creator staring in awe into camera lens on right with blazing cyan rim light, pointing directly at a sleek humanoid robot holding a glowing holographic AI core. Clean dark studio background, razor-sharp edge contrast.',
+    label: 'BANNED IN 2026! (Technical Guruji Tech)',
+    prompt: 'Viral YouTube tech thumbnail in Technical Guruji tech review style: Bold glowing cybernetic title text at the top reading "BANNED IN 2026!" in luminous neon cyan and white with red alert badge. An amazed tech creator pointing directly at a floating, transparent glowing quantum AI processor chip in a dark studio. Pulsing neon cyan and emerald circuit traces, razor-sharp macro reflections, clean dark studio backdrop, crisp edge separation --no watermark, no blur',
     aspectRatio: '16:9',
     modelId: 'nano-banana-2-lite'
+  },
+  {
+    id: 'world-mystery',
+    emoji: '🛸',
+    label: '12,000 YEAR SECRET (World Mysteries)',
+    prompt: 'Professional YouTube documentary thumbnail in World Mysteries style: Prominent bold high-contrast title text across the top reading "12,000 YEAR SECRET" in solid white and glowing gold capital letters with black outline. In a colossal subterranean cavern, a shocked archaeologist holding a bright lantern looks up in awe at an ancient glowing blue alien monolith covered in glowing runes. Volumetric atmospheric god rays, cinematic 4K Unreal Engine render, high visual hierarchy --no watermark, no blur',
+    aspectRatio: '16:9',
+    modelId: 'nano-banana-2'
+  },
+  {
+    id: 'bermuda',
+    emoji: '⏳',
+    label: 'BERMUDA TRIANGLE: WHAT HAPPENED? (Last 24 Hours)',
+    prompt: 'Dramatic YouTube investigative thumbnail in Last 24 Hours mystery style: Bold high-contrast documentary headline text reading "BERMUDA TRIANGLE: WHAT HAPPENED?" in bold white and hazard yellow lettering on top. Split scene of a vintage aircraft vanishing into an enormous spiraling dark oceanic vortex over green lightning, with dramatic searchlight beams and a glowing cockpit radar screen. Cinematic 35mm film grading, rich deep contrast --no watermark, no blur',
+    aspectRatio: '16:9',
+    modelId: 'grok-imagine-image-2-0/text-to-image'
   },
   {
     id: 'shorts',
     emoji: '📱',
     label: 'Vertical Viral Short (9:16)',
-    prompt: 'Vertical 9:16 mobile YouTube Short thumbnail: Shocked creator face close-up looking at camera with mouth agape, holding a glowing mystery device emitting neon spark embers, bold contrasting lighting, high-energy viral retention style.',
+    prompt: 'Vertical 9:16 mobile YouTube Short thumbnail: Bold top headline reading "DO NOT WATCH!" in flaming neon yellow with red warning border. Shocked creator face close-up looking at camera with mouth agape, holding a glowing mystery device emitting neon sparks, bold contrasting lighting, high-energy viral retention style --no watermark, no blur',
     aspectRatio: '9:16',
     modelId: 'gpt-image-2-5-flare-text-to-image'
   }
@@ -385,7 +381,10 @@ export async function uploadImageToCDN(file) {
 
   const res = await fetch(CDN_UPLOAD_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getActiveKey()}`
+    },
     body: JSON.stringify({
       base64Data,
       fileName: cleanName,
@@ -405,13 +404,13 @@ export async function uploadImageToCDN(file) {
   return cdnUrl;
 }
 
-// Naturally adapt any prompt or topic to adopt proper YouTube thumbnail qualities
+// Naturally adapt any video topic or prompt into a real YouTube thumbnail with topic title typography
 export function conditionThumbnailPrompt(rawPrompt, { styleId = 'viral-high-ctr', isEdit = false } = {}) {
   const p = (rawPrompt || '').trim();
   const activeStyle = THUMBNAIL_STYLES.find(s => s.id === styleId) || THUMBNAIL_STYLES[0];
 
   if (!p) {
-    return `YouTube thumbnail: ${activeStyle.keywords}`;
+    return `YouTube thumbnail composition: Bold focal subject, dynamic rim lighting, high contrast, crisp edge definition, 8K cinematic render --no watermark, no blur`;
   }
 
   // If user already wrote detailed thumbnail instructions or negative flags:
@@ -421,11 +420,11 @@ export function conditionThumbnailPrompt(rawPrompt, { styleId = 'viral-high-ctr'
 
   // For image-to-image / restyle tasks:
   if (isEdit) {
-    return `YouTube thumbnail restyle: ${p}. Enhance focal subject with crisp thumbnail lighting, sharp foreground separation, cinematic depth, and vibrant colors. ${activeStyle.keywords}`;
+    return `Viral YouTube thumbnail transformation for topic: "${p}". Prominent high-contrast topic title text across the top reading "${p}". Enhance focal subject with intense thumbnail rim lighting, sharp foreground separation, dynamic cinematic depth, and vibrant colors. ${activeStyle.keywords}`;
   }
 
-  // Standard text-to-image: adapt user topic into proper thumbnail framing & aesthetics
-  return `YouTube thumbnail: ${p}. ${activeStyle.keywords}`;
+  // Standard text-to-image: adapt video topic into proper thumbnail framing with bold title text of the topic
+  return `Real YouTube thumbnail for video topic "${p}": Featuring prominent, large bold title typography across the upper frame displaying "${p}" with high-contrast outline and drop shadow. Bold focal subject on one third, dramatic contrasting lighting, crisp foreground separation, high-retention visual hierarchy. ${activeStyle.keywords}`;
 }
 
 // Build model-specific input payload with automated backend pre-conditioning
@@ -679,7 +678,7 @@ export async function pollThumbnailTask(taskId, keyUsed, { onProgress, maxSecond
   throw new Error(`Generation timed out after ${maxSeconds} seconds.`);
 }
 
-// Prompt enhancer helper: naturally adapts any prompt or topic into proper thumbnail aesthetics
+// Prompt enhancer helper: naturally adapts any prompt or topic into proper thumbnail aesthetics with bold topic text
 export function enhanceThumbnailPrompt(rawPrompt, styleId = 'viral-high-ctr') {
   const p = (rawPrompt || '').trim();
   const activeStyle = THUMBNAIL_STYLES.find(s => s.id === styleId) || THUMBNAIL_STYLES[0];
@@ -693,6 +692,6 @@ export function enhanceThumbnailPrompt(rawPrompt, styleId = 'viral-high-ctr') {
     return p.toLowerCase().includes('thumbnail') ? p : `YouTube thumbnail: ${p}`;
   }
 
-  // Enhance user topic with thumbnail visual impact: contrast, lighting, depth, clarity
-  return `YouTube thumbnail: ${p}. High contrast, sharp focal subject, vibrant cinematic lighting, crisp depth of field, 8K visual clarity --no watermark, no blur, no low resolution`;
+  // Enhance user topic with thumbnail visual impact and prominent title typography
+  return `Real YouTube thumbnail for video topic "${p}": Featuring prominent bold title typography across the upper frame reading "${p}" with high-contrast outline. High dynamic contrast, sharp focal subject, vibrant cinematic lighting, crisp depth of field, 8K visual clarity --no watermark, no blur, no low resolution`;
 }
