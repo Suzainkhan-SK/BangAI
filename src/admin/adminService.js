@@ -20,7 +20,7 @@ export function setAdminToken(token) {
 }
 
 // Helper to make authenticated admin request
-async function adminFetch(action, method = 'GET', body = null) {
+async function adminFetch(actionOrEndpoint, method = 'GET', body = null, params = {}) {
   const token = getAdminToken();
   const headers = {
     'Content-Type': 'application/json'
@@ -30,11 +30,32 @@ async function adminFetch(action, method = 'GET', body = null) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const url = `${API_BASE}?action=${encodeURIComponent(action)}`;
+  // Construct URL with query parameters properly
+  const queryParams = new URLSearchParams();
+  
+  // Parse clean action and any inline parameters if passed as 'action&key=val'
+  let cleanAction = String(actionOrEndpoint || '').trim();
+  if (cleanAction.includes('&')) {
+    const parts = cleanAction.split('&');
+    cleanAction = parts[0].trim();
+    for (let i = 1; i < parts.length; i++) {
+      const [k, v] = parts[i].split('=');
+      if (k) queryParams.set(k, decodeURIComponent(v || ''));
+    }
+  }
+
+  queryParams.set('action', cleanAction);
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null) {
+      queryParams.set(k, String(v));
+    }
+  }
+
+  const url = `${API_BASE}?${queryParams.toString()}`;
   const options = { method, headers };
 
   if (body && (method === 'POST' || method === 'PUT' || method === 'DELETE')) {
-    options.body = JSON.stringify({ ...body, action });
+    options.body = JSON.stringify({ ...body, action: cleanAction });
   }
 
   try {
@@ -42,7 +63,7 @@ async function adminFetch(action, method = 'GET', body = null) {
     const data = await res.json();
     return data;
   } catch (err) {
-    console.error(`[adminService] Error executing action '${action}':`, err);
+    console.error(`[adminService] Error executing action '${cleanAction}':`, err);
     return { success: false, error: err.message };
   }
 }
@@ -101,7 +122,7 @@ export const adminService = {
     adminFetch('delete-template', 'POST', { templateId }),
 
   // 9. Users & Quotas
-  getUsers: async (limit = 50) => adminFetch(`get-users&limit=${limit}`, 'GET'),
+  getUsers: async (limit = 100) => adminFetch('get-users', 'GET', null, { limit }),
   updateUserQuota: async (email, tier, credits, isBanned) =>
     adminFetch('update-user-quota', 'POST', { email, tier, credits, isBanned }),
 
@@ -111,17 +132,17 @@ export const adminService = {
     adminFetch('send-telegram-alert', 'POST', { botToken, chatId, message }),
 
   // 11. Master Asset Vault & Pipeline
-  getJobs: async (limit = 50) => adminFetch(`get-jobs&limit=${limit}`, 'GET'),
+  getJobs: async (limit = 50) => adminFetch('get-jobs', 'GET', null, { limit }),
 
   // 12. Cloud Infrastructure & Database Visual Browser
   getInfraStatus: async () => adminFetch('get-infra-status', 'GET'),
   getCollectionDocs: async (collection) =>
-    adminFetch(`get-collection-docs&collection=${encodeURIComponent(collection)}`, 'GET'),
+    adminFetch('get-collection-docs', 'GET', null, { collection }),
   saveCollectionDoc: async (collection, document) =>
     adminFetch('save-collection-doc', 'POST', { collection, document }),
   exportDatabaseJson: async () => adminFetch('export-database-json', 'GET'),
   triggerNetlifyDeploy: async () => adminFetch('trigger-netlify-deploy', 'POST'),
-  getNetlifyDeploys: async (perPage = 6) => adminFetch(`get-netlify-deploys&per_page=${perPage}`, 'GET'),
+  getNetlifyDeploys: async (perPage = 6) => adminFetch('get-netlify-deploys', 'GET', null, { per_page: perPage }),
 
   // 13. Chat LLM Live Testing
   testChatPrompt: async (model, systemPrompt, userPrompt, temperature) =>

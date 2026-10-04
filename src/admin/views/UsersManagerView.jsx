@@ -9,14 +9,20 @@ export default function UsersManagerView() {
   const [editingUser, setEditingUser] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
 
+  const [errorMsg, setErrorMsg] = useState('');
+
   const fetchUsers = async () => {
     setLoading(true);
+    setErrorMsg('');
     try {
       const res = await adminService.getUsers(100);
       if (res.success && Array.isArray(res.data)) {
         setUsers(res.data);
+      } else {
+        setErrorMsg(res.error || 'Failed to load users from MongoDB Atlas');
       }
     } catch (e) {
+      setErrorMsg(e.message);
       console.warn('Error fetching real users:', e.message);
     } finally {
       setLoading(false);
@@ -47,8 +53,10 @@ export default function UsersManagerView() {
     }
   };
 
+  const uniqueTiers = ['ALL', ...Array.from(new Set(users.map(u => u.tier).filter(Boolean)))];
+
   const filteredUsers = users.filter(u => {
-    const matchesSearch = u.email.toLowerCase().includes(search.toLowerCase()) ||
+    const matchesSearch = (u.email && u.email.toLowerCase().includes(search.toLowerCase())) ||
                           (u.name && u.name.toLowerCase().includes(search.toLowerCase()));
     const matchesTier = tierFilter === 'ALL' || u.tier === tierFilter;
     return matchesSearch && matchesTier;
@@ -71,6 +79,21 @@ export default function UsersManagerView() {
         </div>
       </div>
 
+      {errorMsg && (
+        <div style={{
+          padding: '12px 18px',
+          borderRadius: '10px',
+          background: 'rgba(239, 68, 68, 0.12)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          color: '#ef4444',
+          fontSize: '13px',
+          fontWeight: 600,
+          marginBottom: '16px'
+        }}>
+          ⚠️ {errorMsg}
+        </div>
+      )}
+
       {toastMsg && (
         <div style={{
           padding: '12px 18px',
@@ -79,7 +102,8 @@ export default function UsersManagerView() {
           border: '1px solid rgba(16, 185, 129, 0.3)',
           color: '#10b981',
           fontSize: '13px',
-          fontWeight: 600
+          fontWeight: 600,
+          marginBottom: '16px'
         }}>
           {toastMsg}
         </div>
@@ -97,16 +121,16 @@ export default function UsersManagerView() {
               className="admin-input"
             />
           </div>
-          <div style={{ width: '180px' }}>
+          <div style={{ width: '220px' }}>
             <select
               value={tierFilter}
               onChange={(e) => setTierFilter(e.target.value)}
               className="admin-select"
             >
               <option value="ALL">All Tiers ({users.length})</option>
-              <option value="Creator Pro Plan">Creator Pro Plan</option>
-              <option value="Free">Free</option>
-              <option value="Enterprise">Enterprise</option>
+              {uniqueTiers.filter(t => t !== 'ALL').map(t => (
+                <option key={t} value={t}>{t} ({users.filter(u => u.tier === t).length})</option>
+              ))}
             </select>
           </div>
         </div>

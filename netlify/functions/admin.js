@@ -119,8 +119,24 @@ export async function handler(event) {
     try { body = JSON.parse(event.body); } catch (e) {}
   }
 
-  const query = event.queryStringParameters || {};
-  const action = query.action || body.action || '';
+  const query = { ...(event.queryStringParameters || {}) };
+  let action = String(query.action || body.action || '').trim();
+
+  // If action contains inline query parameters (e.g., 'get-users&limit=100'), parse them cleanly
+  if (action.includes('&')) {
+    const parts = action.split('&');
+    action = parts[0].trim();
+    for (let i = 1; i < parts.length; i++) {
+      const [k, v] = parts[i].split('=');
+      if (k && !query[k]) {
+        try {
+          query[k] = decodeURIComponent(v || '');
+        } catch (e) {
+          query[k] = v || '';
+        }
+      }
+    }
+  }
 
   // 1. PUBLIC ACTION: Master Admin Login
   if (action === 'login') {
