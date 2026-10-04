@@ -8,7 +8,7 @@ import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 import { getN8nConfig } from './n8n-config.js';
 
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg25.app.n8n.cloud/webhook/viral-shorts-ai';
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg29.app.n8n.cloud/webhook/viral-shorts-ai';
 const CACHE_FILE = path.join('/tmp', 'latest_story.json');
 
 export const handler = async (event, context) => {

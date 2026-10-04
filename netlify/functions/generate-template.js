@@ -8,9 +8,9 @@ import { getN8nConfig } from './n8n-config.js';
 
 // Webhook endpoints for autonomous template workflows on n8n Cloud
 const TEMPLATE_WEBHOOKS = {
-  'world-mysteries': 'https://cmpunktg25.app.n8n.cloud/webhook/template-world-mysteries',
-  'last-24-hours':   'https://cmpunktg25.app.n8n.cloud/webhook/template-last-24-hours',
-  '3am-horror':      'https://cmpunktg25.app.n8n.cloud/webhook/template-3am-horror'
+  'world-mysteries': 'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
+  'last-24-hours':   'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
+  '3am-horror':      'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror'
 };
 
 const TEMPLATE_META = {

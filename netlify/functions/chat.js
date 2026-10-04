@@ -9,7 +9,7 @@ import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 import { getN8nConfig } from './n8n-config.js';
 
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg25.app.n8n.cloud/webhook/viral-shorts-ai';
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg29.app.n8n.cloud/webhook/viral-shorts-ai';
 const XKIRO_BASE_URL = process.env.XKIRO_BASE_URL || 'https://api.xkiro.com/v1';
 const XKIRO_DEFAULT_MODEL = 'mistralai/mistral-large-2512';
 
@@ -1034,7 +1034,7 @@ CRITICAL RULES:
         body: JSON.stringify({
           success: false,
           error: 'WORKFLOW_INACTIVE',
-          message: `n8n Cloud returned HTTP ${n8nResponseStatus}. Please ensure workflow LPDivELTTv8QD24u is Published & Active in cmpunktg25.`
+          message: `n8n Cloud returned HTTP ${n8nResponseStatus}. Please ensure workflow YKl6hhWT4kEs9Ytc is Published & Active in cmpunktg29.`
         })
       };
     }

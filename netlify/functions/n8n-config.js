@@ -9,16 +9,16 @@ let lastFetchTime = 0;
 const CACHE_TTL_MS = 60 * 1000; // Refresh from DB every 60 seconds
 
 const DEFAULT_CONFIG = {
-  activeInstance: 'https://cmpunktg25.app.n8n.cloud',
+  activeInstance: 'https://cmpunktg29.app.n8n.cloud',
   apiKey: process.env.N8N_API_KEY || 'n8n_api_d07ac84c49c0e4b37d0025c7d8cb5c6d773a14f0',
-  workflowId: 'LPDivELTTv8QD24u',
+  workflowId: 'YKl6hhWT4kEs9Ytc',
   webhooks: {
-    viral_shorts: process.env.N8N_WEBHOOK_URL || 'https://cmpunktg25.app.n8n.cloud/webhook/viral-shorts-ai',
-    story_approval: 'https://cmpunktg25.app.n8n.cloud/webhook/story-approval',
-    youtube_upload: process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg25.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload',
-    template_world_mysteries: 'https://cmpunktg25.app.n8n.cloud/webhook/template-world-mysteries',
-    template_last_24_hours: 'https://cmpunktg25.app.n8n.cloud/webhook/template-last-24-hours',
-    template_3am_horror: 'https://cmpunktg25.app.n8n.cloud/webhook/template-3am-horror'
+    viral_shorts: process.env.N8N_WEBHOOK_URL || 'https://cmpunktg29.app.n8n.cloud/webhook/viral-shorts-ai',
+    story_approval: 'https://cmpunktg29.app.n8n.cloud/webhook/story-approval',
+    youtube_upload: process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg29.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload',
+    template_world_mysteries: 'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
+    template_last_24_hours: 'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
+    template_3am_horror: 'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror'
   }
 };
 
