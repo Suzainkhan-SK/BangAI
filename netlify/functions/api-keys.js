@@ -1,7 +1,6 @@
-// Shared API Key Rotation Module
-// Provides round-robin key rotation for json2video, ElevenLabs, and Jamendo APIs
+import { getDb } from './db.js';
 
-// ─── json2video API Keys (12 keys) ────────────────────────────────────
+// ─── json2video API Keys (Fallback Pool) ───────────────────────────────
 const JSON2VIDEO_KEYS = [
   'CclCGmgMXImymZnHctdV2bSfVe38ZlFGPI5BBBOo', // ~363s remaining
   'iuCcWNHGIfA7DZshgdCG5YEJiel4qSMmNPeFU4R7', // ~373s remaining
@@ -17,11 +16,41 @@ const JSON2VIDEO_KEYS = [
   'UyqK9IVQJp6lBewpRcWEk8GjfBjnWLb8y3FZAWD5'  // 1s remaining (exhausted - fallback only)
 ];
 
-// ─── ElevenLabs API Keys (2 keys) ─────────────────────────────────────
+// ─── ElevenLabs API Keys (Fallback Pool) ──────────────────────────────
 const ELEVENLABS_KEYS = [
   'sk_958d429799361aca849b92a23e9e6b19234c5be0c187cbe6',
   'sk_eaf61e4e9c923999fdf04319520854968827135e833f3b5d'
 ];
+
+// Dynamic In-Memory Cached Pools
+let activeJson2VideoPool = JSON2VIDEO_KEYS;
+let activeElevenLabsPool = ELEVENLABS_KEYS;
+let lastPoolFetchTime = 0;
+const POOL_TTL_MS = 60 * 1000; // Refresh from DB every 60 seconds
+
+async function refreshKeyPools() {
+  const now = Date.now();
+  if (now - lastPoolFetchTime < POOL_TTL_MS) return;
+
+  try {
+    const db = await getDb();
+    if (db) {
+      const [j2vDoc, elDoc] = await Promise.all([
+        db.collection('api_keys').findOne({ _id: 'json2video_keys' }),
+        db.collection('api_keys').findOne({ _id: 'elevenlabs_keys' })
+      ]);
+      if (j2vDoc && Array.isArray(j2vDoc.pool) && j2vDoc.pool.length > 0) {
+        activeJson2VideoPool = j2vDoc.pool;
+      }
+      if (elDoc && Array.isArray(elDoc.pool) && elDoc.pool.length > 0) {
+        activeElevenLabsPool = elDoc.pool;
+      }
+      lastPoolFetchTime = now;
+    }
+  } catch (err) {
+    console.warn('[api-keys.js] Dynamic key pool read notice:', err.message);
+  }
+}
 
 // ─── Jamendo API (free tier client_id) ──
 const JAMENDO_CLIENT_ID = process.env.JAMENDO_CLIENT_ID || '';
@@ -34,7 +63,8 @@ let elevenLabsIndex = 0;
  * Get the next json2video API key (round-robin rotation).
  */
 export function getJson2VideoKey() {
-  const key = JSON2VIDEO_KEYS[json2videoIndex % JSON2VIDEO_KEYS.length];
+  const pool = activeJson2VideoPool;
+  const key = pool[json2videoIndex % pool.length];
   json2videoIndex++;
   return key;
 }
@@ -43,25 +73,29 @@ export function getJson2VideoKey() {
  * Execute a json2video API call with automatic key rotation and retry.
  */
 export async function withJson2VideoRetry(apiCallFn, maxRetries = 3) {
+  await refreshKeyPools();
+  const pool = activeJson2VideoPool;
   let lastError = null;
-  for (let i = 0; i < Math.min(maxRetries, JSON2VIDEO_KEYS.length); i++) {
+  const attempts = Math.min(maxRetries, pool.length);
+  for (let i = 0; i < attempts; i++) {
     const key = getJson2VideoKey();
     try {
       const result = await apiCallFn(key);
       return result;
     } catch (err) {
       lastError = err;
-      console.warn(`[json2video] Key index ${(json2videoIndex - 1) % JSON2VIDEO_KEYS.length} failed: ${err.message}`);
+      console.warn(`[json2video] Key slot #${(json2videoIndex - 1) % pool.length + 1} failed: ${err.message}`);
     }
   }
-  throw new Error(`All json2video keys exhausted after ${maxRetries} attempts: ${lastError?.message}`);
+  throw new Error(`All json2video keys exhausted after ${attempts} attempts: ${lastError?.message}`);
 }
 
 /**
  * Get the next ElevenLabs API key (failover rotation).
  */
 export function getElevenLabsKey() {
-  const key = ELEVENLABS_KEYS[elevenLabsIndex % ELEVENLABS_KEYS.length];
+  const pool = activeElevenLabsPool;
+  const key = pool[elevenLabsIndex % pool.length];
   elevenLabsIndex++;
   return key;
 }
@@ -70,18 +104,21 @@ export function getElevenLabsKey() {
  * Execute an ElevenLabs API call with automatic key rotation and retry.
  */
 export async function withElevenLabsRetry(apiCallFn, maxRetries = 2) {
+  await refreshKeyPools();
+  const pool = activeElevenLabsPool;
   let lastError = null;
-  for (let i = 0; i < Math.min(maxRetries, ELEVENLABS_KEYS.length); i++) {
+  const attempts = Math.min(maxRetries, pool.length);
+  for (let i = 0; i < attempts; i++) {
     const key = getElevenLabsKey();
     try {
       const result = await apiCallFn(key);
       return result;
     } catch (err) {
       lastError = err;
-      console.warn(`[ElevenLabs] Key index ${(elevenLabsIndex - 1) % ELEVENLABS_KEYS.length} failed: ${err.message}`);
+      console.warn(`[ElevenLabs] Key slot #${(elevenLabsIndex - 1) % pool.length + 1} failed: ${err.message}`);
     }
   }
-  throw new Error(`All ElevenLabs keys exhausted after ${maxRetries} attempts: ${lastError?.message}`);
+  throw new Error(`All ElevenLabs keys exhausted after ${attempts} attempts: ${lastError?.message}`);
 }
 
 /**

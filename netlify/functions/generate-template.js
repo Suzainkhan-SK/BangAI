@@ -4,6 +4,7 @@
 
 import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
+import { getN8nConfig } from './n8n-config.js';
 
 // Webhook endpoints for autonomous template workflows on n8n Cloud
 const TEMPLATE_WEBHOOKS = {
@@ -61,7 +62,13 @@ export const handler = async (event) => {
   try {
     const payload = JSON.parse(event.body || '{}');
     const templateId = payload.templateId || 'world-mysteries';
-    const webhookUrl = TEMPLATE_WEBHOOKS[templateId];
+    const n8nCfg = await getN8nConfig();
+    const dynamicWebhooks = {
+      'world-mysteries': n8nCfg.webhooks?.template_world_mysteries || TEMPLATE_WEBHOOKS['world-mysteries'],
+      'last-24-hours':   n8nCfg.webhooks?.template_last_24_hours   || TEMPLATE_WEBHOOKS['last-24-hours'],
+      '3am-horror':      n8nCfg.webhooks?.template_3am_horror      || TEMPLATE_WEBHOOKS['3am-horror']
+    };
+    const webhookUrl = dynamicWebhooks[templateId];
 
     if (!webhookUrl) {
       return {

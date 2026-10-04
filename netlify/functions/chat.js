@@ -7,6 +7,7 @@
 
 import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
+import { getN8nConfig } from './n8n-config.js';
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://cmpunktg25.app.n8n.cloud/webhook/viral-shorts-ai';
 const XKIRO_BASE_URL = process.env.XKIRO_BASE_URL || 'https://api.xkiro.com/v1';
@@ -999,7 +1000,9 @@ CRITICAL RULES:
     let n8nResponseStatus = 200;
 
     try {
-      const n8nRes = await fetch(N8N_WEBHOOK_URL, {
+      const n8nCfg = await getN8nConfig();
+      const targetWebhookUrl = n8nCfg.webhooks?.viral_shorts || N8N_WEBHOOK_URL;
+      const n8nRes = await fetch(targetWebhookUrl, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

@@ -2,27 +2,9 @@
 // BangAI Neural Vision Engine - Thumbnail Studio Service
 // Multi-Key Rotating Pool with Automatic Failover & High-Performance CDN
 
-const API_KEYS = [
-  '05ac939d323c2500f085f9b9ba235e85',
-  'e69cdf52c51effcfebfeb44e508c8e40',
-  'bb19f8a8b94e785f7f8cf7955ed165a6',
-  'a12309554b342ed9d3d5577d4079cae0',
-  '2157c9fa712b2064b7a781139c8122d0',
-  '18609e3bdb8e6ac38de3c5c7469ede4f',
-  '4626f1626df64062f34aead8fae16bab',
-  '934c5d4c188c224c040d8e3f03696c92',
-  'b08b84a5a4007b96d7f64d999dc7a9fe',
-  '52b269d09aa3e629f5be27063286a5c7',
-  '027cb49edbfe6908faf141d773f5e189',
-  '600b59d0630c57062ea2d359a6a6f64c',
-  '448eb7672ebe6a1c6fe64c4db9e7edf0',
-  '4125c81cab785b8b23474ce0b62c10ef',
-  'dea4cecf44a3aec3b6a652bd485e172d',
-  '92d0de6f5552d358907b96d10349e68b'
-];
-
-const BASE_API_URL = 'https://api.kie.ai/api/v1/jobs';
-const CDN_UPLOAD_URL = 'https://kieai.redpandaai.co/api/file-base64-upload';
+// All vision engine requests, key pools, and rotation are securely handled server-side
+// via /.netlify/functions/thumbnail (zero API keys exposed in browser or DevTools)
+const THUMBNAIL_PROXY_URL = '/.netlify/functions/thumbnail';
 
 // Supported top-tier vision models
 export const THUMBNAIL_MODELS = [
@@ -337,31 +319,6 @@ export const VIRAL_PRESETS = [
   }
 ];
 
-// Key rotation management
-let currentKeyIndex = (() => {
-  try {
-    const saved = localStorage.getItem('bangai_thumb_key_idx');
-    if (saved !== null) {
-      const parsed = parseInt(saved, 10);
-      if (!isNaN(parsed) && parsed >= 0 && parsed < API_KEYS.length) return parsed;
-    }
-  } catch {}
-  return 0;
-})();
-
-function getActiveKey() {
-  return API_KEYS[currentKeyIndex];
-}
-
-function rotateKey() {
-  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-  try {
-    localStorage.setItem('bangai_thumb_key_idx', String(currentKeyIndex));
-  } catch {}
-  console.log(`[ThumbnailService] Auto-rotated to API key pool slot #${currentKeyIndex + 1}/${API_KEYS.length}`);
-  return API_KEYS[currentKeyIndex];
-}
-
 // Convert a File or Blob to Base64
 export function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -374,16 +331,15 @@ export function fileToBase64(file) {
   });
 }
 
-// Upload image file to CDN
+// Upload image file to CDN via secure serverless proxy
 export async function uploadImageToCDN(file) {
   const base64Data = await fileToBase64(file);
   const cleanName = (file.name || 'reference_image.png').replace(/[^a-zA-Z0-9._-]/g, '_');
 
-  const res = await fetch(CDN_UPLOAD_URL, {
+  const res = await fetch(`${THUMBNAIL_PROXY_URL}?action=uploadImage`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${getActiveKey()}`
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       base64Data,
@@ -393,11 +349,12 @@ export async function uploadImageToCDN(file) {
   });
 
   if (!res.ok) {
-    throw new Error(`CDN upload failed with status ${res.status}`);
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson.error || `CDN upload failed with status ${res.status}`);
   }
 
   const json = await res.json();
-  const cdnUrl = json?.data?.downloadUrl || json?.data?.url || json?.url;
+  const cdnUrl = json?.downloadUrl;
   if (!cdnUrl) {
     throw new Error('CDN response did not return a valid downloadUrl');
   }
@@ -552,70 +509,39 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
   return { prompt: conditionedPrompt, aspect_ratio: aspectRatio };
 }
 
-// Generate thumbnail task with multi-key rotation and automatic failover
+// Generate thumbnail task via secure serverless proxy with multi-key rotation and automatic failover
 export async function createThumbnailTask(modelId, params) {
   const input = buildModelInput(modelId, params);
-  let lastError = null;
 
-  // Try across available keys in the pool
-  for (let attempt = 0; attempt < API_KEYS.length; attempt++) {
-    const key = getActiveKey();
-    try {
-      const res = await fetch(`${BASE_API_URL}/createTask`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${key}`
-        },
-        body: JSON.stringify({
-          model: modelId,
-          input
-        })
-      });
+  const res = await fetch(`${THUMBNAIL_PROXY_URL}?action=createTask`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: modelId,
+      input
+    })
+  });
 
-      // Handle 401 Unauthorized, 402 Payment Required / Out of Credits, or 429 Rate Limit
-      if (res.status === 401 || res.status === 402 || res.status === 429) {
-        console.warn(`[ThumbnailService] Key pool slot #${currentKeyIndex + 1} returned status ${res.status}. Rotating...`);
-        rotateKey();
-        continue;
-      }
+  const json = await res.json().catch(() => ({}));
 
-      const json = await res.json();
-
-      // Check for API-level credit exhaustion error
-      if (json.code === 402 || (json.msg && /insufficient|balance|credit/i.test(json.msg))) {
-        console.warn(`[ThumbnailService] Key pool slot #${currentKeyIndex + 1} exhausted (${json.msg}). Rotating...`);
-        rotateKey();
-        continue;
-      }
-
-      if (json.code !== 200 || !json.data?.taskId) {
-        throw new Error(json.msg || `Task creation failed with code ${json.code}`);
-      }
-
-      return {
-        taskId: json.data.taskId,
-        keyUsed: key,
-        modelId,
-        input
-      };
-    } catch (err) {
-      lastError = err;
-      if (attempt < API_KEYS.length - 1) {
-        console.warn(`[ThumbnailService] Attempt failed (${err.message}). Retrying with next key...`);
-        rotateKey();
-      }
-    }
+  if (!res.ok || !json.success || !json.taskId) {
+    throw new Error(json.error || `Task creation failed with status ${res.status}`);
   }
 
-  throw lastError || new Error('All vision engine API keys exhausted. Please try again in a few moments.');
+  return {
+    taskId: json.taskId,
+    keyUsed: 'secure_vault',
+    modelId,
+    input
+  };
 }
 
-// Poll task result with key rotation fallback
+// Poll task result via secure serverless proxy with failover
 export async function pollThumbnailTask(taskId, keyUsed, { onProgress, maxSeconds = 120 } = {}) {
   const startTime = Date.now();
   const pollIntervalMs = 2000;
-  let activeKey = keyUsed || getActiveKey();
 
   while ((Date.now() - startTime) < maxSeconds * 1000) {
     const elapsedSec = Math.round((Date.now() - startTime) / 1000);
@@ -624,49 +550,30 @@ export async function pollThumbnailTask(taskId, keyUsed, { onProgress, maxSecond
     }
 
     try {
-      const res = await fetch(`${BASE_API_URL}/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${activeKey}`
-        }
+      const res = await fetch(`${THUMBNAIL_PROXY_URL}?action=pollTask&taskId=${encodeURIComponent(taskId)}`, {
+        method: 'GET'
       });
 
       if (res.ok) {
         const json = await res.json();
-        if (json.code === 200 && json.data) {
-          const taskData = json.data;
-          const state = taskData.state;
+        if (json.success) {
+          const state = json.state;
 
           if (state === 'success') {
-            // Parse output result
-            let resultUrl = null;
-            if (taskData.resultJson) {
-              try {
-                const parsed = JSON.parse(taskData.resultJson);
-                resultUrl = parsed.resultUrls?.[0] || parsed.resultUrl || parsed.output?.[0] || parsed.images?.[0];
-              } catch {
-                resultUrl = taskData.resultJson;
-              }
-            }
-            if (!resultUrl && taskData.resultUrls?.length) {
-              resultUrl = taskData.resultUrls[0];
-            }
-
             return {
               state: 'success',
-              resultUrl,
-              taskData,
+              resultUrl: json.resultUrl,
+              taskData: json,
               elapsedSec
             };
           }
 
           if (state === 'fail') {
-            throw new Error(taskData.failReason || 'Vision engine task processing failed.');
+            throw new Error(json.failReason || 'Vision engine task processing failed.');
           }
         }
       }
     } catch (pollErr) {
-      // If polling error is fatal fail, throw it
       if (pollErr.message && /failed/i.test(pollErr.message)) {
         throw pollErr;
       }

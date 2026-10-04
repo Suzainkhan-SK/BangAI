@@ -5,6 +5,7 @@
 
 import { getDb } from './db.js';
 import { verifyToken } from './google-oauth.js';
+import { getN8nConfig } from './n8n-config.js';
 
 const N8N_API_URL = 'https://cmpunktg25.app.n8n.cloud/api/v1';
 const N8N_API_KEY = process.env.N8N_API_KEY || 'n8n_api_d07ac84c49c0e4b37d0025c7d8cb5c6d773a14f0';
@@ -15,8 +16,13 @@ const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLE
 // Fallback: query n8n execution API to find if this thread got a story callback
 async function checkN8nExecutionForThread(threadId) {
   try {
-    const res = await fetch(`${N8N_API_URL}/executions?workflowId=${WORKFLOW_ID}&status=waiting&limit=5`, {
-      headers: { 'X-N8N-API-KEY': N8N_API_KEY }
+    const n8nCfg = await getN8nConfig();
+    const apiUrl = n8nCfg.activeInstance ? `${n8nCfg.activeInstance}/api/v1` : N8N_API_URL;
+    const apiKey = n8nCfg.apiKey || N8N_API_KEY;
+    const workflowId = n8nCfg.workflowId || WORKFLOW_ID;
+
+    const res = await fetch(`${apiUrl}/executions?workflowId=${workflowId}&status=waiting&limit=5`, {
+      headers: { 'X-N8N-API-KEY': apiKey }
     });
     if (!res.ok) return null;
 
@@ -26,8 +32,8 @@ async function checkN8nExecutionForThread(threadId) {
     // Check the most recent execution for our thread data
     for (const exec of executions) {
       try {
-        const detailRes = await fetch(`${N8N_API_URL}/executions/${exec.id}`, {
-          headers: { 'X-N8N-API-KEY': N8N_API_KEY }
+        const detailRes = await fetch(`${apiUrl}/executions/${exec.id}`, {
+          headers: { 'X-N8N-API-KEY': apiKey }
         });
         if (!detailRes.ok) continue;
         const detail = await detailRes.json();

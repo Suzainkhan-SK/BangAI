@@ -188,7 +188,6 @@ export async function synthesizeVoicePreview({
   // Case 2: Rendering asynchronously in JSON2Video -> Poll with high resilience
   if (data.project) {
     const projectId = data.project;
-    const apiKey = data.apiKey || '';
     const startTime = Date.now();
 
     while (Date.now() - startTime < maxPollMs) {
@@ -198,7 +197,7 @@ export async function synthesizeVoicePreview({
 
       await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
 
-      const pollUrl = `/.netlify/functions/preview-voice?project=${encodeURIComponent(projectId)}${apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : ''}`;
+      const pollUrl = `/.netlify/functions/preview-voice?project=${encodeURIComponent(projectId)}`;
       try {
         const pollRes = await fetch(pollUrl, { signal });
         if (pollRes.ok) {

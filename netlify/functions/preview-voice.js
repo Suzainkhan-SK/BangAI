@@ -146,8 +146,7 @@ export const handler = async (event) => {
         body: JSON.stringify({
           success: true,
           status: 'rendering',
-          project: projectId,
-          apiKey: apiKey
+          project: projectId
         })
       };
     } catch (err) {
@@ -304,8 +303,7 @@ export const handler = async (event) => {
           // If not finished in 2.0s, return project for client polling
           return {
             status: 'rendering',
-            project: projectId,
-            apiKey: apiKey
+            project: projectId
           };
         }
 
@@ -323,7 +321,6 @@ export const handler = async (event) => {
           status: 'done',
           audio: base64Media,
           audioUrl: movieUrl,
-          apiKey: apiKey,
           mimeType: 'video/mp4'
         };
       }, 3);
@@ -336,7 +333,6 @@ export const handler = async (event) => {
           provider: 'json2video',
           status: json2VideoResult.status,
           project: json2VideoResult.project,
-          apiKey: json2VideoResult.apiKey,
           audio: json2VideoResult.audio,
           audioUrl: json2VideoResult.audioUrl,
           mimeType: json2VideoResult.mimeType || 'video/mp4',

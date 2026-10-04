@@ -4,6 +4,7 @@
 
 import { getDb } from './db.js';
 import { getFreshGoogleToken } from './google-oauth.js';
+import { getN8nConfig } from './n8n-config.js';
 import crypto from 'crypto';
 
 const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg25.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
@@ -151,7 +152,9 @@ export const handler = async (event, context) => {
     const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
     let n8nRes;
     try {
-      n8nRes = await fetch(N8N_YOUTUBE_WEBHOOK_URL, {
+      const n8nCfg = await getN8nConfig();
+      const targetWebhookUrl = n8nCfg.webhooks?.youtube_upload || N8N_YOUTUBE_WEBHOOK_URL;
+      n8nRes = await fetch(targetWebhookUrl, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
