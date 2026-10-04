@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { adminService } from '../adminService';
 
 export default function DesignStudioView() {
   const [font, setFont] = useState('Poppins');
@@ -7,11 +8,53 @@ export default function DesignStudioView() {
   const [boxOpacity, setBoxOpacity] = useState(0.75);
   const [watermarkEnabled, setWatermarkEnabled] = useState(false);
   const [watermarkPos, setWatermarkPos] = useState('top-right');
+  const [watermarkText, setWatermarkText] = useState('BangAI Studio');
+  const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
 
-  const handleSave = () => {
-    setSavedMsg('Subtitle typography and branding design presets updated globally!');
-    setTimeout(() => setSavedMsg(''), 4000);
+  const fetchSettings = async () => {
+    try {
+      const res = await adminService.getPlatformSettings();
+      if (res.success && res.data?.designSettings) {
+        const ds = res.data.designSettings;
+        if (ds.defaultFont) setFont(ds.defaultFont);
+        if (ds.subtitleColor) setHighlightColor(ds.subtitleColor);
+        if (ds.animation) setAnimation(ds.animation);
+        if (ds.boxOpacity !== undefined) setBoxOpacity(ds.boxOpacity);
+        if (ds.watermarkEnabled !== undefined) setWatermarkEnabled(ds.watermarkEnabled);
+        if (ds.watermarkPos) setWatermarkPos(ds.watermarkPos);
+        if (ds.watermarkText) setWatermarkText(ds.watermarkText);
+      }
+    } catch (e) {
+      console.warn('Failed to load design settings:', e.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await adminService.savePlatformSettings({
+        designSettings: {
+          defaultFont: font,
+          subtitleColor: highlightColor,
+          animation,
+          boxOpacity,
+          watermarkEnabled,
+          watermarkPos,
+          watermarkText
+        }
+      });
+      setSavedMsg('✅ Subtitle typography and branding design presets saved to MongoDB Atlas globally!');
+      setTimeout(() => setSavedMsg(''), 4000);
+    } catch (e) {
+      setSavedMsg(`⚠️ Error: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -19,48 +62,54 @@ export default function DesignStudioView() {
       {/* View Header */}
       <div className="admin-view-header">
         <div>
-          <h1 className="admin-view-title">Design Studio & Typography Manager</h1>
+          <h1 className="admin-view-title">Design Studio & Subtitle Typography Standards</h1>
           <p className="admin-view-desc">
-            Standardize dynamic word-by-word animated subtitles, highlight color schemes, typography, and brand watermark overlays.
+            Standardize dynamic word-by-word animated subtitles, highlight color schemes, typography, and brand watermark overlays across all video generation pipelines.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button type="button" onClick={handleSave} className="admin-btn admin-btn-primary">
-            💾 Save Design Standards
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="admin-btn admin-btn-primary"
+          >
+            {saving ? 'Saving...' : '💾 Save Design Standards'}
           </button>
         </div>
       </div>
 
       {savedMsg && (
         <div style={{
-          padding: '10px 16px',
-          borderRadius: '8px',
-          background: 'rgba(16, 185, 129, 0.15)',
+          padding: '12px 18px',
+          borderRadius: '10px',
+          background: 'rgba(16, 185, 129, 0.12)',
           border: '1px solid rgba(16, 185, 129, 0.3)',
           color: '#10b981',
-          fontSize: '13px',
-          marginBottom: '16px'
+          fontSize: '13.5px',
+          fontWeight: 600
         }}>
-          ✅ {savedMsg}
+          {savedMsg}
         </div>
       )}
 
       {/* Two Column: Design Controls + Live Visual Preview */}
       <div className="admin-grid admin-grid-2">
         {/* Controls Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           {/* Typography Settings */}
           <div className="admin-card">
-            <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 14px 0' }}>
-              Subtitle Typography & Animation
+            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 14px 0' }}>
+              Dynamic Subtitle Typography & Colors
             </h3>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
                   Default Font Family
                 </label>
                 <select value={font} onChange={(e) => setFont(e.target.value)} className="admin-select">
-                  <option value="Poppins">Poppins (Modern Bold)</option>
+                  <option value="Poppins">Poppins (Modern Bold - Recommended)</option>
                   <option value="Outfit">Outfit (Cyber Tech)</option>
                   <option value="Montserrat">Montserrat (Classic Clean)</option>
                   <option value="Bebas Neue">Bebas Neue (Impact All-Caps)</option>
@@ -84,7 +133,7 @@ export default function DesignStudioView() {
                     value={highlightColor}
                     onChange={(e) => setHighlightColor(e.target.value)}
                     className="admin-input"
-                    style={{ width: '120px' }}
+                    style={{ width: '120px', fontFamily: 'var(--admin-font-mono)' }}
                   />
                   <div style={{ display: 'flex', gap: '6px' }}>
                     {['#fbbf24', '#06b6d4', '#f43f5e', '#10b981', '#a855f7'].map(c => (
@@ -92,12 +141,13 @@ export default function DesignStudioView() {
                         key={c}
                         onClick={() => setHighlightColor(c)}
                         style={{
-                          width: '24px',
-                          height: '24px',
+                          width: '26px',
+                          height: '26px',
                           borderRadius: '50%',
                           background: c,
                           cursor: 'pointer',
-                          border: highlightColor === c ? '2px solid #fff' : 'none'
+                          border: highlightColor === c ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
+                          boxShadow: highlightColor === c ? '0 0 8px ' + c : 'none'
                         }}
                       />
                     ))}
@@ -107,115 +157,155 @@ export default function DesignStudioView() {
 
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
-                  Subtitle Transition & Animation Style
+                  Caption Animation Style
                 </label>
                 <select value={animation} onChange={(e) => setAnimation(e.target.value)} className="admin-select">
-                  <option value="karaoke-pop">Karaoke Pop (Word by word scale punch)</option>
-                  <option value="bounce-glow">Bounce & Neon Glow</option>
-                  <option value="fade-slide">Smooth Slide Up & Fade</option>
-                  <option value="minimalist">Minimalist Flat Jump</option>
+                  <option value="karaoke-pop">Karaoke Pop (Word pops forward in highlight color)</option>
+                  <option value="highlight-box">Bouncing Highlight Box (Rounded rectangular backing)</option>
+                  <option value="fade-glow">Neon Glow Pulse (Outer text glow)</option>
                 </select>
               </div>
             </div>
           </div>
 
-          {/* Watermark Branding Card */}
+          {/* Branding & Watermarks Card */}
           <div className="admin-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Platform Watermark Overlay</h3>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 14px 0' }}>
+              Branding & Watermark Overlays
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--admin-text-main)' }}>Enable Channel Watermark</div>
+                  <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Overlay branding logo/text on final MP4 renders</div>
+                </div>
                 <input
                   type="checkbox"
                   checked={watermarkEnabled}
                   onChange={(e) => setWatermarkEnabled(e.target.checked)}
-                  style={{ accentColor: 'var(--admin-accent-cyan)' }}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--admin-accent-cyan)' }}
                 />
-                <span>{watermarkEnabled ? 'ENABLED' : 'DISABLED'}</span>
-              </label>
-            </div>
-
-            {watermarkEnabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
-                    Watermark Position
-                  </label>
-                  <select value={watermarkPos} onChange={(e) => setWatermarkPos(e.target.value)} className="admin-select">
-                    <option value="top-right">Top Right</option>
-                    <option value="bottom-right">Bottom Right</option>
-                    <option value="bottom-left">Bottom Left</option>
-                    <option value="top-left">Top Left</option>
-                  </select>
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
-                  Free tier exports will automatically contain "Made with BangAI" watermark badge. Pro tier exports bypass this watermark.
-                </div>
               </div>
-            )}
+
+              {watermarkEnabled && (
+                <>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                      Watermark Brand Text
+                    </label>
+                    <input
+                      type="text"
+                      value={watermarkText}
+                      onChange={(e) => setWatermarkText(e.target.value)}
+                      className="admin-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                      Watermark Position
+                    </label>
+                    <select value={watermarkPos} onChange={(e) => setWatermarkPos(e.target.value)} className="admin-select">
+                      <option value="top-right">Top Right</option>
+                      <option value="top-left">Top Left</option>
+                      <option value="bottom-right">Bottom Right</option>
+                      <option value="bottom-left">Bottom Left</option>
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Right: Live Vertical Short Preview */}
+        {/* Right: Live Interactive 9:16 Video Canvas Preview */}
         <div className="admin-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 14px 0', alignSelf: 'flex-start' }}>
-            Live 9:16 Short Subtitle Preview
-          </h3>
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>
+              Live 9:16 Video Typography Preview
+            </h3>
+            <span className="admin-badge admin-badge-cyan">1080x1920 Vertical</span>
+          </div>
 
           <div style={{
-            width: '260px',
-            height: '460px',
+            width: '280px',
+            height: '497px',
             borderRadius: '24px',
-            background: 'linear-gradient(180deg, #1e1b4b, #0f172a)',
-            border: '2px solid var(--admin-border-glass)',
+            background: 'linear-gradient(180deg, #090d16 0%, #171d2d 100%)',
+            border: '3px solid var(--admin-border-glass)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
             position: 'relative',
             overflow: 'hidden',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.6)'
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: '24px 18px'
           }}>
-            {/* Watermark Mock */}
-            {watermarkEnabled && (
-              <div style={{
-                position: 'absolute',
-                top: watermarkPos.includes('top') ? '14px' : 'auto',
-                bottom: watermarkPos.includes('bottom') ? '14px' : 'auto',
-                left: watermarkPos.includes('left') ? '14px' : 'auto',
-                right: watermarkPos.includes('right') ? '14px' : 'auto',
-                background: 'rgba(0,0,0,0.6)',
-                backdropFilter: 'blur(8px)',
-                padding: '4px 8px',
-                borderRadius: '6px',
-                fontSize: '10px',
-                fontWeight: 700,
-                color: '#fff',
-                letterSpacing: '0.05em'
-              }}>
-                ⚡ BANGAI
-              </div>
-            )}
-
-            {/* Subtitle Box Demonstration */}
-            <div style={{
-              position: 'absolute',
-              bottom: '90px',
-              padding: '8px 16px',
-              background: `rgba(0, 0, 0, ${boxOpacity})`,
-              backdropFilter: 'blur(10px)',
-              borderRadius: '12px',
-              textAlign: 'center',
-              maxWidth: '85%'
-            }}>
-              <span style={{
-                fontFamily: font,
-                fontSize: '18px',
-                fontWeight: 900,
-                textTransform: 'uppercase',
-                color: '#ffffff',
-                textShadow: '0 2px 10px rgba(0,0,0,0.8)'
-              }}>
-                NEVER GO <span style={{ color: highlightColor, textShadow: `0 0 12px ${highlightColor}` }}>INSIDE</span> THAT CAVE
+            {/* Top Bar / Watermark */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}>
+                BANGAI STUDIO
               </span>
+              {watermarkEnabled && (
+                <span style={{
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  background: 'rgba(0,0,0,0.6)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  color: '#fff'
+                }}>
+                  @{watermarkText}
+                </span>
+              )}
+            </div>
+
+            {/* Dynamic Center Subtitle Mockup */}
+            <div style={{
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}>
+              <div style={{
+                fontFamily: font,
+                fontSize: '24px',
+                fontWeight: 900,
+                color: '#ffffff',
+                textShadow: '0 4px 12px rgba(0,0,0,0.9)',
+                lineHeight: 1.2
+              }}>
+                THIS IS THE
+              </div>
+              <div style={{
+                fontFamily: font,
+                fontSize: '32px',
+                fontWeight: 900,
+                color: highlightColor,
+                textShadow: `0 0 20px ${highlightColor}88, 0 4px 12px rgba(0,0,0,0.9)`,
+                transform: 'scale(1.08)',
+                letterSpacing: '-0.02em'
+              }}>
+                DARKEST SECRET
+              </div>
+              <div style={{
+                fontFamily: font,
+                fontSize: '22px',
+                fontWeight: 800,
+                color: '#ffffff',
+                textShadow: '0 4px 12px rgba(0,0,0,0.9)'
+              }}>
+                EVER RECORDED!
+              </div>
+            </div>
+
+            {/* Bottom Controls Indicator */}
+            <div style={{ textAlign: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+              Font: {font} • Style: {animation}
             </div>
           </div>
         </div>

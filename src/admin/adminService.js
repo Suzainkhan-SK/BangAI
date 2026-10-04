@@ -78,30 +78,55 @@ export const adminService = {
   getKeys: async () => adminFetch('get-keys', 'GET'),
   saveKeys: async (provider, keys) => adminFetch('save-keys', 'POST', { provider, keys }),
   probeKeyBalance: async (provider, apiKey) => adminFetch('probe-key-balance', 'POST', { provider, apiKey }),
+  syncKeysNetlify: async () => adminFetch('sync-keys-netlify', 'POST'),
 
-  // 5. Modal.com Dual-Cluster Hub
+  // 5. Workflow Node Manager
+  getWorkflows: async () => adminFetch('get-workflows', 'GET'),
+  saveWorkflowNodes: async (workflowId, nodeConfigs) =>
+    adminFetch('save-workflow-nodes', 'POST', { workflowId, nodeConfigs }),
+
+  // 6. Modal.com Dual-Cluster Hub
   getModalStatus: async () => adminFetch('get-modal-status', 'GET'),
   switchModalCluster: async (targetCluster) => adminFetch('switch-modal-cluster', 'POST', { targetCluster }),
 
-  // 6. Platform Page Settings
+  // 7. Platform Page Settings
   getPlatformSettings: async () => adminFetch('get-platform-settings', 'GET'),
   savePlatformSettings: async (settings) => adminFetch('save-platform-settings', 'POST', { settings }),
 
-  // 7. Users & Quotas
+  // 8. AI Templates Hub
+  getTemplates: async () => adminFetch('get-templates', 'GET'),
+  saveTemplate: async (template, blocklist) =>
+    adminFetch('save-template', 'POST', { template, blocklist }),
+  deleteTemplate: async (templateId) =>
+    adminFetch('delete-template', 'POST', { templateId }),
+
+  // 9. Users & Quotas
   getUsers: async (limit = 50) => adminFetch(`get-users&limit=${limit}`, 'GET'),
   updateUserQuota: async (email, tier, credits, isBanned) =>
     adminFetch('update-user-quota', 'POST', { email, tier, credits, isBanned }),
 
-  // 8. Telemetry & 6-Webhook Latency Ping
+  // 10. Telemetry & 6-Webhook Latency Ping & Telegram
   pingWebhooks: async () => adminFetch('ping-webhooks', 'POST'),
+  sendTelegramAlert: async (botToken, chatId, message) =>
+    adminFetch('send-telegram-alert', 'POST', { botToken, chatId, message }),
 
-  // 9. Master Asset Vault & Pipeline
+  // 11. Master Asset Vault & Pipeline
   getJobs: async (limit = 50) => adminFetch(`get-jobs&limit=${limit}`, 'GET'),
 
-  // 10. Cloud Infrastructure Status
+  // 12. Cloud Infrastructure & Database Visual Browser
   getInfraStatus: async () => adminFetch('get-infra-status', 'GET'),
+  getCollectionDocs: async (collection) =>
+    adminFetch(`get-collection-docs&collection=${encodeURIComponent(collection)}`, 'GET'),
+  saveCollectionDoc: async (collection, document) =>
+    adminFetch('save-collection-doc', 'POST', { collection, document }),
+  exportDatabaseJson: async () => adminFetch('export-database-json', 'GET'),
+  triggerNetlifyDeploy: async () => adminFetch('trigger-netlify-deploy', 'POST'),
 
-  // 11. Security Audit Logs & Password
+  // 13. Chat LLM Live Testing
+  testChatPrompt: async (model, systemPrompt, userPrompt, temperature) =>
+    adminFetch('test-chat-prompt', 'POST', { model, systemPrompt, userPrompt, temperature }),
+
+  // 14. Security Audit Logs & Password
   getAuditLogs: async () => adminFetch('get-audit-logs', 'GET'),
   changePassword: async (currentPassword, newPassword) =>
     adminFetch('change-password', 'POST', { currentPassword, newPassword })

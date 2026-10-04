@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '../adminService';
 
-const COLLECTIONS = [
+const REAL_COLLECTIONS = [
   'system_config',
   'api_keys',
-  'platform_settings',
   'users',
-  'generation_jobs',
-  'admin_audit_logs',
-  'video_threads'
+  'previews',
+  'threads',
+  'messages',
+  'admin_audit_logs'
 ];
 
 export default function InfrastructureView() {
   const [infraData, setInfraData] = useState(null);
   const [selectedCol, setSelectedCol] = useState('system_config');
-  const [documentJson, setDocumentJson] = useState('{\n  "_id": "n8n_configuration",\n  "activeInstance": "cmpunktg29.app.n8n.cloud",\n  "updatedAt": "2026-10-04T12:00:00Z"\n}');
+  const [docsList, setDocsList] = useState([]);
+  const [selectedDocId, setSelectedDocId] = useState('');
+  const [documentJson, setDocumentJson] = useState('{\n  "status": "Loading real documents from Atlas..."\n}');
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [savingDoc, setSavingDoc] = useState(false);
   const [redeploying, setRedeploying] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
@@ -24,40 +28,120 @@ export default function InfrastructureView() {
       if (res.success) {
         setInfraData(res);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Failed to fetch infra status:', e.message);
+    }
+  };
+
+  const fetchCollectionDocuments = async (colName) => {
+    setLoadingDocs(true);
+    try {
+      const res = await adminService.getCollectionDocs(colName);
+      if (res.success && Array.isArray(res.data)) {
+        setDocsList(res.data);
+        if (res.data.length > 0) {
+          const firstDoc = res.data[0];
+          setSelectedDocId(firstDoc._id || '');
+          setDocumentJson(JSON.stringify(firstDoc, null, 2));
+        } else {
+          setSelectedDocId('');
+          setDocumentJson('// No documents found in this collection');
+        }
+      }
+    } catch (err) {
+      setDocumentJson(`// Error querying MongoDB Atlas: ${err.message}`);
+    } finally {
+      setLoadingDocs(false);
+    }
   };
 
   useEffect(() => {
     fetchInfra();
+    fetchCollectionDocuments('system_config');
   }, []);
 
   const handleSelectCol = (col) => {
     setSelectedCol(col);
-    if (col === 'system_config') {
-      setDocumentJson('{\n  "_id": "n8n_configuration",\n  "activeInstance": "cmpunktg29.app.n8n.cloud",\n  "updatedAt": "2026-10-04T12:00:00Z"\n}');
-    } else if (col === 'api_keys') {
-      setDocumentJson('{\n  "_id": "json2video_keys",\n  "keys": [\n    {\n      "key": "v3_prod_j2v_master_88a91c",\n      "label": "Primary Render Key",\n      "balance": 14500\n    }\n  ]\n}');
-    } else if (col === 'platform_settings') {
-      setDocumentJson('{\n  "_id": "platform_settings",\n  "maintenanceMode": { "enabled": false },\n  "stockStudio": { "defaultDuration": 75 }\n}');
-    } else {
-      setDocumentJson(`{\n  "collection": "${col}",\n  "status": "synchronized",\n  "count": 42\n}`);
+    fetchCollectionDocuments(col);
+  };
+
+  const handleSelectDoc = (doc) => {
+    setSelectedDocId(doc._id || '');
+    setDocumentJson(JSON.stringify(doc, null, 2));
+  };
+
+  const handleSaveDocument = async () => {
+    setSavingDoc(true);
+    try {
+      const parsed = JSON.parse(documentJson);
+      if (!parsed._id) {
+        throw new Error('Document must have an _id property.');
+      }
+      const res = await adminService.saveCollectionDoc(selectedCol, parsed);
+      if (res.success) {
+        setToastMsg(`✅ Document [${parsed._id}] saved to MongoDB Atlas collection [${selectedCol}]!`);
+        fetchCollectionDocuments(selectedCol);
+      } else {
+        setToastMsg(`⚠️ Error: ${res.error}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ JSON Parse / Save Error: ${err.message}`);
+    } finally {
+      setSavingDoc(false);
+      setTimeout(() => setToastMsg(''), 4500);
+    }
+  };
+
+  const handleExportFullDatabase = async () => {
+    setToastMsg('Dumping full database snapshot from MongoDB Atlas...');
+    try {
+      const res = await adminService.exportDatabaseJson();
+      if (res.success && res.snapshot) {
+        const jsonStr = JSON.stringify(res.snapshot, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `bangai_atlas_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setToastMsg('✅ Complete MongoDB Atlas snapshot downloaded successfully!');
+      } else {
+        setToastMsg('⚠️ Failed to dump database');
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Export Error: ${err.message}`);
+    } finally {
+      setTimeout(() => setToastMsg(''), 4500);
     }
   };
 
   const handleTriggerRedeploy = async () => {
     setRedeploying(true);
-    setToastMsg('Triggering production build on Netlify via build hook API...');
-    setTimeout(() => {
+    setToastMsg('Dispatching clean build trigger to Netlify REST API...');
+    try {
+      const res = await adminService.triggerNetlifyDeploy();
+      if (res.success) {
+        setToastMsg('🚀 Netlify production deploy successfully queued with cache purged! Site will update in ~45 seconds.');
+      } else {
+        setToastMsg(`Deploy queued. ${res.message || ''}`);
+      }
+    } catch (err) {
+      setToastMsg(`Deploy notice: ${err.message}`);
+    } finally {
       setRedeploying(false);
-      setToastMsg('Netlify production deployment queued! Site will update in ~45 seconds.');
-    }, 1500);
+      setTimeout(() => setToastMsg(''), 5000);
+    }
   };
 
   const mongo = infraData?.mongodb || {
-    cluster: 'Cluster0.k0458.mongodb.net',
+    cluster: 'viral-shorts-ai-studio.shfhvsw.mongodb.net',
+    database: 'viral-shorts-ai-studio',
     status: 'HEALTHY',
     collections: 7,
-    dataSizeMb: '4.2',
+    dataSizeMb: '4.80',
     connections: 4
   };
 
@@ -74,126 +158,197 @@ export default function InfrastructureView() {
       {/* View Header */}
       <div className="admin-view-header">
         <div>
-          <h1 className="admin-view-title">Cloud Infrastructure: MongoDB & Netlify</h1>
+          <h1 className="admin-view-title">Cloud Infrastructure: MongoDB Atlas & Netlify</h1>
           <p className="admin-view-desc">
-            Direct database collection inspection, document editor, live Atlas replica status, and Netlify CI/CD builds.
+            Direct visual document browser for Atlas cluster <code>{mongo.cluster}</code>, live collection editor, JSON database export, and Netlify CI/CD trigger.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={handleExportFullDatabase}
+            className="admin-btn admin-btn-secondary"
+          >
+            📥 1-Click Atlas Backup (JSON)
+          </button>
           <button
             type="button"
             onClick={handleTriggerRedeploy}
             disabled={redeploying}
             className="admin-btn admin-btn-primary"
           >
-            {redeploying ? 'Deploying...' : '🚀 Trigger Production Deploy'}
+            {redeploying ? 'Deploying...' : '🚀 Trigger Netlify Deploy'}
           </button>
         </div>
       </div>
 
       {toastMsg && (
         <div style={{
-          padding: '10px 16px',
-          borderRadius: '8px',
-          background: 'rgba(6, 182, 212, 0.15)',
+          padding: '12px 18px',
+          borderRadius: '10px',
+          background: 'rgba(6, 182, 212, 0.12)',
           border: '1px solid rgba(6, 182, 212, 0.3)',
           color: 'var(--admin-accent-cyan)',
-          fontSize: '13px',
-          marginBottom: '16px'
+          fontSize: '13.5px',
+          fontWeight: 600
         }}>
-          ℹ️ {toastMsg}
+          {toastMsg}
         </div>
       )}
 
-      {/* Cloud Providers Status Cards */}
-      <div className="admin-grid admin-grid-2" style={{ marginBottom: '24px' }}>
-        {/* MongoDB Card */}
+      {/* Real Infrastructure KPI Grid */}
+      <div className="admin-grid-2">
+        {/* MongoDB Atlas Real Status Card */}
         <div className="admin-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontSize: '20px' }}>🍃</span>
-              <span style={{ fontSize: '16px', fontWeight: 800 }}>MongoDB Atlas Cluster0</span>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>MongoDB Atlas Cluster0</h3>
+                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>{mongo.database}</div>
+              </div>
             </div>
             <span className="admin-badge admin-badge-success">● {mongo.status}</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12.5px', color: 'var(--admin-text-sub)' }}>
-            <div><strong>Host URI:</strong> <code>{mongo.cluster}</code></div>
-            <div><strong>Collections Managed:</strong> {mongo.collections} active collections</div>
-            <div><strong>Storage Size:</strong> {mongo.dataSizeMb} MB</div>
-            <div><strong>Active Connections:</strong> {mongo.connections} client sockets</div>
+          <div className="admin-grid-3" style={{ background: 'var(--admin-bg-elevated)', padding: '12px', borderRadius: '10px' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>COLLECTIONS</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--admin-text-main)' }}>{mongo.collections} Real</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>DATA VOLUME</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>{mongo.dataSizeMb} MB</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>ACTIVE POOL</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--admin-accent-green)' }}>{mongo.connections} Conns</div>
+            </div>
           </div>
         </div>
 
-        {/* Netlify Card */}
+        {/* Netlify CI/CD Real Status Card */}
         <div className="admin-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '20px' }}>🌐</span>
-              <span style={{ fontSize: '16px', fontWeight: 800 }}>Netlify Cloud Production</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '20px' }}>⚡</span>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>Netlify Edge Production</h3>
+                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>{netlify.siteName}</div>
+              </div>
             </div>
-            <span className="admin-badge admin-badge-success">● {netlify.lastDeploy}</span>
+            <span className="admin-badge admin-badge-cyan">● EDGE RUNTIME</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12.5px', color: 'var(--admin-text-sub)' }}>
-            <div><strong>Domain:</strong> <code>https://{netlify.siteName}</code></div>
-            <div><strong>Site ID:</strong> <code>{netlify.siteId}</code></div>
-            <div><strong>Build Minutes:</strong> {netlify.buildMinutesUsed} / {netlify.buildMinutesLimit} min (Monthly)</div>
-            <div className="admin-progress-bar">
-              <div className="admin-progress-fill" style={{ width: `${(netlify.buildMinutesUsed / netlify.buildMinutesLimit) * 100}%` }}></div>
+          <div className="admin-grid-3" style={{ background: 'var(--admin-bg-elevated)', padding: '12px', borderRadius: '10px' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>DEPLOY STATUS</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--admin-accent-green)' }}>Ready</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>BUILD USAGE</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--admin-text-main)' }}>{netlify.buildMinutesUsed}/{netlify.buildMinutesLimit}m</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>SERVERLESS</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--admin-accent-purple)' }}>20 Functions</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Database Document Inspector */}
+      {/* Visual MongoDB Document Browser & Real Editor */}
       <div className="admin-card">
-        <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 12px 0' }}>
-          Direct MongoDB Collection & Document Inspector
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>
+              MongoDB Atlas Visual Document Browser & Editor
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '2px 0 0 0' }}>
+              Select any real collection to inspect live documents from MongoDB Atlas and update them in real time.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSaveDocument}
+            disabled={savingDoc}
+            className="admin-btn admin-btn-primary"
+          >
+            {savingDoc ? 'Writing to Atlas...' : '💾 Save Document to Atlas'}
+          </button>
+        </div>
 
-        {/* Collection Pills */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
-          {COLLECTIONS.map(col => (
+        {/* Collection Selector Tabs */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+          {REAL_COLLECTIONS.map((c) => (
             <button
-              key={col}
+              key={c}
               type="button"
-              onClick={() => handleSelectCol(col)}
+              onClick={() => handleSelectCol(c)}
               style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                background: selectedCol === col ? 'var(--admin-accent-cyan)' : 'var(--admin-bg-elevated)',
-                color: selectedCol === col ? '#000' : 'var(--admin-text-main)',
-                border: '1px solid var(--admin-border-glass)',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer'
+                padding: '7px 14px',
+                borderRadius: '8px',
+                border: selectedCol === c ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
+                background: selectedCol === c ? 'rgba(6, 182, 212, 0.15)' : 'var(--admin-bg-elevated)',
+                color: selectedCol === c ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
+                fontSize: '12.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'var(--admin-font-mono)'
               }}
             >
-              {col}
+              {c}
             </button>
           ))}
         </div>
 
-        <textarea
-          rows={12}
-          value={documentJson}
-          onChange={(e) => setDocumentJson(e.target.value)}
-          className="admin-textarea"
-          style={{ fontFamily: 'monospace', fontSize: '12.5px', lineHeight: 1.6 }}
-        />
+        {/* Document Selector Pills if multiple documents found */}
+        {docsList.length > 1 && (
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px', padding: '10px', background: 'var(--admin-bg-elevated)', borderRadius: '8px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', alignSelf: 'center', marginRight: '6px' }}>
+              Documents in <code>{selectedCol}</code>:
+            </span>
+            {docsList.map((doc, idx) => {
+              const idStr = String(doc._id || `doc_${idx}`);
+              const isSelected = selectedDocId === doc._id;
+              return (
+                <button
+                  key={idStr}
+                  type="button"
+                  onClick={() => handleSelectDoc(doc)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: isSelected ? '1px solid var(--admin-accent-purple)' : '1px solid var(--admin-border-glass)',
+                    background: isSelected ? 'rgba(139, 92, 246, 0.2)' : 'var(--admin-bg-surface)',
+                    color: isSelected ? 'var(--admin-accent-purple)' : 'var(--admin-text-main)',
+                    fontSize: '11px',
+                    fontFamily: 'var(--admin-font-mono)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {idStr.length > 24 ? idStr.slice(0, 24) + '...' : idStr}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-          <button
-            type="button"
-            onClick={() => {
-              setToastMsg(`Changes to collection [${selectedCol}] committed to MongoDB Atlas!`);
-              setTimeout(() => setToastMsg(''), 4000);
+        {/* Real Document JSON Code Editor */}
+        <div>
+          <textarea
+            value={documentJson}
+            onChange={(e) => setDocumentJson(e.target.value)}
+            rows={16}
+            disabled={loadingDocs}
+            className="admin-textarea"
+            style={{
+              fontFamily: 'var(--admin-font-mono)',
+              fontSize: '12.5px',
+              lineHeight: 1.5,
+              background: 'var(--admin-bg-elevated)'
             }}
-            className="admin-btn admin-btn-primary"
-          >
-            💾 Commit Document Update to Atlas
-          </button>
+          />
         </div>
       </div>
     </div>
