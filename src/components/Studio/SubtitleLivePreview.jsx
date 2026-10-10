@@ -3,7 +3,8 @@ import { normalizeSubtitleStyle, normalizeSubtitlePosition } from '../../lib/jso
 
 export default function SubtitleLivePreview({
   subtitleSettings = {},
-  text = 'Watch how these animated subtitles boost your viewer retention by 300%!'
+  text = 'Watch how these animated subtitles boost your viewer retention by 300%!',
+  customFrameWidth
 }) {
   const [activeWordIndex, setActiveWordIndex] = useState(0);
   const containerRef = useRef(null);
@@ -68,7 +69,7 @@ export default function SubtitleLivePreview({
   }, [chunks, currentChunkIndex, isOneWord]);
 
   // Styling & scaling
-  const frameWidth = 270;
+  const frameWidth = customFrameWidth || 270;
   const scale = frameWidth / 1080; // ~0.25
 
   const rawFontSize = Number(subtitleSettings.fontSize) || 78;

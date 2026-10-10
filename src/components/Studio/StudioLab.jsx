@@ -94,6 +94,26 @@ export default function StudioLab({
   // Inline styles beat CSS classes, so structural responsiveness is driven here.
   const { isMobile, isTablet } = useBreakpoint();
 
+  // ─── TOUCH SCROLL GUARD (prevents accidental card selections on mobile swipe) ───
+  const touchStartPos = useRef({ x: 0, y: 0, time: 0 });
+  const handleTouchStartCapture = (e) => {
+    if (e.touches && e.touches[0]) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() };
+    }
+  };
+  const isTouchScrollGesture = (e) => {
+    if (!e.changedTouches || e.changedTouches.length === 0) return false;
+    const t = e.changedTouches[0];
+    const dx = Math.abs(t.clientX - touchStartPos.current.x);
+    const dy = Math.abs(t.clientY - touchStartPos.current.y);
+    return dx > 8 || dy > 8; // If finger moved more than 8px, it was a scroll swipe, not an intentional tap!
+  };
+
+  // Mobile Subtitle View Switcher: 'controls' | 'preview'
+  const [mobileSubtitleMode, setMobileSubtitleMode] = useState('controls');
+  // Mobile Voice expanded details toggle
+  const [mobileExpandedVoiceId, setMobileExpandedVoiceId] = useState(null);
+
   // ─── 1. VOICE STUDIO STATE ───────────────────────────────────────
   const [voices, setVoices] = useState(getAllVoices);
   const [currentVoiceSpeed, setCurrentVoiceSpeed] = useState(() => {
@@ -602,114 +622,194 @@ export default function StudioLab({
       flexDirection: 'column',
       gap: isMobile ? '14px' : '20px'
     }}>
-      {/* ─── TOP HERO BANNER ────────────────────────────────────────── */}
-      <div style={{
-        background: 'var(--bg-card)',
-        borderRadius: '20px',
-        border: '1.5px solid var(--border-medium)',
-        padding: isMobile ? '16px 14px' : '20px 24px',
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        alignItems: isMobile ? 'stretch' : 'center',
-        justifyContent: 'space-between',
-        gap: isMobile ? '14px' : '18px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '44px', height: '44px', borderRadius: '14px',
-            background: 'linear-gradient(135deg, #6366f1, #ec4899)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)',
-            flexShrink: 0
-          }}>
-            <Sparkles size={22} color="#fff" />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em', margin: 0 }}>
-                Design Studio
-              </h2>
-              <span style={{
-                background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
-                fontSize: '10px', fontWeight: 800, padding: '2px 8px',
-                borderRadius: '6px', border: '1px solid rgba(16,185,129,0.3)'
+      {/* ─── TOP HERO BANNER (Desktop intact, Mobile sleek & minimalist) ─── */}
+      {isMobile ? (
+        <div style={{
+          background: 'var(--bg-card)',
+          borderRadius: '16px',
+          border: '1px solid var(--border-subtle)',
+          padding: '12px 14px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          boxShadow: 'var(--shadow-card)'
+        }}>
+          {/* Top row: Brand & Apply Action */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '32px', height: '32px', borderRadius: '10px',
+                background: 'linear-gradient(135deg, #6366f1, #ec4899)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 2px 10px rgba(99, 102, 241, 0.4)',
+                flexShrink: 0
               }}>
-                LIVE SANDBOX
+                <Sparkles size={16} color="#fff" />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                  Design Studio
+                </span>
+                <span style={{
+                  background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
+                  fontSize: '9px', fontWeight: 800, padding: '1px 6px',
+                  borderRadius: '5px', border: '1px solid rgba(16,185,129,0.3)'
+                }}>
+                  LIVE
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button type="button" onClick={handleApplyToVideo}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  padding: '7px 14px', borderRadius: '8px',
+                  fontSize: '12px', fontWeight: 800, gap: '5px',
+                  border: 'none', color: '#fff', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 2px 10px rgba(16,185,129,0.3)',
+                  touchAction: 'manipulation', minHeight: '34px'
+                }}>
+                <Check size={13} /> Apply
+              </button>
+              {typeof onClose === 'function' && (
+                <button type="button" onClick={onClose}
+                  style={{
+                    background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px', padding: '7px 10px',
+                    cursor: 'pointer', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    touchAction: 'manipulation', minHeight: '34px'
+                  }}>
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom row: Stack summary strip */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto',
+            paddingTop: '6px', borderTop: '1px solid var(--border-subtle)',
+            fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap'
+          }}>
+            <span>🎤 <strong style={{ color: 'var(--text-primary)' }}>{selectedVoice?.name || 'Adam'}</strong> ({currentVoiceSpeed}x)</span>
+            <span>•</span>
+            <span>🔤 <strong style={{ color: 'var(--text-primary)' }}>{currentPresetName}</strong></span>
+            <span>•</span>
+            <span>🎵 <strong style={{ color: 'var(--text-primary)' }}>{selectedMusic?.name || 'Ambient'}</strong></span>
+          </div>
+        </div>
+      ) : (
+        /* Desktop View Kept 100% Intact */
+        <div style={{
+          background: 'var(--bg-card)',
+          borderRadius: '20px',
+          border: '1.5px solid var(--border-medium)',
+          padding: '20px 24px',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '18px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '44px', height: '44px', borderRadius: '14px',
+              background: 'linear-gradient(135deg, #6366f1, #ec4899)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)',
+              flexShrink: 0
+            }}>
+              <Sparkles size={22} color="#fff" />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em', margin: 0 }}>
+                  Design Studio
+                </h2>
+                <span style={{
+                  background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
+                  fontSize: '10px', fontWeight: 800, padding: '2px 8px',
+                  borderRadius: '6px', border: '1px solid rgba(16,185,129,0.3)'
+                }}>
+                  LIVE SANDBOX
+                </span>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '3px 0 0 0', lineHeight: 1.4 }}>
+                Audition 9,650+ voices, customize animated subtitles, and fine-tune background audio.
+              </p>
+            </div>
+          </div>
+
+          {/* Current Stack Quick Badges & Apply Actions */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end'
+          }}>
+            {/* Quick Config Badges */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap',
+              fontSize: '11px', color: 'var(--text-secondary)'
+            }}>
+              <span style={{
+                background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                padding: '3px 8px', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px'
+              }}>
+                <Mic2 size={11} color="#10b981" />
+                <span>{selectedVoice?.name || 'Adam'} ({currentVoiceSpeed}x)</span>
+              </span>
+              <span style={{
+                background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                padding: '3px 8px', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px'
+              }}>
+                <Type size={11} color="#f59e0b" />
+                <span>{currentPresetName}</span>
               </span>
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '3px 0 0 0', lineHeight: 1.4 }}>
-              Audition 9,650+ voices, customize animated subtitles, and fine-tune background audio.
-            </p>
-          </div>
-        </div>
 
-        {/* Current Stack Quick Badges & Apply Actions */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          flexWrap: 'wrap',
-          justifyContent: isMobile ? 'space-between' : 'flex-end'
-        }}>
-          {/* Quick Config Badges */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap',
-            fontSize: '11px', color: 'var(--text-secondary)'
-          }}>
-            <span style={{
-              background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-              padding: '3px 8px', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px'
-            }}>
-              <Mic2 size={11} color="#10b981" />
-              <span>{selectedVoice?.name || 'Adam'} ({currentVoiceSpeed}x)</span>
-            </span>
-            <span style={{
-              background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-              padding: '3px 8px', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px'
-            }}>
-              <Type size={11} color="#f59e0b" />
-              <span>{currentPresetName}</span>
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: isMobile ? '100%' : 'auto' }}>
-            <button type="button" onClick={handleApplyToVideo}
-              style={{
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                padding: '9px 18px', borderRadius: '10px',
-                fontSize: '12.5px', fontWeight: 800, gap: '6px',
-                border: 'none', color: '#fff', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flex: isMobile ? '1 1 auto' : '0 0 auto',
-                boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
-                transition: 'all 0.2s ease'
-              }}>
-              <Check size={14} /> Apply to Video
-            </button>
-            {typeof onClose === 'function' && (
-              <button type="button" onClick={onClose}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button type="button" onClick={handleApplyToVideo}
                 style={{
-                  background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-                  borderRadius: '10px', padding: '9px 14px',
-                  cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                  flexShrink: 0, transition: 'all 0.15s ease'
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  padding: '9px 18px', borderRadius: '10px',
+                  fontSize: '12.5px', fontWeight: 800, gap: '6px',
+                  border: 'none', color: '#fff', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
+                  transition: 'all 0.2s ease'
                 }}>
-                <X size={14} /> Close
+                <Check size={14} /> Apply to Video
               </button>
-            )}
+              {typeof onClose === 'function' && (
+                <button type="button" onClick={onClose}
+                  style={{
+                    background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                    borderRadius: '10px', padding: '9px 14px',
+                    cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                    flexShrink: 0, transition: 'all 0.15s ease'
+                  }}>
+                  <X size={14} /> Close
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ─── NAVIGATION TABS ─────────────────────────────────────────── */}
+      {/* ─── NAVIGATION TABS: Responsive & Touch-Safe ─── */}
       <div
         className={isMobile ? 'rail' : undefined}
         style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px',
+          display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '8px',
+          borderBottom: '1px solid var(--border-subtle)', paddingBottom: isMobile ? '8px' : '12px',
           overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
-          width: '100%'
+          width: '100%', touchAction: 'pan-x'
         }}
       >
         {tabs.map(tab => {
@@ -718,21 +818,25 @@ export default function StudioLab({
           return (
             <button key={tab.id} type="button" onClick={() => handleTabClick(tab.id)}
               style={{
-                paddingTop: '9px', paddingBottom: '9px',
-                paddingLeft: isMobile ? '14px' : '18px',
-                paddingRight: isMobile ? '14px' : '18px',
-                borderRadius: '10px',
+                flex: isMobile ? '1 1 0px' : 'none',
+                paddingTop: isMobile ? '8px' : '9px',
+                paddingBottom: isMobile ? '8px' : '9px',
+                paddingLeft: isMobile ? '8px' : '18px',
+                paddingRight: isMobile ? '8px' : '18px',
+                borderRadius: '8px',
                 border: `1.5px solid ${isActive ? tab.color : 'var(--border-subtle)'}`,
                 background: isActive ? `${tab.color}18` : 'var(--bg-input)',
                 color: isActive ? tab.color : 'var(--text-muted)',
-                fontSize: isMobile ? '12px' : '13px', fontWeight: 800, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '7px',
+                fontSize: isMobile ? '11.5px' : '13px', fontWeight: 800, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                 whiteSpace: 'nowrap', flexShrink: 0,
-                transition: 'all 0.2s ease',
-                boxShadow: isActive ? `0 0 14px ${tab.color}25` : 'none'
+                transition: 'all 0.15s ease',
+                boxShadow: isActive ? `0 0 14px ${tab.color}25` : 'none',
+                touchAction: 'manipulation',
+                minHeight: isMobile ? '38px' : 'auto'
               }}>
-              <Icon size={15} />
-              <span>{tab.label}</span>
+              <Icon size={isMobile ? 14 : 15} />
+              <span>{isMobile ? (tab.id === 'voices' ? 'Voices' : tab.id === 'subtitles' ? 'Subtitles' : 'Music') : tab.label}</span>
             </button>
           );
         })}
@@ -1028,6 +1132,177 @@ export default function StudioLab({
                 const durationBadge = getDurationBadge(voice.id);
                 const cardColor = voice.color || '#6366f1';
 
+                if (isMobile) {
+                  return (
+                    <div key={voice.id}
+                      onTouchStartCapture={handleTouchStartCapture}
+                      onClick={(e) => {
+                        if (isTouchScrollGesture(e)) return;
+                        if (typeof onSelectVoice === 'function') onSelectVoice(voice.id, voice.elevenLabsId);
+                      }}
+                      style={{
+                        background: isSelected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+                        border: `1.5px solid ${isSelected ? cardColor : 'var(--border-subtle)'}`,
+                        borderRadius: '12px', padding: '10px 12px', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', gap: '8px',
+                        boxShadow: isSelected ? `0 0 16px ${cardColor}30` : 'none',
+                        transition: 'all 0.15s ease', position: 'relative',
+                        touchAction: 'manipulation'
+                      }}>
+                      {/* Compact Mobile Header Row */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                          <div style={{
+                            width: '32px', height: '32px', borderRadius: '8px',
+                            background: `${cardColor}20`, border: `1.5px solid ${cardColor}50`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 900, fontSize: '12px', color: cardColor,
+                            flexShrink: 0
+                          }}>
+                            {voice.name ? voice.name[0] : 'V'}
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <span style={{
+                                fontWeight: 800, fontSize: '13px', color: 'var(--text-primary)',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                              }}>
+                                {voice.name}
+                              </span>
+                              {voice.source === 'json2video' ? (
+                                <span style={{ fontSize: '8px', fontWeight: 800, padding: '1px 4px', borderRadius: '4px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', flexShrink: 0 }}>
+                                  💎 VIP
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '8px', fontWeight: 800, padding: '1px 4px', borderRadius: '4px', background: `${cardColor}18`, color: cardColor, flexShrink: 0 }}>
+                                  ⚡ Native
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <span>{voice.flag || voice.language || 'English'}</span>
+                              <span>•</span>
+                              <span>{voice.gender || 'Universal'}</span>
+                              {voice.accent && <><span>•</span><span>{voice.accent}</span></>}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Explicit Select pill / indicator */}
+                        <div style={{
+                          padding: '3px 8px', borderRadius: '6px',
+                          background: isSelected ? cardColor : 'var(--bg-input)',
+                          color: isSelected ? '#000' : 'var(--text-muted)',
+                          border: `1px solid ${isSelected ? cardColor : 'var(--border-subtle)'}`,
+                          fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px',
+                          flexShrink: 0
+                        }}>
+                          {isSelected ? <><Check size={11} strokeWidth={3} /> Selected</> : 'Select'}
+                        </div>
+                      </div>
+
+                      {/* Compact Action Buttons with Min 38px Touch Targets */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {voice.previewUrl && (
+                          <button type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePlayVoiceSample(e, voice);
+                            }}
+                            style={{
+                              flex: 1, background: isPlayingThis ? cardColor : 'var(--bg-input)',
+                              color: isPlayingThis ? '#000' : 'var(--text-primary)',
+                              border: `1px solid ${isPlayingThis ? cardColor : 'var(--border-subtle)'}`,
+                              borderRadius: '8px', padding: '7px 8px', fontSize: '11px',
+                              fontWeight: 700, cursor: 'pointer', display: 'flex',
+                              alignItems: 'center', justifyContent: 'center', gap: '4px',
+                              minHeight: '38px', touchAction: 'manipulation'
+                            }}>
+                            {isPlayingThis ? <Square size={11} fill="#000" /> : <Volume2 size={12} />}
+                            <span>{isPlayingThis ? 'Stop' : 'Sample'}</span>
+                          </button>
+                        )}
+
+                        <button type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleGenerateTts(e, voice);
+                          }}
+                          disabled={!!generatingVoiceId}
+                          style={{
+                            flex: 1.3, background: isGeneratingThis ? `${cardColor}15` : 'rgba(16,185,129,0.1)',
+                            color: isGeneratingThis ? cardColor : '#10b981',
+                            border: `1px solid ${isGeneratingThis ? cardColor : 'rgba(16,185,129,0.3)'}`,
+                            borderRadius: '8px', padding: '7px 8px', fontSize: '11px',
+                            fontWeight: 700, cursor: generatingVoiceId ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                            minHeight: '38px', touchAction: 'manipulation'
+                          }}>
+                          {isGeneratingThis ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                          <span>{isGeneratingThis ? 'Synthesizing...' : 'Test TTS'}</span>
+                        </button>
+
+                        {/* Expand details accordion toggle */}
+                        <button type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMobileExpandedVoiceId(prev => prev === voice.id ? null : voice.id);
+                          }}
+                          style={{
+                            width: '38px', height: '38px', borderRadius: '8px',
+                            background: mobileExpandedVoiceId === voice.id ? 'var(--bg-card-hover)' : 'var(--bg-input)',
+                            border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-muted)', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            touchAction: 'manipulation', flexShrink: 0
+                          }}>
+                          <ChevronDown size={14} style={{
+                            transform: mobileExpandedVoiceId === voice.id ? 'rotate(180deg)' : 'none',
+                            transition: 'transform 0.2s ease'
+                          }} />
+                        </button>
+                      </div>
+
+                      {/* Expandable Info for Mobile */}
+                      {mobileExpandedVoiceId === voice.id && (
+                        <div style={{
+                          paddingTop: '8px', borderTop: '1px dashed var(--border-subtle)',
+                          display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '10.5px'
+                        }}>
+                          {voice.description && (
+                            <div style={{ color: 'var(--text-secondary)', lineHeight: 1.35 }}>
+                              {voice.description}
+                            </div>
+                          )}
+                          {voice.bestFor && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                              {voice.bestFor.map((bf, idx) => (
+                                <span key={idx} style={{
+                                  fontSize: '9px', fontWeight: 700, padding: '2px 5px',
+                                  borderRadius: '4px', background: 'var(--bg-input)',
+                                  color: 'var(--text-muted)', border: '1px solid var(--border-subtle)'
+                                }}>
+                                  {bf}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {durationBadge && (
+                            <div style={{
+                              fontSize: '10.5px', fontWeight: 700, color: durationBadge.color,
+                              padding: '3px 6px', borderRadius: '5px',
+                              background: `${durationBadge.color}15`, display: 'inline-flex', alignItems: 'center', gap: '4px', width: 'fit-content'
+                            }}>
+                              <Clock size={10} /> {durationBadge.text}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                {/* Desktop View Kept 100% Intact */}
                 return (
                   <div key={voice.id}
                     onClick={() => {
@@ -1190,323 +1465,554 @@ export default function StudioLab({
 
       {/* ═══ TAB 2: SUBTITLE STUDIO ═══════════════════════════════════ */}
       {activeTab === 'subtitles' && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isTablet ? '1fr' : 'minmax(300px, 1.2fr) minmax(300px, 0.8fr)',
-          gap: '20px'
-        }}>
-          {/* Controls Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* Custom Text + Voice Selector */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Mobile View Switcher */}
+          {isMobile && (
             <div style={{
-              background: 'var(--bg-card)', borderRadius: '14px',
-              padding: '14px', border: '1px solid var(--border-subtle)',
-              display: 'flex', flexDirection: 'column', gap: '10px'
+              display: 'flex',
+              background: 'rgba(0,0,0,0.4)',
+              padding: '4px',
+              borderRadius: '10px',
+              border: '1px solid var(--border-subtle)',
+              gap: '4px',
+              touchAction: 'manipulation'
             }}>
-              <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase' }}>
-                Test Subtitle Narration Text:
-              </span>
-              <input type="text" value={subtitleCustomText}
-                onChange={(e) => setSubtitleCustomText(e.target.value)}
-                maxLength={180}
+              <button
+                type="button"
+                onClick={() => setMobileSubtitleMode('controls')}
                 style={{
-                  width: '100%', background: 'var(--bg-input)',
-                  border: '1px solid var(--border-subtle)', borderRadius: '8px',
-                  padding: '8px 12px', color: 'var(--text-primary)',
-                  fontSize: '13px', outline: 'none'
-                }} />
-              {/* Voice selector for subtitle render */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Mic2 size={13} color="var(--text-muted)" />
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Voice for render:</span>
-                <select value={subtitleVoiceId}
-                  onChange={e => setSubtitleVoiceId(e.target.value)}
-                  style={{
-                    flex: 1, background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-                    borderRadius: '6px', padding: '4px 8px', color: 'var(--text-primary)',
-                    fontSize: '11px', outline: 'none', cursor: 'pointer'
-                  }}>
-                  {voices.slice(0, 23).map(v => (
-                    <option key={v.id} value={v.id}>{v.name} ({v.flag})</option>
-                  ))}
-                </select>
-              </div>
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: mobileSubtitleMode === 'controls' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                  color: mobileSubtitleMode === 'controls' ? '#000' : 'var(--text-muted)',
+                  fontWeight: 800,
+                  fontSize: '11.5px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  minHeight: '36px',
+                  touchAction: 'manipulation'
+                }}
+              >
+                <Sliders size={13} />
+                <span>Style Controls</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileSubtitleMode('preview')}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: mobileSubtitleMode === 'preview' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                  color: mobileSubtitleMode === 'preview' ? '#000' : 'var(--text-muted)',
+                  fontWeight: 800,
+                  fontSize: '11.5px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  minHeight: '36px',
+                  touchAction: 'manipulation'
+                }}
+              >
+                <Film size={13} />
+                <span>Live Canvas & Preview</span>
+              </button>
             </div>
+          )}
 
-            {/* Presets Grid */}
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-                1. Select YouTuber Subtitle Preset:
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 150 : 200}px, 100%), 1fr))`, gap: '8px' }}>
-                {SUBTITLE_STYLES.map((preset) => {
-                  const isActive = currentSubtitleSettings.presetId === preset.id;
-                  return (
-                    <div
-                      key={preset.id}
-                      onClick={() => handleSelectSubtitlePreset(preset)}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : (isTablet ? '1fr' : 'minmax(300px, 1.2fr) minmax(300px, 0.8fr)'),
+            gap: '20px'
+          }}>
+            {/* Controls Column */}
+            {(!isMobile || mobileSubtitleMode === 'controls') && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* Custom Text + Voice Selector */}
+                <div style={{
+                  background: 'var(--bg-card)', borderRadius: '14px',
+                  padding: '14px', border: '1px solid var(--border-subtle)',
+                  display: 'flex', flexDirection: 'column', gap: '10px'
+                }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase' }}>
+                    Test Subtitle Narration Text:
+                  </span>
+                  <input type="text" value={subtitleCustomText}
+                    onChange={(e) => setSubtitleCustomText(e.target.value)}
+                    maxLength={180}
+                    style={{
+                      width: '100%', background: 'var(--bg-input)',
+                      border: '1px solid var(--border-subtle)', borderRadius: '8px',
+                      padding: '8px 12px', color: 'var(--text-primary)',
+                      fontSize: '13px', outline: 'none'
+                    }} />
+                  {/* Voice selector for subtitle render */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Mic2 size={13} color="var(--text-muted)" />
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Voice for render:</span>
+                    <select value={subtitleVoiceId}
+                      onChange={e => setSubtitleVoiceId(e.target.value)}
                       style={{
-                        background: isActive ? `${preset.color}15` : 'var(--bg-input)',
-                        border: `1.5px solid ${isActive ? preset.color : 'var(--border-subtle)'}`,
-                        borderRadius: '12px', padding: '12px', cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', gap: '6px',
-                        boxShadow: isActive ? `0 0 16px ${preset.color}30` : 'none',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '16px' }}>{preset.icon}</span>
-                          <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                            {preset.name}
-                          </span>
-                        </div>
-                        <span style={{
-                          fontSize: '9px', fontWeight: 800, padding: '2px 5px', borderRadius: '5px',
-                          background: `${preset.color}25`, color: preset.color
-                        }}>
-                          {preset.badge}
-                        </span>
-                      </div>
-
-                      <div style={{
-                        background: '#09090b', borderRadius: '7px', padding: '6px 8px',
-                        textAlign: 'center', border: '1px solid rgba(255,255,255,0.08)'
+                        flex: 1, background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                        borderRadius: '6px', padding: '4px 8px', color: 'var(--text-primary)',
+                        fontSize: '11px', outline: 'none', cursor: 'pointer'
                       }}>
-                        <span style={{
-                          fontFamily: preset.fontFamily,
-                          fontWeight: 900,
-                          fontSize: '10.5px',
-                          color: preset.wordColor,
-                          textTransform: preset.allCaps ? 'uppercase' : 'none',
-                          background: preset.boxColor ? `${preset.boxColor}90` : 'transparent',
-                          padding: preset.boxColor ? '2px 5px' : '0',
-                          borderRadius: '3px'
-                        }}>
-                          {preset.samplePreview}
-                        </span>
-                      </div>
+                      {voices.slice(0, 23).map(v => (
+                        <option key={v.id} value={v.id}>{v.name} ({v.flag})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                        {preset.description}
+                {/* Presets Grid */}
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    1. Select YouTuber Subtitle Preset:
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${isMobile ? 150 : 200}px, 100%), 1fr))`, gap: '8px' }}>
+                    {SUBTITLE_STYLES.map((preset) => {
+                      const isActive = currentSubtitleSettings.presetId === preset.id;
+                      return (
+                        <div
+                          key={preset.id}
+                          onTouchStartCapture={handleTouchStartCapture}
+                          onClick={(e) => {
+                            if (isTouchScrollGesture(e)) return;
+                            handleSelectSubtitlePreset(preset);
+                          }}
+                          style={{
+                            background: isActive ? `${preset.color}15` : 'var(--bg-input)',
+                            border: `1.5px solid ${isActive ? preset.color : 'var(--border-subtle)'}`,
+                            borderRadius: '12px', padding: '12px', cursor: 'pointer',
+                            display: 'flex', flexDirection: 'column', gap: '6px',
+                            boxShadow: isActive ? `0 0 16px ${preset.color}30` : 'none',
+                            transition: 'all 0.15s ease',
+                            touchAction: 'manipulation'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '16px' }}>{preset.icon}</span>
+                              <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                {preset.name}
+                              </span>
+                            </div>
+                            <span style={{
+                              fontSize: '9px', fontWeight: 800, padding: '2px 5px', borderRadius: '5px',
+                              background: `${preset.color}25`, color: preset.color
+                            }}>
+                              {preset.badge}
+                            </span>
+                          </div>
+
+                          <div style={{
+                            background: '#09090b', borderRadius: '7px', padding: '6px 8px',
+                            textAlign: 'center', border: '1px solid rgba(255,255,255,0.08)'
+                          }}>
+                            <span style={{
+                              fontFamily: preset.fontFamily,
+                              fontWeight: 900,
+                              fontSize: '10.5px',
+                              color: preset.wordColor,
+                              textTransform: preset.allCaps ? 'uppercase' : 'none',
+                              background: preset.boxColor ? `${preset.boxColor}90` : 'transparent',
+                              padding: preset.boxColor ? '2px 5px' : '0',
+                              borderRadius: '3px'
+                            }}>
+                              {preset.samplePreview}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                            {preset.description}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Typography Controls */}
+                <div style={{
+                  background: 'var(--bg-card)', borderRadius: '14px',
+                  padding: '14px', border: '1px solid var(--border-subtle)',
+                  display: 'flex', flexDirection: 'column', gap: '12px'
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    2. Fine-Tune Typography & Colors:
+                  </div>
+
+                  {/* Font Family, Size, Max Words */}
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Font Family</label>
+                      <select value={currentSubtitleSettings.fontFamily}
+                        onChange={(e) => handleUpdateSubtitleSetting('fontFamily', e.target.value)}
+                        style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '7px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}>
+                        {SUBTITLE_FONTS.map(f => (
+                          <option key={f.id} value={f.family}>{f.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                        <span>Font Size</span>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{currentSubtitleSettings.fontSize}px</span>
+                      </div>
+                      {isMobile ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateSubtitleSetting('fontSize', Math.max(56, currentSubtitleSettings.fontSize - 2))}
+                            style={{
+                              width: '38px', height: '38px', borderRadius: '8px',
+                              background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                              color: 'var(--text-primary)', fontSize: '16px', fontWeight: 800,
+                              cursor: 'pointer', touchAction: 'manipulation',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}
+                          >
+                            −
+                          </button>
+                          <input type="range" min="56" max="100" step="2"
+                            value={currentSubtitleSettings.fontSize}
+                            onChange={(e) => handleUpdateSubtitleSetting('fontSize', parseInt(e.target.value))}
+                            style={{ flex: 1, accentColor: '#f59e0b', cursor: 'pointer', touchAction: 'pan-y' }} />
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateSubtitleSetting('fontSize', Math.min(100, currentSubtitleSettings.fontSize + 2))}
+                            style={{
+                              width: '38px', height: '38px', borderRadius: '8px',
+                              background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                              color: 'var(--text-primary)', fontSize: '16px', fontWeight: 800,
+                              cursor: 'pointer', touchAction: 'manipulation',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      ) : (
+                        <input type="range" min="56" max="100" step="2"
+                          value={currentSubtitleSettings.fontSize}
+                          onChange={(e) => handleUpdateSubtitleSetting('fontSize', parseInt(e.target.value))}
+                          style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }} />
+                      )}
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Max Words/Line</label>
+                      <select value={currentSubtitleSettings.maxWordsPerLine || 3}
+                        onChange={(e) => handleUpdateSubtitleSetting('maxWordsPerLine', parseInt(e.target.value))}
+                        style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '7px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}>
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <option key={n} value={n}>{n} word{n > 1 ? 's' : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Color Pickers — 5 colors */}
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: '8px' }}>
+                    <ColorPicker label="Word Highlight" value={currentSubtitleSettings.wordColor} onChange={(v) => handleUpdateSubtitleSetting('wordColor', v)} />
+                    <ColorPicker label="Line Text" value={currentSubtitleSettings.lineColor} onChange={(v) => handleUpdateSubtitleSetting('lineColor', v)} />
+                    <ColorPicker label="Outline" value={currentSubtitleSettings.outlineColor} onChange={(v) => handleUpdateSubtitleSetting('outlineColor', v)} />
+                    <ColorPicker label="Shadow" value={currentSubtitleSettings.shadowColor || '#000000'} onChange={(v) => handleUpdateSubtitleSetting('shadowColor', v)} />
+                    <ColorPicker label="Box Background" value={currentSubtitleSettings.boxColor} onChange={(v) => handleUpdateSubtitleSetting('boxColor', v)} />
+                  </div>
+
+                  {/* Outline Width */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                      <span>Outline Width</span>
+                      <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{currentSubtitleSettings.outlineWidth}px</span>
+                    </div>
+                    {isMobile ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateSubtitleSetting('outlineWidth', Math.max(0, currentSubtitleSettings.outlineWidth - 2))}
+                          style={{
+                            width: '38px', height: '38px', borderRadius: '8px',
+                            background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-primary)', fontSize: '16px', fontWeight: 800,
+                            cursor: 'pointer', touchAction: 'manipulation',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
+                          −
+                        </button>
+                        <input type="range" min="0" max="20" step="2"
+                          value={currentSubtitleSettings.outlineWidth}
+                          onChange={(e) => handleUpdateSubtitleSetting('outlineWidth', parseInt(e.target.value))}
+                          style={{ flex: 1, accentColor: '#f59e0b', cursor: 'pointer', touchAction: 'pan-y' }} />
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateSubtitleSetting('outlineWidth', Math.min(20, currentSubtitleSettings.outlineWidth + 2))}
+                          style={{
+                            width: '38px', height: '38px', borderRadius: '8px',
+                            background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-primary)', fontSize: '16px', fontWeight: 800,
+                            cursor: 'pointer', touchAction: 'manipulation',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <input type="range" min="0" max="20" step="2"
+                        value={currentSubtitleSettings.outlineWidth}
+                        onChange={(e) => handleUpdateSubtitleSetting('outlineWidth', parseInt(e.target.value))}
+                        style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }} />
+                    )}
+                  </div>
+
+                  {/* Shadow Offset (0 = off) */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                      <span>Shadow Offset (0 = off)</span>
+                      <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{Number(currentSubtitleSettings.shadowOffset) || 0}px</span>
+                    </div>
+                    {isMobile ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateSubtitleSetting('shadowOffset', Math.max(0, (Number(currentSubtitleSettings.shadowOffset) || 0) - 1))}
+                          style={{
+                            width: '38px', height: '38px', borderRadius: '8px',
+                            background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-primary)', fontSize: '16px', fontWeight: 800,
+                            cursor: 'pointer', touchAction: 'manipulation',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
+                          −
+                        </button>
+                        <input type="range" min="0" max="12" step="1"
+                          value={Number(currentSubtitleSettings.shadowOffset) || 0}
+                          onChange={(e) => handleUpdateSubtitleSetting('shadowOffset', parseInt(e.target.value, 10))}
+                          style={{ flex: 1, accentColor: '#f59e0b', cursor: 'pointer', touchAction: 'pan-y' }} />
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateSubtitleSetting('shadowOffset', Math.min(12, (Number(currentSubtitleSettings.shadowOffset) || 0) + 1))}
+                          style={{
+                            width: '38px', height: '38px', borderRadius: '8px',
+                            background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-primary)', fontSize: '16px', fontWeight: 800,
+                            cursor: 'pointer', touchAction: 'manipulation',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <input type="range" min="0" max="12" step="1"
+                        value={Number(currentSubtitleSettings.shadowOffset) || 0}
+                        onChange={(e) => handleUpdateSubtitleSetting('shadowOffset', parseInt(e.target.value, 10))}
+                        style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }} />
+                    )}
+                  </div>
+
+                  {/* Position + All-Caps Toggle */}
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                      <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Screen Position</label>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {SUBTITLE_POSITIONS.map(pos => (
+                          <button key={pos.id} type="button"
+                            onClick={() => handleUpdateSubtitleSetting('position', pos.value)}
+                            style={{
+                              flex: 1, padding: '5px 10px', fontSize: '10px', fontWeight: 700,
+                              background: currentSubtitleSettings.position === pos.value ? 'rgba(245,158,11,0.2)' : 'var(--bg-input)',
+                              border: `1.5px solid ${currentSubtitleSettings.position === pos.value ? '#f59e0b' : 'var(--border-subtle)'}`,
+                              borderRadius: '7px',
+                              color: currentSubtitleSettings.position === pos.value ? '#f59e0b' : 'var(--text-muted)',
+                              cursor: 'pointer', touchAction: 'manipulation'
+                            }}>
+                            {pos.name}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
 
-            {/* Typography Controls */}
-            <div style={{
-              background: 'var(--bg-card)', borderRadius: '14px',
-              padding: '14px', border: '1px solid var(--border-subtle)',
-              display: 'flex', flexDirection: 'column', gap: '12px'
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                2. Fine-Tune Typography & Colors:
-              </div>
-
-              {/* Font Family, Size, Max Words */}
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Font Family</label>
-                  <select value={currentSubtitleSettings.fontFamily}
-                    onChange={(e) => handleUpdateSubtitleSetting('fontFamily', e.target.value)}
-                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '7px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}>
-                    {SUBTITLE_FONTS.map(f => (
-                      <option key={f.id} value={f.family}>{f.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                    <span>Font Size</span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{currentSubtitleSettings.fontSize}px</span>
-                  </div>
-                  <input type="range" min="56" max="100" step="2"
-                    value={currentSubtitleSettings.fontSize}
-                    onChange={(e) => handleUpdateSubtitleSetting('fontSize', parseInt(e.target.value))}
-                    style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Max Words/Line</label>
-                  <select value={currentSubtitleSettings.maxWordsPerLine || 3}
-                    onChange={(e) => handleUpdateSubtitleSetting('maxWordsPerLine', parseInt(e.target.value))}
-                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '7px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', outline: 'none' }}>
-                    {[1, 2, 3, 4, 5].map(n => (
-                      <option key={n} value={n}>{n} word{n > 1 ? 's' : ''}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Color Pickers — 5 colors */}
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: '8px' }}>
-                <ColorPicker label="Word Highlight" value={currentSubtitleSettings.wordColor} onChange={(v) => handleUpdateSubtitleSetting('wordColor', v)} />
-                <ColorPicker label="Line Text" value={currentSubtitleSettings.lineColor} onChange={(v) => handleUpdateSubtitleSetting('lineColor', v)} />
-                <ColorPicker label="Outline" value={currentSubtitleSettings.outlineColor} onChange={(v) => handleUpdateSubtitleSetting('outlineColor', v)} />
-                <ColorPicker label="Shadow" value={currentSubtitleSettings.shadowColor || '#000000'} onChange={(v) => handleUpdateSubtitleSetting('shadowColor', v)} />
-                <ColorPicker label="Box Background" value={currentSubtitleSettings.boxColor} onChange={(v) => handleUpdateSubtitleSetting('boxColor', v)} />
-              </div>
-
-              {/* Outline Width */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                  <span>Outline Width</span>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{currentSubtitleSettings.outlineWidth}px</span>
-                </div>
-                <input type="range" min="0" max="20" step="2"
-                  value={currentSubtitleSettings.outlineWidth}
-                  onChange={(e) => handleUpdateSubtitleSetting('outlineWidth', parseInt(e.target.value))}
-                  style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }} />
-              </div>
-
-              {/* Shadow Offset (0 = off) */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                  <span>Shadow Offset (0 = off)</span>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{Number(currentSubtitleSettings.shadowOffset) || 0}px</span>
-                </div>
-                <input type="range" min="0" max="12" step="1"
-                  value={Number(currentSubtitleSettings.shadowOffset) || 0}
-                  onChange={(e) => handleUpdateSubtitleSetting('shadowOffset', parseInt(e.target.value, 10))}
-                  style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }} />
-              </div>
-
-              {/* Position + All-Caps Toggle */}
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                  <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Screen Position</label>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    {SUBTITLE_POSITIONS.map(pos => (
-                      <button key={pos.id} type="button"
-                        onClick={() => handleUpdateSubtitleSetting('position', pos.value)}
-                        style={{
-                          flex: 1, padding: '5px 10px', fontSize: '10px', fontWeight: 700,
-                          background: currentSubtitleSettings.position === pos.value ? 'rgba(245,158,11,0.2)' : 'var(--bg-input)',
-                          border: `1.5px solid ${currentSubtitleSettings.position === pos.value ? '#f59e0b' : 'var(--border-subtle)'}`,
-                          borderRadius: '7px',
-                          color: currentSubtitleSettings.position === pos.value ? '#f59e0b' : 'var(--text-muted)',
-                          cursor: 'pointer'
-                        }}>
-                        {pos.name}
-                      </button>
-                    ))}
+                    {/* All-Caps Toggle */}
+                    <button type="button"
+                      onClick={() => handleUpdateSubtitleSetting('allCaps', !currentSubtitleSettings.allCaps)}
+                      style={{
+                        padding: '5px 14px', borderRadius: '7px', fontSize: '11px', fontWeight: 800,
+                        background: currentSubtitleSettings.allCaps ? 'rgba(245,158,11,0.2)' : 'var(--bg-input)',
+                        border: `1.5px solid ${currentSubtitleSettings.allCaps ? '#f59e0b' : 'var(--border-subtle)'}`,
+                        color: currentSubtitleSettings.allCaps ? '#f59e0b' : 'var(--text-muted)',
+                        cursor: 'pointer', whiteSpace: 'nowrap', touchAction: 'manipulation'
+                      }}>
+                      {currentSubtitleSettings.allCaps ? 'ALL CAPS ON' : 'All Caps Off'}
+                    </button>
                   </div>
                 </div>
 
-                {/* All-Caps Toggle */}
-                <button type="button"
-                  onClick={() => handleUpdateSubtitleSetting('allCaps', !currentSubtitleSettings.allCaps)}
-                  style={{
-                    padding: '5px 14px', borderRadius: '7px', fontSize: '11px', fontWeight: 800,
-                    background: currentSubtitleSettings.allCaps ? 'rgba(245,158,11,0.2)' : 'var(--bg-input)',
-                    border: `1.5px solid ${currentSubtitleSettings.allCaps ? '#f59e0b' : 'var(--border-subtle)'}`,
-                    color: currentSubtitleSettings.allCaps ? '#f59e0b' : 'var(--text-muted)',
-                    cursor: 'pointer', whiteSpace: 'nowrap'
-                  }}>
-                  {currentSubtitleSettings.allCaps ? 'ALL CAPS ON' : 'All Caps Off'}
-                </button>
-              </div>
-            </div>
+                {/* Render Button & Mobile Preview Toggle */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button type="button" onClick={handleRenderSubtitlePreview}
+                    disabled={isSubtitleRendering}
+                    style={{
+                      background: isSubtitleRendering ? 'rgba(245,158,11,0.15)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                      padding: '11px 20px', borderRadius: '10px',
+                      color: isSubtitleRendering ? '#f59e0b' : '#000',
+                      fontSize: '13px', fontWeight: 900, border: 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      gap: '8px', cursor: isSubtitleRendering ? 'not-allowed' : 'pointer',
+                      boxShadow: isSubtitleRendering ? 'none' : '0 4px 14px rgba(245,158,11,0.3)',
+                      transition: 'all 0.2s ease', marginTop: '4px',
+                      touchAction: 'manipulation', minHeight: '44px'
+                    }}>
+                    {isSubtitleRendering ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} fill="#000" />}
+                    <span>{isSubtitleRendering ? 'Rendering via json2video API...' : 'Render Live Subtitle Video Clip'}</span>
+                  </button>
 
-            {/* Render Button */}
-            <button type="button" onClick={handleRenderSubtitlePreview}
-              disabled={isSubtitleRendering}
-              style={{
-                background: isSubtitleRendering ? 'rgba(245,158,11,0.15)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                padding: '11px 20px', borderRadius: '10px',
-                color: isSubtitleRendering ? '#f59e0b' : '#000',
-                fontSize: '13px', fontWeight: 900, border: 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                gap: '8px', cursor: isSubtitleRendering ? 'not-allowed' : 'pointer',
-                boxShadow: isSubtitleRendering ? 'none' : '0 4px 14px rgba(245,158,11,0.3)',
-                transition: 'all 0.2s ease', marginTop: '4px'
-              }}>
-              {isSubtitleRendering ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} fill="#000" />}
-              <span>{isSubtitleRendering ? 'Rendering via json2video API...' : 'Render Live Subtitle Video Clip'}</span>
-            </button>
-          </div>
-
-          {/* Video / Live Preview Column */}
-          <div style={{
-            display: 'flex', flexDirection: 'column', gap: '12px',
-            position: isTablet ? 'relative' : 'sticky', top: '20px', alignSelf: 'start'
-          }}>
-            <div style={{
-              background: '#000', borderRadius: '16px',
-              border: '2px solid rgba(245,158,11,0.3)',
-              overflow: 'hidden', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
-              minHeight: '380px', position: 'relative', padding: '16px 12px'
-            }}>
-              {isSubtitleRendering ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: '#fbbf24' }}>
-                  <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 14px' }} />
-                  <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '4px' }}>
-                    {subtitleRenderStatus || 'Rendering with json2video Cloud...'}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Synthesizing voice & baking subtitle animations
-                  </div>
+                  {isMobile && (
+                    <button
+                      type="button"
+                      onClick={() => setMobileSubtitleMode('preview')}
+                      style={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '10px',
+                        padding: '10px 16px',
+                        color: '#f59e0b',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        touchAction: 'manipulation'
+                      }}
+                    >
+                      <Film size={14} />
+                      <span>Switch to Live Canvas Preview →</span>
+                    </button>
+                  )}
                 </div>
-              ) : renderedSubtitleVideoUrl ? (
-                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <video ref={subtitleVideoRef} src={renderedSubtitleVideoUrl}
-                    autoPlay loop controls playsInline
-                    style={{ width: '100%', maxHeight: '440px', objectFit: 'contain', borderRadius: '12px' }} />
-                  <div style={{
-                    width: '100%', padding: '10px 14px', background: 'rgba(0,0,0,0.85)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '8px', borderRadius: '8px'
-                  }}>
-                    <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 700 }}>
-                      ✅ Real Rendered MP4
-                    </span>
-                    <a href={renderedSubtitleVideoUrl} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: '11px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
-                      <span>Open Clip</span>
-                      <ExternalLink size={11} />
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <SubtitleLivePreview
-                    subtitleSettings={currentSubtitleSettings}
-                    text={subtitleCustomText}
-                  />
-                </div>
-              )}
-            </div>
-
-            {subtitleRenderError && (
-              <div style={{
-                padding: '10px 14px', borderRadius: '10px',
-                background: 'rgba(239,68,68,0.1)', border: '1.5px solid rgba(239,68,68,0.3)',
-                color: '#f87171', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px'
-              }}>
-                <AlertTriangle size={14} />
-                <strong>Render Error:</strong> {subtitleRenderError}
               </div>
             )}
 
-            {/* Current Settings Summary */}
-            <div style={{
-              background: 'var(--bg-card)', borderRadius: '12px',
-              padding: '12px', border: '1px solid var(--border-subtle)',
-              fontSize: '11px', color: 'var(--text-muted)'
-            }}>
-              <div style={{ fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>Current Settings:</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px' }}>
-                <span>Font: <strong style={{ color: 'var(--text-primary)' }}>{currentSubtitleSettings.fontFamily}</strong></span>
-                <span>Size: <strong style={{ color: 'var(--text-primary)' }}>{currentSubtitleSettings.fontSize}px</strong></span>
-                <span>Voice: <strong style={{ color: 'var(--text-primary)' }}>{voices.find(v => v.id === subtitleVoiceId)?.name || 'Adam'}</strong></span>
-                <span>Position: <strong style={{ color: 'var(--text-primary)' }}>{currentSubtitleSettings.position}</strong></span>
-                <span>All Caps: <strong style={{ color: 'var(--text-primary)' }}>{currentSubtitleSettings.allCaps ? 'Yes' : 'No'}</strong></span>
-                <span>Words/Line: <strong style={{ color: 'var(--text-primary)' }}>{currentSubtitleSettings.maxWordsPerLine || 3}</strong></span>
+            {/* Video / Live Preview Column */}
+            {(!isMobile || mobileSubtitleMode === 'preview') && (
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: '12px',
+                position: (!isMobile && !isTablet) ? 'sticky' : 'relative', top: '20px', alignSelf: 'start'
+              }}>
+                {isMobile && (
+                  <button
+                    type="button"
+                    onClick={() => setMobileSubtitleMode('controls')}
+                    style={{
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '8px',
+                      padding: '8px 14px',
+                      color: 'var(--text-muted)',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      touchAction: 'manipulation',
+                      alignSelf: 'flex-start'
+                    }}
+                  >
+                    <span>← Back to Style Controls</span>
+                  </button>
+                )}
+
+                <div style={{
+                  background: '#000', borderRadius: '16px',
+                  border: '2px solid rgba(245,158,11,0.3)',
+                  overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                  minHeight: isMobile ? '320px' : '380px', position: 'relative', padding: isMobile ? '12px 8px' : '16px 12px'
+                }}>
+                  {isSubtitleRendering ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#fbbf24' }}>
+                      <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 14px' }} />
+                      <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '4px' }}>
+                        {subtitleRenderStatus || 'Rendering with json2video Cloud...'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Synthesizing voice & baking subtitle animations
+                      </div>
+                    </div>
+                  ) : renderedSubtitleVideoUrl ? (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <video ref={subtitleVideoRef} src={renderedSubtitleVideoUrl}
+                        autoPlay loop controls playsInline
+                        style={{ width: '100%', maxHeight: '440px', objectFit: 'contain', borderRadius: '12px' }} />
+                      <div style={{
+                        width: '100%', padding: '10px 14px', background: 'rgba(0,0,0,0.85)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '8px', borderRadius: '8px'
+                      }}>
+                        <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 700 }}>
+                          ✅ Real Rendered MP4
+                        </span>
+                        <a href={renderedSubtitleVideoUrl} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: '11px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+                          <span>Open Clip</span>
+                          <ExternalLink size={11} />
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <SubtitleLivePreview
+                        subtitleSettings={currentSubtitleSettings}
+                        text={subtitleCustomText}
+                        customFrameWidth={isMobile ? 220 : 270}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {subtitleRenderError && (
+                  <div style={{
+                    padding: '10px 14px', borderRadius: '10px',
+                    background: 'rgba(239,68,68,0.1)', border: '1.5px solid rgba(239,68,68,0.3)',
+                    color: '#f87171', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px'
+                  }}>
+                    <AlertTriangle size={14} />
+                    <strong>Render Error:</strong> {subtitleRenderError}
+                  </div>
+                )}
+
+                {/* Current Settings Summary */}
+                <div style={{
+                  background: 'var(--bg-card)', borderRadius: '12px',
+                  padding: '12px', border: '1px solid var(--border-subtle)',
+                  fontSize: '11px', color: 'var(--text-muted)'
+                }}>
+                  <div style={{ fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>Current Settings:</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px' }}>
+                    <span>Font: <strong style={{ color: 'var(--text-primary)' }}>{currentSubtitleSettings.fontFamily}</strong></span>
+                    <span>Size: <strong style={{ color: 'var(--text-primary)' }}>{currentSubtitleSettings.fontSize}px</strong></span>
+                    <span>Voice: <strong style={{ color: 'var(--text-primary)' }}>{voices.find(v => v.id === subtitleVoiceId)?.name || 'Adam'}</strong></span>
+                    <span>Position: <strong style={{ color: 'var(--text-primary)' }}>{currentSubtitleSettings.position}</strong></span>
+                    <span>All Caps: <strong style={{ color: 'var(--text-primary)' }}>{currentSubtitleSettings.allCaps ? 'Yes' : 'No'}</strong></span>
+                    <span>Words/Line: <strong style={{ color: 'var(--text-primary)' }}>{currentSubtitleSettings.maxWordsPerLine || 3}</strong></span>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -1604,15 +2110,55 @@ export default function StudioLab({
                     {Math.round(currentMusicVolume * 100)}%
                   </span>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={currentMusicVolume}
-                  onChange={(e) => handleMusicVolumeChange(e.target.value)}
-                  style={{ width: '100%', accentColor: '#06b6d4', cursor: 'pointer' }}
-                />
+                {isMobile ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleMusicVolumeChange(Math.max(0, +(currentMusicVolume - 0.05).toFixed(2)))}
+                      style={{
+                        width: '38px', height: '38px', borderRadius: '8px',
+                        background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)', fontSize: '16px', fontWeight: 800,
+                        cursor: 'pointer', touchAction: 'manipulation',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}
+                    >
+                      −
+                    </button>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={currentMusicVolume}
+                      onChange={(e) => handleMusicVolumeChange(e.target.value)}
+                      style={{ flex: 1, accentColor: '#06b6d4', cursor: 'pointer', touchAction: 'pan-y' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleMusicVolumeChange(Math.min(1, +(currentMusicVolume + 0.05).toFixed(2)))}
+                      style={{
+                        width: '38px', height: '38px', borderRadius: '8px',
+                        background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)', fontSize: '16px', fontWeight: 800,
+                        cursor: 'pointer', touchAction: 'manipulation',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={currentMusicVolume}
+                    onChange={(e) => handleMusicVolumeChange(e.target.value)}
+                    style={{ width: '100%', accentColor: '#06b6d4', cursor: 'pointer' }}
+                  />
+                )}
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                   {[
                     { l: 'Mute', v: 0 },
@@ -1630,7 +2176,8 @@ export default function StudioLab({
                         background: Math.abs(currentMusicVolume - p.v) < 0.03 ? 'rgba(6,182,212,0.25)' : 'var(--bg-card)',
                         border: `1px solid ${Math.abs(currentMusicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--border-subtle)'}`,
                         color: Math.abs(currentMusicVolume - p.v) < 0.03 ? '#06b6d4' : 'var(--text-muted)',
-                        borderRadius: '5px', padding: '3px 6px', fontSize: '10px', fontWeight: 700, cursor: 'pointer'
+                        borderRadius: '5px', padding: '5px 8px', fontSize: '10.5px', fontWeight: 700, cursor: 'pointer',
+                        touchAction: 'manipulation', minHeight: isMobile ? '34px' : 'auto'
                       }}
                     >
                       {p.l}
@@ -1658,16 +2205,57 @@ export default function StudioLab({
                     -{duckingLevel}dB ({Math.round(currentMusicVolume * duckGain * 100)}% under voice)
                   </span>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="30"
-                  step="2"
-                  value={duckingLevel}
-                  onChange={(e) => handleDuckingChange(e.target.value)}
-                  title={`While a voiceover plays, music drops to ${Math.round(duckGain * 100)}% of its level`}
-                  style={{ width: '100%', accentColor: '#06b6d4', cursor: 'pointer' }}
-                />
+                {isMobile ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleDuckingChange(Math.max(0, duckingLevel - 2))}
+                      style={{
+                        width: '38px', height: '38px', borderRadius: '8px',
+                        background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)', fontSize: '16px', fontWeight: 800,
+                        cursor: 'pointer', touchAction: 'manipulation',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}
+                    >
+                      −
+                    </button>
+                    <input
+                      type="range"
+                      min="0"
+                      max="30"
+                      step="2"
+                      value={duckingLevel}
+                      onChange={(e) => handleDuckingChange(e.target.value)}
+                      title={`While a voiceover plays, music drops to ${Math.round(duckGain * 100)}% of its level`}
+                      style={{ flex: 1, accentColor: '#06b6d4', cursor: 'pointer', touchAction: 'pan-y' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDuckingChange(Math.min(30, duckingLevel + 2))}
+                      style={{
+                        width: '38px', height: '38px', borderRadius: '8px',
+                        background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)', fontSize: '16px', fontWeight: 800,
+                        cursor: 'pointer', touchAction: 'manipulation',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    type="range"
+                    min="0"
+                    max="30"
+                    step="2"
+                    value={duckingLevel}
+                    onChange={(e) => handleDuckingChange(e.target.value)}
+                    title={`While a voiceover plays, music drops to ${Math.round(duckGain * 100)}% of its level`}
+                    style={{ width: '100%', accentColor: '#06b6d4', cursor: 'pointer' }}
+                  />
+                )}
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                   Automatically softens music track whenever narration plays for studio clarity.
                 </span>
@@ -1685,6 +2273,83 @@ export default function StudioLab({
               const isSelected = selectedMusicId === track.id;
               const isPlayingThis = playingMusicId === track.id;
 
+              if (isMobile) {
+                return (
+                  <div key={track.id}
+                    onTouchStartCapture={handleTouchStartCapture}
+                    onClick={(e) => {
+                      if (isTouchScrollGesture(e)) return;
+                      onSelectMusic(track.id);
+                    }}
+                    style={{
+                      background: isSelected ? 'var(--bg-card-hover)' : 'var(--bg-card)',
+                      border: `1.5px solid ${isSelected ? track.color : 'var(--border-subtle)'}`,
+                      borderRadius: '12px', padding: '10px 12px', cursor: 'pointer',
+                      display: 'flex', flexDirection: 'column', gap: '6px',
+                      boxShadow: isSelected ? `0 0 14px ${track.color}30` : 'none',
+                      transition: 'all 0.15s ease',
+                      touchAction: 'manipulation'
+                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                        <button type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTogglePlayMusic(e, track);
+                          }}
+                          style={{
+                            width: '40px', height: '40px', borderRadius: '10px',
+                            background: isPlayingThis ? track.color : 'var(--bg-input)',
+                            color: isPlayingThis ? '#fff' : 'var(--text-primary)',
+                            border: `1px solid ${isPlayingThis ? track.color : 'var(--border-subtle)'}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0,
+                            touchAction: 'manipulation'
+                          }}>
+                          {isPlayingThis ? <Square size={13} /> : <Play size={14} fill="currentColor" />}
+                        </button>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{
+                            fontSize: '13px', fontWeight: 800, color: 'var(--text-primary)',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                          }}>
+                            {track.name}
+                          </div>
+                          <div style={{
+                            fontSize: '10.5px', color: 'var(--text-muted)',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                          }}>
+                            {track.artist} • {track.genre}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Explicit Selection Indicator */}
+                      <div style={{
+                        padding: '3px 8px', borderRadius: '6px',
+                        background: isSelected ? track.color : 'var(--bg-input)',
+                        color: isSelected ? '#fff' : 'var(--text-muted)',
+                        border: `1px solid ${isSelected ? track.color : 'var(--border-subtle)'}`,
+                        fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px',
+                        flexShrink: 0
+                      }}>
+                        {isSelected ? <><Check size={11} strokeWidth={3} /> Active</> : 'Select'}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', paddingTop: '2px' }}>
+                      <span>{track.moodLabel || track.mood}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>{track.tempo}</span>
+                        <span>•</span>
+                        <span>{track.duration}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              {/* Desktop View Kept 100% Intact */}
               return (
                 <div key={track.id}
                   onClick={() => onSelectMusic(track.id)}

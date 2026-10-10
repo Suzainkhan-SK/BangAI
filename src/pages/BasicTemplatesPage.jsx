@@ -156,53 +156,63 @@ export default function BasicTemplatesPage({
       }}>
         <div style={{ width: '100%', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1 }}>
 
-          {/* ── Top Header Toolbar (Minimalist Design) ── */}
+          {/* ── Top Header Toolbar: Desktop intact, Mobile sleek & minimalist ── */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            flexWrap: isMobile ? 'wrap' : 'nowrap',
-            gap: isMobile ? '10px' : '12px',
-            padding: isMobile ? '10px 12px' : '12px 18px',
-            marginBottom: '16px',
+            flexWrap: isMobile ? 'nowrap' : 'nowrap',
+            gap: isMobile ? '8px' : '12px',
+            padding: isMobile ? '8px 12px' : '12px 18px',
+            marginBottom: isMobile ? '8px' : '16px',
             background: 'var(--bg-card)',
             border: '1px solid var(--border-subtle)',
             borderRadius: '12px',
             boxShadow: 'var(--shadow-card)'
           }}>
-            {/* Left: Minimalist Brand Title & Live Status */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Left: Brand Title & Live Status */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '7px' : '10px', minWidth: 0 }}>
               <div style={{
-                width: '28px',
-                height: '28px',
+                width: isMobile ? '26px' : '28px',
+                height: isMobile ? '26px' : '28px',
                 borderRadius: '8px',
                 background: '#ff4f00',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fffefb',
+                flexShrink: 0,
                 boxShadow: '0 2px 8px rgba(255,79,0,0.35)'
               }}>
-                <Zap size={14} fill="#fffefb" />
+                <Zap size={isMobile ? 13 : 14} fill="#fffefb" />
               </div>
-              <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                Stock Video Studio
+              <span style={{
+                fontWeight: 700,
+                fontSize: isMobile ? '13.5px' : '15px',
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.01em',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {isMobile ? 'Stock Studio' : 'Stock Video Studio'}
               </span>
               <span style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '5px',
-                fontSize: '11px',
+                gap: '4px',
+                fontSize: isMobile ? '10px' : '11px',
                 fontWeight: 600,
                 color: mptStatus === 'online' ? '#10b981' : '#f59e0b',
                 background: mptStatus === 'online' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                padding: '2px 8px',
+                padding: isMobile ? '1px 6px' : '2px 8px',
                 borderRadius: '999px',
-                border: `1px solid ${mptStatus === 'online' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`
+                border: `1px solid ${mptStatus === 'online' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`,
+                flexShrink: 0
               }}>
                 <span style={{
-                  width: '6px',
-                  height: '6px',
+                  width: '5px',
+                  height: '5px',
                   borderRadius: '50%',
                   background: mptStatus === 'online' ? '#10b981' : '#f59e0b',
                   boxShadow: mptStatus === 'online' ? '0 0 6px #10b981' : 'none'
@@ -212,7 +222,7 @@ export default function BasicTemplatesPage({
             </div>
 
             {/* Right: Actions (Reload & Full Window CTA) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '8px', flexShrink: 0 }}>
               <button
                 type="button"
                 onClick={checkHealth}
@@ -220,7 +230,7 @@ export default function BasicTemplatesPage({
                 title="Reload Studio Frame"
                 className="btn-zapier-outline"
                 style={{
-                  padding: '6px 12px',
+                  padding: isMobile ? '6px 8px' : '6px 12px',
                   fontSize: '12px',
                   borderRadius: '8px',
                   gap: '5px',
@@ -229,11 +239,13 @@ export default function BasicTemplatesPage({
                   background: 'transparent',
                   color: 'var(--text-secondary)',
                   border: '1px solid var(--border-subtle)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  minHeight: isMobile ? '36px' : 'auto',
+                  touchAction: 'manipulation'
                 }}
               >
-                <RefreshCw size={12} className={isCheckingConnection ? 'spin-anim' : ''} />
-                <span>Reload</span>
+                <RefreshCw size={13} className={isCheckingConnection ? 'spin-anim' : ''} />
+                {!isMobile && <span>Reload</span>}
               </button>
 
               <a
@@ -243,26 +255,28 @@ export default function BasicTemplatesPage({
                 title="Open Studio in Full Window"
                 className="btn-zapier-primary"
                 style={{
-                  padding: '6px 14px',
-                  fontSize: '12.5px',
+                  padding: isMobile ? '6px 10px' : '6px 14px',
+                  fontSize: isMobile ? '11.5px' : '12.5px',
                   fontWeight: 600,
                   borderRadius: '8px',
-                  gap: '6px',
+                  gap: '5px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   background: '#ff4f00',
                   color: '#fffefb',
                   textDecoration: 'none',
-                  boxShadow: '0 2px 8px rgba(255, 79, 0, 0.3)'
+                  boxShadow: '0 2px 8px rgba(255, 79, 0, 0.3)',
+                  minHeight: isMobile ? '36px' : 'auto',
+                  touchAction: 'manipulation'
                 }}
               >
-                <span>Full Window</span>
+                <span>{isMobile ? 'App Mode' : 'Full Window'}</span>
                 <ExternalLink size={12} />
               </a>
             </div>
           </div>
 
-          {/* ── Studio Frame Container (Zapier 12px Card) ── */}
+          {/* ── Studio Frame Container: Touch-safe on mobile, desktop intact ── */}
           <div style={{
             flex: 1,
             display: 'flex',
@@ -272,7 +286,10 @@ export default function BasicTemplatesPage({
             border: '1px solid var(--border-subtle)',
             overflow: 'hidden',
             boxShadow: 'var(--shadow-card)',
-            minHeight: isMobile ? 'calc(100dvh - 180px)' : '760px'
+            minHeight: isMobile ? 'calc(100dvh - 140px)' : '760px',
+            height: isMobile ? 'calc(100dvh - 140px)' : 'auto',
+            touchAction: 'pan-y',
+            position: 'relative'
           }}>
             <iframe
               key={`studio-frame-${iframeKey}-${activeTheme}`}
@@ -281,11 +298,12 @@ export default function BasicTemplatesPage({
               style={{
                 width: '100%',
                 height: '100%',
-                minHeight: isMobile ? 'calc(100dvh - 180px)' : '760px',
+                minHeight: isMobile ? 'calc(100dvh - 140px)' : '760px',
                 flex: 1,
                 border: 'none',
                 display: 'block',
-                background: activeTheme === 'light' ? '#fffefb' : '#1a1313'
+                background: activeTheme === 'light' ? '#fffefb' : '#1a1313',
+                touchAction: 'pan-y'
               }}
               allow="camera; microphone; clipboard-write; clipboard-read"
             />
