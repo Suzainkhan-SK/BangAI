@@ -58,12 +58,22 @@ export default function BasicTemplatesPage({
   const userId = parsedUser?.id || parsedUser?._id || parsedUser?.userId || '';
   const userEmail = parsedUser?.email || '';
 
+  let effectiveUserId = userId;
+  if (!effectiveUserId && typeof window !== 'undefined') {
+    let anonId = localStorage.getItem('bangai_mpt_uid');
+    if (!anonId) {
+      anonId = 'guest_' + Math.random().toString(36).substring(2, 12);
+      localStorage.setItem('bangai_mpt_uid', anonId);
+    }
+    effectiveUserId = anonId;
+  }
+
   const activeTheme = theme || (typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : 'dark') || 'dark';
 
   const activeCluster = MODAL_CLUSTERS.find(c => c.id === activeClusterId) || MODAL_CLUSTERS[0];
   const baseUrl = useCloudEnv ? activeCluster.uiUrl : LOCAL_MPT_URL;
-  const embeddedUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&user_id=${encodeURIComponent(userId)}&email=${encodeURIComponent(userEmail)}&theme=${encodeURIComponent(activeTheme)}&embedded=1`;
-  const fullWindowUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&user_id=${encodeURIComponent(userId)}&email=${encodeURIComponent(userEmail)}&theme=${encodeURIComponent(activeTheme)}`;
+  const embeddedUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&user_id=${encodeURIComponent(effectiveUserId)}&email=${encodeURIComponent(userEmail)}&theme=${encodeURIComponent(activeTheme)}&embedded=1`;
+  const fullWindowUrl = `${baseUrl}/?token=${encodeURIComponent(token)}&user_id=${encodeURIComponent(effectiveUserId)}&email=${encodeURIComponent(userEmail)}&theme=${encodeURIComponent(activeTheme)}`;
 
   // Probe connectivity with silent automatic backend failover
   const checkHealth = async () => {
