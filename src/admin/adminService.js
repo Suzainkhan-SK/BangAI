@@ -100,6 +100,7 @@ export const adminService = {
   saveKeys: async (provider, keys) => adminFetch('save-keys', 'POST', { provider, keys }),
   probeKeyBalance: async (provider, apiKey) => adminFetch('probe-key-balance', 'POST', { provider, apiKey }),
   syncKeysNetlify: async () => adminFetch('sync-keys-netlify', 'POST'),
+  syncKeysToModal: async () => adminFetch('sync-keys-to-modal', 'POST'),
 
   // 5. Workflow Node Manager
   getWorkflows: async () => adminFetch('get-workflows', 'GET'),

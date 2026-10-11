@@ -173,6 +173,32 @@ export async function handler(event) {
     }
   }
 
+  // 1.1 PUBLIC / RUNTIME ACTION: Get system keys for Bang API Credits rotation
+  if (action === 'get-system-keys') {
+    try {
+      const db = await getDb();
+      const keysCol = db.collection('api_keys');
+      const allDocs = await keysCol.find({}).toArray();
+      const fullKeyMap = {};
+      for (const doc of allDocs) {
+        const provId = doc.provider || doc._id.replace('_keys', '');
+        const rawPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
+        fullKeyMap[provId] = rawPool;
+      }
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: true, data: fullKeyMap })
+      };
+    } catch (err) {
+      return {
+        statusCode: 500,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, error: err.message })
+      };
+    }
+  }
+
   // 2. SECURITY GUARD: All subsequent actions require valid Master Admin JWT
   const authHeader = event.headers.authorization || event.headers.Authorization || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -424,26 +450,36 @@ export async function handler(event) {
       // ----------------------------------------------------
       case 'get-keys': {
         const keysCol = db.collection('api_keys');
-        const [j2v, eleven, thumb, xkiro] = await Promise.all([
-          keysCol.findOne({ _id: 'json2video_keys' }),
-          keysCol.findOne({ _id: 'elevenlabs_keys' }),
-          keysCol.findOne({ _id: 'thumbnail_keys' }),
-          keysCol.findOne({ _id: 'xkiro_keys' })
-        ]);
+        const allDocs = await keysCol.find({}).toArray();
+        const docMap = {};
+        for (const doc of allDocs) {
+          const provId = doc.provider || doc._id.replace('_keys', '');
+          docMap[provId] = doc;
+        }
 
         const mapKeyPool = (doc, provider) => {
-          const rawList = doc?.pool || doc?.keys || [];
+          const rawList = doc?.keys || doc?.pool || [];
           return rawList.map((k, idx) => {
             if (typeof k === 'string') {
-              let label = `${provider} Key #${idx + 1}`;
-              let balance = 350;
+              let label = `${provider.toUpperCase()} Key #${idx + 1}`;
+              let balance = 500;
               let max = 500;
-              let unit = 'seconds';
+              let unit = 'requests';
               if (provider === 'elevenlabs') {
-                label = idx === 0 ? 'Tier 4 Studio Voice Primary' : 'Backup Voice Pool';
+                label = idx === 0 ? 'Tier 4 Studio Voice Primary' : `Backup Voice Pool #${idx + 1}`;
                 balance = idx === 0 ? 845000 : 120000;
                 max = 1000000;
                 unit = 'chars';
+              } else if (provider === 'azure_speech') {
+                label = idx === 0 ? 'Azure Speech Primary S0' : `Azure Backup Key #${idx + 1}`;
+                balance = 500000;
+                max = 500000;
+                unit = 'chars';
+              } else if (provider === 'siliconflow') {
+                label = `SiliconFlow Cloud Pool #${idx + 1}`;
+                balance = 2000;
+                max = 2000;
+                unit = 'credits';
               } else if (provider === 'thumbnail') {
                 label = `Kie.ai Pool #${idx + 1}`;
                 balance = 450;
@@ -459,6 +495,36 @@ export async function handler(event) {
                 balance = Math.max(50, 400 - (idx * 25));
                 max = 500;
                 unit = 'seconds';
+              } else if (provider === 'gemini') {
+                label = idx === 0 ? 'Gemini 2.5 Flash Ultra' : `Gemini Backup Key #${idx + 1}`;
+                balance = 1500;
+                max = 1500;
+                unit = 'RPM';
+              } else if (provider === 'openai') {
+                label = idx === 0 ? 'GPT-4o Production Cluster' : `OpenAI Backup Key #${idx + 1}`;
+                balance = 10000;
+                max = 10000;
+                unit = 'tokens';
+              } else if (provider === 'deepseek') {
+                label = idx === 0 ? 'DeepSeek V3 High Speed' : `DeepSeek Backup Key #${idx + 1}`;
+                balance = 5000;
+                max = 5000;
+                unit = 'tokens';
+              } else if (provider === 'groq') {
+                label = idx === 0 ? 'Groq LPU Ultra-Low Latency' : `Groq Backup Key #${idx + 1}`;
+                balance = 3000;
+                max = 3000;
+                unit = 'RPM';
+              } else if (provider === 'pexels') {
+                label = idx === 0 ? 'Pexels HD Video Cluster' : `Pexels Worker Key #${idx + 1}`;
+                balance = 200;
+                max = 200;
+                unit = 'RPH';
+              } else if (provider === 'pixabay') {
+                label = idx === 0 ? 'Pixabay Media API Key' : `Pixabay Backup Key #${idx + 1}`;
+                balance = 5000;
+                max = 5000;
+                unit = 'req/hr';
               }
               return { key: k, label, status: 'active', balance, max, unit };
             }
@@ -466,17 +532,71 @@ export async function handler(event) {
           });
         };
 
+        const knownProviders = [
+          'json2video', 'gemini', 'openai', 'deepseek', 'groq',
+          'pexels', 'pixabay', 'azure_speech', 'elevenlabs',
+          'siliconflow', 'thumbnail', 'xkiro'
+        ];
+
+        const responseData = {};
+        for (const p of knownProviders) {
+          responseData[p] = mapKeyPool(docMap[p], p);
+        }
+        for (const [p, doc] of Object.entries(docMap)) {
+          if (!responseData[p]) {
+            responseData[p] = mapKeyPool(doc, p);
+          }
+        }
+
         return {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({
             success: true,
-            data: {
-              json2video: mapKeyPool(j2v, 'json2video'),
-              elevenlabs: mapKeyPool(eleven, 'elevenlabs'),
-              thumbnail: mapKeyPool(thumb, 'thumbnail'),
-              xkiro: mapKeyPool(xkiro, 'xkiro')
-            }
+            data: responseData
+          })
+        };
+      }
+
+      case 'sync-keys-to-modal': {
+        const keysCol = db.collection('api_keys');
+        const allDocs = await keysCol.find({}).toArray();
+        const fullKeyMap = {};
+        for (const doc of allDocs) {
+          const provId = doc.provider || doc._id.replace('_keys', '');
+          const rawPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
+          fullKeyMap[provId] = rawPool;
+        }
+
+        const modalEndpoints = [
+          'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
+          'https://cmpunktg1--bangai-stock-studio-serve.modal.run/api/bangai/system-keys'
+        ];
+
+        const syncResults = [];
+        for (const endpoint of modalEndpoints) {
+          try {
+            const resp = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ keys: fullKeyMap })
+            });
+            const data = await resp.json().catch(() => ({}));
+            syncResults.push({ endpoint, status: resp.status, ok: resp.ok, data });
+          } catch (mErr) {
+            syncResults.push({ endpoint, error: mErr.message, ok: false });
+          }
+        }
+
+        await logAdminAction(db, 'SYNC_KEYS_TO_MODAL', { count: Object.keys(fullKeyMap).length, results: syncResults }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            message: `Synchronized ${Object.keys(fullKeyMap).length} key pools to Modal Cloud Clusters!`,
+            results: syncResults
           })
         };
       }

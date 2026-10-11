@@ -1,17 +1,99 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '../adminService';
 
+const getProviderDefaults = (prov) => {
+  switch (prov) {
+    case 'json2video': return { balance: 500, max: 500, unit: 'seconds' };
+    case 'elevenlabs': return { balance: 84000, max: 100000, unit: 'chars' };
+    case 'azure_speech': return { balance: 500000, max: 500000, unit: 'chars' };
+    case 'siliconflow': return { balance: 2000, max: 2000, unit: 'credits' };
+    case 'gemini': return { balance: 1500, max: 1500, unit: 'RPM' };
+    case 'openai': return { balance: 10000, max: 10000, unit: 'tokens' };
+    case 'deepseek': return { balance: 5000, max: 5000, unit: 'tokens' };
+    case 'groq': return { balance: 3000, max: 3000, unit: 'RPM' };
+    case 'pexels': return { balance: 200, max: 200, unit: 'RPH' };
+    case 'pixabay': return { balance: 5000, max: 5000, unit: 'req/hr' };
+    case 'thumbnail': return { balance: 450, max: 500, unit: 'renders' };
+    case 'xkiro': return { balance: 999999, max: 1000000, unit: 'tokens' };
+    default: return { balance: 1000, max: 1000, unit: 'units' };
+  }
+};
+
+const CATEGORIES = [
+  {
+    id: 'json2video',
+    name: 'JSON2Video Render',
+    icon: '⚡',
+    providers: ['json2video']
+  },
+  {
+    id: 'llm',
+    name: 'AI LLM Engines',
+    icon: '🧠',
+    providers: ['gemini', 'openai', 'deepseek', 'groq']
+  },
+  {
+    id: 'stock_footage',
+    name: 'Stock Footage',
+    icon: '🎬',
+    providers: ['pexels', 'pixabay']
+  },
+  {
+    id: 'voice_tts',
+    name: 'Voice & TTS APIs',
+    icon: '🎙️',
+    providers: ['azure_speech', 'elevenlabs', 'siliconflow']
+  },
+  {
+    id: 'thumbnail',
+    name: 'Thumbnail Studio',
+    icon: '🖼️',
+    providers: ['thumbnail']
+  },
+  {
+    id: 'xkiro',
+    name: 'Strategy Brain',
+    icon: '🔮',
+    providers: ['xkiro']
+  }
+];
+
+const PROVIDER_NAMES = {
+  json2video: 'JSON2Video Cloud Render (ElevenLabs Voices)',
+  gemini: 'Google Gemini 2.5 Flash',
+  openai: 'OpenAI GPT-4o / Mini',
+  deepseek: 'DeepSeek V3 Chat Engine',
+  groq: 'Groq LPU Ultra-Fast LLM',
+  pexels: 'Pexels HD Stock Video API',
+  pixabay: 'Pixabay Media Stock API',
+  azure_speech: 'Azure Cognitive Speech S0',
+  elevenlabs: 'ElevenLabs Studio Voice API',
+  siliconflow: 'SiliconFlow Cloud Audio API',
+  thumbnail: 'Kie.ai Image Studio',
+  xkiro: 'xKiro AI Strategy Brain'
+};
+
 export default function KeyVaultView() {
+  const [activeCategory, setActiveCategory] = useState('json2video');
   const [provider, setProvider] = useState('json2video');
   const [keysData, setKeysData] = useState({
     json2video: [],
+    gemini: [],
+    openai: [],
+    deepseek: [],
+    groq: [],
+    pexels: [],
+    pixabay: [],
+    azure_speech: [],
     elevenlabs: [],
+    siliconflow: [],
     thumbnail: [],
     xkiro: []
   });
   const [loading, setLoading] = useState(true);
   const [probing, setProbing] = useState(false);
   const [syncingNetlify, setSyncingNetlify] = useState(false);
+  const [syncingModal, setSyncingModal] = useState(false);
   const [newKey, setNewKey] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -23,12 +105,10 @@ export default function KeyVaultView() {
     try {
       const res = await adminService.getKeys();
       if (res.success && res.data) {
-        setKeysData({
-          json2video: res.data.json2video || [],
-          elevenlabs: res.data.elevenlabs || [],
-          thumbnail: res.data.thumbnail || [],
-          xkiro: res.data.xkiro || []
-        });
+        setKeysData(prev => ({
+          ...prev,
+          ...res.data
+        }));
       }
     } catch (e) {
       console.warn('Error loading real keys from Atlas:', e.message);
@@ -41,18 +121,29 @@ export default function KeyVaultView() {
     fetchKeys();
   }, []);
 
+  const handleSelectCategory = (catId) => {
+    setActiveCategory(catId);
+    const cat = CATEGORIES.find(c => c.id === catId);
+    if (cat && cat.providers.length > 0) {
+      if (!cat.providers.includes(provider)) {
+        setProvider(cat.providers[0]);
+      }
+    }
+  };
+
   const handleAddKey = async (e) => {
     e.preventDefault();
     if (!newKey.trim()) return;
 
     const currentList = keysData[provider] || [];
+    const defaults = getProviderDefaults(provider);
     const item = {
       key: newKey.trim(),
-      label: newLabel.trim() || `${provider} Key #${currentList.length + 1}`,
-      balance: provider === 'json2video' ? 350 : provider === 'elevenlabs' ? 84000 : 500,
-      max: provider === 'json2video' ? 500 : provider === 'elevenlabs' ? 100000 : 500,
+      label: newLabel.trim() || `${provider.toUpperCase()} Key #${currentList.length + 1}`,
+      balance: defaults.balance,
+      max: defaults.max,
       status: 'active',
-      unit: provider === 'elevenlabs' ? 'chars' : provider === 'json2video' ? 'seconds' : 'units'
+      unit: defaults.unit
     };
 
     const updated = [item, ...currentList];
@@ -62,7 +153,7 @@ export default function KeyVaultView() {
 
     try {
       await adminService.saveKeys(provider, updated);
-      setToastMsg(`✅ Key added to ${provider} vault & synced to MongoDB Atlas!`);
+      setToastMsg(`✅ Key added to ${provider.toUpperCase()} vault & synchronized to MongoDB Atlas!`);
       setTimeout(() => setToastMsg(''), 4000);
     } catch (e) {
       setToastMsg(`Key saved locally (${e.message})`);
@@ -78,17 +169,18 @@ export default function KeyVaultView() {
 
     const currentList = keysData[provider] || [];
     const existingKeyStrings = new Set(currentList.map(k => typeof k === 'string' ? k : k.key));
+    const defaults = getProviderDefaults(provider);
 
     const newItems = [];
-    lines.forEach((kStr, idx) => {
+    lines.forEach((kStr) => {
       if (!existingKeyStrings.has(kStr)) {
         newItems.push({
           key: kStr,
-          label: `${provider} Pool #${currentList.length + newItems.length + 1}`,
-          balance: provider === 'json2video' ? 350 : provider === 'elevenlabs' ? 84000 : 500,
-          max: provider === 'json2video' ? 500 : provider === 'elevenlabs' ? 100000 : 500,
+          label: `${provider.toUpperCase()} Pool #${currentList.length + newItems.length + 1}`,
+          balance: defaults.balance,
+          max: defaults.max,
           status: 'active',
-          unit: provider === 'elevenlabs' ? 'chars' : provider === 'json2video' ? 'seconds' : 'units'
+          unit: defaults.unit
         });
         existingKeyStrings.add(kStr);
       }
@@ -112,7 +204,7 @@ export default function KeyVaultView() {
   const handleDeleteKey = async (idx) => {
     const currentList = keysData[provider] || [];
     const keyToDelete = currentList[idx];
-    const confirmed = window.confirm(`Remove key "${keyToDelete.label}" from ${provider} vault?`);
+    const confirmed = window.confirm(`Remove key "${keyToDelete.label}" from ${provider.toUpperCase()} vault?`);
     if (!confirmed) return;
 
     const updated = currentList.filter((_, i) => i !== idx);
@@ -120,7 +212,7 @@ export default function KeyVaultView() {
 
     try {
       await adminService.saveKeys(provider, updated);
-      setToastMsg(`Key removed from ${provider} and Atlas pool updated.`);
+      setToastMsg(`Key removed from ${provider.toUpperCase()} and Atlas pool updated.`);
       setTimeout(() => setToastMsg(''), 3000);
     } catch (e) {}
   };
@@ -142,20 +234,21 @@ export default function KeyVaultView() {
     } catch (e) {}
   };
 
-  const handleProbeAll = async () => {
-    setProbing(true);
-    setToastMsg(`Probing active ${provider} keys on provider API...`);
+  const handleSyncModalClusters = async () => {
+    setSyncingModal(true);
+    setToastMsg('Synchronizing all system API key pools to Modal Cloud Clusters (cmpunktg & cmpunktg1)...');
     try {
-      const activeFirstKey = currentKeys[0]?.key;
-      if (activeFirstKey) {
-        await adminService.probeKeyBalance(provider, activeFirstKey);
+      const res = await adminService.syncKeysToModal();
+      if (res.success) {
+        setToastMsg('✅ All system API keys successfully pushed to Modal Cloud & persistent storage volume!');
+      } else {
+        setToastMsg(`⚠️ Notice: ${res.message || res.error}`);
       }
-      setToastMsg(`All ${currentKeys.length} ${provider} keys probed successfully! Quota meters updated.`);
     } catch (e) {
-      setToastMsg(`Probe completed with status verified.`);
+      setToastMsg(`⚠️ Modal Sync Error: ${e.message}`);
     } finally {
-      setProbing(false);
-      setTimeout(() => setToastMsg(''), 4000);
+      setSyncingModal(false);
+      setTimeout(() => setToastMsg(''), 5000);
     }
   };
 
@@ -177,7 +270,29 @@ export default function KeyVaultView() {
     }
   };
 
+  const handleProbeAll = async () => {
+    setProbing(true);
+    setToastMsg(`Probing active ${provider} keys on provider API...`);
+    try {
+      const activeFirstKey = currentKeys[0]?.key;
+      if (activeFirstKey) {
+        await adminService.probeKeyBalance(provider, activeFirstKey);
+      }
+      setToastMsg(`All ${currentKeys.length} ${provider} keys probed successfully! Quota meters updated.`);
+    } catch (e) {
+      setToastMsg(`Probe completed with status verified.`);
+    } finally {
+      setProbing(false);
+      setTimeout(() => setToastMsg(''), 4000);
+    }
+  };
+
+  const activeCategoryObj = CATEGORIES.find(c => c.id === activeCategory) || CATEGORIES[0];
   const currentKeys = keysData[provider] || [];
+
+  const getCategoryTotalCount = (cat) => {
+    return cat.providers.reduce((sum, p) => sum + (keysData[p]?.length || 0), 0);
+  };
 
   return (
     <div className="admin-view-container">
@@ -186,16 +301,25 @@ export default function KeyVaultView() {
         <div>
           <h1 className="admin-view-title">Dynamic Multi-Provider Key Vault</h1>
           <p className="admin-view-desc">
-            Zero-downtime key rotation, automated balance probe meters, drag-and-drop priority failover, and multi-tier fallback key pools directly from MongoDB Atlas.
+            Zero-downtime key rotation, automated failover, unlimited keys per service, and real-time synchronization between MongoDB Atlas and Modal Cloud clusters for <strong>Bang API Credits</strong>.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => setShowBulkModal(!showBulkModal)}
             className="admin-btn admin-btn-secondary"
           >
             📋 Bulk Add Keys
+          </button>
+          <button
+            type="button"
+            onClick={handleSyncModalClusters}
+            disabled={syncingModal}
+            className="admin-btn admin-btn-primary"
+            style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}
+          >
+            {syncingModal ? 'Syncing Modal...' : '🚀 Sync Keys to Modal Cloud'}
           </button>
           <button
             type="button"
@@ -209,9 +333,9 @@ export default function KeyVaultView() {
             type="button"
             onClick={handleProbeAll}
             disabled={probing}
-            className="admin-btn admin-btn-primary"
+            className="admin-btn admin-btn-secondary"
           >
-            {probing ? '⚡ Probing API...' : '⚡ Probe All Balances'}
+            {probing ? '⚡ Probing...' : '⚡ Probe Balances'}
           </button>
         </div>
       </div>
@@ -224,7 +348,8 @@ export default function KeyVaultView() {
           border: '1px solid rgba(6, 182, 212, 0.3)',
           color: 'var(--admin-accent-cyan)',
           fontSize: '13px',
-          fontWeight: 600
+          fontWeight: 600,
+          marginBottom: '16px'
         }}>
           ℹ️ {toastMsg}
         </div>
@@ -237,7 +362,7 @@ export default function KeyVaultView() {
             Bulk Add API Keys to {provider.toUpperCase()} Pool
           </h3>
           <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '0 0 12px 0' }}>
-            Paste one API key per line or comma-separated. Duplicates will be automatically omitted.
+            Paste one API key per line or comma-separated. Add as many unlimited keys as you want. Duplicates are automatically omitted.
           </p>
           <form onSubmit={handleBulkAdd} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <textarea
@@ -268,51 +393,95 @@ export default function KeyVaultView() {
         </div>
       )}
 
-      {/* Provider Selector Tabs */}
+      {/* Primary Category Selector Tabs */}
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', borderBottom: '1px solid var(--admin-border-glass)', paddingBottom: '14px' }}>
-        {[
-          { id: 'json2video', name: 'Json2Video Cloud Render', count: keysData.json2video.length, icon: '⚡' },
-          { id: 'elevenlabs', name: 'ElevenLabs Dual Voice', count: keysData.elevenlabs.length, icon: '🎙️' },
-          { id: 'thumbnail', name: 'Kie.ai Image Studio', count: keysData.thumbnail.length, icon: '🖼️' },
-          { id: 'xkiro', name: 'xKiro AI Strategy Brain', count: keysData.xkiro.length, icon: '🧠' }
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setProvider(tab.id)}
-            style={{
-              padding: '10px 18px',
-              borderRadius: '10px',
-              border: provider === tab.id ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
-              background: provider === tab.id ? 'rgba(6, 182, 212, 0.15)' : 'var(--admin-bg-surface)',
-              color: provider === tab.id ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <span>{tab.icon}</span>
-            <span>{tab.name}</span>
-            <span style={{
-              padding: '2px 8px',
-              borderRadius: '12px',
-              background: provider === tab.id ? 'var(--admin-accent-cyan)' : 'var(--admin-bg-elevated)',
-              color: provider === tab.id ? '#000' : 'var(--admin-text-sub)',
-              fontSize: '11px',
-              fontWeight: 800
-            }}>
-              {tab.count}
-            </span>
-          </button>
-        ))}
+        {CATEGORIES.map((cat) => {
+          const isSelected = activeCategory === cat.id;
+          const count = getCategoryTotalCount(cat);
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => handleSelectCategory(cat.id)}
+              style={{
+                padding: '10px 18px',
+                borderRadius: '10px',
+                border: isSelected ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
+                background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'var(--admin-bg-surface)',
+                color: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <span>{cat.icon}</span>
+              <span>{cat.name}</span>
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-bg-elevated)',
+                color: isSelected ? '#000' : 'var(--admin-text-sub)',
+                fontSize: '11px',
+                fontWeight: 800
+              }}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
+      {/* Sub-Provider Selector (if category has multiple providers) */}
+      {activeCategoryObj.providers.length > 1 && (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '14px', marginBottom: '8px' }}>
+          {activeCategoryObj.providers.map((p) => {
+            const isSubSelected = provider === p;
+            const subCount = keysData[p]?.length || 0;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setProvider(p)}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  border: isSubSelected ? '1px solid #3b82f6' : '1px solid var(--admin-border-glass)',
+                  background: isSubSelected ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                  color: isSubSelected ? '#60a5fa' : 'var(--admin-text-sub)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>{p.toUpperCase()}</span>
+                <span style={{
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  background: isSubSelected ? '#3b82f6' : 'var(--admin-bg-elevated)',
+                  color: isSubSelected ? '#fff' : 'var(--admin-text-sub)',
+                  fontSize: '10px',
+                  fontWeight: 800
+                }}>
+                  {subCount}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Add New Key Inline Form */}
-      <div className="admin-card" style={{ padding: '16px 20px' }}>
+      <div className="admin-card" style={{ padding: '16px 20px', marginTop: '12px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px', color: 'var(--admin-text-main)' }}>
+          Active Pool Target: <span style={{ color: 'var(--admin-accent-cyan)' }}>{PROVIDER_NAMES[provider] || provider.toUpperCase()}</span>
+        </div>
         <form onSubmit={handleAddKey} style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ flex: 2, minWidth: '240px' }}>
             <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
@@ -353,7 +522,7 @@ export default function KeyVaultView() {
       <div className="admin-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>
-            Active Key Pool ({currentKeys.length} Operational Keys)
+            {provider.toUpperCase()} Key Pool ({currentKeys.length} Operational Keys)
           </h3>
           <span className="admin-badge admin-badge-success">AUTO-FAILOVER READY</span>
         </div>
@@ -364,7 +533,7 @@ export default function KeyVaultView() {
           </div>
         ) : currentKeys.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '30px', color: 'var(--admin-text-sub)' }}>
-            No keys currently stored for {provider}. Add a key above.
+            No keys currently stored for {provider.toUpperCase()}. Add a key above or use Bulk Add to initialize the rotation pool.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -374,8 +543,9 @@ export default function KeyVaultView() {
                 ? `${rawKey.slice(0, 6)}••••••••${rawKey.slice(-4)}`
                 : rawKey;
               const label = k.label || `${provider} Key #${idx + 1}`;
-              const balance = k.balance !== undefined ? k.balance : 350;
-              const max = k.max || 500;
+              const defaults = getProviderDefaults(provider);
+              const balance = k.balance !== undefined ? k.balance : defaults.balance;
+              const max = k.max || defaults.max;
               const pct = Math.min(100, Math.max(5, (balance / max) * 100));
 
               return (
@@ -416,6 +586,11 @@ export default function KeyVaultView() {
                         {idx === 0 && (
                           <span className="admin-badge admin-badge-cyan">PRIMARY</span>
                         )}
+                        {idx > 0 && (
+                          <span className="admin-badge admin-badge-secondary" style={{ fontSize: '10px' }}>
+                            FAILOVER #{idx}
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontFamily: 'var(--admin-font-mono)', marginTop: '2px' }}>
                         {masked}
@@ -428,7 +603,7 @@ export default function KeyVaultView() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
                       <span>Remaining Runway:</span>
                       <strong style={{ color: 'var(--admin-accent-green)' }}>
-                        {balance.toLocaleString()} {k.unit || 'units'}
+                        {balance.toLocaleString()} {k.unit || defaults.unit}
                       </strong>
                     </div>
                     <div style={{ width: '100%', height: '6px', background: 'var(--admin-bg-surface)', borderRadius: '3px', overflow: 'hidden' }}>
