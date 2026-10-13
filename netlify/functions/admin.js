@@ -1201,6 +1201,61 @@ export async function handler(event) {
           { upsert: true }
         );
 
+        // Auto-sync Pexels API key to api_keys collection and Modal clusters if provided in Stock Studio settings
+        if (settings && settings.stockStudio && settings.stockStudio.pexelsApiKey) {
+          const pKey = String(settings.stockStudio.pexelsApiKey).trim();
+          if (pKey && pKey.length > 10) {
+            try {
+              const keysCol = db.collection('api_keys');
+              const existingDoc = await keysCol.findOne({ _id: 'pexels_keys' });
+              const currentKeys = existingDoc?.keys || [];
+              const currentPool = existingDoc?.pool || [];
+              const rawKeyList = currentPool.map(k => typeof k === 'string' ? k : k.key);
+              if (!rawKeyList.includes(pKey)) {
+                const newKeyItem = {
+                  key: pKey,
+                  label: 'Pexels Studio Primary',
+                  balance: 200,
+                  max: 200,
+                  status: 'active',
+                  unit: 'req/hr',
+                  details: 'Added via Stock Studio Architecture',
+                  lastProbed: new Date().toISOString()
+                };
+                const updatedKeys = [newKeyItem, ...currentKeys];
+                const updatedPool = [pKey, ...rawKeyList];
+                await keysCol.updateOne(
+                  { _id: 'pexels_keys' },
+                  { $set: { pool: updatedPool, keys: updatedKeys, provider: 'pexels', updatedAt: new Date().toISOString() } },
+                  { upsert: true }
+                );
+
+                // Push to Modal clusters in background
+                const allDocs = await keysCol.find({}).toArray();
+                const fullKeyMap = {};
+                for (const doc of allDocs) {
+                  if (doc._id === 'system_llm_models') continue;
+                  const provId = doc.provider || doc._id.replace('_keys', '');
+                  fullKeyMap[provId] = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
+                }
+                const modalEndpoints = [
+                  'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
+                  'https://cmpunktg1--bangai-stock-studio-serve.modal.run/api/bangai/system-keys'
+                ];
+                for (const ep of modalEndpoints) {
+                  fetch(ep, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys: fullKeyMap })
+                  }).catch(() => {});
+                }
+              }
+            } catch (pSyncErr) {
+              console.warn('[admin.js] Pexels settings auto-sync notice:', pSyncErr.message);
+            }
+          }
+        }
+
         await logAdminAction(db, 'PLATFORM_SETTINGS_UPDATE', { keys: Object.keys(settings || {}) }, clientIp);
 
         return {
