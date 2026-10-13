@@ -98,7 +98,7 @@ export const adminService = {
   // 4. Dynamic API Key Vault
   getKeys: async () => adminFetch('get-keys', 'GET'),
   saveKeys: async (provider, keys) => adminFetch('save-keys', 'POST', { provider, keys }),
-  probeKeyBalance: async (provider, apiKey) => adminFetch('probe-key-balance', 'POST', { provider, apiKey }),
+  probeKeyBalance: async (provider, apiKey = null, all = false) => adminFetch('probe-key-balance', 'POST', { provider, apiKey, all }),
   syncKeysNetlify: async () => adminFetch('sync-keys-netlify', 'POST'),
   syncKeysToModal: async () => adminFetch('sync-keys-to-modal', 'POST'),
 

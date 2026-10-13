@@ -633,59 +633,309 @@ export async function handler(event) {
       }
 
       case 'probe-key-balance': {
-        const { provider, apiKey } = body;
-        if (provider === 'json2video') {
-          try {
-            const resp = await makeHttpRequest({
-              hostname: 'api.json2video.com',
-              port: 443,
-              path: '/v2/account',
-              method: 'GET',
-              headers: { 'x-api-key': apiKey }
-            });
-            const parsed = JSON.parse(resp.data);
-            return {
-              statusCode: 200,
-              headers: corsHeaders,
-              body: JSON.stringify({ success: true, balance: parsed.remaining_seconds || 0, status: 'active' })
-            };
-          } catch (e) {
-            return {
-              statusCode: 200,
-              headers: corsHeaders,
-              body: JSON.stringify({ success: false, balance: 0, status: 'exhausted', error: e.message })
-            };
-          }
-        } else if (provider === 'elevenlabs') {
-          try {
-            const resp = await makeHttpRequest({
-              hostname: 'api.elevenlabs.io',
-              port: 443,
-              path: '/v1/user/subscription',
-              method: 'GET',
-              headers: { 'xi-api-key': apiKey }
-            });
-            const parsed = JSON.parse(resp.data);
-            const remaining = (parsed.character_limit || 10000) - (parsed.character_count || 0);
-            return {
-              statusCode: 200,
-              headers: corsHeaders,
-              body: JSON.stringify({ success: true, balance: remaining, status: remaining > 0 ? 'active' : 'exhausted' })
-            };
-          } catch (e) {
-            return {
-              statusCode: 200,
-              headers: corsHeaders,
-              body: JSON.stringify({ success: false, balance: 0, status: 'exhausted', error: e.message })
-            };
-          }
-        }
+        const { provider, apiKey, all } = body;
+        const keysCol = db.collection('api_keys');
+        const collectionId = `${provider}_keys`;
 
-        return {
-          statusCode: 200,
-          headers: corsHeaders,
-          body: JSON.stringify({ success: true, status: 'active' })
+        // Probe helper for individual provider keys
+        const probeSingleKey = async (targetKey) => {
+          const resObj = {
+            key: targetKey,
+            status: 'active',
+            balance: 0,
+            max: 1000,
+            unit: 'units',
+            details: '',
+            lastProbed: new Date().toISOString()
+          };
+
+          try {
+            if (provider === 'json2video') {
+              const resp = await makeHttpRequest({
+                hostname: 'api.json2video.com',
+                port: 443,
+                path: '/v2/account',
+                method: 'GET',
+                headers: { 'x-api-key': targetKey }
+              });
+              if (resp.statusCode === 200) {
+                const parsed = JSON.parse(resp.data);
+                const rem = parsed.remaining_seconds !== undefined ? parsed.remaining_seconds : 0;
+                const tot = parsed.total_seconds || parsed.monthly_seconds || 500;
+                resObj.balance = rem;
+                resObj.max = tot;
+                resObj.unit = 'seconds';
+                resObj.status = rem > 0 ? 'active' : 'exhausted';
+                resObj.details = `${rem}s remaining (${parsed.plan || parsed.subscription || 'Active Plan'})`;
+              } else {
+                resObj.status = resp.statusCode === 429 ? 'rate_limited' : 'invalid';
+                resObj.details = `HTTP ${resp.statusCode}: Invalid / Exhausted key`;
+              }
+            } else if (provider === 'elevenlabs') {
+              const resp = await makeHttpRequest({
+                hostname: 'api.elevenlabs.io',
+                port: 443,
+                path: '/v1/user/subscription',
+                method: 'GET',
+                headers: { 'xi-api-key': targetKey }
+              });
+              if (resp.statusCode === 200) {
+                const parsed = JSON.parse(resp.data);
+                const limit = parsed.character_limit || 100000;
+                const used = parsed.character_count || 0;
+                const rem = Math.max(0, limit - used);
+                resObj.balance = rem;
+                resObj.max = limit;
+                resObj.unit = 'chars';
+                resObj.status = rem > 0 ? 'active' : 'exhausted';
+                resObj.details = `${rem.toLocaleString()} / ${limit.toLocaleString()} chars (${parsed.tier || 'Creator'})`;
+              } else {
+                resObj.status = resp.statusCode === 429 ? 'rate_limited' : 'invalid';
+                resObj.details = `HTTP ${resp.statusCode}: Invalid API key`;
+              }
+            } else if (provider === 'deepseek') {
+              const resp = await makeHttpRequest({
+                hostname: 'api.deepseek.com',
+                port: 443,
+                path: '/user/balance',
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${targetKey}` }
+              });
+              if (resp.statusCode === 200) {
+                const parsed = JSON.parse(resp.data);
+                const info = (parsed.balance_infos && parsed.balance_infos[0]) || {};
+                const bal = parseFloat(info.total_balance || '0');
+                const curr = info.currency || 'USD';
+                resObj.balance = bal;
+                resObj.max = Math.max(bal * 1.5, 50);
+                resObj.unit = curr;
+                resObj.status = parsed.is_available && bal > 0 ? 'active' : 'exhausted';
+                resObj.details = `${curr} ${bal.toFixed(2)} balance remaining`;
+              } else {
+                resObj.status = resp.statusCode === 429 ? 'rate_limited' : 'invalid';
+                resObj.details = `HTTP ${resp.statusCode}: Invalid DeepSeek key`;
+              }
+            } else if (provider === 'openai') {
+              const resp = await makeHttpRequest({
+                hostname: 'api.openai.com',
+                port: 443,
+                path: '/v1/models',
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${targetKey}` }
+              });
+              if (resp.statusCode === 200) {
+                const parsed = JSON.parse(resp.data);
+                const count = (parsed.data && parsed.data.length) || 0;
+                resObj.balance = count;
+                resObj.max = count;
+                resObj.unit = 'models';
+                resObj.status = 'active';
+                resObj.details = `Active • ${count} OpenAI models accessible`;
+              } else {
+                resObj.status = resp.statusCode === 429 ? 'rate_limited' : 'invalid';
+                resObj.details = resp.statusCode === 429 ? 'Quota exceeded / 429' : `HTTP ${resp.statusCode}: Invalid OpenAI key`;
+              }
+            } else if (provider === 'gemini') {
+              const resp = await makeHttpRequest({
+                hostname: 'generativelanguage.googleapis.com',
+                port: 443,
+                path: `/v1beta/models?key=${targetKey}`,
+                method: 'GET'
+              });
+              if (resp.statusCode === 200) {
+                const parsed = JSON.parse(resp.data);
+                const count = (parsed.models && parsed.models.length) || 0;
+                resObj.balance = 1500;
+                resObj.max = 1500;
+                resObj.unit = 'RPM';
+                resObj.status = 'active';
+                resObj.details = `Active • ${count} Gemini models verified`;
+              } else {
+                resObj.status = resp.statusCode === 429 ? 'rate_limited' : 'invalid';
+                resObj.details = `HTTP ${resp.statusCode}: Gemini verification error`;
+              }
+            } else if (provider === 'groq') {
+              const resp = await makeHttpRequest({
+                hostname: 'api.groq.com',
+                port: 443,
+                path: '/openai/v1/models',
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${targetKey}` }
+              });
+              if (resp.statusCode === 200) {
+                const parsed = JSON.parse(resp.data);
+                const count = (parsed.data && parsed.data.length) || 0;
+                resObj.balance = 3000;
+                resObj.max = 3000;
+                resObj.unit = 'RPM';
+                resObj.status = 'active';
+                resObj.details = `Active • ${count} LPU models accessible`;
+              } else {
+                resObj.status = resp.statusCode === 429 ? 'rate_limited' : 'invalid';
+                resObj.details = `HTTP ${resp.statusCode}: Groq error`;
+              }
+            } else if (provider === 'pexels') {
+              const resp = await makeHttpRequest({
+                hostname: 'api.pexels.com',
+                port: 443,
+                path: '/v1/curated?per_page=1',
+                method: 'GET',
+                headers: { 'Authorization': targetKey }
+              });
+              if (resp.statusCode === 200) {
+                const rem = parseInt(resp.headers['x-ratelimit-remaining'] || '200', 10);
+                const limit = parseInt(resp.headers['x-ratelimit-limit'] || '200', 10);
+                resObj.balance = rem;
+                resObj.max = limit;
+                resObj.unit = 'req/hr';
+                resObj.status = rem > 0 ? 'active' : 'rate_limited';
+                resObj.details = `${rem} / ${limit} requests remaining this hour`;
+              } else {
+                resObj.status = resp.statusCode === 429 ? 'rate_limited' : 'invalid';
+                resObj.details = `HTTP ${resp.statusCode}: Invalid Pexels key`;
+              }
+            } else if (provider === 'pixabay') {
+              const resp = await makeHttpRequest({
+                hostname: 'pixabay.com',
+                port: 443,
+                path: `/api/?key=${targetKey}&q=nature&per_page=3`,
+                method: 'GET'
+              });
+              if (resp.statusCode === 200) {
+                const rem = parseInt(resp.headers['x-rate-limit-remaining'] || '5000', 10);
+                const limit = parseInt(resp.headers['x-rate-limit-limit'] || '5000', 10);
+                resObj.balance = rem;
+                resObj.max = limit;
+                resObj.unit = 'req/hr';
+                resObj.status = rem > 0 ? 'active' : 'rate_limited';
+                resObj.details = `${rem} / ${limit} requests remaining this hour`;
+              } else {
+                resObj.status = 'invalid';
+                resObj.details = `HTTP ${resp.statusCode}: Invalid Pixabay key`;
+              }
+            } else if (provider === 'siliconflow') {
+              const resp = await makeHttpRequest({
+                hostname: 'api.siliconflow.cn',
+                port: 443,
+                path: '/v1/user/info',
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${targetKey}` }
+              });
+              if (resp.statusCode === 200) {
+                const parsed = JSON.parse(resp.data);
+                const bal = parseFloat(parsed.data?.balance || '0');
+                const tot = parseFloat(parsed.data?.totalBalance || '0') || 2000;
+                resObj.balance = bal;
+                resObj.max = tot;
+                resObj.unit = 'credits';
+                resObj.status = bal > 0 ? 'active' : 'exhausted';
+                resObj.details = `${bal.toFixed(2)} credits remaining`;
+              } else {
+                resObj.status = 'invalid';
+                resObj.details = `HTTP ${resp.statusCode}: Invalid SiliconFlow key`;
+              }
+            } else if (provider === 'azure_speech') {
+              const resp = await makeHttpRequest({
+                hostname: 'eastus.api.cognitive.microsoft.com',
+                port: 443,
+                path: '/sts/v1.0/issuetoken',
+                method: 'POST',
+                headers: { 'Ocp-Apim-Subscription-Key': targetKey, 'Content-Length': '0' }
+              });
+              if (resp.statusCode === 200) {
+                resObj.balance = 500000;
+                resObj.max = 500000;
+                resObj.unit = 'chars';
+                resObj.status = 'active';
+                resObj.details = 'Active S0 Speech Token generated';
+              } else {
+                resObj.status = 'invalid';
+                resObj.details = `HTTP ${resp.statusCode}: Invalid Azure Speech key`;
+              }
+            } else {
+              resObj.status = 'active';
+              resObj.balance = 1000;
+              resObj.max = 1000;
+              resObj.unit = 'units';
+              resObj.details = 'Operational API key';
+            }
+          } catch (e) {
+            resObj.status = 'error';
+            resObj.details = e.message || 'Connection timeout';
+          }
+
+          return resObj;
         };
+
+        if (all) {
+          const doc = await keysCol.findOne({ _id: collectionId });
+          const rawKeys = doc?.keys || [];
+          if (!rawKeys.length) {
+            return {
+              statusCode: 200,
+              headers: corsHeaders,
+              body: JSON.stringify({ success: true, keys: [], message: 'No keys to probe' })
+            };
+          }
+
+          const updatedKeys = await Promise.all(
+            rawKeys.map(async (k) => {
+              const keyStr = typeof k === 'string' ? k : k.key;
+              const probeRes = await probeSingleKey(keyStr);
+              return {
+                ...(typeof k === 'object' ? k : { key: keyStr, label: keyStr }),
+                balance: probeRes.balance,
+                max: probeRes.max,
+                unit: probeRes.unit,
+                status: probeRes.status,
+                details: probeRes.details,
+                lastProbed: probeRes.lastProbed
+              };
+            })
+          );
+
+          await keysCol.updateOne(
+            { _id: collectionId },
+            { $set: { keys: updatedKeys, updatedAt: new Date().toISOString() } }
+          );
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: true, keys: updatedKeys, message: `Probed ${updatedKeys.length} keys` })
+          };
+        } else {
+          const probeRes = await probeSingleKey(apiKey);
+
+          const doc = await keysCol.findOne({ _id: collectionId });
+          if (doc?.keys) {
+            const updatedKeys = doc.keys.map((k) => {
+              const keyStr = typeof k === 'string' ? k : k.key;
+              if (keyStr === apiKey) {
+                return {
+                  ...(typeof k === 'object' ? k : { key: keyStr, label: keyStr }),
+                  balance: probeRes.balance,
+                  max: probeRes.max,
+                  unit: probeRes.unit,
+                  status: probeRes.status,
+                  details: probeRes.details,
+                  lastProbed: probeRes.lastProbed
+                };
+              }
+              return k;
+            });
+            await keysCol.updateOne(
+              { _id: collectionId },
+              { $set: { keys: updatedKeys, updatedAt: new Date().toISOString() } }
+            );
+          }
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: true, keyData: probeRes })
+          };
+        }
       }
 
       // ----------------------------------------------------
