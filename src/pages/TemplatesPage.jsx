@@ -41,7 +41,7 @@ export const ACTIVE_TEMPLATES = [
     duration: '75s',
     scenes: '5 Scenes',
     resolution: '1080p',
-    demoImage: '/template-demo-phone.jpg',
+    demoImage: '/template-world-mysteries.jpg',
     videoTitle: "The Bermuda Triangle's Darkest Secret",
     specs: '1080p Ultra HD · 9:16 Vertical · 5 Scenes',
     color: '#6366f1',
