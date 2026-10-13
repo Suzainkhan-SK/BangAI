@@ -17,6 +17,8 @@ export const OFFICIAL_TEMPLATES = [
     aiBrain: 'Claude Haiku 4.5 & Gemini',
     n8nWorkflowId: 'NXZyaUNBciJ9gzCT',
     webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
+    youtubeUrl: 'https://youtube.com/shorts/r3LTM0G7BTc?si=a5xHNd5fSDyfAny9',
+    youtubeId: 'r3LTM0G7BTc',
     color: '#6366f1',
     status: 'ACTIVE'
   },
@@ -34,6 +36,8 @@ export const OFFICIAL_TEMPLATES = [
     aiBrain: 'Claude Haiku 4.5 & Gemini',
     n8nWorkflowId: 'SpEEzOq1LHWbGbti',
     webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
+    youtubeUrl: 'https://youtube.com/shorts/1ySvtrgDTnE?si=pMbTnIisLg7ftrg-',
+    youtubeId: '1ySvtrgDTnE',
     color: '#f59e0b',
     status: 'ACTIVE'
   },
@@ -51,6 +55,8 @@ export const OFFICIAL_TEMPLATES = [
     aiBrain: 'Claude Haiku 4.5 & Gemini',
     n8nWorkflowId: 'sY13UPWrlpUWyNJR',
     webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror',
+    youtubeUrl: 'https://youtube.com/shorts/saJCNSDqLBs?si=6qKYJpDECbWjuzdQ',
+    youtubeId: 'saJCNSDqLBs',
     color: '#ef4444',
     status: 'ACTIVE'
   },

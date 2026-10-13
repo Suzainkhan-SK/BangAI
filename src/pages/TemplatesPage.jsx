@@ -45,7 +45,9 @@ export const ACTIVE_TEMPLATES = [
     videoTitle: "The Bermuda Triangle's Darkest Secret",
     specs: '1080p Ultra HD · 9:16 Vertical · 5 Scenes',
     color: '#6366f1',
-    aiBrain: 'Claude Haiku 4.5 & Gemini'
+    aiBrain: 'Claude Haiku 4.5 & Gemini',
+    youtubeUrl: 'https://youtube.com/shorts/r3LTM0G7BTc?si=a5xHNd5fSDyfAny9',
+    youtubeId: 'r3LTM0G7BTc'
   },
   {
     id: 'last-24-hours',
@@ -62,7 +64,9 @@ export const ACTIVE_TEMPLATES = [
     videoTitle: 'Princess Diana: The Final 24 Hours',
     specs: '1080p Ultra HD · 9:16 Vertical · 5 Scenes',
     color: '#f59e0b',
-    aiBrain: 'Claude Haiku 4.5 & Gemini'
+    aiBrain: 'Claude Haiku 4.5 & Gemini',
+    youtubeUrl: 'https://youtube.com/shorts/1ySvtrgDTnE?si=pMbTnIisLg7ftrg-',
+    youtubeId: '1ySvtrgDTnE'
   },
   {
     id: '3am-horror',
@@ -79,7 +83,9 @@ export const ACTIVE_TEMPLATES = [
     videoTitle: 'The Dyatlov Incident: 3 AM Anomaly',
     specs: '1080p Ultra HD · 9:16 Vertical · 5 Scenes',
     color: '#ef4444',
-    aiBrain: 'Claude Haiku 4.5 & Gemini'
+    aiBrain: 'Claude Haiku 4.5 & Gemini',
+    youtubeUrl: 'https://youtube.com/shorts/saJCNSDqLBs?si=6qKYJpDECbWjuzdQ',
+    youtubeId: 'saJCNSDqLBs'
   }
 ];
 
@@ -1407,34 +1413,54 @@ export default function TemplatesPage({
             {/* Modal Body: Phone mockup + specs */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '180px minmax(0, 1fr)',
+              gridTemplateColumns: isMobile ? '1fr' : '230px minmax(0, 1fr)',
               gap: isMobile ? '16px' : '24px',
               padding: isMobile ? '16px' : '24px',
               alignItems: 'center'
             }}>
               {/* Vertical Phone Screen */}
               <div style={{
-                width: '180px', height: '320px', borderRadius: '24px',
+                width: isMobile ? '200px' : '230px',
+                height: isMobile ? '355px' : '408px',
+                borderRadius: '24px',
                 border: '3px solid var(--border-medium)', background: '#000',
                 overflow: 'hidden', position: 'relative', margin: '0 auto',
-                boxShadow: '0 16px 40px rgba(0,0,0,0.4)'
+                boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+                display: 'flex', flexDirection: 'column'
               }}>
-                <img
-                  src={previewTemplate.demoImage}
-                  alt={previewTemplate.title}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  padding: '10px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))'
-                }}>
-                  <div style={{ fontSize: '8.5px', fontWeight: 700, color: '#fff', marginBottom: '2px', lineHeight: 1.3 }}>
-                    {previewTemplate.videoTitle}
-                  </div>
-                  <div style={{ fontSize: '7.5px', color: 'rgba(255,255,255,0.7)' }}>
-                    {previewTemplate.specs}
-                  </div>
-                </div>
+                {previewTemplate.youtubeId ? (
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/${previewTemplate.youtubeId}?autoplay=1&modestbranding=1&rel=0&playsinline=1`}
+                    title={previewTemplate.videoTitle || previewTemplate.title}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      border: 'none',
+                      display: 'block'
+                    }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                ) : (
+                  <>
+                    <img
+                      src={previewTemplate.demoImage}
+                      alt={previewTemplate.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                      padding: '10px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))'
+                    }}>
+                      <div style={{ fontSize: '8.5px', fontWeight: 700, color: '#fff', marginBottom: '2px', lineHeight: 1.3 }}>
+                        {previewTemplate.videoTitle}
+                      </div>
+                      <div style={{ fontSize: '7.5px', color: 'rgba(255,255,255,0.7)' }}>
+                        {previewTemplate.specs}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Right column specs */}
@@ -1467,7 +1493,43 @@ export default function TemplatesPage({
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                {previewTemplate.youtubeUrl && (
+                  <a
+                    href={previewTemplate.youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      color: '#ffffff',
+                      background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.95))',
+                      boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)',
+                      textDecoration: 'none',
+                      transition: 'all 0.2s ease',
+                      width: '100%'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.5)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 4px 14px rgba(239, 68, 68, 0.35)';
+                    }}
+                  >
+                    <YouTubeIcon size={18} />
+                    <span>Watch Full Sample on YouTube</span>
+                    <ExternalLink size={13} style={{ marginLeft: 'auto' }} />
+                  </a>
+                )}
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '2px' }}>
                   <button
                     type="button"
                     disabled={isGenerating}
