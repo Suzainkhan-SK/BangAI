@@ -181,14 +181,30 @@ export async function handler(event) {
       const allDocs = await keysCol.find({}).toArray();
       const fullKeyMap = {};
       for (const doc of allDocs) {
+        if (doc._id === 'system_llm_models') continue;
         const provId = doc.provider || doc._id.replace('_keys', '');
         const rawPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
         fullKeyMap[provId] = rawPool;
       }
+      const modelsDoc = await keysCol.findOne({ _id: 'system_llm_models' });
+      const defaultModels = {
+        gemini: 'gemini-2.5-flash',
+        openai: 'gpt-4o',
+        deepseek: 'deepseek-chat',
+        groq: 'llama-3.3-70b-versatile'
+      };
+      const activeModels = { ...defaultModels, ...(modelsDoc?.models || {}) };
+      const defaultProvider = modelsDoc?.defaultProvider || 'gemini';
+
       return {
         statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true, data: fullKeyMap })
+        body: JSON.stringify({
+          success: true,
+          data: fullKeyMap,
+          models: activeModels,
+          default_provider: defaultProvider
+        })
       };
     } catch (err) {
       return {
@@ -553,12 +569,24 @@ export async function handler(event) {
           ];
         }
 
+        const modelsDoc = await keysCol.findOne({ _id: 'system_llm_models' });
+        const defaultModels = {
+          gemini: 'gemini-2.5-flash',
+          openai: 'gpt-4o',
+          deepseek: 'deepseek-chat',
+          groq: 'llama-3.3-70b-versatile'
+        };
+        const activeModels = { ...defaultModels, ...(modelsDoc?.models || {}) };
+        const defaultProvider = modelsDoc?.defaultProvider || 'gemini';
+
         return {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({
             success: true,
-            data: responseData
+            data: responseData,
+            models: activeModels,
+            defaultProvider
           })
         };
       }
@@ -568,10 +596,21 @@ export async function handler(event) {
         const allDocs = await keysCol.find({}).toArray();
         const fullKeyMap = {};
         for (const doc of allDocs) {
+          if (doc._id === 'system_llm_models') continue;
           const provId = doc.provider || doc._id.replace('_keys', '');
           const rawPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
           fullKeyMap[provId] = rawPool;
         }
+
+        const modelsDoc = await keysCol.findOne({ _id: 'system_llm_models' });
+        const defaultModels = {
+          gemini: 'gemini-2.5-flash',
+          openai: 'gpt-4o',
+          deepseek: 'deepseek-chat',
+          groq: 'llama-3.3-70b-versatile'
+        };
+        const activeModels = { ...defaultModels, ...(modelsDoc?.models || {}) };
+        const defaultProvider = modelsDoc?.defaultProvider || 'gemini';
 
         const modalEndpoints = [
           'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
@@ -584,7 +623,7 @@ export async function handler(event) {
             const resp = await fetch(endpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ keys: fullKeyMap })
+              body: JSON.stringify({ keys: fullKeyMap, models: activeModels, default_provider: defaultProvider })
             });
             const data = await resp.json().catch(() => ({}));
             syncResults.push({ endpoint, status: resp.status, ok: resp.ok, data });
@@ -600,7 +639,7 @@ export async function handler(event) {
           headers: corsHeaders,
           body: JSON.stringify({
             success: true,
-            message: `Synchronized ${Object.keys(fullKeyMap).length} key pools to Modal Cloud Clusters!`,
+            message: `Synchronized ${Object.keys(fullKeyMap).length} key pools and active models to Modal Cloud Clusters!`,
             results: syncResults
           })
         };
@@ -628,15 +667,23 @@ export async function handler(event) {
           { upsert: true }
         );
 
-        // Auto-sync updated key pools to Modal Cloud Clusters in background
+        // Auto-sync updated key pools and active models to Modal Cloud Clusters in background
         try {
           const allDocs = await keysCol.find({}).toArray();
           const fullKeyMap = {};
           for (const doc of allDocs) {
+            if (doc._id === 'system_llm_models') continue;
             const provId = doc.provider || doc._id.replace('_keys', '');
             const pPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
             fullKeyMap[provId] = pPool;
           }
+          const modelsDoc = await keysCol.findOne({ _id: 'system_llm_models' });
+          const activeModels = modelsDoc?.models || {
+            gemini: 'gemini-2.5-flash',
+            openai: 'gpt-4o',
+            deepseek: 'deepseek-chat',
+            groq: 'llama-3.3-70b-versatile'
+          };
           const modalEndpoints = [
             'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
             'https://cmpunktg1--bangai-stock-studio-serve.modal.run/api/bangai/system-keys'
@@ -645,7 +692,11 @@ export async function handler(event) {
             fetch(ep, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ keys: fullKeyMap })
+              body: JSON.stringify({
+                keys: fullKeyMap,
+                models: activeModels,
+                default_provider: modelsDoc?.defaultProvider || 'gemini'
+              })
             }).catch(() => {});
           }
         } catch (syncErr) {
@@ -658,6 +709,72 @@ export async function handler(event) {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({ success: true, message: `Updated ${keys.length} keys for ${provider} & synced to Modal clusters` })
+        };
+      }
+
+      case 'save-llm-model': {
+        const { provider, model, defaultProvider } = body;
+        const keysCol = db.collection('api_keys');
+        const existing = await keysCol.findOne({ _id: 'system_llm_models' });
+        const currentModels = existing?.models || {
+          gemini: 'gemini-2.5-flash',
+          openai: 'gpt-4o',
+          deepseek: 'deepseek-chat',
+          groq: 'llama-3.3-70b-versatile'
+        };
+        if (provider && model) {
+          currentModels[String(provider).toLowerCase().trim()] = String(model).trim();
+        }
+        const updatedDoc = {
+          models: currentModels,
+          defaultProvider: defaultProvider || existing?.defaultProvider || 'gemini',
+          updatedAt: new Date().toISOString()
+        };
+        await keysCol.updateOne(
+          { _id: 'system_llm_models' },
+          { $set: updatedDoc },
+          { upsert: true }
+        );
+
+        // Auto-sync updated models & keys to Modal Cloud clusters
+        try {
+          const allDocs = await keysCol.find({}).toArray();
+          const fullKeyMap = {};
+          for (const doc of allDocs) {
+            if (doc._id === 'system_llm_models') continue;
+            const provId = doc.provider || doc._id.replace('_keys', '');
+            const pPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
+            fullKeyMap[provId] = pPool;
+          }
+          const modalEndpoints = [
+            'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
+            'https://cmpunktg1--bangai-stock-studio-serve.modal.run/api/bangai/system-keys'
+          ];
+          for (const ep of modalEndpoints) {
+            fetch(ep, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                keys: fullKeyMap,
+                models: currentModels,
+                default_provider: updatedDoc.defaultProvider
+              })
+            }).catch(() => {});
+          }
+        } catch (syncErr) {
+          console.warn('[admin.js] Background modal sync notice:', syncErr.message);
+        }
+
+        await logAdminAction(db, 'LLM_MODEL_UPDATE', { provider, model, defaultProvider }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            message: `Successfully set ${provider ? provider.toUpperCase() : 'LLM'} model to '${model}'!`,
+            models: currentModels
+          })
         };
       }
 

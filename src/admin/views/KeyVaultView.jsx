@@ -81,6 +81,34 @@ const PROVIDER_NAMES = {
   xkiro: 'xKiro AI Strategy Brain'
 };
 
+const LLM_MODEL_OPTIONS = {
+  gemini: [
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended: Ultra-Fast & High Retention)' },
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Deep Reasoning & Complex Storyboards)' },
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Fast Multimodal)' },
+    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (Standard Production Flash)' },
+    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (1M Long Context)' },
+    { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview (Experimental)' }
+  ],
+  openai: [
+    { value: 'gpt-4o', label: 'GPT-4o (Recommended: Omni Model)' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Ultra Fast & Efficient)' },
+    { value: 'gpt-4.1', label: 'GPT-4.1 (Latest Flagship)' },
+    { value: 'o1-mini', label: 'o1-mini (Reasoning Engine)' },
+    { value: 'o3-mini', label: 'o3-mini (Advanced Reasoning)' }
+  ],
+  deepseek: [
+    { value: 'deepseek-chat', label: 'DeepSeek-V3 Chat (Recommended: High-Speed)' },
+    { value: 'deepseek-reasoner', label: 'DeepSeek-R1 Reasoner (Deep Logic)' },
+    { value: 'deepseek-v4-pro', label: 'DeepSeek-V4 Pro (Preview)' }
+  ],
+  groq: [
+    { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile (Recommended: LPU Ultra-Fast)' },
+    { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant (Sub-Second Latency)' },
+    { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B (High-Throughput MoE)' }
+  ]
+};
+
 function formatTimeAgo(isoStr) {
   if (!isoStr) return 'Not probed yet';
   const diffSec = Math.floor((new Date() - new Date(isoStr)) / 1000);
@@ -112,6 +140,16 @@ export default function KeyVaultView() {
     xkiro: []
   });
 
+  const [llmModels, setLlmModels] = useState({
+    gemini: 'gemini-2.5-flash',
+    openai: 'gpt-4o',
+    deepseek: 'deepseek-chat',
+    groq: 'llama-3.3-70b-versatile'
+  });
+  const [savingModel, setSavingModel] = useState(false);
+  const [customModelInput, setCustomModelInput] = useState('');
+  const [isCustomModel, setIsCustomModel] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [probingAll, setProbingAll] = useState(false);
   const [probingKeyIndex, setProbingKeyIndex] = useState(null);
@@ -135,11 +173,16 @@ export default function KeyVaultView() {
     setLoading(true);
     try {
       const res = await adminService.getKeys();
-      if (res.success && res.data) {
-        setKeysData(prev => ({
-          ...prev,
-          ...res.data
-        }));
+      if (res.success) {
+        if (res.data) {
+          setKeysData(prev => ({
+            ...prev,
+            ...res.data
+          }));
+        }
+        if (res.models) {
+          setLlmModels(res.models);
+        }
       }
     } catch (e) {
       console.warn('Error loading keys from Atlas:', e.message);
@@ -364,6 +407,26 @@ export default function KeyVaultView() {
       setToastMsg(`⚠️ Sync Error: ${e.message}`);
     } finally {
       setSyncingNetlify(false);
+      setTimeout(() => setToastMsg(''), 4500);
+    }
+  };
+
+  const handleSaveModel = async (selectedModel) => {
+    const modelToSave = (selectedModel || (isCustomModel ? customModelInput : llmModels[provider]) || '').trim();
+    if (!modelToSave) return;
+    setSavingModel(true);
+    try {
+      const res = await adminService.saveLlmModel(provider, modelToSave);
+      if (res.success) {
+        setLlmModels(prev => ({ ...prev, [provider]: modelToSave }));
+        setToastMsg(`✅ ${provider.toUpperCase()} active model set to '${modelToSave}' & synced to Modal clusters!`);
+      } else {
+        setToastMsg(`❌ Failed to save model: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setToastMsg(`❌ Error: ${err.message}`);
+    } finally {
+      setSavingModel(false);
       setTimeout(() => setToastMsg(''), 4500);
     }
   };
@@ -719,6 +782,110 @@ export default function KeyVaultView() {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Active AI Model Selection Card for LLM Engines */}
+      {activeCategory === 'llm' && (
+        <div className="admin-card" style={{
+          padding: '18px 22px',
+          marginBottom: '18px',
+          background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.06), rgba(59, 130, 246, 0.06))',
+          border: '1.5px solid rgba(6, 182, 212, 0.35)',
+          borderRadius: '12px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--admin-text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🤖</span> Active AI Model Configuration for <span style={{ color: 'var(--admin-accent-cyan)' }}>{provider.toUpperCase()}</span>
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>
+                Selected model is dynamically dispatched to Stock Studio when users toggle Bang API Credits.
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{
+                padding: '3px 10px',
+                borderRadius: '14px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                color: '#10b981',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                fontSize: '11.5px',
+                fontWeight: 700
+              }}>
+                Active in Cloud: {llmModels[provider] || 'Default'}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ flex: 2, minWidth: '280px' }}>
+              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '5px' }}>
+                Choose Pre-Configured Model or Custom Identifier
+              </label>
+              <select
+                value={
+                  (LLM_MODEL_OPTIONS[provider] || []).some(o => o.value === llmModels[provider])
+                    ? llmModels[provider]
+                    : '__custom__'
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '__custom__') {
+                    setIsCustomModel(true);
+                  } else {
+                    setIsCustomModel(false);
+                    setLlmModels(prev => ({ ...prev, [provider]: val }));
+                    handleSaveModel(val);
+                  }
+                }}
+                className="admin-input"
+                style={{ fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                {(LLM_MODEL_OPTIONS[provider] || []).map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+                <option value="__custom__">⚙️ Custom Model Identifier (Write-In)...</option>
+              </select>
+            </div>
+
+            {isCustomModel && (
+              <div style={{ flex: 1.5, minWidth: '220px' }}>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '5px' }}>
+                  Custom Model ID
+                </label>
+                <input
+                  type="text"
+                  value={customModelInput}
+                  onChange={(e) => setCustomModelInput(e.target.value)}
+                  placeholder={`e.g. ${provider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-4o'}`}
+                  className="admin-input"
+                  style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '12px' }}
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              disabled={savingModel}
+              onClick={() => handleSaveModel(isCustomModel ? customModelInput : llmModels[provider])}
+              className="admin-btn admin-btn-primary"
+              style={{
+                height: '42px',
+                padding: '0 18px',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>{savingModel ? '⏳' : '⚡'}</span>
+              {savingModel ? 'Deploying...' : 'Save & Deploy Model'}
+            </button>
+          </div>
         </div>
       )}
 
