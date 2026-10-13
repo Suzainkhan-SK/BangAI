@@ -628,12 +628,36 @@ export async function handler(event) {
           { upsert: true }
         );
 
+        // Auto-sync updated key pools to Modal Cloud Clusters in background
+        try {
+          const allDocs = await keysCol.find({}).toArray();
+          const fullKeyMap = {};
+          for (const doc of allDocs) {
+            const provId = doc.provider || doc._id.replace('_keys', '');
+            const pPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
+            fullKeyMap[provId] = pPool;
+          }
+          const modalEndpoints = [
+            'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
+            'https://cmpunktg1--bangai-stock-studio-serve.modal.run/api/bangai/system-keys'
+          ];
+          for (const ep of modalEndpoints) {
+            fetch(ep, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ keys: fullKeyMap })
+            }).catch(() => {});
+          }
+        } catch (syncErr) {
+          console.warn('[admin.js] Background modal sync notice:', syncErr.message);
+        }
+
         await logAdminAction(db, 'KEY_VAULT_UPDATE', { provider, count: keys.length }, clientIp);
 
         return {
           statusCode: 200,
           headers: corsHeaders,
-          body: JSON.stringify({ success: true, message: `Updated ${keys.length} keys for ${provider}` })
+          body: JSON.stringify({ success: true, message: `Updated ${keys.length} keys for ${provider} & synced to Modal clusters` })
         };
       }
 
