@@ -3,7 +3,8 @@ import { adminService } from '../adminService';
 
 const getProviderDefaults = (prov) => {
   switch (prov) {
-    case 'json2video': return { balance: 500, max: 500, unit: 'seconds' };
+    case 'json2video': return { balance: 600, max: 600, unit: 'mins' };
+    case 'modal': return { balance: 30, max: 30, unit: 'USD' };
     case 'elevenlabs': return { balance: 84000, max: 100000, unit: 'chars' };
     case 'azure_speech': return { balance: 500000, max: 500000, unit: 'chars' };
     case 'siliconflow': return { balance: 2000, max: 2000, unit: 'credits' };
@@ -25,6 +26,12 @@ const CATEGORIES = [
     name: 'JSON2Video Cloud Render',
     icon: '⚡',
     providers: ['json2video']
+  },
+  {
+    id: 'modal',
+    name: 'Modal Cloud Compute',
+    icon: '☁️',
+    providers: ['modal']
   },
   {
     id: 'llm',
@@ -60,6 +67,7 @@ const CATEGORIES = [
 
 const PROVIDER_NAMES = {
   json2video: 'JSON2Video Cloud Render (ElevenLabs Voices)',
+  modal: 'Modal Cloud Compute Cluster (Dual Profile Failover)',
   gemini: 'Google Gemini 2.5 Flash / Pro API',
   openai: 'OpenAI GPT-4o / GPT-4o-Mini API',
   deepseek: 'DeepSeek V3 / R1 Chat Engine',
@@ -90,6 +98,7 @@ export default function KeyVaultView() {
   const [provider, setProvider] = useState('json2video');
   const [keysData, setKeysData] = useState({
     json2video: [],
+    modal: [],
     gemini: [],
     openai: [],
     deepseek: [],
