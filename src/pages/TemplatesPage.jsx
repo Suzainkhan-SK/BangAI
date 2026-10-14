@@ -645,6 +645,15 @@ export default function TemplatesPage({
             <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55, maxWidth: '680px' }}>
               Instant 1-click video creation. Researches compelling unrepeated stories, crafts high-retention 5-act screenplays, renders 1080p AI video scenes, and publishes directly to YouTube Shorts.
             </p>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              marginTop: '10px', padding: '4px 10px', borderRadius: '6px',
+              background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)',
+              color: '#f59e0b', fontSize: '11.5px', fontWeight: 600
+            }}>
+              <span>🇮🇳</span>
+              <span>Note: These autonomous templates only produce Hindi language videos (Hindi narration & subtitles).</span>
+            </div>
           </div>
 
           {/* ── Search & Filter Controls ── */}
@@ -1023,6 +1032,13 @@ export default function TemplatesPage({
                           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0, minHeight: '38px' }}>
                             {tpl.desc}
                           </p>
+                          <div style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            marginTop: '6px', fontSize: '11px', color: '#f59e0b', fontWeight: 600
+                          }}>
+                            <span>🇮🇳</span>
+                            <span>Produces Hindi language videos only</span>
+                          </div>
                         </div>
 
                         {/* Spec Pills */}
@@ -1047,6 +1063,13 @@ export default function TemplatesPage({
                             padding: '3px 8px', borderRadius: '6px'
                           }}>
                             📱 9:16 Shorts
+                          </span>
+                          <span style={{
+                            fontSize: '11px', fontWeight: 600, color: '#f59e0b',
+                            background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)',
+                            padding: '3px 8px', borderRadius: '6px'
+                          }}>
+                            🇮🇳 Hindi Only
                           </span>
                         </div>
 
@@ -1490,6 +1513,9 @@ export default function TemplatesPage({
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                     <strong>Format:</strong> 1080×1920 (9:16) with Dynamic Captions
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 600 }}>
+                    <strong>Language:</strong> 🇮🇳 Hindi language videos only
                   </div>
                 </div>
 
