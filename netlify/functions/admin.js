@@ -2112,6 +2112,7 @@ export async function handler(event) {
         const genCol = db.collection('template_generations');
         const threadsCol = db.collection('threads');
 
+        const queryParams = query || {};
         const limit = Math.min(250, Math.max(10, Number(queryParams.limit) || 100));
         const filterUser = queryParams.userEmail ? String(queryParams.userEmail).toLowerCase().trim() : null;
         const filterTemplate = queryParams.templateId ? String(queryParams.templateId).trim() : null;
@@ -2156,6 +2157,16 @@ export async function handler(event) {
         // Build enriched logs map
         const enrichedMap = new Map();
 
+        const templateTitleMap = {
+          'world-mysteries': 'World Mysteries & Paranormal',
+          '3am-horror': '3-AM Horror & Paranormal',
+          'last-24-hours': 'Last 24 Hours [True Stories]',
+          'ancient-history': 'Ancient History & Lost Civilizations',
+          'dark-psychology': 'Dark Psychology & Human Behavior',
+          'cosmic-space': 'Deep Space & Cosmic Wonders',
+          'mythical-heists': 'Legendary Heists & Unsolved Enigmas'
+        };
+
         // 1. Populate from template_generations
         for (const log of rawLogs) {
           const t = log.threadId ? threadMap.get(log.threadId) : null;
@@ -2165,6 +2176,8 @@ export async function handler(event) {
           const title = t?.title || t?.story?.title || log.title || log.templateTitle || 'Autonomous AI Video';
           const status = (t?.status && t.status !== 'started') ? t.status : (log.status || 'dispatched');
           const duration = t?.story?.duration || log.duration || '75s+';
+          const templateId = log.templateId || t?.templateId || 'world-mysteries';
+          const templateTitle = log.templateTitle || t?.title || templateTitleMap[templateId] || 'World Mysteries & Paranormal';
 
           const enrichedItem = {
             _id: log._id,
@@ -2172,8 +2185,8 @@ export async function handler(event) {
             threadId: log.threadId || `gen-${log._id}`,
             userId: log.userId || t?.userId || '',
             userEmail: (log.userEmail || t?.userEmail || 'anonymous').toLowerCase(),
-            templateId: log.templateId || t?.templateId || 'world-mysteries',
-            templateTitle: log.templateTitle || t?.title || 'World Mysteries & Paranormal',
+            templateId,
+            templateTitle,
             title,
             prompt: log.prompt || t?.story?.prompt || '',
             channelTitle: log.channelTitle || t?.story?.channelTitle || null,
@@ -2197,6 +2210,8 @@ export async function handler(event) {
             const youtubeUrl = t.youtubeUrl || t.story?.youtubeUrl || null;
             const videoId = t.videoId || null;
             const title = t.title || t.story?.title || 'Autonomous AI Video';
+            const templateId = t.templateId || 'world-mysteries';
+            const templateTitle = templateTitleMap[templateId] || t.title || 'AI Template Video';
 
             const enrichedItem = {
               _id: t._id,
@@ -2204,8 +2219,8 @@ export async function handler(event) {
               threadId: t.threadId,
               userId: t.userId || '',
               userEmail: (t.userEmail || 'anonymous').toLowerCase(),
-              templateId: t.templateId || 'world-mysteries',
-              templateTitle: t.templateId || 'AI Template Video',
+              templateId,
+              templateTitle,
               title,
               prompt: t.story?.prompt || '',
               channelTitle: t.story?.channelTitle || null,
