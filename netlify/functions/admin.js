@@ -1818,18 +1818,43 @@ export async function handler(event) {
         const genCol = db.collection('template_generations');
         const userCol = db.collection('users');
 
-        const [totalAllTime, totalLast24h, activeGens, customLimitUsers] = await Promise.all([
+        const [totalAllTime, totalLast24h, activeGens, customLimitUsers, allTimeAggr] = await Promise.all([
           genCol.countDocuments({}),
           genCol.countDocuments({ createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } }),
           genCol.find({ createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } })
             .sort({ createdAt: -1 })
-            .limit(300)
+            .limit(500)
             .toArray(),
-          userCol.find({ templateDailyLimit: { $exists: true } }).toArray()
+          userCol.find({ templateDailyLimit: { $exists: true } }).toArray(),
+          genCol.aggregate([
+            { $group: { _id: { $toLower: "$userEmail" }, total: { $sum: 1 }, lastGen: { $max: "$createdAt" } } }
+          ]).toArray().catch(() => [])
         ]);
+
+        const allTimeMap = new Map();
+        for (const item of (allTimeAggr || [])) {
+          if (item._id) allTimeMap.set(String(item._id).toLowerCase(), item.total);
+        }
 
         // Aggregate User Usage
         const userMap = new Map();
+
+        // Include any user with all-time generation history
+        for (const item of (allTimeAggr || [])) {
+          const email = String(item._id || '').toLowerCase();
+          if (!email) continue;
+          userMap.set(email, {
+            userId: '',
+            userEmail: email,
+            usedIn24h: 0,
+            totalAllTime: item.total || 0,
+            activeGens: [],
+            lastGeneratedAt: item.lastGen,
+            lastTemplateId: null,
+            lastTemplateTitle: null
+          });
+        }
+
         for (const g of activeGens) {
           const email = (g.userEmail || '').toLowerCase();
           if (!email) continue;
@@ -1838,6 +1863,7 @@ export async function handler(event) {
               userId: g.userId,
               userEmail: email,
               usedIn24h: 0,
+              totalAllTime: allTimeMap.get(email) || 1,
               activeGens: [],
               lastGeneratedAt: g.createdAt,
               lastTemplateId: g.templateId,
@@ -1845,10 +1871,13 @@ export async function handler(event) {
             });
           }
           const entry = userMap.get(email);
+          if (g.userId && !entry.userId) entry.userId = g.userId;
           if (g.resetByAdmin !== true) {
             entry.usedIn24h += 1;
             entry.activeGens.push(g);
           }
+          if (g.templateTitle && !entry.lastTemplateTitle) entry.lastTemplateTitle = g.templateTitle;
+          if (g.templateId && !entry.lastTemplateId) entry.lastTemplateId = g.templateId;
         }
 
         // Attach custom limit users
@@ -1860,6 +1889,7 @@ export async function handler(event) {
               userId: cu.id || cu._id,
               userEmail: email,
               usedIn24h: 0,
+              totalAllTime: allTimeMap.get(email) || 0,
               activeGens: [],
               lastGeneratedAt: null,
               lastTemplateId: null,
@@ -1889,6 +1919,7 @@ export async function handler(event) {
             userId: u.userId,
             userEmail: u.userEmail,
             usedIn24h: u.usedIn24h,
+            totalAllTime: u.totalAllTime || allTimeMap.get(u.userEmail) || u.usedIn24h,
             dailyLimit: limit,
             isCustomLimit: u.customLimit !== undefined,
             isLimitReached,
@@ -2079,17 +2110,189 @@ export async function handler(event) {
 
       case 'get-template-generation-logs': {
         const genCol = db.collection('template_generations');
-        const limit = Math.min(100, Math.max(10, Number(queryParams.limit) || 50));
-        const logs = await genCol
-          .find({})
+        const threadsCol = db.collection('threads');
+
+        const limit = Math.min(250, Math.max(10, Number(queryParams.limit) || 100));
+        const filterUser = queryParams.userEmail ? String(queryParams.userEmail).toLowerCase().trim() : null;
+        const filterTemplate = queryParams.templateId ? String(queryParams.templateId).trim() : null;
+
+        const genQuery = {};
+        if (filterUser) genQuery.userEmail = filterUser;
+        if (filterTemplate) genQuery.templateId = filterTemplate;
+
+        // Fetch generation audit logs
+        const rawLogs = await genCol
+          .find(genQuery)
           .sort({ createdAt: -1 })
           .limit(limit)
           .toArray();
 
+        // Also fetch matching threads to enrich with final videoUrl, youtubeUrl, videoId, status
+        const threadIds = rawLogs.map(l => l.threadId).filter(Boolean);
+        const threadQueryOr = [];
+        if (threadIds.length > 0) threadQueryOr.push({ threadId: { $in: threadIds } });
+        if (filterUser) {
+          threadQueryOr.push({ userEmail: filterUser, templateId: { $exists: true, $ne: null } });
+          threadQueryOr.push({ userEmail: filterUser, threadId: { $regex: /^thread-template-/ } });
+        } else {
+          threadQueryOr.push({ templateId: { $exists: true, $ne: null } });
+          threadQueryOr.push({ threadId: { $regex: /^thread-template-/ } });
+        }
+
+        const relatedThreads = await threadsCol
+          .find(threadQueryOr.length > 0 ? { $or: threadQueryOr } : {})
+          .sort({ createdAt: -1, updatedAt: -1 })
+          .limit(limit * 2)
+          .toArray()
+          .catch(() => []);
+
+        const threadMap = new Map();
+        for (const t of relatedThreads) {
+          if (t.threadId) {
+            threadMap.set(t.threadId, t);
+          }
+        }
+
+        // Build enriched logs map
+        const enrichedMap = new Map();
+
+        // 1. Populate from template_generations
+        for (const log of rawLogs) {
+          const t = log.threadId ? threadMap.get(log.threadId) : null;
+          const videoUrl = log.videoUrl || t?.videoUrl || t?.story?.videoUrl || null;
+          const youtubeUrl = log.youtubeUrl || t?.youtubeUrl || t?.story?.youtubeUrl || null;
+          const videoId = log.videoId || t?.videoId || null;
+          const title = t?.title || t?.story?.title || log.title || log.templateTitle || 'Autonomous AI Video';
+          const status = (t?.status && t.status !== 'started') ? t.status : (log.status || 'dispatched');
+          const duration = t?.story?.duration || log.duration || '75s+';
+
+          const enrichedItem = {
+            _id: log._id,
+            id: String(log._id),
+            threadId: log.threadId || `gen-${log._id}`,
+            userId: log.userId || t?.userId || '',
+            userEmail: (log.userEmail || t?.userEmail || 'anonymous').toLowerCase(),
+            templateId: log.templateId || t?.templateId || 'world-mysteries',
+            templateTitle: log.templateTitle || t?.title || 'World Mysteries & Paranormal',
+            title,
+            prompt: log.prompt || t?.story?.prompt || '',
+            channelTitle: log.channelTitle || t?.story?.channelTitle || null,
+            channelId: log.channelId || t?.story?.channelId || null,
+            videoUrl,
+            youtubeUrl,
+            videoId,
+            status,
+            duration,
+            createdAt: log.createdAt || t?.createdAt || new Date(),
+            updatedAt: log.updatedAt || t?.updatedAt || log.createdAt
+          };
+
+          enrichedMap.set(enrichedItem.threadId, enrichedItem);
+        }
+
+        // 2. Add any template threads from threads collection not captured yet
+        for (const t of relatedThreads) {
+          if (t.threadId && !enrichedMap.has(t.threadId)) {
+            const videoUrl = t.videoUrl || t.story?.videoUrl || null;
+            const youtubeUrl = t.youtubeUrl || t.story?.youtubeUrl || null;
+            const videoId = t.videoId || null;
+            const title = t.title || t.story?.title || 'Autonomous AI Video';
+
+            const enrichedItem = {
+              _id: t._id,
+              id: String(t._id),
+              threadId: t.threadId,
+              userId: t.userId || '',
+              userEmail: (t.userEmail || 'anonymous').toLowerCase(),
+              templateId: t.templateId || 'world-mysteries',
+              templateTitle: t.templateId || 'AI Template Video',
+              title,
+              prompt: t.story?.prompt || '',
+              channelTitle: t.story?.channelTitle || null,
+              channelId: t.story?.channelId || null,
+              videoUrl,
+              youtubeUrl,
+              videoId,
+              status: t.status || 'COMPLETED',
+              duration: t.story?.duration || '75s+',
+              createdAt: t.createdAt || new Date(),
+              updatedAt: t.updatedAt || t.createdAt
+            };
+
+            enrichedMap.set(enrichedItem.threadId, enrichedItem);
+          }
+        }
+
+        const logs = Array.from(enrichedMap.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        // Filter out completed videos list with playable/shareable links
+        const videos = logs.filter(l => l.videoUrl || l.youtubeUrl || l.status === 'COMPLETED');
+
+        // Group per-user generation statistics
+        const userStatsMap = new Map();
+        const now24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+        for (const item of logs) {
+          const email = item.userEmail || 'anonymous';
+          if (!userStatsMap.has(email)) {
+            userStatsMap.set(email, {
+              userEmail: email,
+              userId: item.userId || '',
+              totalGenerations: 0,
+              generationsLast24h: 0,
+              completedVideosCount: 0,
+              youtubeUploadedCount: 0,
+              templateCounts: {},
+              lastGeneratedAt: item.createdAt,
+              latestVideo: null
+            });
+          }
+
+          const u = userStatsMap.get(email);
+          u.totalGenerations += 1;
+
+          if (new Date(item.createdAt) >= now24h) {
+            u.generationsLast24h += 1;
+          }
+
+          if (item.videoUrl) u.completedVideosCount += 1;
+          if (item.youtubeUrl) u.youtubeUploadedCount += 1;
+
+          const tId = item.templateId || 'other';
+          u.templateCounts[tId] = (u.templateCounts[tId] || 0) + 1;
+
+          if (!u.latestVideo && (item.videoUrl || item.youtubeUrl)) {
+            u.latestVideo = {
+              title: item.title,
+              templateTitle: item.templateTitle,
+              videoUrl: item.videoUrl,
+              youtubeUrl: item.youtubeUrl,
+              createdAt: item.createdAt
+            };
+          }
+        }
+
+        const userStats = Array.from(userStatsMap.values()).sort((a, b) => b.totalGenerations - a.totalGenerations);
+
+        const summary = {
+          totalGenerations: logs.length,
+          totalVideosWithLink: videos.length,
+          totalYouTubeUploads: logs.filter(l => !!l.youtubeUrl).length,
+          generationsLast24h: logs.filter(l => new Date(l.createdAt) >= now24h).length,
+          uniqueUsersCount: userStats.length
+        };
+
         return {
           statusCode: 200,
           headers: corsHeaders,
-          body: JSON.stringify({ success: true, logs })
+          body: JSON.stringify({
+            success: true,
+            logs,
+            videos,
+            userStats,
+            summary,
+            timestamp: new Date().toISOString()
+          })
         };
       }
 

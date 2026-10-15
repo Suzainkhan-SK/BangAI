@@ -128,8 +128,8 @@ export const adminService = {
     adminFetch('reset-all-template-limits', 'POST'),
   setUserTemplateOverride: async (userEmail, customLimit) =>
     adminFetch('set-user-template-override', 'POST', { userEmail, customLimit }),
-  getTemplateGenerationLogs: async (limit = 50) =>
-    adminFetch('get-template-generation-logs', 'GET', null, { limit }),
+  getTemplateGenerationLogs: async (limit = 100, userEmail = null, templateId = null) =>
+    adminFetch('get-template-generation-logs', 'GET', null, { limit, userEmail, templateId }),
   deleteTemplate: async (templateId) =>
     adminFetch('delete-template', 'POST', { templateId }),
 

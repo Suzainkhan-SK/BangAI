@@ -3,7 +3,9 @@ import {
   Shield, ShieldAlert, Clock, RefreshCw, RotateCcw,
   Sliders, UserCheck, AlertTriangle, CheckCircle2,
   Search, Lock, Unlock, Eye, Sparkles, Filter,
-  Power, FileText, ExternalLink, HelpCircle
+  Power, FileText, ExternalLink, HelpCircle, Video,
+  Play, Download, Copy, Check, Radio, Activity, Film, X,
+  Layers, Share2, ArrowUpRight, BarChart3, TrendingUp
 } from 'lucide-react';
 import { adminService } from '../adminService';
 
@@ -129,7 +131,7 @@ export const OFFICIAL_TEMPLATES = [
 ];
 
 export default function TemplatesManagerView() {
-  const [activeTab, setActiveTab] = useState('governance'); // 'governance' | 'templates' | 'users' | 'logs'
+  const [activeTab, setActiveTab] = useState('governance'); // 'governance' | 'users' | 'videos' | 'logs' | 'templates'
   const [templates, setTemplates] = useState(OFFICIAL_TEMPLATES);
   const [blocklist, setBlocklist] = useState('nsfw, hate, violence, illegal, deepfake_celebrity');
   const [loading, setLoading] = useState(true);
@@ -151,15 +153,32 @@ export default function TemplatesManagerView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [quotaFilter, setQuotaFilter] = useState('all'); // 'all' | 'locked' | 'available'
   const [overrideModal, setOverrideModal] = useState({ open: false, userEmail: '', limit: 1 });
+  
+  // Realtime Logs & Videos State
   const [logs, setLogs] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [userStats, setUserStats] = useState([]);
+  const [logsSummary, setLogsSummary] = useState(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState(10); // 0 = Off, 5, 10, 30 seconds
+  const [lastRefreshedAt, setLastRefreshedAt] = useState(new Date());
+  const [logsSearchQuery, setLogsSearchQuery] = useState('');
+  const [logsTemplateFilter, setLogsTemplateFilter] = useState('ALL');
+  const [logsStatusFilter, setLogsStatusFilter] = useState('ALL');
+
+  // Generated Videos Section State
+  const [selectedVideoUser, setSelectedVideoUser] = useState('ALL');
+  const [selectedVideoTemplate, setSelectedVideoTemplate] = useState('ALL');
+  const [videoSearchQuery, setVideoSearchQuery] = useState('');
+  const [copiedLink, setCopiedLink] = useState(null);
+  const [previewVideo, setPreviewVideo] = useState(null); // for video modal player
 
   // New Template Wizard State
   const [newTemplate, setNewTemplate] = useState({
     title: '',
     category: 'World Mysteries',
     emoji: '✨',
-    duration: '75s',
+    duration: '75s+',
     scenes: '5 Scenes',
     resolution: '1080p',
     webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-',
@@ -203,7 +222,16 @@ export default function TemplatesManagerView() {
 
   useEffect(() => {
     fetchTemplatesData();
+    handleLoadLogs(true);
   }, []);
+
+  useEffect(() => {
+    if (!autoRefreshInterval || autoRefreshInterval <= 0) return;
+    const interval = setInterval(() => {
+      handleLoadLogs(true);
+    }, autoRefreshInterval * 1000);
+    return () => clearInterval(interval);
+  }, [autoRefreshInterval]);
 
   const handleSaveGovernance = async () => {
     setSaving(true);
@@ -296,18 +324,35 @@ export default function TemplatesManagerView() {
     }
   };
 
-  const handleLoadLogs = async () => {
-    setLoadingLogs(true);
+  const handleLoadLogs = async (silent = false) => {
+    if (!silent) setLoadingLogs(true);
     try {
-      const res = await adminService.getTemplateGenerationLogs(100);
-      if (res.success && res.logs) {
-        setLogs(res.logs);
+      const res = await adminService.getTemplateGenerationLogs(200);
+      if (res && res.success) {
+        if (Array.isArray(res.logs)) setLogs(res.logs);
+        if (Array.isArray(res.videos)) setVideos(res.videos);
+        if (Array.isArray(res.userStats)) setUserStats(res.userStats);
+        if (res.summary) setLogsSummary(res.summary);
+        setLastRefreshedAt(new Date());
       }
     } catch (err) {
-      showToast(`Error loading logs: ${err.message}`);
+      if (!silent) showToast(`Error loading logs: ${err.message}`);
     } finally {
-      setLoadingLogs(false);
+      if (!silent) setLoadingLogs(false);
     }
+  };
+
+  const handleCopyLink = (url, id) => {
+    if (!url) return;
+    navigator.clipboard.writeText(url);
+    setCopiedLink(id);
+    showToast('📋 Video link copied to clipboard!');
+    setTimeout(() => setCopiedLink(null), 2500);
+  };
+
+  const handleViewUserVideos = (userEmail) => {
+    setSelectedVideoUser(userEmail || 'ALL');
+    setActiveTab('videos');
   };
 
   const handleCreateTemplate = async (e) => {
@@ -356,7 +401,71 @@ export default function TemplatesManagerView() {
     return `${hrs}h ${mins}m left`;
   };
 
-  const filteredUsers = userUsageList.filter(u => {
+  const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return '—';
+    const sec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (sec < 60) return 'Just now';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m ago`;
+    const hrs = Math.floor(min / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  };
+
+  // Combine userUsageList (24h quotas & limits) with userStats (all-time generations & completed videos)
+  const combinedUserMap = new Map();
+
+  userUsageList.forEach(u => {
+    const email = (u.userEmail || '').toLowerCase();
+    if (!email) return;
+    combinedUserMap.set(email, {
+      ...u,
+      userEmail: email,
+      completedVideosCount: 0,
+      youtubeUploadedCount: 0,
+      templateCounts: {},
+      totalGenerations: u.totalAllTime || u.usedIn24h || 0
+    });
+  });
+
+  userStats.forEach(s => {
+    const email = (s.userEmail || '').toLowerCase();
+    if (!email) return;
+    if (combinedUserMap.has(email)) {
+      const existing = combinedUserMap.get(email);
+      existing.completedVideosCount = s.completedVideosCount || 0;
+      existing.youtubeUploadedCount = s.youtubeUploadedCount || 0;
+      existing.templateCounts = s.templateCounts || {};
+      existing.totalGenerations = s.totalGenerations || existing.totalAllTime || 0;
+      existing.totalAllTime = s.totalGenerations || existing.totalAllTime || 0;
+      if (!existing.lastGeneratedAt && s.lastGeneratedAt) existing.lastGeneratedAt = s.lastGeneratedAt;
+      if (!existing.userId && s.userId) existing.userId = s.userId;
+    } else {
+      combinedUserMap.set(email, {
+        userId: s.userId || '',
+        userEmail: email,
+        usedIn24h: s.generationsLast24h || 0,
+        totalAllTime: s.totalGenerations || 0,
+        totalGenerations: s.totalGenerations || 0,
+        dailyLimit: dailyLimit,
+        isCustomLimit: false,
+        isLimitReached: enforceDailyLimit && (s.generationsLast24h >= dailyLimit),
+        lastGeneratedAt: s.lastGeneratedAt,
+        lastTemplateId: null,
+        lastTemplateTitle: null,
+        nextResetTime: null,
+        completedVideosCount: s.completedVideosCount || 0,
+        youtubeUploadedCount: s.youtubeUploadedCount || 0,
+        templateCounts: s.templateCounts || {}
+      });
+    }
+  });
+
+  const allUsersList = Array.from(combinedUserMap.values());
+
+  // Filtered Users List
+  const filteredUsers = allUsersList.filter(u => {
     const matchesSearch = !searchQuery || 
       (u.userEmail || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (u.userId || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -365,6 +474,39 @@ export default function TemplatesManagerView() {
     if (quotaFilter === 'locked') return u.isLimitReached;
     if (quotaFilter === 'available') return !u.isLimitReached;
     return true;
+  });
+
+  // Unique users with generations for dropdown selector
+  const uniqueUsersList = Array.from(new Set([
+    ...allUsersList.map(u => (u.userEmail || '').toLowerCase()),
+    ...logs.map(l => (l.userEmail || '').toLowerCase()),
+    ...videos.map(v => (v.userEmail || '').toLowerCase())
+  ])).filter(Boolean);
+
+  // Filtered Generated Videos List
+  const filteredVideos = videos.filter(v => {
+    const matchesUser = selectedVideoUser === 'ALL' || (v.userEmail || '').toLowerCase() === selectedVideoUser.toLowerCase();
+    const matchesTemplate = selectedVideoTemplate === 'ALL' || v.templateId === selectedVideoTemplate;
+    const matchesSearch = !videoSearchQuery ||
+      (v.title || '').toLowerCase().includes(videoSearchQuery.toLowerCase()) ||
+      (v.prompt || '').toLowerCase().includes(videoSearchQuery.toLowerCase()) ||
+      (v.userEmail || '').toLowerCase().includes(videoSearchQuery.toLowerCase()) ||
+      (v.channelTitle || '').toLowerCase().includes(videoSearchQuery.toLowerCase());
+    return matchesUser && matchesTemplate && matchesSearch;
+  });
+
+  // Filtered Live Generation Logs List
+  const filteredLogs = logs.filter(l => {
+    const matchesTemplate = logsTemplateFilter === 'ALL' || l.templateId === logsTemplateFilter;
+    const matchesStatus = logsStatusFilter === 'ALL' ||
+      (logsStatusFilter === 'completed' && (l.status === 'COMPLETED' || l.videoUrl || l.youtubeUrl)) ||
+      (logsStatusFilter === 'pending' && l.status !== 'COMPLETED' && !l.videoUrl && !l.youtubeUrl);
+    const matchesSearch = !logsSearchQuery ||
+      (l.userEmail || '').toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
+      (l.templateTitle || '').toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
+      (l.prompt || '').toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
+      (l.channelTitle || '').toLowerCase().includes(logsSearchQuery.toLowerCase());
+    return matchesTemplate && matchesStatus && matchesSearch;
   });
 
   const filteredTemplates = activeCategoryFilter === 'All'
@@ -446,56 +588,60 @@ export default function TemplatesManagerView() {
         <div className="admin-card" style={{ padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Quota Window
+              Generated Videos
             </span>
-            <Clock size={16} color="var(--admin-accent-purple)" />
+            <Film size={16} color="var(--admin-accent-cyan)" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--admin-text-main)' }}>
-            {limitWindow === '24h' ? '24h Rolling' : 'Midnight UTC'}
+          <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>
+            {videos.length} Ready
           </div>
           <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
-            {limitWindow === '24h' ? 'Calculated from generation timestamp' : 'Resets at 00:00 UTC daily'}
+            {logsSummary?.totalYouTubeUploads || 0} published to YouTube Shorts
           </span>
         </div>
 
         <div className="admin-card" style={{ padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Generations (24h)
+              Generations (24h / All-Time)
             </span>
             <Sparkles size={16} color="var(--admin-accent-amber)" />
           </div>
           <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--admin-text-main)' }}>
-            {stats.generationsLast24h || 0}
+            {stats.generationsLast24h || logsSummary?.generationsLast24h || 0}
+            <span style={{ fontSize: '13px', color: 'var(--admin-text-sub)', fontWeight: 600, marginLeft: '6px' }}>
+              / {stats.totalGenerationsAllTime || logsSummary?.totalGenerations || 0} total
+            </span>
           </div>
           <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
-            Total all-time: {stats.totalGenerationsAllTime || 0}
+            Across {userUsageList.length || userStats.length} active creator accounts
           </span>
         </div>
 
         <div className="admin-card" style={{ padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
-              System Status
+              Realtime Engine
             </span>
-            <Power size={16} color={maintenanceMode ? 'var(--admin-accent-red)' : 'var(--admin-accent-green)'} />
+            <Activity size={16} color={maintenanceMode ? 'var(--admin-accent-red)' : 'var(--admin-accent-green)'} />
           </div>
           <div style={{ fontSize: '22px', fontWeight: 800, color: maintenanceMode ? 'var(--admin-accent-red)' : 'var(--admin-accent-green)' }}>
-            {maintenanceMode ? 'Maintenance' : 'Active & Online'}
+            {maintenanceMode ? 'Maintenance' : 'Live & Active'}
           </div>
           <span style={{ fontSize: '11px', color: maintenanceMode ? 'var(--admin-accent-red)' : 'var(--admin-accent-green)', fontWeight: 600 }}>
-            ● {maintenanceMode ? 'Generations Paused Platform-Wide' : 'Ready for User Requests'}
+            ● {autoRefreshInterval > 0 ? `Auto-sync every ${autoRefreshInterval}s` : 'Manual Sync Mode'}
           </span>
         </div>
       </div>
 
       {/* Main Tabs Navigation */}
-      <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--admin-border-glass)', marginBottom: '20px', paddingBottom: '2px' }}>
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--admin-border-glass)', marginBottom: '20px', paddingBottom: '2px', flexWrap: 'wrap' }}>
         {[
           { id: 'governance', label: 'Daily Limits & Master Governance', icon: Sliders },
-          { id: 'users', label: `Active User Quotas (${userUsageList.length})`, icon: UserCheck },
-          { id: 'templates', label: `Template Pipelines (${templates.length})`, icon: Sparkles },
-          { id: 'logs', label: 'Live Generation Logs', icon: FileText }
+          { id: 'users', label: `User Stats & Quotas (${allUsersList.length})`, icon: UserCheck },
+          { id: 'videos', label: `Generated Videos & Links (${videos.length})`, icon: Video },
+          { id: 'logs', label: `Live Generation Logs (${logs.length})`, icon: Activity },
+          { id: 'templates', label: `Template Pipelines (${templates.length})`, icon: Sparkles }
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -505,7 +651,7 @@ export default function TemplatesManagerView() {
               type="button"
               onClick={() => {
                 setActiveTab(tab.id);
-                if (tab.id === 'logs' && logs.length === 0) handleLoadLogs();
+                if ((tab.id === 'logs' || tab.id === 'videos') && logs.length === 0) handleLoadLogs(false);
               }}
               style={{
                 display: 'flex',
@@ -758,9 +904,11 @@ export default function TemplatesManagerView() {
                 <thead>
                   <tr>
                     <th>User / Account</th>
-                    <th>24h Usage</th>
-                    <th>Status</th>
-                    <th>Last Template</th>
+                    <th>All-Time / 24h Stats</th>
+                    <th>Quota Status</th>
+                    <th>Videos with Links</th>
+                    <th>Templates Used</th>
+                    <th>Last Active</th>
                     <th>Reset Countdown</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -776,23 +924,40 @@ export default function TemplatesManagerView() {
                           </div>
                         )}
                         {u.isCustomLimit && (
-                          <span style={{ fontSize: '10px', color: 'var(--admin-accent-amber)', fontWeight: 700 }}>
-                            ★ Custom Limit Override: {u.dailyLimit}/day
+                          <span style={{ fontSize: '10px', color: 'var(--admin-accent-amber)', fontWeight: 700, display: 'block', marginTop: '2px' }}>
+                            ★ Custom Override: {u.dailyLimit}/day
                           </span>
                         )}
                       </td>
                       <td>
-                        <span style={{
-                          fontWeight: 800,
-                          color: u.isLimitReached ? 'var(--admin-accent-red)' : 'var(--admin-accent-green)'
-                        }}>
-                          {u.usedIn24h} / {u.dailyLimit}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            background: 'rgba(99, 102, 241, 0.15)',
+                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                            color: 'var(--admin-accent-purple)',
+                            fontWeight: 800,
+                            fontSize: '11px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <Film size={11} /> {u.totalAllTime || u.totalGenerations || u.usedIn24h} Total
+                          </span>
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: u.isLimitReached ? 'var(--admin-accent-red)' : 'var(--admin-accent-green)'
+                          }}>
+                            ({u.usedIn24h}/{u.dailyLimit} in 24h)
+                          </span>
+                        </div>
                       </td>
                       <td>
                         {u.isLimitReached ? (
                           <span className="admin-badge admin-badge-warning" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
-                            <Lock size={10} style={{ marginRight: '4px' }} /> Locked (1/1)
+                            <Lock size={10} style={{ marginRight: '4px' }} /> Locked ({u.usedIn24h}/{u.dailyLimit})
                           </span>
                         ) : (
                           <span className="admin-badge admin-badge-success">
@@ -801,7 +966,62 @@ export default function TemplatesManagerView() {
                         )}
                       </td>
                       <td>
-                        {u.lastTemplateTitle || u.lastTemplateId || '—'}
+                        {u.completedVideosCount > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewUserVideos(u.userEmail)}
+                            className="admin-badge admin-badge-cyan"
+                            style={{
+                              cursor: 'pointer',
+                              border: '1px solid var(--admin-accent-cyan)',
+                              background: 'rgba(6, 182, 212, 0.15)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              fontWeight: 700
+                            }}
+                            title="Click to view all generated videos & direct links for this user"
+                          >
+                            <Video size={12} />
+                            {u.completedVideosCount} Video{u.completedVideosCount > 1 ? 's' : ''} ↗
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                            0 links yet
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {u.templateCounts && Object.keys(u.templateCounts).length > 0 ? (
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '180px' }}>
+                            {Object.entries(u.templateCounts).map(([tId, count]) => (
+                              <span
+                                key={tId}
+                                style={{
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  background: 'var(--admin-bg-elevated)',
+                                  fontSize: '10px',
+                                  fontFamily: 'var(--admin-font-mono)',
+                                  color: 'var(--admin-text-sub)'
+                                }}
+                              >
+                                {tId}: {count}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                            {u.lastTemplateTitle || u.lastTemplateId || '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                          {formatTimeAgo(u.lastGeneratedAt)}
+                        </span>
                       </td>
                       <td>
                         {u.isLimitReached ? (
@@ -818,22 +1038,32 @@ export default function TemplatesManagerView() {
                         <div style={{ display: 'inline-flex', gap: '6px' }}>
                           <button
                             type="button"
+                            onClick={() => handleViewUserVideos(u.userEmail)}
+                            className="admin-btn admin-btn-secondary"
+                            style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--admin-accent-cyan)' }}
+                            title="View videos generated by this user"
+                          >
+                            <Play size={11} style={{ marginRight: '3px' }} />
+                            Videos
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleResetUserLimit(u.userEmail, u.userId)}
                             className="admin-btn admin-btn-secondary"
-                            style={{ padding: '4px 10px', fontSize: '11px', color: 'var(--admin-accent-green)' }}
+                            style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--admin-accent-green)' }}
                             title="Reset this user's daily limit immediately"
                           >
-                            <RotateCcw size={12} style={{ marginRight: '4px' }} />
-                            Reset Limit
+                            <RotateCcw size={11} style={{ marginRight: '3px' }} />
+                            Reset
                           </button>
                           <button
                             type="button"
                             onClick={() => setOverrideModal({ open: true, userEmail: u.userEmail, limit: u.dailyLimit })}
                             className="admin-btn admin-btn-secondary"
-                            style={{ padding: '4px 8px', fontSize: '11px' }}
+                            style={{ padding: '4px 7px', fontSize: '11px' }}
                             title="Set custom override capacity"
                           >
-                            <Sliders size={12} />
+                            <Sliders size={11} />
                           </button>
                         </div>
                       </td>
@@ -846,7 +1076,331 @@ export default function TemplatesManagerView() {
         </div>
       )}
 
-      {/* TAB 3: TEMPLATE PIPELINES GRID */}
+      {/* TAB 3: GENERATED VIDEOS & DIRECT OUTPUT LINKS */}
+      {activeTab === 'videos' && (
+        <div>
+          {/* Filter & Search Bar */}
+          <div className="admin-card" style={{ marginBottom: '16px', padding: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--admin-text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Video size={18} color="var(--admin-accent-cyan)" />
+                  Autonomous Generated Videos &amp; Direct Output Links
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: 0 }}>
+                  Live gallery and direct stream/download links for all autonomous AI videos generated across templates.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleLoadLogs(false)}
+                  disabled={loadingLogs}
+                  className="admin-btn admin-btn-secondary"
+                  style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <RefreshCw size={13} className={loadingLogs ? 'animate-spin' : ''} />
+                  Refresh Videos
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Controls Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+              {/* Search */}
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--admin-text-sub)' }} />
+                <input
+                  type="text"
+                  placeholder="Search by title, prompt, user..."
+                  value={videoSearchQuery}
+                  onChange={(e) => setVideoSearchQuery(e.target.value)}
+                  className="admin-input"
+                  style={{ paddingLeft: '30px', fontSize: '12px', width: '100%' }}
+                />
+              </div>
+
+              {/* User Selector Dropdown */}
+              <div>
+                <select
+                  value={selectedVideoUser}
+                  onChange={(e) => setSelectedVideoUser(e.target.value)}
+                  className="admin-select"
+                  style={{ width: '100%', fontSize: '12px' }}
+                >
+                  <option value="ALL">All Users ({uniqueUsersList.length})</option>
+                  {uniqueUsersList.map(email => {
+                    const uStat = userStats.find(s => (s.userEmail || '').toLowerCase() === email);
+                    const count = uStat?.totalGenerations || videos.filter(v => (v.userEmail || '').toLowerCase() === email).length;
+                    return (
+                      <option key={email} value={email}>
+                        {email} ({count} video{count !== 1 ? 's' : ''})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Template Selector Dropdown */}
+              <div>
+                <select
+                  value={selectedVideoTemplate}
+                  onChange={(e) => setSelectedVideoTemplate(e.target.value)}
+                  className="admin-select"
+                  style={{ width: '100%', fontSize: '12px' }}
+                >
+                  <option value="ALL">All AI Templates</option>
+                  {OFFICIAL_TEMPLATES.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.emoji} {t.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Active Filter Indicator */}
+            {(selectedVideoUser !== 'ALL' || selectedVideoTemplate !== 'ALL' || videoSearchQuery) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--admin-border-glass)', fontSize: '12px' }}>
+                <span style={{ color: 'var(--admin-text-sub)' }}>Active filters:</span>
+                {selectedVideoUser !== 'ALL' && (
+                  <span className="admin-badge admin-badge-cyan" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    User: {selectedVideoUser}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedVideoUser('ALL')}
+                      style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {selectedVideoTemplate !== 'ALL' && (
+                  <span className="admin-badge admin-badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    Template: {selectedVideoTemplate}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedVideoTemplate('ALL')}
+                      style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setSelectedVideoUser('ALL'); setSelectedVideoTemplate('ALL'); setVideoSearchQuery(''); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--admin-accent-cyan)', cursor: 'pointer', fontSize: '11.5px', textDecoration: 'underline' }}
+                >
+                  Clear all filters
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Videos Grid */}
+          {filteredVideos.length === 0 ? (
+            <div className="admin-card" style={{ padding: '50px 20px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+              <Film size={40} color="var(--admin-text-sub)" style={{ margin: '0 auto 12px auto', display: 'block', opacity: 0.5 }} />
+              <h4 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 6px 0', color: 'var(--admin-text-main)' }}>
+                No generated video links found
+              </h4>
+              <p style={{ fontSize: '12.5px', margin: 0, maxWidth: '440px', marginInline: 'auto' }}>
+                {selectedVideoUser !== 'ALL'
+                  ? `No completed videos found for ${selectedVideoUser}. Video links will appear here as soon as n8n finishes rendering.`
+                  : 'As users generate autonomous template videos, their MP4 download links and YouTube Shorts will appear here automatically in real time.'}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+              {filteredVideos.map((video, idx) => {
+                const isCopied = copiedLink === (video._id || video.id || idx);
+                const tpl = OFFICIAL_TEMPLATES.find(t => t.id === video.templateId);
+
+                return (
+                  <div
+                    key={video._id || video.id || idx}
+                    className="admin-card"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      padding: '16px',
+                      border: '1px solid var(--admin-border-glass)',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <div>
+                      {/* Header row: Template badge + Status */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          background: tpl ? `${tpl.color}20` : 'rgba(99, 102, 241, 0.15)',
+                          color: tpl ? tpl.color : 'var(--admin-accent-cyan)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <span>{tpl?.emoji || '🎬'}</span>
+                          {video.templateTitle || tpl?.title || video.templateId}
+                        </span>
+
+                        <span className={`admin-badge ${video.videoUrl || video.youtubeUrl ? 'admin-badge-success' : 'admin-badge-warning'}`}>
+                          ● {video.status || (video.videoUrl ? 'COMPLETED' : 'PROCESSING')}
+                        </span>
+                      </div>
+
+                      {/* Video Title */}
+                      <h4 style={{
+                        fontSize: '14.5px',
+                        fontWeight: 800,
+                        margin: '0 0 8px 0',
+                        color: 'var(--admin-text-main)',
+                        lineHeight: 1.35
+                      }}>
+                        {video.title || 'Autonomous AI Video'}
+                      </h4>
+
+                      {/* Creator info */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
+                        <span>By:</span>
+                        <strong style={{ color: 'var(--admin-text-main)' }}>{video.userEmail}</strong>
+                        <span>•</span>
+                        <span>{formatTimeAgo(video.createdAt)}</span>
+                      </div>
+
+                      {/* Prompt / Topic */}
+                      <div style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        background: 'var(--admin-bg-elevated)',
+                        fontSize: '11.5px',
+                        color: 'var(--admin-text-sub)',
+                        marginBottom: '12px',
+                        lineHeight: 1.4,
+                        maxHeight: '60px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        <strong style={{ color: 'var(--admin-text-main)', display: 'block', fontSize: '10.5px', textTransform: 'uppercase', marginBottom: '2px' }}>
+                          Story Topic / Prompt:
+                        </strong>
+                        {video.prompt || 'Autonomous AI Script Brainstorming'}
+                      </div>
+
+                      {/* Channel / Destination */}
+                      {video.channelTitle ? (
+                        <div style={{ fontSize: '11px', color: 'var(--admin-accent-amber)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>📺 Published to:</span>
+                          <strong>{video.channelTitle}</strong>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginBottom: '12px' }}>
+                          <span>💾 Delivery: Direct MP4 Download</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Buttons Row */}
+                    <div style={{ paddingTop: '12px', borderTop: '1px solid var(--admin-border-glass)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {video.videoUrl ? (
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewVideo(video)}
+                            className="admin-btn admin-btn-primary"
+                            style={{ flex: 1, padding: '6px 10px', fontSize: '11.5px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                          >
+                            <Play size={12} />
+                            Watch Video
+                          </button>
+
+                          <a
+                            href={video.videoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            download
+                            className="admin-btn admin-btn-secondary"
+                            style={{ padding: '6px 10px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+                            title="Direct MP4 Download"
+                          >
+                            <Download size={12} />
+                            MP4
+                          </a>
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(video.videoUrl, video._id || video.id || idx)}
+                            className="admin-btn admin-btn-secondary"
+                            style={{ padding: '6px 8px', fontSize: '11.5px' }}
+                            title="Copy Direct MP4 Link"
+                          >
+                            {isCopied ? <Check size={12} color="var(--admin-accent-green)" /> : <Copy size={12} />}
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{
+                          padding: '8px',
+                          borderRadius: '6px',
+                          background: 'rgba(234, 179, 8, 0.08)',
+                          border: '1px solid rgba(234, 179, 8, 0.2)',
+                          fontSize: '11px',
+                          color: 'var(--admin-accent-amber)',
+                          textAlign: 'center'
+                        }}>
+                          ⏳ Rendering in background pipeline...
+                        </div>
+                      )}
+
+                      {video.youtubeUrl && (
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <a
+                            href={video.youtubeUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="admin-btn admin-btn-secondary"
+                            style={{
+                              flex: 1,
+                              padding: '5px 10px',
+                              fontSize: '11px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                              textDecoration: 'none',
+                              color: 'var(--admin-accent-red)',
+                              borderColor: 'rgba(239, 68, 68, 0.3)'
+                            }}
+                          >
+                            <Share2 size={12} />
+                            Watch on YouTube ↗
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(video.youtubeUrl, `yt-${video._id || idx}`)}
+                            className="admin-btn admin-btn-secondary"
+                            style={{ padding: '5px 8px', fontSize: '11px' }}
+                            title="Copy YouTube Short Link"
+                          >
+                            {copiedLink === `yt-${video._id || idx}` ? <Check size={11} color="var(--admin-accent-green)" /> : <Copy size={11} />}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 5: TEMPLATE PIPELINES GRID */}
       {activeTab === 'templates' && (
         <div>
           {/* Category Filter Tabs */}
@@ -987,34 +1541,118 @@ export default function TemplatesManagerView() {
       {/* TAB 4: REAL-TIME GENERATION LOGS */}
       {activeTab === 'logs' && (
         <div className="admin-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--admin-text-main)' }}>
-                Template Generation Audit History
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '3px 8px',
+                  borderRadius: '9999px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  color: 'var(--admin-accent-green)',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: 'var(--admin-accent-green)',
+                    boxShadow: '0 0 8px var(--admin-accent-green)'
+                  }} />
+                  Live Realtime Feed
+                </span>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                  Autonomous Generation Activity Feed
+                </h3>
+              </div>
               <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: 0 }}>
-                Chronological real-time log of autonomous video requests received from the frontend.
+                Realtime incoming stream from MongoDB Atlas <code>template_generations</code> &amp; <code>threads</code> collections.
+                {autoRefreshInterval > 0 && ` Auto-syncing every ${autoRefreshInterval}s.`} Last synced: {lastRefreshedAt.toLocaleTimeString()}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleLoadLogs}
-              disabled={loadingLogs}
-              className="admin-btn admin-btn-secondary"
-              style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <RefreshCw size={14} className={loadingLogs ? 'animate-spin' : ''} />
-              Reload Logs
-            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {/* Polling Interval Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>Sync:</span>
+                <select
+                  value={autoRefreshInterval}
+                  onChange={(e) => setAutoRefreshInterval(Number(e.target.value))}
+                  className="admin-select"
+                  style={{ fontSize: '11.5px', padding: '4px 8px' }}
+                >
+                  <option value={5}>Every 5s (Fast)</option>
+                  <option value={10}>Every 10s (Optimal)</option>
+                  <option value={30}>Every 30s</option>
+                  <option value={0}>Manual Only (Paused)</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleLoadLogs(false)}
+                disabled={loadingLogs}
+                className="admin-btn admin-btn-secondary"
+                style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <RefreshCw size={13} className={loadingLogs ? 'animate-spin' : ''} />
+                Reload Feed
+              </button>
+            </div>
           </div>
 
-          {loadingLogs ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
-              Loading audit logs from MongoDB...
+          {/* Live Filter Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--admin-text-sub)' }} />
+              <input
+                type="text"
+                placeholder="Filter logs by user, prompt, title..."
+                value={logsSearchQuery}
+                onChange={(e) => setLogsSearchQuery(e.target.value)}
+                className="admin-input"
+                style={{ paddingLeft: '30px', fontSize: '12px', width: '100%' }}
+              />
             </div>
-          ) : logs.length === 0 ? (
+
+            <select
+              value={logsTemplateFilter}
+              onChange={(e) => setLogsTemplateFilter(e.target.value)}
+              className="admin-select"
+              style={{ fontSize: '12px' }}
+            >
+              <option value="ALL">All Templates</option>
+              {OFFICIAL_TEMPLATES.map(t => (
+                <option key={t.id} value={t.id}>{t.emoji} {t.title}</option>
+              ))}
+            </select>
+
+            <select
+              value={logsStatusFilter}
+              onChange={(e) => setLogsStatusFilter(e.target.value)}
+              className="admin-select"
+              style={{ fontSize: '12px' }}
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="completed">Completed / With Link</option>
+              <option value="pending">Dispatched / Rendering</option>
+            </select>
+          </div>
+
+          {/* Logs Table */}
+          {loadingLogs && logs.length === 0 ? (
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
-              No generation logs recorded yet.
+              Streaming live logs from MongoDB Atlas...
+            </div>
+          ) : filteredLogs.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+              No generation logs match the current filters.
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -1022,42 +1660,244 @@ export default function TemplatesManagerView() {
                 <thead>
                   <tr>
                     <th>Timestamp</th>
-                    <th>User Email</th>
+                    <th>User / Account</th>
                     <th>Template</th>
-                    <th>Custom Topic / Prompt</th>
-                    <th>YouTube Channel</th>
+                    <th>Custom Story Prompt</th>
+                    <th>Delivery Channel</th>
+                    <th>Output Links</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {logs.map((log, idx) => (
-                    <tr key={log._id || idx}>
-                      <td style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                        {new Date(log.createdAt).toLocaleString()}
-                      </td>
-                      <td>
-                        <strong style={{ color: 'var(--admin-text-main)' }}>{log.userEmail || 'anonymous'}</strong>
-                      </td>
-                      <td>
-                        {log.templateTitle || log.templateId}
-                      </td>
-                      <td style={{ maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {log.prompt || <em style={{ color: 'var(--admin-text-sub)' }}>Auto-Brainstormed</em>}
-                      </td>
-                      <td>
-                        {log.channelTitle ? `📺 ${log.channelTitle}` : <em style={{ color: 'var(--admin-text-sub)' }}>Download Only</em>}
-                      </td>
-                      <td>
-                        <span className="admin-badge admin-badge-success">
-                          ● {log.status || 'dispatched'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredLogs.map((log, idx) => {
+                    const hasVideo = !!log.videoUrl;
+                    const hasYt = !!log.youtubeUrl;
+                    return (
+                      <tr key={log._id || log.id || idx}>
+                        <td style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                          <div>{new Date(log.createdAt).toLocaleTimeString()}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>
+                            {formatTimeAgo(log.createdAt)}
+                          </div>
+                        </td>
+                        <td>
+                          <strong style={{ color: 'var(--admin-text-main)' }}>{log.userEmail || 'anonymous'}</strong>
+                          {log.threadId && (
+                            <div style={{ fontSize: '10px', fontFamily: 'var(--admin-font-mono)', color: 'var(--admin-text-sub)' }}>
+                              {log.threadId}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600 }}>{log.templateTitle || log.templateId}</span>
+                        </td>
+                        <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.prompt}>
+                          {log.prompt || <em style={{ color: 'var(--admin-text-sub)' }}>Autonomous Brainstorm</em>}
+                        </td>
+                        <td>
+                          {log.channelTitle ? (
+                            <span style={{ color: 'var(--admin-accent-amber)', fontWeight: 600 }}>
+                              📺 {log.channelTitle}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--admin-text-sub)' }}>
+                              Direct Download
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
+                            {hasVideo ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewVideo(log)}
+                                  className="admin-badge admin-badge-cyan"
+                                  style={{ cursor: 'pointer', padding: '3px 6px', fontSize: '10.5px', border: '1px solid var(--admin-accent-cyan)', background: 'transparent' }}
+                                  title="Preview Video"
+                                >
+                                  <Play size={10} style={{ marginRight: '2px' }} /> Play
+                                </button>
+                                <a
+                                  href={log.videoUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  download
+                                  className="admin-badge admin-badge-cyan"
+                                  style={{ padding: '3px 6px', fontSize: '10.5px', textDecoration: 'none' }}
+                                  title="Direct MP4 Download"
+                                >
+                                  <Download size={10} />
+                                </a>
+                              </>
+                            ) : (
+                              <span style={{ fontSize: '10.5px', color: 'var(--admin-accent-amber)' }}>
+                                ⏳ Rendering
+                              </span>
+                            )}
+
+                            {hasYt && (
+                              <a
+                                href={log.youtubeUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  fontSize: '10.5px',
+                                  color: 'var(--admin-accent-red)',
+                                  fontWeight: 700,
+                                  textDecoration: 'none',
+                                  marginLeft: '4px'
+                                }}
+                              >
+                                YouTube ↗
+                              </a>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`admin-badge ${hasVideo || hasYt || log.status === 'COMPLETED' ? 'admin-badge-success' : 'admin-badge-warning'}`}>
+                            ● {log.status || (hasVideo ? 'COMPLETED' : 'dispatched')}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Video Preview Player Modal */}
+      {previewVideo && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 99999, padding: '20px'
+        }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '640px', padding: '20px', background: '#0e121a', border: '1px solid var(--admin-border-glass)' }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--admin-accent-cyan)', fontWeight: 700, textTransform: 'uppercase' }}>
+                  {previewVideo.templateTitle || 'Autonomous AI Video'}
+                </span>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '2px 0 0 0', color: '#fff' }}>
+                  {previewVideo.title || 'Generated AI Video'}
+                </h3>
+                <p style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', margin: '2px 0 0 0' }}>
+                  Generated for <strong>{previewVideo.userEmail}</strong> • {formatTimeAgo(previewVideo.createdAt)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPreviewVideo(null)}
+                className="admin-btn admin-btn-secondary"
+                style={{ padding: '4px 8px', borderRadius: '50%' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Video Player */}
+            <div style={{ borderRadius: '8px', overflow: 'hidden', background: '#000', marginBottom: '14px' }}>
+              {previewVideo.videoUrl ? (
+                <video
+                  src={previewVideo.videoUrl}
+                  controls
+                  autoPlay
+                  style={{ width: '100%', maxHeight: '55vh', display: 'block' }}
+                />
+              ) : previewVideo.youtubeUrl ? (
+                <div style={{ padding: '30px', textAlign: 'center' }}>
+                  <p style={{ color: '#fff', marginBottom: '12px' }}>This video is published directly to YouTube Shorts.</p>
+                  <a
+                    href={previewVideo.youtubeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="admin-btn admin-btn-primary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                  >
+                    <ExternalLink size={14} /> Open on YouTube
+                  </a>
+                </div>
+              ) : (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+                  No video link available for playback.
+                </div>
+              )}
+            </div>
+
+            {/* Prompt breakdown */}
+            {previewVideo.prompt && (
+              <div style={{
+                padding: '8px 12px',
+                borderRadius: '6px',
+                background: 'rgba(255,255,255,0.04)',
+                fontSize: '11.5px',
+                color: 'var(--admin-text-sub)',
+                marginBottom: '14px',
+                maxHeight: '60px',
+                overflowY: 'auto'
+              }}>
+                <strong style={{ color: '#fff', fontSize: '11px', display: 'block', marginBottom: '2px' }}>Story Prompt / Hook:</strong>
+                {previewVideo.prompt}
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              {previewVideo.videoUrl && (
+                <>
+                  <a
+                    href={previewVideo.videoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    download
+                    className="admin-btn admin-btn-primary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', fontSize: '12px' }}
+                  >
+                    <Download size={13} /> Download MP4
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyLink(previewVideo.videoUrl, 'modal-mp4')}
+                    className="admin-btn admin-btn-secondary"
+                    style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    {copiedLink === 'modal-mp4' ? <Check size={13} color="var(--admin-accent-green)" /> : <Copy size={13} />}
+                    Copy MP4 Link
+                  </button>
+                </>
+              )}
+
+              {previewVideo.youtubeUrl && (
+                <a
+                  href={previewVideo.youtubeUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="admin-btn admin-btn-secondary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', fontSize: '12px', color: 'var(--admin-accent-red)' }}
+                >
+                  <Share2 size={13} /> YouTube Short ↗
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setPreviewVideo(null)}
+                className="admin-btn admin-btn-secondary"
+                style={{ fontSize: '12px' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

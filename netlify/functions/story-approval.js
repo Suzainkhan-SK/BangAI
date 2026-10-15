@@ -403,6 +403,25 @@ export const handler = async (event, context) => {
         { upsert: true }
       );
 
+      // Also sync to template_generations collection for real-time admin template tracking
+      try {
+        const genPatch = {
+          status,
+          updatedAt: now
+        };
+        if (data.videoUrl) genPatch.videoUrl = data.videoUrl;
+        if (data.youtubeUrl) genPatch.youtubeUrl = data.youtubeUrl;
+        if (data.videoId) genPatch.videoId = data.videoId;
+        if (data.title || data.suggestedTitle) genPatch.title = data.title || data.suggestedTitle;
+        if (data.errorMessage) genPatch.errorMessage = data.errorMessage;
+        await db.collection('template_generations').updateMany(
+          { threadId },
+          { $set: genPatch }
+        );
+      } catch (genSyncErr) {
+        console.warn('[story-approval] Error syncing to template_generations:', genSyncErr.message);
+      }
+
       console.log('[story-approval] Stored thread', threadId, 'with status', status);
 
       return {
