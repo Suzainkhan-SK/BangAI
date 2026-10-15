@@ -1766,11 +1766,20 @@ export async function handler(event) {
       }
 
       // ----------------------------------------------------
-      // [13] DYNAMIC TEMPLATES HUB (REAL ATLAS DATA)
+      // [13] DYNAMIC TEMPLATES HUB (REAL ATLAS DATA & GOVERNANCE)
       // ----------------------------------------------------
       case 'get-templates': {
         const sysCol = db.collection('system_config');
         let tplDoc = await sysCol.findOne({ _id: 'templates_configuration' });
+
+        const defaultGovernance = {
+          dailyLimit: 1,
+          limitWindow: '24h',
+          enforceDailyLimit: true,
+          maintenanceMode: false,
+          maintenanceNotice: 'AI Template generation is currently undergoing scheduled maintenance. Please check back shortly.',
+          blocklist: 'nsfw, hate, violence, illegal, deepfake_celebrity'
+        };
 
         if (!tplDoc || !Array.isArray(tplDoc.templates) || tplDoc.templates.length === 0) {
           const initialTemplates = [
@@ -1785,16 +1794,127 @@ export async function handler(event) {
 
           await sysCol.updateOne(
             { _id: 'templates_configuration' },
-            { $set: { templates: initialTemplates, blocklist: 'nsfw, hate, violence, illegal, deepfake_celebrity', updatedAt: new Date().toISOString() } },
+            { $set: { templates: initialTemplates, ...defaultGovernance, updatedAt: new Date().toISOString() } },
             { upsert: true }
           );
-          tplDoc = { templates: initialTemplates, blocklist: 'nsfw, hate, violence, illegal, deepfake_celebrity' };
+          tplDoc = { templates: initialTemplates, ...defaultGovernance };
+        } else {
+          // Ensure default governance properties exist
+          let needsUpdate = false;
+          const patch = {};
+          if (tplDoc.dailyLimit === undefined) { patch.dailyLimit = 1; needsUpdate = true; }
+          if (!tplDoc.limitWindow) { patch.limitWindow = '24h'; needsUpdate = true; }
+          if (tplDoc.enforceDailyLimit === undefined) { patch.enforceDailyLimit = true; needsUpdate = true; }
+          if (tplDoc.maintenanceMode === undefined) { patch.maintenanceMode = false; needsUpdate = true; }
+          if (!tplDoc.maintenanceNotice) { patch.maintenanceNotice = defaultGovernance.maintenanceNotice; needsUpdate = true; }
+
+          if (needsUpdate) {
+            await sysCol.updateOne({ _id: 'templates_configuration' }, { $set: patch });
+            tplDoc = { ...tplDoc, ...patch };
+          }
         }
+
+        // Live Statistics & Usage Quotas
+        const genCol = db.collection('template_generations');
+        const userCol = db.collection('users');
+
+        const [totalAllTime, totalLast24h, activeGens, customLimitUsers] = await Promise.all([
+          genCol.countDocuments({}),
+          genCol.countDocuments({ createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } }),
+          genCol.find({ createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } })
+            .sort({ createdAt: -1 })
+            .limit(300)
+            .toArray(),
+          userCol.find({ templateDailyLimit: { $exists: true } }).toArray()
+        ]);
+
+        // Aggregate User Usage
+        const userMap = new Map();
+        for (const g of activeGens) {
+          const email = (g.userEmail || '').toLowerCase();
+          if (!email) continue;
+          if (!userMap.has(email)) {
+            userMap.set(email, {
+              userId: g.userId,
+              userEmail: email,
+              usedIn24h: 0,
+              activeGens: [],
+              lastGeneratedAt: g.createdAt,
+              lastTemplateId: g.templateId,
+              lastTemplateTitle: g.templateTitle
+            });
+          }
+          const entry = userMap.get(email);
+          if (g.resetByAdmin !== true) {
+            entry.usedIn24h += 1;
+            entry.activeGens.push(g);
+          }
+        }
+
+        // Attach custom limit users
+        for (const cu of customLimitUsers) {
+          const email = (cu.email || '').toLowerCase();
+          if (!email) continue;
+          if (!userMap.has(email)) {
+            userMap.set(email, {
+              userId: cu.id || cu._id,
+              userEmail: email,
+              usedIn24h: 0,
+              activeGens: [],
+              lastGeneratedAt: null,
+              lastTemplateId: null,
+              lastTemplateTitle: null,
+              customLimit: cu.templateDailyLimit
+            });
+          } else {
+            userMap.get(email).customLimit = cu.templateDailyLimit;
+          }
+        }
+
+        const userUsageList = Array.from(userMap.values()).map(u => {
+          const limit = u.customLimit !== undefined ? Number(u.customLimit) : Number(tplDoc.dailyLimit || 1);
+          const isUnlimited = limit <= 0;
+          const isLimitReached = !isUnlimited && (tplDoc.enforceDailyLimit !== false) && (u.usedIn24h >= limit);
+
+          let nextResetTime = null;
+          let resetCountdownMs = 0;
+
+          if (isLimitReached && u.activeGens.length > 0) {
+            const oldest = u.activeGens[u.activeGens.length - 1];
+            nextResetTime = new Date(new Date(oldest.createdAt).getTime() + 24 * 60 * 60 * 1000).toISOString();
+            resetCountdownMs = Math.max(0, new Date(nextResetTime).getTime() - Date.now());
+          }
+
+          return {
+            userId: u.userId,
+            userEmail: u.userEmail,
+            usedIn24h: u.usedIn24h,
+            dailyLimit: limit,
+            isCustomLimit: u.customLimit !== undefined,
+            isLimitReached,
+            lastGeneratedAt: u.lastGeneratedAt,
+            lastTemplateId: u.lastTemplateId,
+            lastTemplateTitle: u.lastTemplateTitle,
+            nextResetTime,
+            resetCountdownMs
+          };
+        });
 
         return {
           statusCode: 200,
           headers: corsHeaders,
-          body: JSON.stringify({ success: true, data: tplDoc })
+          body: JSON.stringify({
+            success: true,
+            data: {
+              ...tplDoc,
+              stats: {
+                totalGenerationsAllTime: totalAllTime,
+                generationsLast24h: totalLast24h,
+                activeUsersCount: userUsageList.length
+              },
+              userUsageList
+            }
+          })
         };
       }
 
@@ -1831,6 +1951,148 @@ export async function handler(event) {
         };
       }
 
+      case 'save-template-governance': {
+        const { dailyLimit, limitWindow, enforceDailyLimit, maintenanceMode, maintenanceNotice, blocklist } = body;
+        const sysCol = db.collection('system_config');
+        const patch = {
+          updatedAt: new Date().toISOString()
+        };
+
+        if (dailyLimit !== undefined) patch.dailyLimit = Math.max(0, Number(dailyLimit) || 1);
+        if (limitWindow !== undefined) patch.limitWindow = limitWindow;
+        if (enforceDailyLimit !== undefined) patch.enforceDailyLimit = !!enforceDailyLimit;
+        if (maintenanceMode !== undefined) patch.maintenanceMode = !!maintenanceMode;
+        if (maintenanceNotice !== undefined) patch.maintenanceNotice = String(maintenanceNotice).trim();
+        if (blocklist !== undefined) patch.blocklist = String(blocklist).trim();
+
+        await sysCol.updateOne(
+          { _id: 'templates_configuration' },
+          { $set: patch },
+          { upsert: true }
+        );
+
+        await logAdminAction(db, 'TEMPLATE_GOVERNANCE_SAVED', patch, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: 'Template governance settings saved successfully' })
+        };
+      }
+
+      case 'reset-user-template-limit': {
+        const { userEmail, userId } = body;
+        if (!userEmail && !userId) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'User email or ID required' })
+          };
+        }
+
+        const genCol = db.collection('template_generations');
+        const userCol = db.collection('users');
+        const nowIso = new Date().toISOString();
+
+        const queryOr = [];
+        if (userEmail) queryOr.push({ email: userEmail.toLowerCase() }, { userEmail: userEmail.toLowerCase() });
+        if (userId) queryOr.push({ id: userId }, { _id: userId }, { userId });
+
+        await Promise.all([
+          userCol.updateOne(
+            { $or: [{ email: (userEmail || '').toLowerCase() }, { id: userId }] },
+            { $set: { templateLimitResetAt: nowIso } }
+          ),
+          genCol.updateMany(
+            { $or: [{ userEmail: (userEmail || '').toLowerCase() }, { userId }] },
+            { $set: { resetByAdmin: true } }
+          )
+        ]);
+
+        await logAdminAction(db, 'USER_TEMPLATE_LIMIT_RESET', { userEmail, userId }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: `Daily template limit reset for user: ${userEmail || userId}` })
+        };
+      }
+
+      case 'reset-all-template-limits': {
+        const sysCol = db.collection('system_config');
+        const genCol = db.collection('template_generations');
+        const nowIso = new Date().toISOString();
+
+        await Promise.all([
+          sysCol.updateOne(
+            { _id: 'templates_configuration' },
+            { $set: { globalResetAt: nowIso, updatedAt: nowIso } }
+          ),
+          genCol.updateMany(
+            {},
+            { $set: { resetByAdmin: true } }
+          )
+        ]);
+
+        await logAdminAction(db, 'ALL_TEMPLATE_LIMITS_RESET', { timestamp: nowIso }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: 'All users daily template limits have been successfully reset.' })
+        };
+      }
+
+      case 'set-user-template-override': {
+        const { userEmail, customLimit } = body;
+        if (!userEmail) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'User email required' })
+          };
+        }
+
+        const userCol = db.collection('users');
+        const limitVal = customLimit === null || customLimit === undefined ? undefined : Number(customLimit);
+
+        if (limitVal === undefined) {
+          await userCol.updateOne(
+            { email: userEmail.toLowerCase() },
+            { $unset: { templateDailyLimit: "" } }
+          );
+        } else {
+          await userCol.updateOne(
+            { email: userEmail.toLowerCase() },
+            { $set: { templateDailyLimit: limitVal } }
+          );
+        }
+
+        await logAdminAction(db, 'USER_TEMPLATE_OVERRIDE_SET', { userEmail, customLimit: limitVal }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: `Custom daily limit ${limitVal !== undefined ? limitVal : 'removed'} for ${userEmail}` })
+        };
+      }
+
+      case 'get-template-generation-logs': {
+        const genCol = db.collection('template_generations');
+        const limit = Math.min(100, Math.max(10, Number(queryParams.limit) || 50));
+        const logs = await genCol
+          .find({})
+          .sort({ createdAt: -1 })
+          .limit(limit)
+          .toArray();
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, logs })
+        };
+      }
+
       case 'delete-template': {
         const { templateId } = body;
         const sysCol = db.collection('system_config');
@@ -1848,7 +2110,7 @@ export async function handler(event) {
         return {
           statusCode: 200,
           headers: corsHeaders,
-          body: JSON.stringify({ success: true, message: 'Template removed successfully' })
+          body: JSON.stringify({ success: true, message: 'Template deleted successfully' })
         };
       }
 

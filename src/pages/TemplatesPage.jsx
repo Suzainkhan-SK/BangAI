@@ -4,7 +4,7 @@ import {
   ChevronDown, ChevronUp, ChevronRight, Mic, Type, Play,
   Square, XCircle, ExternalLink, Cpu, Brain,
   Clapperboard, Mic2, Video, RefreshCw, Film, ArrowRight,
-  Sliders, Search, X, Sparkles, Eye, ShieldCheck
+  Sliders, Search, X, Sparkles, Eye, ShieldCheck, Clock, Lock, ShieldAlert
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 import GenerationThinkingAnimation from '../components/Dashboard/GenerationThinkingAnimation';
@@ -128,6 +128,22 @@ export default function TemplatesPage({
   const [errorMsg, setErrorMsg] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null);
 
+  // Daily Quota & Governance State
+  const [quotaStatus, setQuotaStatus] = useState({
+    dailyLimit: 1,
+    usedToday: 0,
+    remaining: 1,
+    isLimitReached: false,
+    nextResetTime: null,
+    resetCountdownMs: 0,
+    enforceDailyLimit: true,
+    maintenanceMode: false,
+    maintenanceNotice: ''
+  });
+  const [loadingQuota, setLoadingQuota] = useState(true);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [countdownText, setCountdownText] = useState('');
+
   // Generation & Cancel states
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingThreadId, setGeneratingThreadId] = useState(null);
@@ -135,6 +151,57 @@ export default function TemplatesPage({
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelNotice, setCancelNotice] = useState(null);
   const abortControllerRef = useRef(null);
+
+  // Fetch current user quota from backend
+  const fetchQuotaStatus = async () => {
+    try {
+      const token = getAuthToken() || '';
+      const targetUid = user?.id || user?.userId || user?._id || user?.uid || '';
+      const url = targetUid
+        ? `/.netlify/functions/generate-template?userId=${encodeURIComponent(targetUid)}&_t=${Date.now()}`
+        : `/.netlify/functions/generate-template?_t=${Date.now()}`;
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQuotaStatus(data);
+      }
+    } catch (err) {
+      console.warn('[TemplatesPage] fetchQuotaStatus error:', err);
+    } finally {
+      setLoadingQuota(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuotaStatus();
+  }, [user]);
+
+  // Cooldown countdown ticker when daily limit is reached
+  useEffect(() => {
+    if (!quotaStatus?.nextResetTime || !quotaStatus?.isLimitReached) {
+      setCountdownText('');
+      return;
+    }
+
+    const updateTimer = () => {
+      const diff = new Date(quotaStatus.nextResetTime).getTime() - Date.now();
+      if (diff <= 0) {
+        setCountdownText('Resetting now...');
+        fetchQuotaStatus();
+      } else {
+        const hrs = Math.floor(diff / 3600000);
+        const mins = Math.floor((diff % 3600000) / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        setCountdownText(`${hrs}h ${mins}m ${secs}s`);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [quotaStatus?.nextResetTime, quotaStatus?.isLimitReached]);
 
   // Connect to shared video settings so selected voice/speed applies smoothly across Bang AI
   const { settings: videoSettings, updateSettings: updateVideoSettings } = useVideoSettings();
@@ -325,6 +392,18 @@ export default function TemplatesPage({
     audioEngine.playSfx('click');
     if (!user) { if (typeof onNavigate === 'function') onNavigate('login'); return; }
 
+    if (quotaStatus?.maintenanceMode) {
+      audioEngine.playSfx('warning');
+      setErrorMsg(`🛠️ Maintenance Notice: ${quotaStatus.maintenanceNotice || 'AI Template generation is currently paused for maintenance.'}`);
+      return;
+    }
+
+    if (quotaStatus?.isLimitReached) {
+      audioEngine.playSfx('warning');
+      setShowLimitModal(true);
+      return;
+    }
+
     if (isChannelTokenExpired) {
       audioEngine.playSfx('warning');
       setErrorMsg(`⚠️ YouTube Authorization Expired: The connection for "${selectedChannel?.title || selectedChannel?.channelTitle || 'your channel'}" has expired. Please click Reconnect before launching.`);
@@ -403,8 +482,42 @@ export default function TemplatesPage({
 
       if (controller.signal.aborted) return;
 
+      if (res.status === 429) {
+        const errData = await res.json().catch(() => ({}));
+        audioEngine.playSfx('warning');
+        setQuotaStatus(prev => ({
+          ...prev,
+          isLimitReached: true,
+          remaining: 0,
+          nextResetTime: errData.nextResetTime || prev.nextResetTime,
+          resetCountdownMs: errData.resetCountdownMs || prev.resetCountdownMs
+        }));
+        setShowLimitModal(true);
+        setIsGenerating(false);
+        setLaunchingId(null);
+        return;
+      }
+
+      if (res.status === 503) {
+        const errData = await res.json().catch(() => ({}));
+        audioEngine.playSfx('warning');
+        setErrorMsg(errData.error || 'AI Template generation is currently in maintenance mode.');
+        setIsGenerating(false);
+        setLaunchingId(null);
+        return;
+      }
+
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to dispatch template workflow');
+
+      // Optimistically update quota and refresh from backend
+      setQuotaStatus(prev => ({
+        ...prev,
+        usedToday: prev.usedToday + 1,
+        remaining: Math.max(0, prev.remaining - 1),
+        isLimitReached: (prev.remaining - 1) <= 0
+      }));
+      fetchQuotaStatus();
 
       audioEngine.playSfx('success');
       setSuccessInfo({
@@ -634,6 +747,58 @@ export default function TemplatesPage({
                   )}
                 </div>
               )}
+
+              {/* Daily Quota Badge */}
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    audioEngine.playSfx('click');
+                    setShowLimitModal(true);
+                  }}
+                  title="Click to view 24-hour quota details & countdown"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    padding: '5px 12px', borderRadius: '99px',
+                    background: quotaStatus.maintenanceMode
+                      ? 'rgba(239, 68, 68, 0.12)'
+                      : quotaStatus.isLimitReached
+                        ? 'rgba(245, 158, 11, 0.12)'
+                        : 'rgba(16, 185, 129, 0.12)',
+                    border: `1px solid ${
+                      quotaStatus.maintenanceMode
+                        ? 'rgba(239, 68, 68, 0.35)'
+                        : quotaStatus.isLimitReached
+                          ? 'rgba(245, 158, 11, 0.35)'
+                          : 'rgba(16, 185, 129, 0.35)'
+                    }`,
+                    color: quotaStatus.maintenanceMode
+                      ? '#ef4444'
+                      : quotaStatus.isLimitReached
+                        ? '#f59e0b'
+                        : '#10b981',
+                    fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {quotaStatus.maintenanceMode ? (
+                    <>
+                      <AlertTriangle size={14} />
+                      <span>Maintenance Active</span>
+                    </>
+                  ) : quotaStatus.isLimitReached ? (
+                    <>
+                      <Lock size={13} />
+                      <span>Daily Limit Reached (0/{quotaStatus.dailyLimit}) {countdownText ? `· Resets in ${countdownText}` : ''}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={13} fill="#10b981" />
+                      <span>Daily Quota: {quotaStatus.remaining}/{quotaStatus.dailyLimit} Video{quotaStatus.dailyLimit > 1 ? 's' : ''} Left</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             <h1 className="font-display" style={{
@@ -654,6 +819,48 @@ export default function TemplatesPage({
               <span>🇮🇳</span>
               <span>Note: These autonomous templates only produce Hindi language videos (Hindi narration & subtitles).</span>
             </div>
+
+            {/* Maintenance Mode Banner */}
+            {quotaStatus.maintenanceMode && (
+              <div style={{
+                marginTop: '12px', padding: '12px 16px', borderRadius: '12px',
+                background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)',
+                color: '#ef4444', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px'
+              }}>
+                <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+                <div>
+                  <strong>Platform Maintenance:</strong> {quotaStatus.maintenanceNotice || 'AI Template generation is temporarily paused by the administrator for scheduled system updates.'}
+                </div>
+              </div>
+            )}
+
+            {/* Daily Limit Cooldown Banner */}
+            {quotaStatus.isLimitReached && !quotaStatus.maintenanceMode && (
+              <div style={{
+                marginTop: '12px', padding: '12px 16px', borderRadius: '12px',
+                background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)',
+                color: '#f59e0b', fontSize: '13px', display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Clock size={16} style={{ flexShrink: 0 }} />
+                  <span>
+                    <strong>24-Hour Cooldown Active:</strong> You have reached your limit of {quotaStatus.dailyLimit} video{quotaStatus.dailyLimit > 1 ? 's' : ''} for today. Next generation unlocks in <strong>{countdownText || '24 hours'}</strong>.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowLimitModal(true)}
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.35)',
+                    color: '#f59e0b', padding: '4px 10px', borderRadius: '6px', fontSize: '11px',
+                    fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  View Details
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ── Search & Filter Controls ── */}
@@ -1273,24 +1480,61 @@ export default function TemplatesPage({
                           </div>
                         ) : (
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              disabled={isGenerating || launchingId === tpl.id}
-                              onClick={() => handleLaunchTemplate(tpl.id)}
-                              className="btn-glow"
-                              style={{
-                                flex: 1, padding: '10px 16px', borderRadius: '10px', border: 'none',
-                                cursor: (isGenerating || launchingId === tpl.id) ? 'not-allowed' : 'pointer',
-                                fontSize: '13px', fontWeight: 700, color: '#ffffff',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-                                opacity: (isGenerating && !isCurrentGenerating) ? 0.6 : 1
-                              }}
-                            >
-                              {launchingId === tpl.id ? (
-                                <><Loader2 size={14} className="animate-spin" /><span>Dispatching...</span></>
-                              ) : (
-                                <><Zap size={14} fill="#ffffff" /><span>1-Click Generate (75s)</span></>
-                              )}
-                            </button>
+                            {quotaStatus.maintenanceMode ? (
+                              <button
+                                disabled
+                                style={{
+                                  flex: 1, padding: '10px 16px', borderRadius: '10px', border: 'none',
+                                  cursor: 'not-allowed',
+                                  fontSize: '13px', fontWeight: 700, color: '#94a3b8',
+                                  background: 'var(--bg-input)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                                  opacity: 0.7
+                                }}
+                              >
+                                <AlertTriangle size={14} />
+                                <span>Maintenance Active</span>
+                              </button>
+                            ) : quotaStatus.isLimitReached ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  audioEngine.playSfx('warning');
+                                  setShowLimitModal(true);
+                                }}
+                                style={{
+                                  flex: 1, padding: '10px 14px', borderRadius: '10px',
+                                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                                  cursor: 'pointer',
+                                  fontSize: '12.5px', fontWeight: 700,
+                                  color: '#f59e0b',
+                                  background: 'rgba(245, 158, 11, 0.1)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                }}
+                              >
+                                <Lock size={14} />
+                                <span>Daily Limit Reached ({countdownText || 'Locked'})</span>
+                              </button>
+                            ) : (
+                              <button
+                                disabled={isGenerating || launchingId === tpl.id}
+                                onClick={() => handleLaunchTemplate(tpl.id)}
+                                className="btn-glow"
+                                style={{
+                                  flex: 1, padding: '10px 16px', borderRadius: '10px', border: 'none',
+                                  cursor: (isGenerating || launchingId === tpl.id) ? 'not-allowed' : 'pointer',
+                                  fontSize: '13px', fontWeight: 700, color: '#ffffff',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                                  opacity: (isGenerating && !isCurrentGenerating) ? 0.6 : 1
+                                }}
+                              >
+                                {launchingId === tpl.id ? (
+                                  <><Loader2 size={14} className="animate-spin" /><span>Dispatching...</span></>
+                                ) : (
+                                  <><Zap size={14} fill="#ffffff" /><span>1-Click Generate (75s)</span></>
+                                )}
+                              </button>
+                            )}
 
                             <button
                               type="button"
@@ -1556,25 +1800,189 @@ export default function TemplatesPage({
                 )}
 
                 <div style={{ display: 'flex', gap: '10px', marginTop: '2px' }}>
-                  <button
-                    type="button"
-                    disabled={isGenerating}
-                    onClick={() => {
-                      setPreviewTemplate(null);
-                      handleLaunchTemplate(previewTemplate.id);
-                    }}
-                    className="btn-glow"
-                    style={{
-                      flex: 1, padding: '10px 16px', borderRadius: '10px', border: 'none',
-                      color: '#ffffff', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                    }}
-                  >
-                    <Zap size={14} fill="#ffffff" />
-                    <span>Launch This Template Now</span>
-                  </button>
+                  {quotaStatus.maintenanceMode ? (
+                    <button
+                      type="button"
+                      disabled
+                      style={{
+                        flex: 1, padding: '10px 16px', borderRadius: '10px', border: 'none',
+                        color: '#94a3b8', background: 'var(--bg-input)', fontSize: '13px', fontWeight: 700, cursor: 'not-allowed',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                      }}
+                    >
+                      <AlertTriangle size={14} />
+                      <span>Maintenance Active</span>
+                    </button>
+                  ) : quotaStatus.isLimitReached ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewTemplate(null);
+                        audioEngine.playSfx('warning');
+                        setShowLimitModal(true);
+                      }}
+                      style={{
+                        flex: 1, padding: '10px 16px', borderRadius: '10px',
+                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                        color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)',
+                        fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                      }}
+                    >
+                      <Lock size={14} />
+                      <span>Daily Limit Reached ({countdownText || 'Locked'})</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isGenerating}
+                      onClick={() => {
+                        setPreviewTemplate(null);
+                        handleLaunchTemplate(previewTemplate.id);
+                      }}
+                      className="btn-glow"
+                      style={{
+                        flex: 1, padding: '10px 16px', borderRadius: '10px', border: 'none',
+                        color: '#ffffff', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                      }}
+                    >
+                      <Zap size={14} fill="#ffffff" />
+                      <span>Launch This Template Now</span>
+                    </button>
+                  )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ DAILY LIMIT DETAILS MODAL ═══ */}
+      {showLimitModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0, 0, 0, 0.82)', backdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            width: '100%', maxWidth: '480px',
+            background: 'var(--bg-card)',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            borderRadius: '20px',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 35px rgba(245, 158, 11, 0.15)',
+            padding: '28px',
+            display: 'flex', flexDirection: 'column', gap: '20px'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '44px', height: '44px', borderRadius: '12px',
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#f59e0b'
+                }}>
+                  <Lock size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    Daily Generation Quota
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                    24-Hour Pipeline Allocation Policy
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLimitModal(false)}
+                style={{
+                  background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-muted)', width: '32px', height: '32px', borderRadius: '50%',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Quota details text */}
+            <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              Each creator can generate <strong style={{ color: 'var(--text-primary)' }}>{quotaStatus.dailyLimit} AI template video{quotaStatus.dailyLimit > 1 ? 's' : ''}</strong> per 24 hours. This rule preserves GPU rendering clusters, ElevenLabs narration synthesis, and guarantees cinematic 1080p quality for all creators without server congestion.
+            </p>
+
+            {/* Countdown Display Box */}
+            <div style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: '14px',
+              padding: '16px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                {quotaStatus.isLimitReached ? 'Next Available Video Unlocks In' : 'Current 24h Quota Status'}
+              </div>
+              <div style={{
+                fontFamily: 'monospace',
+                fontSize: '28px',
+                fontWeight: 800,
+                color: quotaStatus.isLimitReached ? '#f59e0b' : '#10b981',
+                letterSpacing: '0.05em',
+                textShadow: quotaStatus.isLimitReached ? '0 0 16px rgba(245, 158, 11, 0.4)' : '0 0 16px rgba(16, 185, 129, 0.4)'
+              }}>
+                {quotaStatus.isLimitReached ? (countdownText || '24h 00m 00s') : `${quotaStatus.remaining} / ${quotaStatus.dailyLimit} Available`}
+              </div>
+              {quotaStatus.nextResetTime && (
+                <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '6px' }}>
+                  Exact Reset Time: <strong>{new Date(quotaStatus.nextResetTime).toLocaleDateString([], { month: 'short', day: 'numeric' })} at {new Date(quotaStatus.nextResetTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
+                </div>
+              )}
+            </div>
+
+            {/* Info bullet points */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle2 size={14} color="#10b981" />
+                <span>All previously rendered videos remain permanently saved in your studio library.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldCheck size={14} color="#6366f1" />
+                <span>Admin limits can be adjusted or reset anytime by platform administrators.</span>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLimitModal(false);
+                  if (typeof onNavigate === 'function') onNavigate('dashboard');
+                }}
+                style={{
+                  flex: 1, padding: '11px 16px', borderRadius: '10px',
+                  background: 'var(--accent-primary, #ff4f00)', border: 'none',
+                  color: '#ffffff', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                }}
+              >
+                <span>Open Studio Dashboard</span>
+                <ExternalLink size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLimitModal(false)}
+                style={{
+                  padding: '11px 18px', borderRadius: '10px',
+                  background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Dismiss
+              </button>
             </div>
           </div>
         </div>

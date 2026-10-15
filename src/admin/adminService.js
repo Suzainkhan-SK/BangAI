@@ -116,10 +116,20 @@ export const adminService = {
   getPlatformSettings: async () => adminFetch('get-platform-settings', 'GET'),
   savePlatformSettings: async (settings) => adminFetch('save-platform-settings', 'POST', { settings }),
 
-  // 8. AI Templates Hub
+  // 8. AI Templates Hub & Daily Limits Governance
   getTemplates: async () => adminFetch('get-templates', 'GET'),
   saveTemplate: async (template, blocklist) =>
     adminFetch('save-template', 'POST', { template, blocklist }),
+  saveTemplateGovernance: async (settings) =>
+    adminFetch('save-template-governance', 'POST', settings),
+  resetUserTemplateLimit: async (userEmail, userId) =>
+    adminFetch('reset-user-template-limit', 'POST', { userEmail, userId }),
+  resetAllTemplateLimits: async () =>
+    adminFetch('reset-all-template-limits', 'POST'),
+  setUserTemplateOverride: async (userEmail, customLimit) =>
+    adminFetch('set-user-template-override', 'POST', { userEmail, customLimit }),
+  getTemplateGenerationLogs: async (limit = 50) =>
+    adminFetch('get-template-generation-logs', 'GET', null, { limit }),
   deleteTemplate: async (templateId) =>
     adminFetch('delete-template', 'POST', { templateId }),
 

@@ -1,6 +1,7 @@
 // Netlify Function: generate-template
 // Path: /.netlify/functions/generate-template
 // Bang AI — Dispatches 1-Click Autonomous Template Video Workflow to n8n Cloud
+// Features: Airtight 24h Daily Limit Enforcement, Rolling Window Tracking & Full Admin Governance
 
 import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
@@ -37,28 +38,195 @@ const TEMPLATE_META = {
   }
 };
 
+/**
+ * Calculates a user's exact template generation quota and remaining allowance.
+ */
+async function getUserTemplateQuota(db, user) {
+  if (!db) {
+    return {
+      dailyLimit: 1,
+      usedToday: 0,
+      remaining: 1,
+      isLimitReached: false,
+      enforceDailyLimit: true,
+      maintenanceMode: false,
+      maintenanceNotice: '',
+      limitWindow: '24h',
+      nextResetTime: null,
+      resetCountdownMs: 0
+    };
+  }
+
+  const sysCol = db.collection('system_config');
+  const configDoc = await sysCol.findOne({ _id: 'templates_configuration' }) || {};
+
+  const enforceDailyLimit = configDoc.enforceDailyLimit !== false;
+  const globalLimit = Number(configDoc.dailyLimit) > 0 ? Number(configDoc.dailyLimit) : 1;
+  const limitWindow = configDoc.limitWindow || '24h';
+  const maintenanceMode = !!configDoc.maintenanceMode;
+  const maintenanceNotice = configDoc.maintenanceNotice || 'AI Template generation is currently undergoing scheduled maintenance. Please check back shortly.';
+  const globalResetAt = configDoc.globalResetAt ? new Date(configDoc.globalResetAt) : null;
+
+  if (!user) {
+    return {
+      authenticated: false,
+      dailyLimit: globalLimit,
+      usedToday: 0,
+      remaining: globalLimit,
+      isLimitReached: false,
+      enforceDailyLimit,
+      maintenanceMode,
+      maintenanceNotice,
+      limitWindow,
+      nextResetTime: null,
+      resetCountdownMs: 0
+    };
+  }
+
+  const userId = String(user.userId || user.id || '');
+  const userEmail = String(user.email || '').toLowerCase();
+
+  // Check user document for custom limits or individual reset timestamp
+  const userDoc = await db.collection('users').findOne({
+    $or: [
+      { id: userId },
+      { _id: userId },
+      { userId: userId },
+      { email: userEmail }
+    ]
+  });
+
+  const userDailyLimit = (userDoc && userDoc.templateDailyLimit !== undefined)
+    ? Number(userDoc.templateDailyLimit)
+    : globalLimit;
+  const userResetAt = userDoc?.templateLimitResetAt ? new Date(userDoc.templateLimitResetAt) : null;
+
+  // Calculate window start
+  let windowStart;
+  if (limitWindow === 'calendar') {
+    const now = new Date();
+    windowStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  } else {
+    // 24-Hour Rolling Window
+    windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  }
+
+  let effectiveStart = windowStart;
+  if (globalResetAt && globalResetAt > effectiveStart) {
+    effectiveStart = globalResetAt;
+  }
+  if (userResetAt && userResetAt > effectiveStart) {
+    effectiveStart = userResetAt;
+  }
+
+  const query = {
+    $or: [
+      { userId },
+      { userEmail }
+    ],
+    createdAt: { $gte: effectiveStart },
+    resetByAdmin: { $ne: true }
+  };
+
+  const usedToday = await db.collection('template_generations').countDocuments(query);
+  const isUnlimited = userDailyLimit <= 0;
+  const isLimitReached = !isUnlimited && enforceDailyLimit && usedToday >= userDailyLimit;
+  const remaining = isUnlimited ? 999 : Math.max(0, userDailyLimit - usedToday);
+
+  let nextResetTime = null;
+  let resetCountdownMs = 0;
+
+  if (isLimitReached) {
+    if (limitWindow === 'calendar') {
+      const now = new Date();
+      nextResetTime = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    } else {
+      const oldest = await db.collection('template_generations').findOne(query, { sort: { createdAt: 1 } });
+      nextResetTime = oldest ? new Date(oldest.createdAt.getTime() + 24 * 60 * 60 * 1000) : new Date(Date.now() + 24 * 60 * 60 * 1000);
+    }
+    resetCountdownMs = Math.max(0, nextResetTime.getTime() - Date.now());
+  }
+
+  return {
+    authenticated: true,
+    userId,
+    userEmail,
+    dailyLimit: userDailyLimit,
+    usedToday,
+    remaining,
+    isLimitReached,
+    enforceDailyLimit,
+    maintenanceMode,
+    maintenanceNotice,
+    limitWindow,
+    nextResetTime: nextResetTime ? nextResetTime.toISOString() : null,
+    resetCountdownMs
+  };
+}
+
 export const handler = async (event) => {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+  };
+
   // CORS Preflight
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-      },
+      headers: corsHeaders,
       body: ''
     };
+  }
+
+  const authHeader = event.headers.authorization || event.headers.Authorization || '';
+  const tokenFromHeader = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  // -------------------------------------------------------------
+  // GET: Fetch user's current daily quota & system governance status
+  // -------------------------------------------------------------
+  if (event.httpMethod === 'GET') {
+    try {
+      const user = verifyToken(tokenFromHeader);
+      const db = await getDb();
+      const quota = await getUserTemplateQuota(db, user);
+
+      return {
+        statusCode: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          success: true,
+          ...quota
+        })
+      };
+    } catch (err) {
+      console.error('[generate-template] GET quota error:', err);
+      return {
+        statusCode: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ error: err.message || 'Internal Server Error' })
+      };
+    }
   }
 
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers: { 'Access-Control-Allow-Origin': '*' },
+      headers: corsHeaders,
       body: JSON.stringify({ error: 'Method Not Allowed' })
     };
   }
 
+  // -------------------------------------------------------------
+  // POST: Autonomous 1-Click Template Video Generation Dispatch
+  // -------------------------------------------------------------
   try {
     const payload = JSON.parse(event.body || '{}');
     const templateId = payload.templateId || 'world-mysteries';
@@ -73,7 +241,7 @@ export const handler = async (event) => {
     if (!webhookUrl) {
       return {
         statusCode: 400,
-        headers: { 'Access-Control-Allow-Origin': '*' },
+        headers: corsHeaders,
         body: JSON.stringify({ error: `Template "${templateId}" is not configured.` })
       };
     }
@@ -82,76 +250,106 @@ export const handler = async (event) => {
     const host = event.headers.host || 'bangai.netlify.app';
     const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
 
-    // Dynamic Credentials Lookup from MongoDB
+    const userToken = tokenFromHeader || payload.token;
+    const user = verifyToken(userToken);
+
+    if (!user) {
+      return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Unauthorized. Please sign in to generate template videos.' })
+      };
+    }
+
+    const userId = String(user.userId || user.id || '');
+    const userEmail = String(user.email || '').toLowerCase();
+    const isAdmin = user.role === 'admin' || user.role === 'master_admin';
+
+    const db = await getDb();
+
+    // 1. Quota & Governance Verification
+    const quota = await getUserTemplateQuota(db, user);
+
+    if (quota.maintenanceMode && !isAdmin) {
+      return {
+        statusCode: 503,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          success: false,
+          error: 'MAINTENANCE_MODE',
+          message: quota.maintenanceNotice || 'AI Template generation is temporarily under scheduled maintenance.'
+        })
+      };
+    }
+
+    if (quota.isLimitReached && !isAdmin) {
+      return {
+        statusCode: 429,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          success: false,
+          error: 'DAILY_LIMIT_REACHED',
+          message: `Daily generation limit reached. You can generate up to ${quota.dailyLimit} video per 24 hours.`,
+          dailyLimit: quota.dailyLimit,
+          usedToday: quota.usedToday,
+          remaining: 0,
+          nextResetTime: quota.nextResetTime,
+          resetCountdownMs: quota.resetCountdownMs
+        })
+      };
+    }
+
+    // 2. Dynamic Credentials Lookup from MongoDB
     let userYouTubeAccessToken = '';
     let userYouTubeChannelTitle = '';
     let userYouTubeChannelId = '';
     let userSheetAccessToken = '';
     let userSpreadsheetId = '';
     let userSheetName = 'Production Log';
-    let userEmail = '';
-    let userId = '';
 
-    const authHeader = event.headers.authorization || event.headers.Authorization || '';
-    const userToken = authHeader.replace(/^Bearer\s+/i, '').trim() || payload.token;
-    const user = verifyToken(userToken);
-
-    if (!user) {
-      return {
-        statusCode: 401,
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: 'Unauthorized. Please sign in to generate template videos.' })
-      };
-    }
-
-    if (user) {
-      userId = user.userId || user.id;
-      userEmail = user.email || '';
+    if (db) {
       try {
-        const db = await getDb();
-        if (db) {
-          const userDoc = await db.collection('users').findOne({
-            $or: [
-              { id: userId },
-              { _id: userId },
-              { userId: userId },
-              { email: userEmail ? userEmail.toLowerCase() : '' }
-            ]
-          });
+        const userDoc = await db.collection('users').findOne({
+          $or: [
+            { id: userId },
+            { _id: userId },
+            { userId: userId },
+            { email: userEmail }
+          ]
+        });
 
-          if (userDoc) {
-            // Resolve Target YouTube Channel
-            const selectedChannelId = payload.selectedChannelId || payload.channelId;
-            const channels = userDoc.youtubeChannels || [];
-            let targetChannel = null;
+        if (userDoc) {
+          // Resolve Target YouTube Channel
+          const selectedChannelId = payload.selectedChannelId || payload.channelId;
+          const channels = userDoc.youtubeChannels || [];
+          let targetChannel = null;
 
-            if (selectedChannelId) {
-              targetChannel = channels.find(c => c.channelId === selectedChannelId);
-            }
-            if (!targetChannel) {
-              targetChannel = channels.find(c => c.isDefault) || channels[0] || null;
-            }
+          if (selectedChannelId) {
+            targetChannel = channels.find(c => c.channelId === selectedChannelId);
+          }
+          if (!targetChannel) {
+            targetChannel = channels.find(c => c.isDefault) || channels[0] || null;
+          }
 
-            if (targetChannel && targetChannel.tokens) {
-              userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || '';
-              userYouTubeChannelTitle = targetChannel.channelTitle || '';
-              userYouTubeChannelId = targetChannel.channelId || '';
-            }
+          if (targetChannel && targetChannel.tokens) {
+            userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || '';
+            userYouTubeChannelTitle = targetChannel.channelTitle || '';
+            userYouTubeChannelId = targetChannel.channelId || '';
+          }
 
-            // Resolve Target Google Sheet
-            let targetSheet = null;
-            if (userDoc.googleSheets && userDoc.googleSheets.length > 0) {
-              targetSheet = userDoc.googleSheets.find(s => s.isDefault) || userDoc.googleSheets[0];
-            }
+          // Resolve Target Google Sheet
+          let targetSheet = null;
+          if (userDoc.googleSheets && userDoc.googleSheets.length > 0) {
+            targetSheet = userDoc.googleSheets.find(s => s.isDefault) || userDoc.googleSheets[0];
+          }
 
-            if (targetSheet) {
-              const sheetTokenContainer = targetSheet.tokens ? targetSheet : targetChannel;
-              if (sheetTokenContainer) {
-                userSheetAccessToken = await getFreshGoogleToken(sheetTokenContainer, 'youtubeChannels') || '';
-              }
-              userSpreadsheetId = targetSheet.spreadsheetId || '';
-              userSheetName = targetSheet.sheetName || 'Production Log';
+          if (targetSheet) {
+            const sheetTokenContainer = targetSheet.tokens ? targetSheet : targetChannel;
+            if (sheetTokenContainer) {
+              userSheetAccessToken = await getFreshGoogleToken(sheetTokenContainer, 'youtubeChannels') || '';
             }
+            userSpreadsheetId = targetSheet.spreadsheetId || '';
+            userSheetName = targetSheet.sheetName || 'Production Log';
           }
         }
       } catch (dbErr) {
@@ -162,7 +360,7 @@ export const handler = async (event) => {
     if (payload.autoUploadToYouTube !== false && !userYouTubeAccessToken && payload.forceWithoutUpload !== true) {
       return {
         statusCode: 400,
-        headers: { 'Access-Control-Allow-Origin': '*' },
+        headers: corsHeaders,
         body: JSON.stringify({
           success: false,
           error: 'YOUTUBE_TOKEN_EXPIRED',
@@ -181,17 +379,16 @@ export const handler = async (event) => {
 
     const meta = TEMPLATE_META[templateId] || TEMPLATE_META['world-mysteries'];
 
-    // Store thread in DB if available
-    try {
-      const db = await getDb();
-      if (db && userId) {
+    // 3. Atomically record the generation in MongoDB
+    if (db && userId) {
+      try {
         await db.collection('threads').updateOne(
           { threadId },
           {
             $set: {
               threadId,
               userId,
-              userEmail: (userEmail || '').toLowerCase(),
+              userEmail: userEmail.toLowerCase(),
               title: meta.title,
               templateId,
               status: 'started',
@@ -210,20 +407,35 @@ export const handler = async (event) => {
           },
           { upsert: true }
         );
+
+        // Record generation in template_generations collection for strict quota auditing
+        await db.collection('template_generations').insertOne({
+          userId,
+          userEmail,
+          templateId,
+          templateTitle: meta.title,
+          threadId,
+          prompt: (payload.prompt || '').trim(),
+          channelTitle: userYouTubeChannelTitle || null,
+          channelId: userYouTubeChannelId || null,
+          createdAt: new Date(),
+          status: 'dispatched',
+          resetByAdmin: false
+        });
+      } catch (dbSaveErr) {
+        console.warn('[generate-template] Could not save initial thread / generation record:', dbSaveErr.message);
       }
-    } catch (dbSaveErr) {
-      console.warn('[generate-template] Could not save initial thread:', dbSaveErr.message);
     }
 
     const postData = JSON.stringify({
       templateId,
       templateName: meta.name,
-      prompt: (payload.prompt || '').trim(), // optional custom topic — blank means auto-generate
+      prompt: (payload.prompt || '').trim(),
       callbackUrl,
       threadId,
       sessionId,
       userId: userId || 'anonymous',
-      userEmail: (userEmail || '').toLowerCase(),
+      userEmail: userEmail.toLowerCase(),
       webhookSecret,
       // Dynamic YouTube Settings
       autoUploadToYouTube,
@@ -235,7 +447,7 @@ export const handler = async (event) => {
       userSheetAccessToken,
       userSpreadsheetId,
       userSheetName,
-      // Voice & Visual Settings (dynamic from studio / frontend)
+      // Voice & Visual Settings
       voiceId: payload.voiceId || 'adam',
       elevenLabsVoiceId: payload.elevenLabsVoiceId || '',
       voiceSpeed: payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20,
@@ -271,7 +483,7 @@ export const handler = async (event) => {
     return {
       statusCode: 200,
       headers: {
-        'Access-Control-Allow-Origin': '*',
+        ...corsHeaders,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -281,6 +493,9 @@ export const handler = async (event) => {
         status: 'started',
         autoUploadToYouTube,
         channelTitle: userYouTubeChannelTitle || null,
+        remaining: Math.max(0, quota.remaining - 1),
+        dailyLimit: quota.dailyLimit,
+        usedToday: quota.usedToday + 1,
         message: `${meta.title} generation dispatched successfully.`
       })
     };
@@ -288,10 +503,7 @@ export const handler = async (event) => {
     console.error('[generate-template] Fatal error:', err);
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
+      headers: corsHeaders,
       body: JSON.stringify({ error: err.message || 'Internal Server Error' })
     };
   }
