@@ -1508,6 +1508,7 @@ export default function DashboardApp({
     <div style={{
       display: 'flex',
       height: 'calc(100dvh - var(--nav-h, 58px))',
+      maxHeight: 'calc(100dvh - var(--nav-h, 58px))',
       minHeight: 'calc(100vh - 58px)',
       width: '100%',
       background: 'var(--bg-app)',
@@ -1521,7 +1522,18 @@ export default function DashboardApp({
       />
 
       {/* Real Persistent History Sidebar */}
-      <div className={`sidebar-wrapper-mobile ${isMobileSidebarOpen ? 'open' : ''}`}>
+      <div
+        className={`sidebar-wrapper-mobile ${isMobileSidebarOpen ? 'open' : ''}`}
+        style={!isMobile ? {
+          position: 'sticky',
+          top: 'var(--nav-h, 58px)',
+          alignSelf: 'flex-start',
+          height: 'calc(100dvh - var(--nav-h, 58px))',
+          maxHeight: 'calc(100dvh - var(--nav-h, 58px))',
+          flexShrink: 0,
+          zIndex: 100
+        } : undefined}
+      >
         <Sidebar
           pastShorts={pastShorts}
           activeShortId={activeThreadId}

@@ -678,8 +678,12 @@ export default function TemplatesPage({
   return (
     <AppShell user={user} currentRoutePath={currentRoutePath} onNavigate={onNavigate} collapsed={collapsed} onToggleCollapse={onToggleCollapse}>
       <div style={{
-        flex: 1, width: '100%', minHeight: '100%',
-        backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)',
+        flex: 1,
+        width: '100%',
+        height: isMobile ? 'auto' : '100%',
+        minHeight: 0,
+        backgroundColor: 'var(--bg-app)',
+        color: 'var(--text-primary)',
         padding: isMobile ? '16px 12px 60px 12px' : '36px 32px 80px 32px',
         overflowY: isMobile ? 'visible' : 'auto',
         WebkitOverflowScrolling: 'touch'

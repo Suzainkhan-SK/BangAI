@@ -48,7 +48,7 @@ export default function StudioPage({
         flex: 1,
         width: '100%',
         height: isMobile ? 'auto' : '100%',
-        minHeight: '100%',
+        minHeight: 0,
         overflowY: isMobile ? 'visible' : 'auto',
         WebkitOverflowScrolling: 'touch'
       }}>

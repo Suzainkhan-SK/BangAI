@@ -206,7 +206,11 @@ export default function Sidebar({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '10px 0',
-          height: 'calc(100dvh - var(--nav-h, 58px))',
+          position: isMobileDrawer ? 'relative' : 'sticky',
+          top: isMobileDrawer ? 0 : 'var(--nav-h, 58px)',
+          alignSelf: 'flex-start',
+          height: isMobileDrawer ? '100%' : 'calc(100dvh - var(--nav-h, 58px))',
+          maxHeight: isMobileDrawer ? '100%' : 'calc(100dvh - var(--nav-h, 58px))',
           transition: 'width 0.22s cubic-bezier(0.2, 0, 0, 1)',
           flexShrink: 0,
           zIndex: 110,
@@ -487,16 +491,19 @@ export default function Sidebar({
         flexDirection: 'column',
         justifyContent: 'space-between',
         padding: '0',
-        height: 'calc(100dvh - var(--nav-h, 58px))',
+        position: isMobileDrawer ? 'relative' : 'sticky',
+        top: isMobileDrawer ? 0 : 'var(--nav-h, 58px)',
+        alignSelf: 'flex-start',
+        height: isMobileDrawer ? '100%' : 'calc(100dvh - var(--nav-h, 58px))',
+        maxHeight: isMobileDrawer ? '100%' : 'calc(100dvh - var(--nav-h, 58px))',
         transition: 'width 0.22s cubic-bezier(0.2, 0, 0, 1)',
         flexShrink: 0,
-        position: 'relative',
         zIndex: 110,
         overflow: 'hidden'
       }}
     >
       {/* ── Section A: Top Controls (Fixed) ── */}
-      <div style={{ padding: '10px 10px 0 10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ padding: '10px 10px 0 10px', display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
 
         {/* ChatGPT-Style Top Header Row: Title on Left, Collapse Button on Right */}
         <div style={{
@@ -856,6 +863,7 @@ export default function Sidebar({
       {/* ── Section B: Scrollable History List (Middle) ── */}
       <div style={{
         flex: 1,
+        minHeight: 0,
         overflowY: 'auto',
         padding: '2px 8px 6px 8px',
         display: 'flex',
@@ -1002,7 +1010,8 @@ export default function Sidebar({
         background: 'var(--bg-sidebar)',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px'
+        gap: '8px',
+        flexShrink: 0
       }}>
         <button
           type="button"

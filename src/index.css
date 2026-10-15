@@ -4,6 +4,9 @@
    ========================================================================== */
 
 :root, [data-theme='dark'] {
+  --nav-h: 58px;
+  --sidebar-w: 215px;
+  --sidebar-w-collapsed: 54px;
   --bg-app: #090a0d;
   --bg-nav: rgba(9, 10, 13, 0.95);
   --bg-card: #12151c;
@@ -53,6 +56,9 @@
 }
 
 [data-theme='light'] {
+  --nav-h: 58px;
+  --sidebar-w: 215px;
+  --sidebar-w-collapsed: 54px;
   --bg-app: #fffefb;
   --bg-nav: rgba(255, 254, 251, 0.95);
   --bg-card: #f8f4f0;
@@ -1068,6 +1074,24 @@ body {
   body {
     overflow-x: hidden;
     width: 100%;
+  }
+}
+
+/* Desktop Sidebar: True Sticky Pinned Rail (Industry-Standard SaaS Layout) */
+@media (min-width: 768px) {
+  .sidebar-wrapper-mobile {
+    position: sticky !important;
+    top: var(--nav-h, 58px) !important;
+    height: calc(100dvh - var(--nav-h, 58px)) !important;
+    max-height: calc(100dvh - var(--nav-h, 58px)) !important;
+    align-self: flex-start !important;
+    flex-shrink: 0 !important;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    transform: none !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
   }
 }
 

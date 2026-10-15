@@ -18,6 +18,7 @@ import { audioEngine } from './audio/audioEngine';
 import { getStoredUser, verifySession, logoutUser } from './utils/authClient';
 import { ROUTES, matchRoute } from './routes';
 import { VideoSettingsProvider } from './state/videoSettings';
+import { useBreakpoint } from './hooks/useMediaQuery';
 
 export const APP_ROUTES = ROUTES;
 
@@ -261,11 +262,22 @@ function AppContent() {
     handleNavigate('dashboard');
   };
 
+  const { isMobile } = useBreakpoint();
   const currentView = currentRoute?.view || 'landing';
   const currentRoutePath = currentRoute?.path || '';
+  const isPublicPage = ['landing', 'login', 'register', 'pricing', 'api', 'admin'].includes(currentView);
+  const lockViewport = !isPublicPage && !isMobile;
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', width: '100%' }}>
+    <div style={{
+      height: lockViewport ? '100dvh' : 'auto',
+      minHeight: '100vh',
+      maxHeight: lockViewport ? '100dvh' : 'none',
+      overflow: lockViewport ? 'hidden' : 'visible',
+      display: 'flex',
+      flexDirection: 'column',
+      width: '100%'
+    }}>
       {/* Universal Full-Width Navbar (hidden on admin control plane) */}
       {currentView !== 'admin' && (
         <Navbar
@@ -281,7 +293,16 @@ function AppContent() {
       )}
 
       {/* Main View Router with Strict Auth Enforcement */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
+      <main style={{
+        flex: 1,
+        minHeight: 0,
+        height: lockViewport ? 'calc(100dvh - var(--nav-h, 58px))' : 'auto',
+        maxHeight: lockViewport ? 'calc(100dvh - var(--nav-h, 58px))' : 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        overflow: lockViewport ? 'hidden' : 'visible'
+      }}>
         {currentView === 'landing' && (
           <LandingPage
             onNavigateToDashboard={() => handleNavigate('dashboard')}

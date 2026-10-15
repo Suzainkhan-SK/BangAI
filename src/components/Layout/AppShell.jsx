@@ -15,6 +15,7 @@ export default function AppShell({ user, currentRoutePath, onNavigate, collapsed
       flexDirection: isMobile ? 'column' : 'row',
       width: '100%',
       height: isMobile ? 'auto' : 'calc(100dvh - var(--nav-h, 58px))',
+      maxHeight: isMobile ? 'none' : 'calc(100dvh - var(--nav-h, 58px))',
       minHeight: isMobile ? 'calc(100vh - var(--nav-h, 58px))' : 'calc(100dvh - var(--nav-h, 58px))',
       overflow: isMobile ? 'visible' : 'hidden',
       position: 'relative'
@@ -28,8 +29,19 @@ export default function AppShell({ user, currentRoutePath, onNavigate, collapsed
         />
       )}
 
-      {/* Sidebar: In-flow on desktop, slide-out drawer on mobile */}
-      <div className={`sidebar-wrapper-mobile ${mobileSidebarOpen ? 'open' : ''}`}>
+      {/* Sidebar: In-flow sticky rail on desktop, slide-out drawer on mobile */}
+      <div
+        className={`sidebar-wrapper-mobile ${mobileSidebarOpen ? 'open' : ''}`}
+        style={!isMobile ? {
+          position: 'sticky',
+          top: 'var(--nav-h, 58px)',
+          alignSelf: 'flex-start',
+          height: 'calc(100dvh - var(--nav-h, 58px))',
+          maxHeight: 'calc(100dvh - var(--nav-h, 58px))',
+          flexShrink: 0,
+          zIndex: 100
+        } : undefined}
+      >
         <Sidebar
           user={user}
           pastShorts={threads}
@@ -57,8 +69,10 @@ export default function AppShell({ user, currentRoutePath, onNavigate, collapsed
         display: 'flex',
         flexDirection: 'column',
         height: isMobile ? 'auto' : '100%',
+        maxHeight: isMobile ? 'none' : '100%',
         minHeight: 0,
-        overflow: isMobile ? 'visible' : 'hidden',
+        overflowY: isMobile ? 'visible' : 'auto',
+        overflowX: 'hidden',
         WebkitOverflowScrolling: 'touch'
       }}>
         {children}

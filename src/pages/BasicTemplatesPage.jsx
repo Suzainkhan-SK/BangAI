@@ -155,7 +155,7 @@ export default function BasicTemplatesPage({
         flex: 1,
         width: '100%',
         height: isMobile ? 'auto' : '100%',
-        minHeight: '100%',
+        minHeight: 0,
         backgroundColor: 'var(--bg-app)',
         color: 'var(--text-primary)',
         padding: isMobile ? '8px 8px 12px 8px' : '12px 16px 20px 16px',
