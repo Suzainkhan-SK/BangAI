@@ -24,9 +24,9 @@ const YouTubeIcon = ({ size = 18 }) => (
 );
 
 // Exact speed range from StudioLab
-const SPEED_MIN  = 1.10;
-const SPEED_MAX  = 1.50;
-const SPEED_DEF  = 1.10;
+const SPEED_MIN = 1.10;
+const SPEED_MAX = 1.50;
+const SPEED_DEF = 1.10;
 const SPEED_STEP = 0.05;
 
 export const ACTIVE_TEMPLATES = [
@@ -84,8 +84,8 @@ export const ACTIVE_TEMPLATES = [
     specs: '1080p Ultra HD · 9:16 Vertical · 5 Scenes',
     color: '#ef4444',
     aiBrain: 'Claude Haiku 4.5 & Gemini',
-    youtubeUrl: 'https://youtube.com/shorts/saJCNSDqLBs?si=6qKYJpDECbWjuzdQ',
-    youtubeId: 'saJCNSDqLBs'
+    youtubeUrl: 'https://youtube.com/shorts/vOb4jIQkAOY?si=bPQqp7MGmRkW00uF',
+    youtubeId: 'vOb4jIQkAOY'
   }
 ];
 
@@ -112,29 +112,29 @@ export default function TemplatesPage({
   onNavigate
 }) {
   const [activeCategory, setActiveCategory] = useState('all');
-  const [searchQuery, setSearchQuery]       = useState('');
-  const [customizingId, setCustomizingId]   = useState(null); // id of template whose settings drawer is open
+  const [searchQuery, setSearchQuery] = useState('');
+  const [customizingId, setCustomizingId] = useState(null); // id of template whose settings drawer is open
   const [previewTemplate, setPreviewTemplate] = useState(null); // template currently in preview modal
-  const { isMobile, isTablet }              = useBreakpoint();
+  const { isMobile, isTablet } = useBreakpoint();
 
   // Per-template custom topics map
-  const [customTopics, setCustomTopics]     = useState({
+  const [customTopics, setCustomTopics] = useState({
     'world-mysteries': '',
     'last-24-hours': '',
     '3am-horror': ''
   });
 
-  const [launchingId, setLaunchingId]       = useState(null);
-  const [errorMsg, setErrorMsg]             = useState(null);
-  const [successInfo, setSuccessInfo]       = useState(null);
+  const [launchingId, setLaunchingId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [successInfo, setSuccessInfo] = useState(null);
 
   // Generation & Cancel states
-  const [isGenerating, setIsGenerating]                 = useState(false);
-  const [generatingThreadId, setGeneratingThreadId]     = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingThreadId, setGeneratingThreadId] = useState(null);
   const [generatingTemplateId, setGeneratingTemplateId] = useState(null);
-  const [isCancelling, setIsCancelling]                 = useState(false);
-  const [cancelNotice, setCancelNotice]                 = useState(null);
-  const abortControllerRef                              = useRef(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelNotice, setCancelNotice] = useState(null);
+  const abortControllerRef = useRef(null);
 
   // Connect to shared video settings so selected voice/speed applies smoothly across Bang AI
   const { settings: videoSettings, updateSettings: updateVideoSettings } = useVideoSettings();
@@ -180,7 +180,7 @@ export default function TemplatesPage({
   };
 
   // ── YouTube channels (same as ProfilePage) ──
-  const [channels, setChannels]             = useState([]);
+  const [channels, setChannels] = useState([]);
   const [loadingChannels, setLoadingChannels] = useState(true);
   const [selectedChannelId, setSelectedChannelId] = useState('');
 
@@ -189,7 +189,7 @@ export default function TemplatesPage({
       if (!user) { setLoadingChannels(false); return; }
       try {
         const token = getAuthToken();
-        const res  = await fetch('/.netlify/functions/google-oauth?action=channels', {
+        const res = await fetch('/.netlify/functions/google-oauth?action=channels', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await res.json();
@@ -222,7 +222,7 @@ export default function TemplatesPage({
               setErrorMsg(null);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     };
     window.addEventListener('message', handleAuthMessage);
@@ -233,7 +233,7 @@ export default function TemplatesPage({
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
-        try { abortControllerRef.current.abort(); } catch (e) {}
+        try { abortControllerRef.current.abort(); } catch (e) { }
       }
     };
   }, []);
@@ -388,16 +388,16 @@ export default function TemplatesPage({
           sessionId,
           selectedChannelId: selectedChannelId || undefined,
           token,
-          prompt:           targetTopic,
-          voiceId:          activeVoiceObj?.id || voiceId,
+          prompt: targetTopic,
+          voiceId: activeVoiceObj?.id || voiceId,
           elevenLabsVoiceId,
-          voiceSpeed:       clampedSpeed,
-          voiceVolume:      videoSettings?.voiceVolume ?? 1.0,
+          voiceSpeed: clampedSpeed,
+          voiceVolume: videoSettings?.voiceVolume ?? 1.0,
           subtitleSettings: videoSettings?.subtitleSettings || null,
-          subtitleStyle:    videoSettings?.subtitleStyle || 'hormozi',
-          musicId:          videoSettings?.musicId || 'mystery2',
-          musicTrackUrl:    videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
-          musicVolume:      videoSettings?.musicVolume ?? 0.08
+          subtitleStyle: videoSettings?.subtitleStyle || 'hormozi',
+          musicId: videoSettings?.musicId || 'mystery2',
+          musicTrackUrl: videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
+          musicVolume: videoSettings?.musicVolume ?? 0.08
         })
       });
 
@@ -430,7 +430,7 @@ export default function TemplatesPage({
     setIsCancelling(true);
 
     if (abortControllerRef.current) {
-      try { abortControllerRef.current.abort(); } catch (e) {}
+      try { abortControllerRef.current.abort(); } catch (e) { }
     }
 
     const targetThreadId = generatingThreadId;
