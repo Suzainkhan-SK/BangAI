@@ -37,8 +37,8 @@ export const ACTIVE_TEMPLATES = [
     category: 'mysteries',
     label: 'World Mysteries',
     desc: 'Self-researches unrepeated paranormal mysteries, scripts 5 cinematic scenes, renders photorealistic AI video, and uploads directly to YouTube — zero manual review.',
-    tagline: '75s · 5 Scenes · 1080p',
-    duration: '75s',
+    tagline: '75s+ · 5 Scenes · 1080p',
+    duration: '75s+',
     scenes: '5 Scenes',
     resolution: '1080p',
     demoImage: '/template-world-mysteries.jpg',
@@ -56,8 +56,8 @@ export const ACTIVE_TEMPLATES = [
     category: 'history',
     label: 'True Stories',
     desc: 'Counts down the poignant and dramatic final 24 hours of legendary figures, heroic sacrifices, and historic events with empathetic narration and emotional hooks.',
-    tagline: '75s · 5 Scenes · 1080p',
-    duration: '75s',
+    tagline: '75s+ · 5 Scenes · 1080p',
+    duration: '75s+',
     scenes: '5 Scenes',
     resolution: '1080p',
     demoImage: '/template-last-24-hours.jpg',
@@ -75,8 +75,8 @@ export const ACTIVE_TEMPLATES = [
     category: 'psychology',
     label: 'Horror & Paranormal',
     desc: 'Bone-chilling psychological terror and terrifying 3 AM encounters. Maximum camera movement, eerie suspense, and dark sound design crafted for viral retention.',
-    tagline: '75s · 5 Scenes · 1080p',
-    duration: '75s',
+    tagline: '75s+ · 5 Scenes · 1080p',
+    duration: '75s+',
     scenes: '5 Scenes',
     resolution: '1080p',
     demoImage: '/template-3am-horror.jpg',
@@ -90,10 +90,10 @@ export const ACTIVE_TEMPLATES = [
 ];
 
 export const UPCOMING_TEMPLATES = [
-  { id: 'ancient-history', emoji: '🏛️', category: 'history', label: 'History & Lore', title: 'Ancient History & Lost Civilizations', desc: 'Deep-dives into forgotten dynasties, ancient monoliths, and lost technological wonders.', duration: '75s', scenes: '5 Scenes' },
-  { id: 'dark-psychology', emoji: '🧠', category: 'psychology', label: 'Dark Psychology', title: 'Dark Psychology & Human Behavior', desc: 'Reveals behavioral quirks, subconscious micro-signals, and persuasion breakdowns.', duration: '60s', scenes: '4 Scenes' },
-  { id: 'cosmic-space', emoji: '🌌', category: 'scifi', label: 'Space & Tech', title: 'Deep Space & Cosmic Wonders', desc: 'Explores black hole anomalies, quantum paradoxes, and deep cosmos discoveries.', duration: '75s', scenes: '5 Scenes' },
-  { id: 'mythical-heists', emoji: '💎', category: 'mysteries', label: 'World Mysteries', title: 'Legendary Heists & Unsolved Enigmas', desc: 'Fast-paced breakdowns of impossible vaults, art heists, and unexplained escapes.', duration: '75s', scenes: '5 Scenes' }
+  { id: 'ancient-history', emoji: '🏛️', category: 'history', label: 'History & Lore', title: 'Ancient History & Lost Civilizations', desc: 'Deep-dives into forgotten dynasties, ancient monoliths, and lost technological wonders.', duration: '75s+', scenes: '5 Scenes' },
+  { id: 'dark-psychology', emoji: '🧠', category: 'psychology', label: 'Dark Psychology', title: 'Dark Psychology & Human Behavior', desc: 'Reveals behavioral quirks, subconscious micro-signals, and persuasion breakdowns.', duration: '60s+', scenes: '4 Scenes' },
+  { id: 'cosmic-space', emoji: '🌌', category: 'scifi', label: 'Space & Tech', title: 'Deep Space & Cosmic Wonders', desc: 'Explores black hole anomalies, quantum paradoxes, and deep cosmos discoveries.', duration: '75s+', scenes: '5 Scenes' },
+  { id: 'mythical-heists', emoji: '💎', category: 'mysteries', label: 'World Mysteries', title: 'Legendary Heists & Unsolved Enigmas', desc: 'Fast-paced breakdowns of impossible vaults, art heists, and unexplained escapes.', duration: '75s+', scenes: '5 Scenes' }
 ];
 
 export const CATEGORIES = [
@@ -362,7 +362,7 @@ export default function TemplatesPage({
             }
 
             setSuccessInfo({
-              message: ytUrl ? '🎉 75s Video produced and uploaded to YouTube Shorts!' : '🎉 75s Video produced and rendered successfully!',
+              message: ytUrl ? '🎉 Video produced and uploaded to YouTube Shorts!' : '🎉 Video produced and rendered successfully!',
               threadId: generatingThreadId,
               videoUrl: vUrl,
               youtubeUrl: ytUrl,
@@ -439,14 +439,14 @@ export default function TemplatesPage({
           sessionId,
           templateId,
           title: targetTopic ? `${targetTpl.title}: ${targetTopic}` : `${targetTpl.title} [1-Click]`,
-          rawUserInput: targetTopic || `${targetTpl.title} (Autonomous 75s)`,
+          rawUserInput: targetTopic || `${targetTpl.title} (Autonomous Video)`,
           status: 'GENERATING',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           messages: [
             {
               role: 'system',
-              content: `1-Click Autonomous Generation started for template: ${targetTpl.title} [75s].`
+              content: `1-Click Autonomous Generation started for template: ${targetTpl.title}.`
             }
           ]
         };
@@ -625,7 +625,7 @@ export default function TemplatesPage({
       label: '5-Beat Viral Screenplay Arc',
       sub: 'Scripting 5 scenes with 15s pacing, camera angles & suspense pacing',
       logLines: [
-        'Pacing: 15s × 5 acts = 75s master short',
+        'Pacing: 5 dynamic cinematic scenes · Full short',
         'Scene 1: Cold Open Hook (0-15s)',
         'Scenes 2-5: Narrative escalation & climax'
       ]
@@ -697,7 +697,7 @@ export default function TemplatesPage({
                   fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)'
                 }}>
                   <Sparkles size={11} color="var(--accent-primary, #ff4f00)" />
-                  Autonomous Video Workflows (75s)
+                  Autonomous Video Workflows (75s+)
                 </span>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                   <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
@@ -1005,7 +1005,7 @@ export default function TemplatesPage({
                 {successInfo.videoUrl && (
                   <a
                     href={successInfo.videoUrl}
-                    download="viral-short-75s.mp4"
+                    download="viral-short.mp4"
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -1043,7 +1043,7 @@ export default function TemplatesPage({
           {isGenerating && (
             <div style={{ marginBottom: '36px' }}>
               <GenerationThinkingAnimation
-                prompt={(customTopics[generatingTpl.id] || '').trim() || `${generatingTpl.title} (Autonomous 75s Short)`}
+                prompt={(customTopics[generatingTpl.id] || '').trim() || `${generatingTpl.title} (Autonomous Short)`}
                 steps={templateSteps}
                 stepDuration={5500}
                 title={`Autonomous Pipeline: ${generatingTpl.title}`}
@@ -1085,7 +1085,7 @@ export default function TemplatesPage({
                 Featured Production Pipelines ({filteredActive.length})
               </h2>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                1-Click Ready · Full 75s Video Arc
+                1-Click Ready · Full Video Arc (75s+)
               </span>
             </div>
 
@@ -1531,7 +1531,7 @@ export default function TemplatesPage({
                                 {launchingId === tpl.id ? (
                                   <><Loader2 size={14} className="animate-spin" /><span>Dispatching...</span></>
                                 ) : (
-                                  <><Zap size={14} fill="#ffffff" /><span>1-Click Generate (75s)</span></>
+                                  <><Zap size={14} fill="#ffffff" /><span>1-Click Generate (75s+)</span></>
                                 )}
                               </button>
                             )}
@@ -1738,7 +1738,7 @@ export default function TemplatesPage({
                     background: `${previewTemplate.color}18`, padding: '2px 8px', borderRadius: '6px',
                     display: 'inline-block', marginBottom: '6px'
                   }}>
-                    {previewTemplate.label} · 75s Short Arc
+                    {previewTemplate.label} · 75s+ Short Arc
                   </span>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.55, margin: 0 }}>
                     {previewTemplate.desc}
@@ -1750,7 +1750,7 @@ export default function TemplatesPage({
                   borderRadius: '10px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px'
                 }}>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    <strong>Screenplay:</strong> 5 acts, 15s each (Hook → Build → Climax)
+                    <strong>Screenplay:</strong> 5 acts, cinematic pacing (Hook → Build → Climax)
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                     <strong>AI Engine:</strong> {previewTemplate.aiBrain}
