@@ -687,147 +687,293 @@ export default function TemplatesPage({
         <div style={{ maxWidth: '1180px', margin: '0 auto' }}>
 
           {/* ── Top Header & Stats ── */}
-          <div style={{ marginBottom: '28px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '5px',
-                  padding: '4px 10px', borderRadius: '99px',
-                  background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
-                  fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)'
-                }}>
-                  <Sparkles size={11} color="var(--accent-primary, #ff4f00)" />
-                  Autonomous Video Workflows (75s+)
-                </span>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                  Autonomous Engine Connected
-                </span>
-              </div>
+          {/* ── Top Header & Stats ── */}
+          <div style={{
+            marginBottom: isMobile ? '20px' : '28px',
+            background: isMobile ? 'var(--bg-card)' : 'transparent',
+            border: isMobile ? '1px solid var(--border-subtle)' : 'none',
+            borderRadius: isMobile ? '16px' : '0',
+            padding: isMobile ? '14px 14px 16px 14px' : '0',
+            boxShadow: isMobile ? '0 4px 20px rgba(0,0,0,0.12)' : 'none'
+          }}>
+            {/* Top Toolbar Row */}
+            {isMobile ? (
+              /* ── Mobile Toolbar Layout: Clean 2-Tier Stack ── */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
+                {/* Tier 1: System Status Badges */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                    padding: '3px 9px', borderRadius: '99px',
+                    background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
+                    fontSize: '10.5px', fontWeight: 700, color: 'var(--text-secondary)'
+                  }}>
+                    <Sparkles size={11} color="var(--accent-primary, #ff4f00)" />
+                    75s+ AI Pipelines
+                  </span>
+                  <span style={{ fontSize: '10.5px', fontWeight: 600, color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                    Engine Active
+                  </span>
+                </div>
 
-              {/* YouTube connection indicator in header */}
-              {user && (
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '8px',
-                  padding: '5px 12px', borderRadius: '99px',
-                  background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-                  fontSize: '12px', color: 'var(--text-secondary)'
-                }}>
-                  <YouTubeIcon size={15} />
-                  {loadingChannels ? (
-                    <span style={{ color: 'var(--text-muted)' }}>Loading YouTube...</span>
-                  ) : channels.length > 0 ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {selectedChannel?.title || 'YouTube Connected'}
-                      </span>
-                      {isChannelTokenExpired ? (
+                {/* Tier 2: User Action Chips (YouTube + Daily Quota side-by-side) */}
+                {user && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    {/* YouTube Chip */}
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '6px 10px', borderRadius: '10px',
+                      background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                      fontSize: '11px', color: 'var(--text-secondary)', minWidth: 0
+                    }}>
+                      <YouTubeIcon size={14} />
+                      {loadingChannels ? (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Loading...</span>
+                      ) : channels.length > 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                          <span style={{
+                            fontWeight: 600, color: 'var(--text-primary)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            fontSize: '11px', flex: 1
+                          }}>
+                            {selectedChannel?.title || 'YouTube'}
+                          </span>
+                          {isChannelTokenExpired ? (
+                            <button
+                              type="button"
+                              onClick={() => { audioEngine.playSfx('shimmer'); openGoogleOAuthPopup('templates'); }}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+                                color: '#ef4444', padding: '1px 5px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, cursor: 'pointer', flexShrink: 0
+                              }}
+                            >
+                              Fix
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '9.5px', color: '#10b981', fontWeight: 700, flexShrink: 0 }}>✓</span>
+                          )}
+                        </div>
+                      ) : (
                         <button
                           type="button"
-                          onClick={() => { audioEngine.playSfx('shimmer'); openGoogleOAuthPopup('templates'); }}
-                          style={{
-                            background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
-                            color: '#ef4444', padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: 700, cursor: 'pointer'
-                          }}
+                          onClick={() => { audioEngine.playSfx('click'); if (typeof onNavigate === 'function') onNavigate('profile'); }}
+                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent-primary, #ff4f00)', fontSize: '10.5px', fontWeight: 700, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                         >
-                          Reconnect
+                          Connect YT
                         </button>
-                      ) : (
-                        <span style={{ fontSize: '10.5px', color: '#10b981', fontWeight: 600 }}>✓ Auto-Upload Active</span>
                       )}
                     </div>
-                  ) : (
+
+                    {/* Daily Quota Chip */}
                     <button
                       type="button"
-                      onClick={() => { audioEngine.playSfx('click'); if (typeof onNavigate === 'function') onNavigate('profile'); }}
-                      style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent-primary, #ff4f00)', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      onClick={() => {
+                        audioEngine.playSfx('click');
+                        setShowLimitModal(true);
+                      }}
+                      title="Click to view 24-hour quota details & countdown"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                        padding: '6px 10px', borderRadius: '10px',
+                        background: quotaStatus.maintenanceMode
+                          ? 'rgba(239, 68, 68, 0.12)'
+                          : quotaStatus.isLimitReached
+                            ? 'rgba(245, 158, 11, 0.12)'
+                            : 'rgba(16, 185, 129, 0.12)',
+                        border: `1px solid ${
+                          quotaStatus.maintenanceMode
+                            ? 'rgba(239, 68, 68, 0.35)'
+                            : quotaStatus.isLimitReached
+                              ? 'rgba(245, 158, 11, 0.35)'
+                              : 'rgba(16, 185, 129, 0.35)'
+                        }`,
+                        color: quotaStatus.maintenanceMode
+                          ? '#ef4444'
+                          : quotaStatus.isLimitReached
+                            ? '#f59e0b'
+                            : '#10b981',
+                        fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                      }}
                     >
-                      Connect YouTube Channel <ChevronRight size={12} />
+                      {quotaStatus.maintenanceMode ? (
+                        <>
+                          <AlertTriangle size={12} />
+                          <span>Maintenance</span>
+                        </>
+                      ) : quotaStatus.isLimitReached ? (
+                        <>
+                          <Lock size={12} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {countdownText ? countdownText.split(' ')[0] : 'Locked'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={12} fill="#10b981" />
+                          <span>{quotaStatus.remaining}/{quotaStatus.dailyLimit} Left</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── Desktop Toolbar Layout: Spacious Single Row ── */
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                    padding: '4px 10px', borderRadius: '99px',
+                    background: 'var(--bg-pill)', border: '1px solid var(--border-subtle)',
+                    fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)'
+                  }}>
+                    <Sparkles size={11} color="var(--accent-primary, #ff4f00)" />
+                    Autonomous Video Workflows (75s+)
+                  </span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                    Autonomous Engine Connected
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {/* YouTube connection indicator in header */}
+                  {user && (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '8px',
+                      padding: '5px 12px', borderRadius: '99px',
+                      background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                      fontSize: '12px', color: 'var(--text-secondary)'
+                    }}>
+                      <YouTubeIcon size={15} />
+                      {loadingChannels ? (
+                        <span style={{ color: 'var(--text-muted)' }}>Loading YouTube...</span>
+                      ) : channels.length > 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {selectedChannel?.title || 'YouTube Connected'}
+                          </span>
+                          {isChannelTokenExpired ? (
+                            <button
+                              type="button"
+                              onClick={() => { audioEngine.playSfx('shimmer'); openGoogleOAuthPopup('templates'); }}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+                                color: '#ef4444', padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: 700, cursor: 'pointer'
+                              }}
+                            >
+                              Reconnect
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '10.5px', color: '#10b981', fontWeight: 600 }}>✓ Auto-Upload Active</span>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => { audioEngine.playSfx('click'); if (typeof onNavigate === 'function') onNavigate('profile'); }}
+                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent-primary, #ff4f00)', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          Connect YouTube Channel <ChevronRight size={12} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Daily Quota Badge */}
+                  {user && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        audioEngine.playSfx('click');
+                        setShowLimitModal(true);
+                      }}
+                      title="Click to view 24-hour quota details & countdown"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        padding: '5px 12px', borderRadius: '99px',
+                        background: quotaStatus.maintenanceMode
+                          ? 'rgba(239, 68, 68, 0.12)'
+                          : quotaStatus.isLimitReached
+                            ? 'rgba(245, 158, 11, 0.12)'
+                            : 'rgba(16, 185, 129, 0.12)',
+                        border: `1px solid ${
+                          quotaStatus.maintenanceMode
+                            ? 'rgba(239, 68, 68, 0.35)'
+                            : quotaStatus.isLimitReached
+                              ? 'rgba(245, 158, 11, 0.35)'
+                              : 'rgba(16, 185, 129, 0.35)'
+                        }`,
+                        color: quotaStatus.maintenanceMode
+                          ? '#ef4444'
+                          : quotaStatus.isLimitReached
+                            ? '#f59e0b'
+                            : '#10b981',
+                        fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {quotaStatus.maintenanceMode ? (
+                        <>
+                          <AlertTriangle size={14} />
+                          <span>Maintenance Active</span>
+                        </>
+                      ) : quotaStatus.isLimitReached ? (
+                        <>
+                          <Lock size={13} />
+                          <span>Daily Limit Reached (0/{quotaStatus.dailyLimit}) {countdownText ? `· Resets in ${countdownText}` : ''}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={13} fill="#10b981" />
+                          <span>Daily Quota: {quotaStatus.remaining}/{quotaStatus.dailyLimit} Video{quotaStatus.dailyLimit > 1 ? 's' : ''} Left</span>
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
-              )}
-
-              {/* Daily Quota Badge */}
-              {user && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    audioEngine.playSfx('click');
-                    setShowLimitModal(true);
-                  }}
-                  title="Click to view 24-hour quota details & countdown"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '6px',
-                    padding: '5px 12px', borderRadius: '99px',
-                    background: quotaStatus.maintenanceMode
-                      ? 'rgba(239, 68, 68, 0.12)'
-                      : quotaStatus.isLimitReached
-                        ? 'rgba(245, 158, 11, 0.12)'
-                        : 'rgba(16, 185, 129, 0.12)',
-                    border: `1px solid ${
-                      quotaStatus.maintenanceMode
-                        ? 'rgba(239, 68, 68, 0.35)'
-                        : quotaStatus.isLimitReached
-                          ? 'rgba(245, 158, 11, 0.35)'
-                          : 'rgba(16, 185, 129, 0.35)'
-                    }`,
-                    color: quotaStatus.maintenanceMode
-                      ? '#ef4444'
-                      : quotaStatus.isLimitReached
-                        ? '#f59e0b'
-                        : '#10b981',
-                    fontSize: '12px', fontWeight: 700, cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  {quotaStatus.maintenanceMode ? (
-                    <>
-                      <AlertTriangle size={14} />
-                      <span>Maintenance Active</span>
-                    </>
-                  ) : quotaStatus.isLimitReached ? (
-                    <>
-                      <Lock size={13} />
-                      <span>Daily Limit Reached (0/{quotaStatus.dailyLimit}) {countdownText ? `· Resets in ${countdownText}` : ''}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap size={13} fill="#10b981" />
-                      <span>Daily Quota: {quotaStatus.remaining}/{quotaStatus.dailyLimit} Video{quotaStatus.dailyLimit > 1 ? 's' : ''} Left</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
+              </div>
+            )}
 
             <h1 className="font-display" style={{
-              fontSize: 'clamp(26px, 3.5vw, 34px)', fontWeight: 800,
-              color: 'var(--text-primary)', letterSpacing: '-0.03em', margin: '0 0 8px 0'
+              fontSize: isMobile ? '22px' : 'clamp(26px, 3.5vw, 34px)',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.025em',
+              margin: '0 0 6px 0',
+              lineHeight: 1.25
             }}>
               Autonomous AI Templates
             </h1>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.55, maxWidth: '680px' }}>
+            <p style={{
+              fontSize: isMobile ? '12.5px' : '14px',
+              color: 'var(--text-secondary)',
+              margin: 0,
+              lineHeight: isMobile ? 1.5 : 1.55,
+              maxWidth: '680px'
+            }}>
               Instant 1-click video creation. Researches compelling unrepeated stories, crafts high-retention 5-act screenplays, renders 1080p AI video scenes, and publishes directly to YouTube Shorts.
             </p>
             <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              marginTop: '10px', padding: '4px 10px', borderRadius: '6px',
+              display: 'flex', alignItems: 'flex-start', gap: '8px',
+              marginTop: '10px', padding: isMobile ? '7px 10px' : '4px 10px', borderRadius: '8px',
               background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)',
-              color: '#f59e0b', fontSize: '11.5px', fontWeight: 600
+              color: '#f59e0b', fontSize: isMobile ? '11px' : '11.5px', fontWeight: 600, lineHeight: 1.4
             }}>
-              <span>🇮🇳</span>
+              <span style={{ flexShrink: 0 }}>🇮🇳</span>
               <span>Note: These autonomous templates only produce Hindi language videos (Hindi narration & subtitles).</span>
             </div>
 
             {/* Maintenance Mode Banner */}
             {quotaStatus.maintenanceMode && (
               <div style={{
-                marginTop: '12px', padding: '12px 16px', borderRadius: '12px',
+                marginTop: '12px', padding: isMobile ? '12px' : '12px 16px', borderRadius: '12px',
                 background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)',
-                color: '#ef4444', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px'
+                color: '#ef4444', fontSize: isMobile ? '12px' : '13px', display: 'flex', alignItems: 'flex-start', gap: '10px'
               }}>
-                <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+                <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
                 <div>
                   <strong>Platform Maintenance:</strong> {quotaStatus.maintenanceNotice || 'AI Template generation is temporarily paused by the administrator for scheduled system updates.'}
                 </div>
@@ -837,15 +983,17 @@ export default function TemplatesPage({
             {/* Daily Limit Cooldown Banner */}
             {quotaStatus.isLimitReached && !quotaStatus.maintenanceMode && (
               <div style={{
-                marginTop: '12px', padding: '12px 16px', borderRadius: '12px',
+                marginTop: '12px', padding: isMobile ? '12px' : '12px 16px', borderRadius: '12px',
                 background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)',
-                color: '#f59e0b', fontSize: '13px', display: 'flex', alignItems: 'center',
-                justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px'
+                color: '#f59e0b', fontSize: isMobile ? '12px' : '13px',
+                display: 'flex', flexDirection: isMobile ? 'column' : 'row',
+                alignItems: isMobile ? 'stretch' : 'center',
+                justifyContent: 'space-between', gap: '10px'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Clock size={16} style={{ flexShrink: 0 }} />
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <Clock size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
                   <span>
-                    <strong>24-Hour Cooldown Active:</strong> You have reached your limit of {quotaStatus.dailyLimit} video{quotaStatus.dailyLimit > 1 ? 's' : ''} for today. Next generation unlocks in <strong>{countdownText || '24 hours'}</strong>.
+                    <strong>24-Hour Cooldown Active:</strong> Limit of {quotaStatus.dailyLimit} video{quotaStatus.dailyLimit > 1 ? 's' : ''} reached today. Next unlocks in <strong>{countdownText || '24 hours'}</strong>.
                   </span>
                 </div>
                 <button
@@ -853,8 +1001,9 @@ export default function TemplatesPage({
                   onClick={() => setShowLimitModal(true)}
                   style={{
                     background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.35)',
-                    color: '#f59e0b', padding: '4px 10px', borderRadius: '6px', fontSize: '11px',
-                    fontWeight: 700, cursor: 'pointer'
+                    color: '#f59e0b', padding: isMobile ? '8px 12px' : '4px 10px', borderRadius: '6px',
+                    fontSize: isMobile ? '11.5px' : '11px', fontWeight: 700, cursor: 'pointer',
+                    textAlign: 'center', width: isMobile ? '100%' : 'auto'
                   }}
                 >
                   View Details
