@@ -2498,52 +2498,44 @@ export default function TemplatesPage({
           padding: isMobile ? '12px' : '24px'
         }}>
           <div style={{
-            width: '100%', maxWidth: '780px', maxHeight: '92vh',
+            width: '100%', maxWidth: '640px', maxHeight: '90vh',
             background: 'var(--bg-card)',
-            border: automationConfig.status === 'ACTIVE'
-              ? '1px solid rgba(16, 185, 129, 0.4)'
-              : '1px solid rgba(255, 79, 0, 0.35)',
-            borderRadius: '24px',
-            boxShadow: automationConfig.status === 'ACTIVE'
-              ? '0 25px 70px rgba(0, 0, 0, 0.8), 0 0 40px rgba(16, 185, 129, 0.15)'
-              : '0 25px 70px rgba(0, 0, 0, 0.8), 0 0 40px rgba(255, 79, 0, 0.12)',
-            padding: isMobile ? '18px 16px' : '28px 30px',
-            display: 'flex', flexDirection: 'column', gap: '20px',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+            padding: isMobile ? '18px 16px' : '24px 24px',
+            display: 'flex', flexDirection: 'column', gap: '18px',
             overflowY: 'auto'
           }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Minimal Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{
-                  width: '46px', height: '46px', borderRadius: '14px',
-                  background: automationConfig.status === 'ACTIVE'
-                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(6, 182, 212, 0.2))'
-                    : 'linear-gradient(135deg, rgba(255, 79, 0, 0.2), rgba(139, 92, 246, 0.2))',
-                  border: automationConfig.status === 'ACTIVE'
-                    ? '1px solid rgba(16, 185, 129, 0.45)'
-                    : '1px solid rgba(255, 79, 0, 0.4)',
+                  width: '36px', height: '36px', borderRadius: '10px',
+                  background: 'rgba(255, 79, 0, 0.1)',
+                  border: '1px solid rgba(255, 79, 0, 0.25)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: automationConfig.status === 'ACTIVE' ? '#10b981' : '#ff4f00',
+                  color: 'var(--accent-primary, #ff4f00)',
                   flexShrink: 0
                 }}>
-                  <Zap size={22} fill={automationConfig.status === 'ACTIVE' ? '#10b981' : '#ff4f00'} />
+                  <Zap size={18} />
                 </div>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <h2 style={{ margin: 0, fontSize: isMobile ? '18px' : '22px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                      Autonomous 24-Hour Video Autopilot
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Template Automation
                     </h2>
                     <span style={{
-                      padding: '2px 8px', borderRadius: '99px',
-                      background: automationConfig.status === 'ACTIVE' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)',
-                      color: automationConfig.status === 'ACTIVE' ? '#10b981' : '#f59e0b',
-                      fontSize: '11px', fontWeight: 800
+                      padding: '2px 7px', borderRadius: '99px',
+                      background: automationConfig.status === 'ACTIVE' ? 'rgba(16,185,129,0.15)' : 'rgba(156,163,175,0.15)',
+                      color: automationConfig.status === 'ACTIVE' ? '#10b981' : 'var(--text-muted)',
+                      fontSize: '10.5px', fontWeight: 700
                     }}>
-                      ● {automationConfig.status === 'ACTIVE' ? 'AUTOPILOT RUNNING' : 'PAUSED'}
+                      ● {automationConfig.status === 'ACTIVE' ? 'Active' : 'Paused'}
                     </span>
                   </div>
-                  <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: 'var(--text-muted)' }}>
-                    Auto-generates and publishes a high-retention 75s+ video directly to your YouTube channel every 24 hours — zero manual work.
+                  <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                    Auto-generates and publishes every 24 hours to your channel.
                   </p>
                 </div>
               </div>
@@ -2552,8 +2544,8 @@ export default function TemplatesPage({
                 type="button"
                 onClick={() => setShowAutomateModal(false)}
                 style={{
-                  background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-muted)', width: '32px', height: '32px', borderRadius: '50%',
+                  background: 'transparent', border: 'none',
+                  color: 'var(--text-muted)', width: '28px', height: '28px', borderRadius: '8px',
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                 }}
               >
@@ -2561,284 +2553,193 @@ export default function TemplatesPage({
               </button>
             </div>
 
-            {/* Status Feedback Toast */}
+            {/* Status Toast Message */}
             {autoStatusMessage && (
               <div style={{
-                padding: '10px 14px', borderRadius: '12px',
-                background: autoStatusMessage.startsWith('❌')
-                  ? 'rgba(239, 68, 68, 0.12)'
-                  : 'rgba(16, 185, 129, 0.12)',
-                border: `1px solid ${autoStatusMessage.startsWith('❌') ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+                padding: '8px 12px', borderRadius: '10px',
+                background: autoStatusMessage.startsWith('❌') ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                border: `1px solid ${autoStatusMessage.startsWith('❌') ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
                 color: autoStatusMessage.startsWith('❌') ? '#ef4444' : '#10b981',
-                fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px'
+                fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px'
               }}>
                 <span>{autoStatusMessage.startsWith('❌') ? '⚠️' : '⚡'}</span>
                 <span>{autoStatusMessage}</span>
               </div>
             )}
 
-            {/* Master Control & Countdown Banner */}
+            {/* Cycle Status & Quick Controls */}
             <div style={{
               background: 'var(--bg-elevated)',
-              border: '1px solid var(--border-medium)',
-              borderRadius: '16px',
-              padding: '16px 20px',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '12px',
+              padding: '10px 14px',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              flexWrap: 'wrap', gap: '14px'
+              flexWrap: 'wrap', gap: '10px'
             }}>
-              <div>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  24-Hour Cycle Status
-                </span>
-                <div style={{ fontSize: '18px', fontWeight: 800, color: automationConfig.status === 'ACTIVE' ? '#10b981' : '#f59e0b', marginTop: '2px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                <span style={{ fontWeight: 700, color: automationConfig.status === 'ACTIVE' ? '#10b981' : 'var(--text-muted)' }}>
                   {automationConfig.status === 'ACTIVE' ? (
                     automationConfig.nextRunAt ? (
-                      `Next Video in ${Math.max(0, Math.floor((new Date(automationConfig.nextRunAt) - Date.now()) / 3600000))}h ${Math.max(0, Math.floor(((new Date(automationConfig.nextRunAt) - Date.now()) % 3600000) / 60000))}m`
-                    ) : 'Scheduled Daily (Every 24h)'
-                  ) : 'Autopilot Paused'}
-                </div>
-                <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
-                  Completed: <strong>Day {automationConfig.completedDays || 0}</strong> {automationConfig.totalDays > 0 ? `of ${automationConfig.totalDays} Days` : '(Ongoing Daily)'}
+                      `Next video in ${Math.max(0, Math.floor((new Date(automationConfig.nextRunAt) - Date.now()) / 3600000))}h ${Math.max(0, Math.floor(((new Date(automationConfig.nextRunAt) - Date.now()) % 3600000) / 60000))}m`
+                    ) : 'Scheduled daily'
+                  ) : 'Autopilot paused'}
                 </span>
+                <span style={{ margin: '0 6px', color: 'var(--text-muted)' }}>·</span>
+                <span>Day {automationConfig.completedDays || 0} {automationConfig.totalDays > 0 ? `of ${automationConfig.totalDays}` : '(Ongoing)'}</span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                {/* Pause / Resume Button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <button
                   type="button"
                   onClick={handleToggleAutomation}
                   disabled={savingAutomation}
                   style={{
-                    padding: '8px 16px', borderRadius: '10px',
-                    background: automationConfig.status === 'ACTIVE' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.18)',
-                    border: `1px solid ${automationConfig.status === 'ACTIVE' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
-                    color: automationConfig.status === 'ACTIVE' ? '#f59e0b' : '#10b981',
-                    fontSize: '12.5px', fontWeight: 700, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '6px'
+                    padding: '6px 11px', borderRadius: '8px',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
+                    color: 'var(--text-secondary)',
+                    fontSize: '11.5px', fontWeight: 600, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '4px'
                   }}
                 >
-                  {automationConfig.status === 'ACTIVE' ? <Pause size={14} /> : <Play size={14} />}
-                  <span>{automationConfig.status === 'ACTIVE' ? 'Pause Autopilot' : 'Resume Autopilot'}</span>
+                  {automationConfig.status === 'ACTIVE' ? <Pause size={12} /> : <Play size={12} />}
+                  <span>{automationConfig.status === 'ACTIVE' ? 'Pause' : 'Resume'}</span>
                 </button>
 
-                {/* Run Today's Video Now */}
                 <button
                   type="button"
                   onClick={handleTriggerRunNow}
                   disabled={triggeringRunNow || savingAutomation}
                   style={{
-                    padding: '8px 16px', borderRadius: '10px',
+                    padding: '6px 12px', borderRadius: '8px',
                     background: 'var(--accent-primary, #ff4f00)',
-                    border: 'none',
-                    color: '#ffffff',
-                    fontSize: '12.5px', fontWeight: 700, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    boxShadow: '0 2px 10px rgba(255, 79, 0, 0.3)'
+                    border: 'none', color: '#ffffff',
+                    fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '4px'
                   }}
                 >
-                  {triggeringRunNow ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-                  <span>{triggeringRunNow ? 'Dispatching...' : "Run Today's Video Now"}</span>
+                  {triggeringRunNow ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                  <span>{triggeringRunNow ? 'Running...' : 'Run Now'}</span>
                 </button>
               </div>
             </div>
 
-            {/* Target YouTube Channel */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  1. Target YouTube Channel (Auto-Upload Destination)
-                </label>
-                {channels.length > 0 && (
+            {/* YouTube Destination Row */}
+            <div style={{
+              background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+              borderRadius: '12px', padding: '10px 14px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexWrap: 'wrap', gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                {automationTargetChannel?.avatarUrl ? (
+                  <img
+                    src={automationTargetChannel.avatarUrl}
+                    alt={automationTargetChannel.channelTitle || 'Channel'}
+                    style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div style={{
+                    width: '28px', height: '28px', borderRadius: '50%',
+                    background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <YouTubeIcon size={16} />
+                  </div>
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {automationTargetChannel?.channelTitle || automationTargetChannel?.title || 'No YouTube Channel'}
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                    {channels.length > 0 ? (
+                      isAutomationChannelExpired ? (
+                        <span style={{ color: '#ef4444' }}>● Reconnection required</span>
+                      ) : (
+                        <span style={{ color: '#10b981' }}>● Connected for direct auto-uploads</span>
+                      )
+                    ) : (
+                      'Connect a YouTube channel for auto-uploads'
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                {channels.length === 0 ? (
                   <button
                     type="button"
                     onClick={() => { audioEngine.playSfx('click'); openGoogleOAuthPopup('templates'); }}
                     style={{
-                      background: 'none', border: 'none', color: 'var(--accent-primary, #ff4f00)',
-                      fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: 0,
-                      display: 'inline-flex', alignItems: 'center', gap: '4px'
+                      padding: '5px 11px', borderRadius: '8px',
+                      background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#ef4444', fontSize: '11px', fontWeight: 700, cursor: 'pointer'
                     }}
                   >
-                    + Connect / Switch Account
+                    Connect Channel
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { audioEngine.playSfx('click'); openGoogleOAuthPopup('templates'); }}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--text-muted)',
+                      fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: 0
+                    }}
+                  >
+                    Switch Channel ↗
                   </button>
                 )}
               </div>
-
-              <div style={{
-                background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
-                borderRadius: '14px', padding: '14px 16px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                flexWrap: 'wrap', gap: '12px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
-                  {automationTargetChannel?.avatarUrl ? (
-                    <img
-                      src={automationTargetChannel.avatarUrl}
-                      alt={automationTargetChannel.channelTitle || 'Channel Avatar'}
-                      style={{
-                        width: '40px', height: '40px', borderRadius: '50%',
-                        objectFit: 'cover', border: '2px solid rgba(255, 79, 0, 0.4)',
-                        flexShrink: 0
-                      }}
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: '40px', height: '40px', borderRadius: '50%',
-                      background: 'rgba(255, 0, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <YouTubeIcon size={24} />
-                    </div>
-                  )}
-
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span>{automationTargetChannel?.channelTitle || automationTargetChannel?.title || 'No YouTube Channel Connected'}</span>
-                      {automationTargetChannel?.customUrl && (
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                          {automationTargetChannel.customUrl}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {channels.length > 0 ? (
-                        isAutomationChannelExpired ? (
-                          <span style={{ color: '#ef4444', fontWeight: 700 }}>● Connection Expired (Fix Needed)</span>
-                        ) : (
-                          <span style={{ color: '#10b981', fontWeight: 700 }}>● Active & Connected for Direct Uploads</span>
-                        )
-                      ) : (
-                        'Connect a channel to enable hands-free automatic video uploads'
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Multi-channel selector */}
-                {channels.length > 1 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Channel:</label>
-                    <select
-                      value={automationConfig.selectedChannelId || automationTargetChannel?.channelId || ''}
-                      onChange={(e) => {
-                        const newChId = e.target.value;
-                        setAutomationConfig(prev => ({ ...prev, selectedChannelId: newChId }));
-                        setSelectedChannelId(newChId);
-                      }}
-                      style={{
-                        padding: '6px 10px', borderRadius: '8px',
-                        background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-                        color: 'var(--text-primary)', fontSize: '11.5px', fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {channels.map(c => (
-                        <option key={c.channelId} value={c.channelId}>
-                          {c.channelTitle || c.title} {c.isDefault ? '(Default)' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div>
-                  {channels.length === 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => { audioEngine.playSfx('click'); openGoogleOAuthPopup('templates'); }}
-                      style={{
-                        padding: '8px 16px', borderRadius: '8px',
-                        background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
-                        color: '#ef4444', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
-                      }}
-                    >
-                      Connect YouTube Channel
-                    </button>
-                  ) : isAutomationChannelExpired ? (
-                    <button
-                      type="button"
-                      onClick={() => { audioEngine.playSfx('shimmer'); openGoogleOAuthPopup('templates'); }}
-                      style={{
-                        padding: '8px 16px', borderRadius: '8px',
-                        background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
-                        color: '#ef4444', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
-                      }}
-                    >
-                      Re-authenticate Token
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: '11.5px', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle2 size={14} /> Ready for 24h Autopilot
-                    </span>
-                  )}
-                </div>
-              </div>
             </div>
 
-            {/* Template Pipeline Selector */}
+            {/* Template Selection */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                2. Select Template to Automate
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
+                Template
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '8px' }}>
                 {[
-                  {
-                    id: 'world-mysteries',
-                    emoji: '🛸',
-                    title: 'World Mysteries',
-                    sub: 'Paranormal & Enigmas (75s+)',
-                    color: '#6366f1'
-                  },
-                  {
-                    id: 'last-24-hours',
-                    emoji: '⏳',
-                    title: 'Last 24 Hours',
-                    sub: 'True Historic Stories (75s+)',
-                    color: '#f59e0b'
-                  },
-                  {
-                    id: '3am-horror',
-                    emoji: '👻',
-                    title: '3-AM Horror',
-                    sub: 'Dark Psychological Terror (75s+)',
-                    color: '#ef4444'
-                  }
+                  { id: 'world-mysteries', emoji: '🛸', title: 'World Mysteries' },
+                  { id: 'last-24-hours', emoji: '⏳', title: 'Last 24 Hours' },
+                  { id: '3am-horror', emoji: '👻', title: '3-AM Horror' }
                 ].map(t => {
                   const isSelected = automationConfig.templateId === t.id;
                   return (
-                    <div
+                    <button
                       key={t.id}
+                      type="button"
                       onClick={() => setAutomationConfig(prev => ({ ...prev, templateId: t.id }))}
                       style={{
-                        padding: '14px', borderRadius: '14px', cursor: 'pointer',
-                        background: isSelected ? 'var(--bg-elevated)' : 'var(--bg-card)',
-                        border: isSelected ? `2px solid ${t.color}` : '1px solid var(--border-subtle)',
-                        boxShadow: isSelected ? `0 0 16px ${t.color}33` : 'none',
+                        padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
+                        background: isSelected ? 'rgba(255, 79, 0, 0.08)' : 'var(--bg-elevated)',
+                        border: isSelected ? '1.5px solid var(--accent-primary, #ff4f00)' : '1px solid var(--border-subtle)',
+                        color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px',
                         transition: 'all 0.15s ease'
                       }}
                     >
-                      <div style={{ fontSize: '24px', marginBottom: '6px' }}>{t.emoji}</div>
-                      <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-primary)' }}>{t.title}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{t.sub}</div>
-                    </div>
+                      <span style={{ fontSize: '18px' }}>{t.emoji}</span>
+                      <span style={{ fontSize: '12px', fontWeight: isSelected ? 700 : 500 }}>{t.title}</span>
+                    </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Duration (Days to run) */}
+            {/* Duration (Pills) */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                3. Automation Duration (Days to Run)
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
+                Duration
               </label>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
                   { days: 3, label: '3 Days' },
-                  { days: 7, label: '7 Days (Popular)' },
+                  { days: 7, label: '7 Days' },
                   { days: 14, label: '14 Days' },
                   { days: 30, label: '30 Days' },
-                  { days: 0, label: 'Ongoing (∞ Daily)' }
+                  { days: 0, label: 'Ongoing (∞)' }
                 ].map(d => {
                   const isSelected = Number(automationConfig.totalDays) === d.days;
                   return (
@@ -2847,11 +2748,11 @@ export default function TemplatesPage({
                       type="button"
                       onClick={() => setAutomationConfig(prev => ({ ...prev, totalDays: d.days }))}
                       style={{
-                        padding: '8px 14px', borderRadius: '10px',
+                        padding: '6px 12px', borderRadius: '8px',
                         background: isSelected ? 'var(--accent-primary, #ff4f00)' : 'var(--bg-elevated)',
-                        border: `1px solid ${isSelected ? 'var(--accent-primary, #ff4f00)' : 'var(--border-subtle)'}`,
+                        border: isSelected ? '1px solid var(--accent-primary, #ff4f00)' : '1px solid var(--border-subtle)',
                         color: isSelected ? '#ffffff' : 'var(--text-secondary)',
-                        fontSize: '12px', fontWeight: isSelected ? 700 : 500, cursor: 'pointer'
+                        fontSize: '11.5px', fontWeight: isSelected ? 700 : 500, cursor: 'pointer'
                       }}
                     >
                       {d.label}
@@ -2861,110 +2762,15 @@ export default function TemplatesPage({
               </div>
             </div>
 
-            {/* Upcoming Topics Schedule (Day 1, Day 2, Day 3...) */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  4. Upcoming Days Topics Queue (Optional)
-                </label>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {(automationConfig.upcomingTopics || []).length} Custom Topic{(automationConfig.upcomingTopics || []).length !== 1 ? 's' : ''} Queued
-                </span>
-              </div>
-              <p style={{ margin: '0 0 10px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                Optionally enter topics for specific upcoming days. If a day is left blank or the queue runs out, BangAI's AI autonomously researches a viral topic.
-              </p>
-
-              {/* Topics Queue List */}
-              {(automationConfig.upcomingTopics || []).length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
-                  {(automationConfig.upcomingTopics || []).map((topic, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
-                        padding: '8px 12px', borderRadius: '10px',
-                        background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                        <span style={{
-                          padding: '2px 6px', borderRadius: '6px',
-                          background: 'rgba(139, 92, 246, 0.2)', color: '#c084fc',
-                          fontSize: '11px', fontWeight: 800, flexShrink: 0
-                        }}>
-                          Day {Number(automationConfig.completedDays || 0) + 1 + idx}
-                        </span>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {topic}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTopic(idx)}
-                        style={{
-                          background: 'none', border: 'none', padding: '4px',
-                          color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0
-                        }}
-                        title="Remove topic"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{
-                  padding: '12px 14px', borderRadius: '10px',
-                  background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.25)',
-                  color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '10px',
-                  display: 'flex', alignItems: 'center', gap: '8px'
-                }}>
-                  <Sparkles size={16} color="var(--admin-accent-cyan, #06b6d4)" />
-                  <span>
-                    <strong>Autonomous Brainstorming Active:</strong> BangAI will automatically research and write fresh, high-retention viral topics for each 24h upload.
-                  </span>
-                </div>
-              )}
-
-              {/* Add Topic Input */}
-              <form onSubmit={handleAddTopic} style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  placeholder={`Enter topic for Day ${Number(automationConfig.completedDays || 0) + 1 + (automationConfig.upcomingTopics || []).length} (e.g. Mystery of the Lost Submarine)`}
-                  value={newTopicInput}
-                  onChange={(e) => setNewTopicInput(e.target.value)}
-                  style={{
-                    flex: 1, padding: '9px 12px', borderRadius: '10px',
-                    background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
-                    color: 'var(--text-primary)', fontSize: '12.5px', outline: 'none'
-                  }}
-                />
-                <button
-                  type="submit"
-                  style={{
-                    padding: '9px 14px', borderRadius: '10px',
-                    background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-primary)', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0
-                  }}
-                >
-                  <Plus size={14} />
-                  <span>Add Day</span>
-                </button>
-              </form>
-            </div>
-
-            {/* Voice & Narration Customizations */}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px' }}>
+            {/* Voice & Speed in 2 Columns */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <Mic size={13} style={{ color: 'var(--accent-primary, #ff4f00)' }} />
-                    5. Narration Voice
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Mic size={12} /> Voice
                   </label>
                   {isCustomVoice && (
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 7px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '9.5px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '1px 5px', borderRadius: '4px' }}>
                       💎 Studio Selected
                     </span>
                   )}
@@ -2976,9 +2782,9 @@ export default function TemplatesPage({
                     aria-label="Narration voice"
                     onChange={(e) => handleAutomateVoiceChange(e.target.value)}
                     style={{
-                      width: '100%', padding: '10px 32px 10px 12px', borderRadius: '10px',
+                      width: '100%', padding: '8px 28px 8px 10px', borderRadius: '8px',
                       background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
-                      color: 'var(--text-primary)', fontSize: '12.5px', fontWeight: 600,
+                      color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600,
                       outline: 'none', cursor: 'pointer', appearance: 'none'
                     }}
                   >
@@ -2996,39 +2802,38 @@ export default function TemplatesPage({
                     </optgroup>
                     <optgroup label="🌐 Full Voice Library (9,650+ JSON2Video Voices)">
                       <option value="__open_studio__">
-                        🌐 Browse & Apply 9,650+ Voices in Studio...
+                        🌐 Browse & Apply in Studio...
                       </option>
                     </optgroup>
                   </select>
-                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+                  <ChevronDown size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
                 </div>
 
-                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '4px' }}>
-                  <span>Applied: <strong>{activeVoiceObj?.name || 'Adam'}</strong> ({activeVoiceObj?.flag || activeVoiceObj?.gender || 'Universal'})</span>
+                <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                  <span>{activeVoiceObj?.name || 'Adam'}</span>
                   <button
                     type="button"
                     onClick={() => {
-                      audioEngine.playSfx('click');
                       setShowAutomateModal(false);
                       if (typeof onNavigate === 'function') onNavigate('studio/voices');
                       else window.location.hash = '#/studio/voices';
                     }}
                     style={{
                       background: 'none', border: 'none', padding: 0,
-                      color: 'var(--accent-primary, #ff4f00)', fontWeight: 700,
-                      cursor: 'pointer', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '3px'
+                      color: 'var(--accent-primary, #ff4f00)', fontWeight: 600,
+                      cursor: 'pointer', fontSize: '10.5px'
                     }}
                   >
-                    Open Design Studio ↗
+                    Open Studio ↗
                   </button>
                 </div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
-                  6. Voice Speed ({automationConfig.voiceSpeed || 1.20}x)
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '5px' }}>
+                  Speed ({automationConfig.voiceSpeed || 1.20}x)
                 </label>
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ display: 'flex', gap: '5px' }}>
                   {[1.10, 1.15, 1.20, 1.25, 1.30].map(s => {
                     const isSelected = Number(automationConfig.voiceSpeed) === s;
                     return (
@@ -3037,11 +2842,11 @@ export default function TemplatesPage({
                         type="button"
                         onClick={() => setAutomationConfig(prev => ({ ...prev, voiceSpeed: s }))}
                         style={{
-                          flex: 1, padding: '8px 0', borderRadius: '8px',
+                          flex: 1, padding: '7px 0', borderRadius: '8px',
                           background: isSelected ? 'var(--accent-primary, #ff4f00)' : 'var(--bg-elevated)',
-                          border: `1px solid ${isSelected ? 'var(--accent-primary, #ff4f00)' : 'var(--border-subtle)'}`,
+                          border: isSelected ? '1px solid var(--accent-primary, #ff4f00)' : '1px solid var(--border-subtle)',
                           color: isSelected ? '#ffffff' : 'var(--text-secondary)',
-                          fontSize: '11px', fontWeight: isSelected ? 800 : 600, cursor: 'pointer'
+                          fontSize: '11px', fontWeight: isSelected ? 700 : 500, cursor: 'pointer'
                         }}
                       >
                         {s.toFixed(2)}x
@@ -3052,55 +2857,109 @@ export default function TemplatesPage({
               </div>
             </div>
 
-            {/* Execution History */}
+            {/* Custom Topics (100% Optional & Empty by Default) */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Custom Topics <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--text-muted)' }}>(Optional)</span>
+                </label>
+                {(automationConfig.upcomingTopics || []).length > 0 && (
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                    {automationConfig.upcomingTopics.length} queued
+                  </span>
+                )}
+              </div>
+
+              {/* Queued Topics Chips (if any entered by user) */}
+              {(automationConfig.upcomingTopics || []).length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                  {automationConfig.upcomingTopics.map((topic, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        padding: '4px 8px 4px 10px', borderRadius: '8px',
+                        background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+                        fontSize: '11.5px', color: 'var(--text-primary)'
+                      }}
+                    >
+                      <span style={{ color: 'var(--accent-primary, #ff4f00)', fontWeight: 700 }}>Day {Number(automationConfig.completedDays || 0) + 1 + idx}:</span>
+                      <span>{topic}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTopic(idx)}
+                        style={{
+                          background: 'none', border: 'none', padding: 0,
+                          color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center'
+                        }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  Leave empty for automatic AI topic brainstorming, or enter topics below.
+                </div>
+              )}
+
+              {/* Add Topic Input */}
+              <form onSubmit={handleAddTopic} style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  placeholder="Optional topic for next upcoming day..."
+                  value={newTopicInput}
+                  onChange={(e) => setNewTopicInput(e.target.value)}
+                  style={{
+                    flex: 1, padding: '8px 10px', borderRadius: '8px',
+                    background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                    color: 'var(--text-primary)', fontSize: '12px', outline: 'none'
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!newTopicInput.trim()}
+                  style={{
+                    padding: '8px 12px', borderRadius: '8px',
+                    background: newTopicInput.trim() ? 'var(--bg-elevated)' : 'transparent',
+                    border: '1px solid var(--border-subtle)',
+                    color: newTopicInput.trim() ? 'var(--text-primary)' : 'var(--text-muted)',
+                    fontSize: '11.5px', fontWeight: 600, cursor: newTopicInput.trim() ? 'pointer' : 'default',
+                    display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0
+                  }}
+                >
+                  <Plus size={13} />
+                  <span>Add</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Execution History (Only if history exists) */}
             {automationConfig.topicsHistory && automationConfig.topicsHistory.length > 0 && (
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                  7. Autonomous Uploads History
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
+                  Recent Uploads
                 </label>
                 <div style={{
-                  maxHeight: '160px', overflowY: 'auto',
-                  borderRadius: '12px', border: '1px solid var(--border-subtle)',
+                  maxHeight: '130px', overflowY: 'auto',
+                  borderRadius: '10px', border: '1px solid var(--border-subtle)',
                   background: 'var(--bg-elevated)'
                 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                        <th style={{ padding: '8px 12px' }}>Day</th>
-                        <th style={{ padding: '8px 12px' }}>Topic</th>
-                        <th style={{ padding: '8px 12px' }}>Executed</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                     <tbody>
-                      {automationConfig.topicsHistory.map((item, idx) => (
+                      {automationConfig.topicsHistory.slice(-5).reverse().map((item, idx) => (
                         <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                          <td style={{ padding: '8px 12px', fontWeight: 800, color: '#10b981' }}>Day {item.day}</td>
-                          <td style={{ padding: '8px 12px', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontWeight: 600 }}>{item.topic}</td>
-                          <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{new Date(item.executedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                            <div style={{ display: 'inline-flex', gap: '6px' }}>
-                              {item.youtubeUrl && (
-                                <a
-                                  href={item.youtubeUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  style={{ color: '#ef4444', fontWeight: 700, textDecoration: 'none' }}
-                                >
-                                  YouTube ↗
-                                </a>
-                              )}
-                              {item.videoUrl && (
-                                <a
-                                  href={item.videoUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  style={{ color: 'var(--accent-primary, #ff4f00)', fontWeight: 700, textDecoration: 'none' }}
-                                >
-                                  MP4 ↗
-                                </a>
-                              )}
-                            </div>
+                          <td style={{ padding: '6px 10px', fontWeight: 700, color: '#10b981' }}>Day {item.day}</td>
+                          <td style={{ padding: '6px 10px', color: 'var(--text-primary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.topic}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'right' }}>
+                            {item.youtubeUrl ? (
+                              <a href={item.youtubeUrl} target="_blank" rel="noreferrer" style={{ color: '#ef4444', fontWeight: 600, textDecoration: 'none' }}>
+                                YouTube ↗
+                              </a>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>Uploaded</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -3110,24 +2969,23 @@ export default function TemplatesPage({
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '6px', flexWrap: 'wrap' }}>
+            {/* Minimal Action Footer */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={() => handleSaveAutomation({ status: 'ACTIVE' })}
                 disabled={savingAutomation}
                 style={{
-                  flex: 1, minWidth: '180px',
-                  padding: '12px 20px', borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                  flex: 1, minWidth: '160px',
+                  padding: '10px 16px', borderRadius: '10px',
+                  background: 'var(--accent-primary, #ff4f00)',
                   border: 'none', color: '#ffffff',
-                  fontSize: '13.5px', fontWeight: 800, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  boxShadow: '0 4px 18px rgba(16, 185, 129, 0.3)'
+                  fontSize: '12.5px', fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                 }}
               >
-                {savingAutomation ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
-                <span>Save & Activate 24h Autopilot</span>
+                {savingAutomation ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                <span>Activate Autopilot</span>
               </button>
 
               <button
@@ -3135,10 +2993,10 @@ export default function TemplatesPage({
                 onClick={() => handleSaveAutomation({ status: 'PAUSED' })}
                 disabled={savingAutomation}
                 style={{
-                  padding: '12px 18px', borderRadius: '12px',
-                  background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
+                  padding: '10px 14px', borderRadius: '10px',
+                  background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
                   color: 'var(--text-secondary)',
-                  fontSize: '13px', fontWeight: 700, cursor: 'pointer'
+                  fontSize: '12px', fontWeight: 600, cursor: 'pointer'
                 }}
               >
                 Save as Paused
@@ -3148,10 +3006,10 @@ export default function TemplatesPage({
                 type="button"
                 onClick={() => setShowAutomateModal(false)}
                 style={{
-                  padding: '12px 18px', borderRadius: '12px',
+                  padding: '10px 14px', borderRadius: '10px',
                   background: 'transparent', border: '1px solid var(--border-subtle)',
                   color: 'var(--text-muted)',
-                  fontSize: '13px', fontWeight: 600, cursor: 'pointer'
+                  fontSize: '12px', fontWeight: 500, cursor: 'pointer'
                 }}
               >
                 Close
