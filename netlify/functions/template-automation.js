@@ -149,12 +149,14 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
   const chosenVoiceId = automation.voiceId || 'adam';
   const chosenElevenLabsVoiceId = automation.elevenLabsVoiceId || NATIVE_ELEVENLABS_VOICE_MAP[chosenVoiceId] || chosenVoiceId;
 
-  // 3. Pick Next Topic from Queue
+  // 3. Pick Next Topic (User's optional topic, queue, or AI auto-research if empty)
   let nextTopic = '';
   let updatedUpcomingTopics = [...(automation.upcomingTopics || [])];
 
   if (updatedUpcomingTopics.length > 0) {
     nextTopic = updatedUpcomingTopics.shift().trim();
+  } else if (automation.topic && String(automation.topic).trim()) {
+    nextTopic = String(automation.topic).trim();
   }
 
   const completedDays = Number(automation.completedDays || 0) + 1;
@@ -549,6 +551,7 @@ export const handler = async (event) => {
         const upcomingTopics = Array.isArray(payload.upcomingTopics)
           ? payload.upcomingTopics.map(t => String(t || '').trim()).filter(Boolean)
           : (autoDoc?.upcomingTopics || []);
+        const topic = payload.topic !== undefined ? String(payload.topic || '').trim() : (autoDoc?.topic || '');
         const voiceId = payload.voiceId || autoDoc?.voiceId || 'adam';
         const elevenLabsVoiceId = payload.elevenLabsVoiceId || autoDoc?.elevenLabsVoiceId || '';
         const voiceSpeed = payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : (autoDoc?.voiceSpeed ?? 1.20);
@@ -578,6 +581,7 @@ export const handler = async (event) => {
           userEmail,
           templateId,
           totalDays,
+          topic,
           upcomingTopics,
           voiceId,
           elevenLabsVoiceId,
@@ -723,6 +727,7 @@ export const handler = async (event) => {
         console.log(`[template-automation] User ${userEmail} triggered immediate run.`);
         const runDoc = {
           ...autoDoc,
+          topic: payload.topic !== undefined ? payload.topic : (payload.prompt || autoDoc.topic || ''),
           voiceId: payload.voiceId || autoDoc.voiceId,
           elevenLabsVoiceId: payload.elevenLabsVoiceId || autoDoc.elevenLabsVoiceId
         };

@@ -212,6 +212,7 @@ export default function TemplatesPage({
     templateId: 'world-mysteries',
     totalDays: 7,
     completedDays: 0,
+    topic: '',
     upcomingTopics: [],
     voiceId: voiceId,
     elevenLabsVoiceId: videoSettings?.elevenLabsVoiceId || '',
@@ -246,6 +247,7 @@ export default function TemplatesPage({
           const resolvedElVoiceId = videoSettings?.elevenLabsVoiceId || data.automation.elevenLabsVoiceId || '';
           setAutomationConfig({
             ...data.automation,
+            topic: data.automation.topic || '',
             voiceId: resolvedVoiceId,
             elevenLabsVoiceId: resolvedElVoiceId
           });
@@ -356,6 +358,8 @@ export default function TemplatesPage({
         },
         body: JSON.stringify({
           action: 'run-now',
+          topic: automationConfig.topic || '',
+          prompt: automationConfig.topic || '',
           voiceId: chosenVoiceId,
           elevenLabsVoiceId: chosenElVoiceId
         })
@@ -516,6 +520,7 @@ export default function TemplatesPage({
     || channels[0]
     || null;
   const isAutomationChannelExpired = !!(automationTargetChannel && (automationTargetChannel.needsReconnect || automationTargetChannel.isTokenExpired));
+  const selectedAutomationTpl = ACTIVE_TEMPLATES.find(t => t.id === automationConfig.templateId) || ACTIVE_TEMPLATES[0];
 
   // Listen for OAuth completion from popup
   useEffect(() => {
@@ -2786,6 +2791,67 @@ export default function TemplatesPage({
                   );
                 })}
               </div>
+
+              {/* Template Specs & Info Summary */}
+              {selectedAutomationTpl && (
+                <div style={{
+                  marginTop: '8px', padding: '9px 12px', borderRadius: '10px',
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+                  display: 'flex', flexDirection: 'column', gap: '6px'
+                }}>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                    {selectedAutomationTpl.desc}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', padding: '2px 7px', borderRadius: '5px' }}>
+                      🧠 {selectedAutomationTpl.aiBrain}
+                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', padding: '2px 7px', borderRadius: '5px' }}>
+                      📱 {selectedAutomationTpl.specs}
+                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.25)', padding: '2px 7px', borderRadius: '5px' }}>
+                      🇮🇳 Hindi Only
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Specific Topic (Optional - Starts Empty, No Prefilled Topics) */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Type size={12} /> Specific Topic <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--text-muted)' }}>(Optional)</span>
+                </label>
+                {automationConfig.topic ? (
+                  <button
+                    type="button"
+                    onClick={() => setAutomationConfig(prev => ({ ...prev, topic: '' }))}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-primary, #ff4f00)', fontSize: '10.5px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                  >
+                    Clear Topic
+                  </button>
+                ) : (
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Auto-researched by AI</span>
+                )}
+              </div>
+              <input
+                type="text"
+                value={automationConfig.topic || ''}
+                onChange={(e) => setAutomationConfig(prev => ({ ...prev, topic: e.target.value }))}
+                placeholder={`e.g. ${selectedAutomationTpl?.videoTitle || 'Bermuda Triangle'} (or leave blank for autonomous AI research)`}
+                style={{
+                  width: '100%', padding: '9px 12px', borderRadius: '8px',
+                  background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
+                  color: 'var(--text-primary)', fontSize: '12px', outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                {automationConfig.topic
+                  ? `AI will generate today's video specifically focused on "${automationConfig.topic}".`
+                  : 'Leave blank to let the AI automatically brainstorm trending topics every day.'}
+              </div>
             </div>
 
             {/* Duration (Pills) */}
@@ -2890,19 +2956,27 @@ export default function TemplatesPage({
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '5px' }}>
-                  Speed ({automationConfig.voiceSpeed || 1.20}x)
-                </label>
-                <div style={{ display: 'flex', gap: '5px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Narration Speed
+                  </label>
+                  <span style={{
+                    background: 'rgba(255, 79, 0, 0.12)', padding: '1px 6px', borderRadius: '4px',
+                    fontSize: '10px', fontWeight: 700, color: 'var(--accent-primary, #ff4f00)'
+                  }}>
+                    {(Number(automationConfig.voiceSpeed) || 1.20).toFixed(2)}x
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
                   {[1.10, 1.15, 1.20, 1.25, 1.30].map(s => {
-                    const isSelected = Number(automationConfig.voiceSpeed) === s;
+                    const isSelected = Math.abs(Number(automationConfig.voiceSpeed || 1.20) - s) < 0.01;
                     return (
                       <button
                         key={s}
                         type="button"
                         onClick={() => setAutomationConfig(prev => ({ ...prev, voiceSpeed: s }))}
                         style={{
-                          flex: 1, padding: '7px 0', borderRadius: '8px',
+                          flex: 1, padding: '6px 0', borderRadius: '7px',
                           background: isSelected ? 'var(--accent-primary, #ff4f00)' : 'var(--bg-elevated)',
                           border: isSelected ? '1px solid var(--accent-primary, #ff4f00)' : '1px solid var(--border-subtle)',
                           color: isSelected ? '#ffffff' : 'var(--text-secondary)',
@@ -2914,7 +2988,43 @@ export default function TemplatesPage({
                     );
                   })}
                 </div>
+                <input
+                  type="range"
+                  min={SPEED_MIN} max={SPEED_MAX} step={SPEED_STEP}
+                  value={automationConfig.voiceSpeed || 1.20}
+                  onChange={e => setAutomationConfig(prev => ({ ...prev, voiceSpeed: parseFloat(e.target.value) }))}
+                  style={{ width: '100%', accentColor: 'var(--accent-primary, #ff4f00)', cursor: 'pointer' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                  <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{SPEED_MIN.toFixed(2)}x</span>
+                  <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{SPEED_MAX.toFixed(2)}x</span>
+                </div>
               </div>
+            </div>
+
+            {/* Auto-Upload to YouTube Shorts Toggle */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 14px', borderRadius: '10px',
+              background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <YouTubeIcon size={16} />
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Direct YouTube Shorts Auto-Publish
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                    Automatically upload rendered videos to {automationTargetChannel?.channelTitle || selectedChannel?.channelTitle || 'your selected channel'}
+                  </div>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={automationConfig.autoUploadToYouTube !== false}
+                onChange={(e) => setAutomationConfig(prev => ({ ...prev, autoUploadToYouTube: e.target.checked }))}
+                style={{ width: '16px', height: '16px', accentColor: 'var(--accent-primary, #ff4f00)', cursor: 'pointer' }}
+              />
             </div>
 
 
