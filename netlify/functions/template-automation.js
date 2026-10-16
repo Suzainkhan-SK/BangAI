@@ -65,6 +65,7 @@ async function executeAutonomousRun(db, automation, isManualTrigger = false, hos
       { id: userId },
       { _id: userId },
       { userId: userId },
+      { email: String(userEmail || '').toLowerCase() },
       { email: userEmail }
     ]
   });
@@ -89,7 +90,7 @@ async function executeAutonomousRun(db, automation, isManualTrigger = false, hos
   if (targetChannel && targetChannel.tokens) {
     try {
       userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || '';
-      userYouTubeChannelTitle = targetChannel.channelTitle || '';
+      userYouTubeChannelTitle = targetChannel.channelTitle || targetChannel.title || '';
       userYouTubeChannelId = targetChannel.channelId || '';
     } catch (tokenErr) {
       console.warn(`[template-automation] Token refresh error for ${userEmail}:`, tokenErr.message);
@@ -359,7 +360,7 @@ export const handler = async (event) => {
 
       // Check if user has active channel and token status
       const hasChannel = channels.length > 0;
-      const channelTokenValid = primaryChannel ? !!primaryChannel.tokens?.access_token : false;
+      const channelTokenValid = primaryChannel ? !!(primaryChannel.tokens?.accessToken || primaryChannel.tokens?.access_token || primaryChannel.tokens?.refreshToken) && !primaryChannel.tokens?.needsReconnect : false;
 
       // Enrich history with latest thread status/videoUrl if available
       if (autoDoc.topicsHistory && autoDoc.topicsHistory.length > 0) {
@@ -393,10 +394,15 @@ export const handler = async (event) => {
           automation: autoDoc,
           channels: channels.map(c => ({
             channelId: c.channelId,
-            channelTitle: c.channelTitle,
-            thumbnailUrl: c.thumbnailUrl,
-            subscriberCount: c.subscriberCount,
-            isDefault: c.isDefault
+            channelTitle: c.channelTitle || c.title || 'YouTube Channel',
+            title: c.channelTitle || c.title || 'YouTube Channel',
+            customUrl: c.customUrl || '',
+            avatarUrl: c.avatarUrl || c.thumbnailUrl || '',
+            thumbnailUrl: c.avatarUrl || c.thumbnailUrl || '',
+            subscriberCount: c.subscriberCount || '0',
+            videoCount: c.videoCount || '0',
+            isDefault: !!c.isDefault,
+            needsReconnect: !!(c.tokens?.needsReconnect)
           })),
           hasChannel,
           channelTokenValid
@@ -613,11 +619,44 @@ export const handler = async (event) => {
       // ── ACTION: RUN NOW (INSTANT TRIGGER FOR TODAY) ────────────────────────
       if (action === 'run-now') {
         if (!autoDoc) {
-          return {
-            statusCode: 400,
-            headers: corsHeaders,
-            body: JSON.stringify({ error: 'Please save your automation settings before triggering an immediate run.' })
+          const userDocForInit = await db.collection('users').findOne({
+            $or: [
+              { id: userId },
+              { _id: userId },
+              { userId },
+              { email: String(userEmail || '').toLowerCase() },
+              { email: userEmail }
+            ]
+          });
+          const userChannels = userDocForInit?.youtubeChannels || [];
+          const primaryChannel = userChannels.find(c => c.isDefault) || userChannels[0] || null;
+
+          autoDoc = {
+            userId,
+            userEmail,
+            status: 'ACTIVE',
+            templateId: 'world-mysteries',
+            totalDays: 7,
+            completedDays: 0,
+            upcomingTopics: [],
+            voiceId: 'adam',
+            voiceSpeed: 1.20,
+            musicId: 'mystery2',
+            musicVolume: 0.08,
+            selectedChannelId: primaryChannel?.channelId || '',
+            autoUploadToYouTube: true,
+            topicsHistory: [],
+            executionLogs: [{
+              timestamp: now,
+              status: 'info',
+              message: 'Autonomous 24h Automation created via instant trigger.'
+            }],
+            createdAt: now,
+            updatedAt: now,
+            nextRunAt: new Date(now.getTime() + 24 * 60 * 60 * 1000)
           };
+          const insertRes = await autoCol.insertOne(autoDoc);
+          autoDoc._id = insertRes.insertedId;
         }
 
         console.log(`[template-automation] User ${userEmail} triggered immediate run.`);

@@ -2353,16 +2353,16 @@ export async function handler(event) {
         const enriched = automations.map(a => {
           const u = userMap.get(String(a.userEmail || '').toLowerCase());
           const channels = u?.youtubeChannels || [];
-          const targetChannel = (a.selectedChannelId && channels.find(c => c.channelId === a.selectedChannelId)) || channels[0] || null;
+          const targetChannel = (a.selectedChannelId && channels.find(c => c.channelId === a.selectedChannelId)) || channels.find(c => c.isDefault) || channels[0] || null;
           return {
             ...a,
             id: String(a._id),
             userDisplayName: u?.name || u?.email?.split('@')[0] || 'User',
-            channelTitle: targetChannel?.channelTitle || a.channelTitle || 'No YouTube Connected',
+            channelTitle: targetChannel?.channelTitle || targetChannel?.title || a.channelTitle || 'No YouTube Connected',
             channelId: targetChannel?.channelId || a.selectedChannelId || null,
-            channelAvatar: targetChannel?.thumbnailUrl || null,
+            channelAvatar: targetChannel?.avatarUrl || targetChannel?.thumbnailUrl || null,
             hasChannel: !!targetChannel,
-            tokenValid: targetChannel ? !!targetChannel.tokens?.access_token : false
+            tokenValid: targetChannel ? !!(targetChannel.tokens?.accessToken || targetChannel.tokens?.access_token || targetChannel.tokens?.refreshToken) && !targetChannel.tokens?.needsReconnect : false
           };
         });
 
@@ -2491,10 +2491,16 @@ export async function handler(event) {
 
         // Resolve user channel
         const userDoc = await db.collection('users').findOne({
-          $or: [{ id: current.userId }, { _id: current.userId }, { email: current.userEmail }]
+          $or: [
+            { id: current.userId },
+            { _id: current.userId },
+            { userId: current.userId },
+            { email: String(current.userEmail || '').toLowerCase() },
+            { email: current.userEmail }
+          ]
         });
         const channels = userDoc?.youtubeChannels || [];
-        const targetChannel = (current.selectedChannelId && channels.find(c => c.channelId === current.selectedChannelId)) || channels[0] || null;
+        const targetChannel = (current.selectedChannelId && channels.find(c => c.channelId === current.selectedChannelId)) || channels.find(c => c.isDefault) || channels[0] || null;
 
         let userYouTubeAccessToken = '';
         let userYouTubeChannelTitle = '';
@@ -2502,7 +2508,7 @@ export async function handler(event) {
         if (targetChannel && targetChannel.tokens) {
           try {
             userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || '';
-            userYouTubeChannelTitle = targetChannel.channelTitle || '';
+            userYouTubeChannelTitle = targetChannel.channelTitle || targetChannel.title || '';
             userYouTubeChannelId = targetChannel.channelId || '';
           } catch (_) {}
         }

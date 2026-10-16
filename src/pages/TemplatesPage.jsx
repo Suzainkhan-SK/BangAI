@@ -105,6 +105,20 @@ export const CATEGORIES = [
   { id: 'scifi', label: 'Space & Tech' }
 ];
 
+// Helper to normalize YouTube channel schema from API
+const normalizeChannel = (c) => {
+  if (!c) return null;
+  const name = c.channelTitle || c.title || 'YouTube Channel';
+  const avatar = c.avatarUrl || c.thumbnailUrl || '';
+  return {
+    ...c,
+    title: name,
+    channelTitle: name,
+    avatarUrl: avatar,
+    thumbnailUrl: avatar
+  };
+};
+
 export default function TemplatesPage({
   user,
   currentRoutePath = 'templates',
@@ -216,6 +230,13 @@ export default function TemplatesPage({
         const data = await res.json();
         if (data.success && data.automation) {
           setAutomationConfig(data.automation);
+          if (Array.isArray(data.channels) && data.channels.length > 0) {
+            const norm = data.channels.map(normalizeChannel);
+            setChannels(prev => (prev && prev.length > 0 ? prev : norm));
+            if (data.automation.selectedChannelId) {
+              setSelectedChannelId(prev => prev || data.automation.selectedChannelId);
+            }
+          }
         }
       }
     } catch (e) {
@@ -236,11 +257,12 @@ export default function TemplatesPage({
     setAutoStatusMessage('');
     try {
       const token = getAuthToken() || '';
+      const targetChId = automationTargetChannel?.channelId || selectedChannel?.channelId || automationConfig.selectedChannelId || '';
       const payload = {
         action: 'save',
         ...automationConfig,
         ...overrides,
-        selectedChannelId: selectedChannel?.channelId || automationConfig.selectedChannelId
+        selectedChannelId: targetChId
       };
       const res = await fetch('/.netlify/functions/template-automation', {
         method: 'POST',
@@ -419,13 +441,14 @@ export default function TemplatesPage({
       try {
         const token = getAuthToken();
         const res = await fetch('/.netlify/functions/google-oauth?action=channels', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
         const data = await res.json();
         if (data && Array.isArray(data.channels)) {
-          setChannels(data.channels);
-          const def = data.channels.find(c => c.isDefault) || data.channels[0];
-          if (def?.channelId) setSelectedChannelId(def.channelId);
+          const norm = data.channels.map(normalizeChannel);
+          setChannels(norm);
+          const def = norm.find(c => c.isDefault) || norm[0];
+          if (def?.channelId) setSelectedChannelId(prev => prev || def.channelId);
         }
       } catch (err) {
         console.error('[TemplatesPage] Error loading channels:', err);
@@ -436,22 +459,39 @@ export default function TemplatesPage({
     fetchChannels();
   }, [user]);
 
-  const selectedChannel = channels.find(c => c.channelId === selectedChannelId) || channels[0] || null;
+  const selectedChannel = (selectedChannelId && channels.find(c => c.channelId === selectedChannelId))
+    || channels.find(c => c.isDefault)
+    || channels[0]
+    || null;
   const isChannelTokenExpired = !!(selectedChannel && (selectedChannel.needsReconnect || selectedChannel.isTokenExpired));
+
+  const automationTargetChannel = (automationConfig.selectedChannelId && channels.find(c => c.channelId === automationConfig.selectedChannelId))
+    || selectedChannel
+    || channels.find(c => c.isDefault)
+    || channels[0]
+    || null;
+  const isAutomationChannelExpired = !!(automationTargetChannel && (automationTargetChannel.needsReconnect || automationTargetChannel.isTokenExpired));
 
   // Listen for OAuth completion from popup
   useEffect(() => {
     const handleAuthMessage = (event) => {
       if (event.data?.type === 'BANG_OAUTH_SUCCESS') {
-        fetch('/.netlify/functions/google-oauth?action=channels')
+        const token = getAuthToken();
+        fetch('/.netlify/functions/google-oauth?action=channels', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
           .then(res => res.json())
           .then(data => {
             if (data && Array.isArray(data.channels)) {
-              setChannels(data.channels);
+              const norm = data.channels.map(normalizeChannel);
+              setChannels(norm);
+              const def = norm.find(c => c.isDefault) || norm[0];
+              if (def?.channelId) setSelectedChannelId(prev => prev || def.channelId);
               setErrorMsg(null);
             }
           })
           .catch(() => { });
+        fetchAutomationConfig();
       }
     };
     window.addEventListener('message', handleAuthMessage);
@@ -765,7 +805,7 @@ export default function TemplatesPage({
       logLines: [
         `POST /pipeline/template-${generatingTpl.id} → 200 OK`,
         `Execution: ${generatingThreadId || 'exec-pipeline'}`,
-        'Channel Target: ' + (selectedChannel?.title || 'YouTube Channel')
+        'Channel Target: ' + (selectedChannel?.channelTitle || selectedChannel?.title || 'YouTube Channel')
       ]
     },
     {
@@ -903,7 +943,7 @@ export default function TemplatesPage({
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             fontSize: '11px', flex: 1
                           }}>
-                            {selectedChannel?.title || 'YouTube'}
+                            {selectedChannel?.channelTitle || selectedChannel?.title || 'YouTube'}
                           </span>
                           {isChannelTokenExpired ? (
                             <button
@@ -1052,7 +1092,7 @@ export default function TemplatesPage({
                       ) : channels.length > 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ fontWeight: 600, color: 'var(--text-primary)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {selectedChannel?.title || 'YouTube Connected'}
+                            {selectedChannel?.channelTitle || selectedChannel?.title || 'YouTube Connected'}
                           </span>
                           {isChannelTokenExpired ? (
                             <button
@@ -1813,9 +1853,9 @@ export default function TemplatesPage({
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
                             <YouTubeIcon size={14} />
-                            {selectedChannel?.title ? (
+                            {(selectedChannel?.channelTitle || selectedChannel?.title) ? (
                               <span style={{ fontWeight: 600, color: 'var(--text-primary)', maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {selectedChannel.title}
+                                {selectedChannel.channelTitle || selectedChannel.title}
                               </span>
                             ) : (
                               <span>Direct to YouTube Shorts</span>
@@ -2543,24 +2583,65 @@ export default function TemplatesPage({
 
             {/* Target YouTube Channel */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                1. Target YouTube Channel (Auto-Upload Destination)
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  1. Target YouTube Channel (Auto-Upload Destination)
+                </label>
+                {channels.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { audioEngine.playSfx('click'); openGoogleOAuthPopup('templates'); }}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--accent-primary, #ff4f00)',
+                      fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: 0,
+                      display: 'inline-flex', alignItems: 'center', gap: '4px'
+                    }}
+                  >
+                    + Connect / Switch Account
+                  </button>
+                )}
+              </div>
+
               <div style={{
                 background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
                 borderRadius: '14px', padding: '14px 16px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                flexWrap: 'wrap', gap: '10px'
+                flexWrap: 'wrap', gap: '12px'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <YouTubeIcon size={22} />
-                  <div>
-                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {selectedChannel?.title || 'No YouTube Channel Connected'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                  {automationTargetChannel?.avatarUrl ? (
+                    <img
+                      src={automationTargetChannel.avatarUrl}
+                      alt={automationTargetChannel.channelTitle || 'Channel Avatar'}
+                      style={{
+                        width: '40px', height: '40px', borderRadius: '50%',
+                        objectFit: 'cover', border: '2px solid rgba(255, 79, 0, 0.4)',
+                        flexShrink: 0
+                      }}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: '40px', height: '40px', borderRadius: '50%',
+                      background: 'rgba(255, 0, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <YouTubeIcon size={24} />
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  )}
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span>{automationTargetChannel?.channelTitle || automationTargetChannel?.title || 'No YouTube Channel Connected'}</span>
+                      {automationTargetChannel?.customUrl && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                          {automationTargetChannel.customUrl}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
                       {channels.length > 0 ? (
-                        isChannelTokenExpired ? (
+                        isAutomationChannelExpired ? (
                           <span style={{ color: '#ef4444', fontWeight: 700 }}>● Connection Expired (Fix Needed)</span>
                         ) : (
                           <span style={{ color: '#10b981', fontWeight: 700 }}>● Active & Connected for Direct Uploads</span>
@@ -2572,35 +2653,65 @@ export default function TemplatesPage({
                   </div>
                 </div>
 
-                {channels.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => { audioEngine.playSfx('click'); openGoogleOAuthPopup('templates'); }}
-                    style={{
-                      padding: '7px 14px', borderRadius: '8px',
-                      background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
-                      color: '#ef4444', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
-                    }}
-                  >
-                    Connect YouTube Channel
-                  </button>
-                ) : isChannelTokenExpired ? (
-                  <button
-                    type="button"
-                    onClick={() => { audioEngine.playSfx('shimmer'); openGoogleOAuthPopup('templates'); }}
-                    style={{
-                      padding: '7px 14px', borderRadius: '8px',
-                      background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
-                      color: '#ef4444', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
-                    }}
-                  >
-                    Re-authenticate Token
-                  </button>
-                ) : (
-                  <span style={{ fontSize: '11.5px', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <CheckCircle2 size={14} /> Ready for 24h Autopilot
-                  </span>
+                {/* Multi-channel selector */}
+                {channels.length > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Channel:</label>
+                    <select
+                      value={automationConfig.selectedChannelId || automationTargetChannel?.channelId || ''}
+                      onChange={(e) => {
+                        const newChId = e.target.value;
+                        setAutomationConfig(prev => ({ ...prev, selectedChannelId: newChId }));
+                        setSelectedChannelId(newChId);
+                      }}
+                      style={{
+                        padding: '6px 10px', borderRadius: '8px',
+                        background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)', fontSize: '11.5px', fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {channels.map(c => (
+                        <option key={c.channelId} value={c.channelId}>
+                          {c.channelTitle || c.title} {c.isDefault ? '(Default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
+
+                {/* Actions */}
+                <div>
+                  {channels.length === 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => { audioEngine.playSfx('click'); openGoogleOAuthPopup('templates'); }}
+                      style={{
+                        padding: '8px 16px', borderRadius: '8px',
+                        background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+                        color: '#ef4444', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                      }}
+                    >
+                      Connect YouTube Channel
+                    </button>
+                  ) : isAutomationChannelExpired ? (
+                    <button
+                      type="button"
+                      onClick={() => { audioEngine.playSfx('shimmer'); openGoogleOAuthPopup('templates'); }}
+                      style={{
+                        padding: '8px 16px', borderRadius: '8px',
+                        background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+                        color: '#ef4444', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                      }}
+                    >
+                      Re-authenticate Token
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: '11.5px', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle2 size={14} /> Ready for 24h Autopilot
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
