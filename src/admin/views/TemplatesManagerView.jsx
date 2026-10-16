@@ -5,7 +5,8 @@ import {
   Search, Lock, Unlock, Eye, Sparkles, Filter,
   Power, FileText, ExternalLink, HelpCircle, Video,
   Play, Download, Copy, Check, Radio, Activity, Film, X,
-  Layers, Share2, ArrowUpRight, BarChart3, TrendingUp
+  Layers, Share2, ArrowUpRight, BarChart3, TrendingUp,
+  Pause, Trash2, Edit3, Zap, Calendar, ListOrdered
 } from 'lucide-react';
 import { adminService } from '../adminService';
 
@@ -173,6 +174,15 @@ export default function TemplatesManagerView() {
   const [copiedLink, setCopiedLink] = useState(null);
   const [previewVideo, setPreviewVideo] = useState(null); // for video modal player
 
+  // ── 24-Hour Autonomous Automations State ──
+  const [automations, setAutomations] = useState([]);
+  const [automationsStats, setAutomationsStats] = useState({ total: 0, active: 0, paused: 0, completed: 0, totalQueuedTopics: 0, totalAutomatedUploads: 0 });
+  const [loadingAutomations, setLoadingAutomations] = useState(false);
+  const [autoSearchQuery, setAutoSearchQuery] = useState('');
+  const [autoStatusFilter, setAutoStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'PAUSED' | 'COMPLETED'
+  const [editAutoModal, setEditAutoModal] = useState({ open: false, data: null });
+  const [viewHistoryModal, setViewHistoryModal] = useState({ open: false, data: null });
+
   // New Template Wizard State
   const [newTemplate, setNewTemplate] = useState({
     title: '',
@@ -220,15 +230,114 @@ export default function TemplatesManagerView() {
     }
   };
 
+  const fetchAutomations = async (silent = false) => {
+    if (!silent) setLoadingAutomations(true);
+    try {
+      const res = await adminService.getAllTemplateAutomations();
+      if (res && res.success) {
+        setAutomations(res.automations || []);
+        if (res.stats) setAutomationsStats(res.stats);
+      }
+    } catch (e) {
+      console.warn('[TemplatesManagerView] Failed to fetch automations:', e.message);
+    } finally {
+      if (!silent) setLoadingAutomations(false);
+    }
+  };
+
+  const handleAdminToggleAutomation = async (automationId, currentStatus) => {
+    const newStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    try {
+      const res = await adminService.adminToggleAutomation(automationId, newStatus);
+      if (res && res.success) {
+        showToast(`⚡ Automation ${newStatus === 'ACTIVE' ? 'activated' : 'paused'} successfully!`);
+        fetchAutomations(true);
+      } else {
+        showToast(`❌ Error: ${res?.error || 'Failed to toggle status'}`);
+      }
+    } catch (err) {
+      showToast(`❌ Error: ${err.message}`);
+    }
+  };
+
+  const handleAdminRunNow = async (automationId, userEmail) => {
+    if (!window.confirm(`⚡ Immediately trigger automated video generation for ${userEmail}? This will execute today's run and upload to their YouTube channel.`)) {
+      return;
+    }
+    showToast(`⏳ Dispatching immediate video generation for ${userEmail}...`);
+    try {
+      const res = await adminService.adminRunAutomation(automationId);
+      if (res && res.success) {
+        showToast(`✅ Video successfully dispatched for ${userEmail}! (Day ${res.dayNumber})`);
+        fetchAutomations(true);
+        handleLoadLogs(true);
+      } else {
+        showToast(`❌ Dispatch failed: ${res?.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      showToast(`❌ Error: ${err.message}`);
+    }
+  };
+
+  const handleAdminDeleteAutomation = async (automationId, userEmail) => {
+    if (!window.confirm(`Delete automation schedule for ${userEmail}? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      const res = await adminService.adminDeleteAutomation(automationId);
+      if (res && res.success) {
+        showToast(`Automation deleted for ${userEmail}.`);
+        fetchAutomations(true);
+      } else {
+        showToast(`❌ Failed: ${res?.error}`);
+      }
+    } catch (err) {
+      showToast(`❌ Error: ${err.message}`);
+    }
+  };
+
+  const handleSaveEditAutomation = async (e) => {
+    e.preventDefault();
+    if (!editAutoModal.data) return;
+    const { id, templateId, totalDays, completedDays, voiceId, voiceSpeed, musicId, status, upcomingTopicsText } = editAutoModal.data;
+    const topicsArr = typeof upcomingTopicsText === 'string'
+      ? upcomingTopicsText.split('\n').map(t => t.trim()).filter(Boolean)
+      : (editAutoModal.data.upcomingTopics || []);
+
+    try {
+      const res = await adminService.adminUpdateAutomation(id, {
+        templateId,
+        totalDays: Number(totalDays),
+        completedDays: Number(completedDays),
+        voiceId,
+        voiceSpeed: Number(voiceSpeed),
+        musicId,
+        status,
+        upcomingTopics: topicsArr
+      });
+      if (res && res.success) {
+        showToast('✅ Automation parameters updated!');
+        setEditAutoModal({ open: false, data: null });
+        fetchAutomations(true);
+      } else {
+        showToast(`❌ Update failed: ${res?.error}`);
+      }
+    } catch (err) {
+      showToast(`❌ Error: ${err.message}`);
+    }
+  };
+
   useEffect(() => {
     fetchTemplatesData();
     handleLoadLogs(true);
+    fetchAutomations(true);
   }, []);
 
   useEffect(() => {
     if (!autoRefreshInterval || autoRefreshInterval <= 0) return;
     const interval = setInterval(() => {
       handleLoadLogs(true);
+      fetchAutomations(true);
     }, autoRefreshInterval * 1000);
     return () => clearInterval(interval);
   }, [autoRefreshInterval]);
@@ -638,6 +747,7 @@ export default function TemplatesManagerView() {
       <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--admin-border-glass)', marginBottom: '20px', paddingBottom: '2px', flexWrap: 'wrap' }}>
         {[
           { id: 'governance', label: 'Daily Limits & Master Governance', icon: Sliders },
+          { id: 'automations', label: `Autonomous 24h Automations (${automations.length})`, icon: Clock, badge: automationsStats.active ? `${automationsStats.active} ACTIVE` : null },
           { id: 'users', label: `User Stats & Quotas (${allUsersList.length})`, icon: UserCheck },
           { id: 'videos', label: `Generated Videos & Links (${videos.length})`, icon: Video },
           { id: 'logs', label: `Live Generation Logs (${logs.length})`, icon: Activity },
@@ -651,6 +761,7 @@ export default function TemplatesManagerView() {
               type="button"
               onClick={() => {
                 setActiveTab(tab.id);
+                if (tab.id === 'automations') fetchAutomations(false);
                 if ((tab.id === 'logs' || tab.id === 'videos') && logs.length === 0) handleLoadLogs(false);
               }}
               style={{
@@ -670,6 +781,18 @@ export default function TemplatesManagerView() {
             >
               <Icon size={16} />
               {tab.label}
+              {tab.badge && (
+                <span style={{
+                  padding: '1px 6px',
+                  borderRadius: '99px',
+                  background: 'rgba(16, 185, 129, 0.2)',
+                  color: 'var(--admin-accent-green)',
+                  fontSize: '10px',
+                  fontWeight: 800
+                }}>
+                  {tab.badge}
+                </span>
+              )}
             </button>
           );
         })}
@@ -1769,6 +1892,417 @@ export default function TemplatesManagerView() {
         </div>
       )}
 
+      {/* TAB 6: AUTONOMOUS 24-HOUR AUTOMATIONS GOVERNANCE */}
+      {activeTab === 'automations' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Automation KPI Cards */}
+          <div className="admin-grid admin-grid-4">
+            <div className="admin-card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
+                  Active 24h Autopilots
+                </span>
+                <Clock size={16} color="var(--admin-accent-green)" />
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--admin-accent-green)' }}>
+                {automationsStats.active || 0}
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                Auto-generating & uploading every 24h
+              </span>
+            </div>
+
+            <div className="admin-card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
+                  Paused / Completed
+                </span>
+                <Pause size={16} color="var(--admin-accent-amber)" />
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--admin-accent-amber)' }}>
+                {automationsStats.paused || 0}
+                <span style={{ fontSize: '14px', color: 'var(--admin-text-sub)', marginLeft: '6px' }}>
+                  / {automationsStats.completed || 0} done
+                </span>
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                {automationsStats.total || 0} total registered schedules
+              </span>
+            </div>
+
+            <div className="admin-card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
+                  Automated Video Uploads
+                </span>
+                <Film size={16} color="var(--admin-accent-cyan)" />
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>
+                {automationsStats.totalAutomatedUploads || 0}
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                Hands-free published YouTube Shorts
+              </span>
+            </div>
+
+            <div className="admin-card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
+                  Queued Custom Topics
+                </span>
+                <ListOrdered size={16} color="var(--admin-accent-purple, #8b5cf6)" />
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#c084fc' }}>
+                {automationsStats.totalQueuedTopics || 0}
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                Pending in upcoming day queues
+              </span>
+            </div>
+          </div>
+
+          {/* Automations Control Card */}
+          <div className="admin-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--admin-text-main)' }}>
+                  User 24-Hour Autonomous Schedules ({automations.length})
+                </h3>
+                <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: 0 }}>
+                  Live overview of every user's 24h video autopilot: pause/resume execution, trigger instant test runs, edit duration & topics queue, or inspect generation history.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {/* Search */}
+                <div style={{ position: 'relative' }}>
+                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-sub)' }} />
+                  <input
+                    type="text"
+                    placeholder="Search user email or channel..."
+                    value={autoSearchQuery}
+                    onChange={(e) => setAutoSearchQuery(e.target.value)}
+                    className="admin-input"
+                    style={{ paddingLeft: '32px', width: '220px', height: '32px', fontSize: '12px' }}
+                  />
+                </div>
+
+                {/* Status Filter */}
+                <div style={{ display: 'flex', gap: '4px', background: 'var(--admin-bg-dark)', padding: '2px', borderRadius: '8px', border: '1px solid var(--admin-border-glass)' }}>
+                  {['ALL', 'ACTIVE', 'PAUSED', 'COMPLETED'].map(st => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setAutoStatusFilter(st)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: autoStatusFilter === st ? 'var(--admin-accent-cyan)' : 'transparent',
+                        color: autoStatusFilter === st ? '#000' : 'var(--admin-text-sub)',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Refresh */}
+                <button
+                  type="button"
+                  onClick={() => fetchAutomations(false)}
+                  disabled={loadingAutomations}
+                  className="admin-btn admin-btn-secondary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '32px', fontSize: '12px' }}
+                >
+                  <RefreshCw size={13} className={loadingAutomations ? 'animate-spin' : ''} />
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            {/* Automations Table */}
+            {loadingAutomations && automations.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+                <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 12px auto', display: 'block' }} />
+                <span>Loading autonomous 24h user schedules from MongoDB Atlas...</span>
+              </div>
+            ) : automations.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+                <Clock size={32} style={{ margin: '0 auto 12px auto', opacity: 0.4, display: 'block' }} />
+                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--admin-text-main)' }}>No Automations Configured Yet</div>
+                <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                  Users can enable the "⚡ Automate" feature on the AI Templates page to auto-upload videos every 24 hours.
+                </div>
+              </div>
+            ) : (
+              <div className="admin-table-container">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>User & Target YouTube</th>
+                      <th>Template Pipeline</th>
+                      <th>Duration / Progress</th>
+                      <th>Voice & Speed</th>
+                      <th>Upcoming Topics Queue</th>
+                      <th>Status</th>
+                      <th>Next Run / Schedule</th>
+                      <th style={{ textAlign: 'right' }}>Master Controls</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {automations
+                      .filter(item => {
+                        if (autoStatusFilter !== 'ALL' && item.status !== autoStatusFilter) return false;
+                        if (autoSearchQuery) {
+                          const q = autoSearchQuery.toLowerCase();
+                          const matchesEmail = (item.userEmail || '').toLowerCase().includes(q);
+                          const matchesChannel = (item.channelTitle || '').toLowerCase().includes(q);
+                          const matchesTemplate = (item.templateId || '').toLowerCase().includes(q);
+                          return matchesEmail || matchesChannel || matchesTemplate;
+                        }
+                        return true;
+                      })
+                      .map(auto => {
+                        const templateTitleMap = {
+                          'world-mysteries': '🛸 World Mysteries & Paranormal',
+                          'last-24-hours': '⏳ Last 24 Hours [True Stories]',
+                          '3am-horror': '👻 3-AM Horror & Paranormal'
+                        };
+                        const displayTemplate = templateTitleMap[auto.templateId] || auto.templateId || 'AI Template';
+                        const completedDays = Number(auto.completedDays || 0);
+                        const totalDays = Number(auto.totalDays || 0);
+                        const isInfinite = totalDays <= 0;
+                        const pct = isInfinite ? 100 : Math.min(100, Math.round((completedDays / totalDays) * 100));
+                        const queuedTopics = Array.isArray(auto.upcomingTopics) ? auto.upcomingTopics : [];
+
+                        // Next Run calculation
+                        let nextRunText = 'Not Scheduled';
+                        let isDue = false;
+                        if (auto.nextRunAt) {
+                          const diff = new Date(auto.nextRunAt).getTime() - Date.now();
+                          if (diff <= 0) {
+                            nextRunText = 'Due Now';
+                            isDue = true;
+                          } else {
+                            const hours = Math.floor(diff / (1000 * 60 * 60));
+                            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                            nextRunText = `In ${hours}h ${mins}m`;
+                          }
+                        }
+
+                        return (
+                          <tr key={auto.id || auto._id}>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{
+                                  width: '32px', height: '32px', borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(239,68,68,0.2))',
+                                  border: '1px solid var(--admin-border-glass)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontSize: '13px', fontWeight: 800, color: 'var(--admin-text-main)', flexShrink: 0
+                                }}>
+                                  {auto.channelAvatar ? (
+                                    <img src={auto.channelAvatar} alt="avatar" style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                                  ) : (
+                                    (auto.userEmail || 'U').charAt(0).toUpperCase()
+                                  )}
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                                    {auto.channelTitle || 'No Channel Connected'}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                                    {auto.userEmail}
+                                  </div>
+                                  <div style={{ marginTop: '2px' }}>
+                                    {auto.hasChannel && auto.tokenValid ? (
+                                      <span style={{ fontSize: '9.5px', color: 'var(--admin-accent-green)', fontWeight: 700 }}>
+                                        ● YT OAuth Token Valid
+                                      </span>
+                                    ) : (
+                                      <span style={{ fontSize: '9.5px', color: 'var(--admin-accent-red)', fontWeight: 700 }}>
+                                        ● Token Re-auth Needed
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td>
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                                {displayTemplate}
+                              </div>
+                              <span style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}>
+                                75s+ Direct Video Workflow
+                              </span>
+                            </td>
+
+                            <td style={{ minWidth: '130px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>
+                                <span style={{ color: 'var(--admin-accent-cyan)' }}>Day {completedDays}</span>
+                                <span style={{ color: 'var(--admin-text-sub)' }}>{isInfinite ? 'Ongoing (∞)' : `of ${totalDays} Days`}</span>
+                              </div>
+                              <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '99px', overflow: 'hidden' }}>
+                                <div style={{
+                                  width: `${pct}%`,
+                                  height: '100%',
+                                  background: auto.status === 'ACTIVE'
+                                    ? 'linear-gradient(90deg, #10b981, #06b6d4)'
+                                    : 'rgba(245, 158, 11, 0.7)',
+                                  borderRadius: '99px'
+                                }} />
+                              </div>
+                            </td>
+
+                            <td>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                padding: '3px 8px', borderRadius: '6px',
+                                background: 'var(--admin-bg-dark)', border: '1px solid var(--admin-border-glass)',
+                                fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-main)'
+                              }}>
+                                🎙️ {auto.voiceId || 'adam'} · {auto.voiceSpeed || 1.20}x
+                              </span>
+                            </td>
+
+                            <td>
+                              {queuedTopics.length > 0 ? (
+                                <div>
+                                  <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                    padding: '2px 7px', borderRadius: '4px',
+                                    background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)',
+                                    color: '#c084fc', fontSize: '11px', fontWeight: 700
+                                  }}>
+                                    {queuedTopics.length} Custom Topic{queuedTopics.length > 1 ? 's' : ''} Queued
+                                  </span>
+                                  <div style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)', marginTop: '2px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    Next: "{queuedTopics[0]}"
+                                  </div>
+                                </div>
+                              ) : (
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                  padding: '2px 7px', borderRadius: '4px',
+                                  background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.25)',
+                                  color: 'var(--admin-accent-cyan)', fontSize: '11px', fontWeight: 600
+                                }}>
+                                  🧠 AI Auto-Brainstorm
+                                </span>
+                              )}
+                            </td>
+
+                            <td>
+                              <span className={`admin-badge ${
+                                auto.status === 'ACTIVE'
+                                  ? 'admin-badge-success'
+                                  : auto.status === 'COMPLETED'
+                                    ? 'admin-badge-info'
+                                    : 'admin-badge-warning'
+                              }`}>
+                                ● {auto.status || 'PAUSED'}
+                              </span>
+                            </td>
+
+                            <td>
+                              <div style={{ fontSize: '11.5px', fontWeight: 700, color: isDue ? 'var(--admin-accent-green)' : 'var(--admin-text-main)' }}>
+                                {nextRunText}
+                              </div>
+                              {auto.lastRunAt && (
+                                <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>
+                                  Last: {formatTimeAgo(auto.lastRunAt)}
+                                </div>
+                              )}
+                            </td>
+
+                            <td style={{ textAlign: 'right' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                {/* Pause / Resume Toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdminToggleAutomation(auto.id || auto._id, auto.status)}
+                                  className="admin-btn admin-btn-secondary"
+                                  title={auto.status === 'ACTIVE' ? 'Pause Automation' : 'Resume Automation'}
+                                  style={{
+                                    padding: '5px 8px', fontSize: '11px',
+                                    color: auto.status === 'ACTIVE' ? 'var(--admin-accent-amber)' : 'var(--admin-accent-green)',
+                                    borderColor: auto.status === 'ACTIVE' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)'
+                                  }}
+                                >
+                                  {auto.status === 'ACTIVE' ? <Pause size={12} /> : <Play size={12} />}
+                                  {auto.status === 'ACTIVE' ? 'Pause' : 'Resume'}
+                                </button>
+
+                                {/* Trigger Run Now (Test) */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdminRunNow(auto.id || auto._id, auto.userEmail)}
+                                  className="admin-btn admin-btn-primary"
+                                  title="Immediately trigger today's video generation and upload"
+                                  style={{ padding: '5px 8px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  <Zap size={11} />
+                                  Run Now
+                                </button>
+
+                                {/* Edit Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditAutoModal({
+                                      open: true,
+                                      data: {
+                                        ...auto,
+                                        upcomingTopicsText: (auto.upcomingTopics || []).join('\n')
+                                      }
+                                    });
+                                  }}
+                                  className="admin-btn admin-btn-secondary"
+                                  title="Edit automation parameters"
+                                  style={{ padding: '5px 7px' }}
+                                >
+                                  <Edit3 size={12} />
+                                </button>
+
+                                {/* History Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => setViewHistoryModal({ open: true, data: auto })}
+                                  className="admin-btn admin-btn-secondary"
+                                  title="View generation history & uploaded video links"
+                                  style={{ padding: '5px 7px' }}
+                                >
+                                  <Film size={12} />
+                                </button>
+
+                                {/* Delete Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdminDeleteAutomation(auto.id || auto._id, auto.userEmail)}
+                                  className="admin-btn admin-btn-secondary"
+                                  title="Delete automation"
+                                  style={{ padding: '5px 7px', color: 'var(--admin-accent-red)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Video Preview Player Modal */}
       {previewVideo && (
         <div style={{
@@ -2049,6 +2583,324 @@ export default function TemplatesManagerView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Automation Parameters Modal */}
+      {editAutoModal.open && editAutoModal.data && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 99999, padding: '20px'
+        }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 2px 0', color: 'var(--admin-text-main)' }}>
+                  Edit 24h Autonomous Schedule
+                </h3>
+                <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
+                  User: <strong>{editAutoModal.data.userEmail}</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditAutoModal({ open: false, data: null })}
+                className="admin-btn admin-btn-secondary"
+                style={{ padding: '4px 8px', borderRadius: '50%' }}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditAutomation} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="admin-grid-2">
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                    Active Template
+                  </label>
+                  <select
+                    value={editAutoModal.data.templateId || 'world-mysteries'}
+                    onChange={(e) => setEditAutoModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, templateId: e.target.value }
+                    }))}
+                    className="admin-select"
+                  >
+                    <option value="world-mysteries">🛸 World Mysteries & Paranormal [75s+]</option>
+                    <option value="last-24-hours">⏳ Last 24 Hours [True Stories - 75s+]</option>
+                    <option value="3am-horror">👻 3-AM Horror & Paranormal [75s+]</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                    Status
+                  </label>
+                  <select
+                    value={editAutoModal.data.status || 'ACTIVE'}
+                    onChange={(e) => setEditAutoModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, status: e.target.value }
+                    }))}
+                    className="admin-select"
+                  >
+                    <option value="ACTIVE">ACTIVE (Running every 24h)</option>
+                    <option value="PAUSED">PAUSED</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="admin-grid-2">
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                    Total Days to Run (0 = Ongoing/Infinite)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="365"
+                    value={editAutoModal.data.totalDays ?? 7}
+                    onChange={(e) => setEditAutoModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, totalDays: parseInt(e.target.value) || 0 }
+                    }))}
+                    className="admin-input"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                    Completed Days Count
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="365"
+                    value={editAutoModal.data.completedDays ?? 0}
+                    onChange={(e) => setEditAutoModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, completedDays: parseInt(e.target.value) || 0 }
+                    }))}
+                    className="admin-input"
+                  />
+                </div>
+              </div>
+
+              <div className="admin-grid-2">
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                    Narration Voice ID
+                  </label>
+                  <select
+                    value={editAutoModal.data.voiceId || 'adam'}
+                    onChange={(e) => setEditAutoModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, voiceId: e.target.value }
+                    }))}
+                    className="admin-select"
+                  >
+                    <option value="adam">Adam (Deep Narrative)</option>
+                    <option value="marcus">Marcus (Authoritative Mystery)</option>
+                    <option value="sarah">Sarah (Engaging Viral)</option>
+                    <option value="liam">Liam (Dramatic Suspense)</option>
+                    <option value="george">George (Warm British)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                    Narration Speed
+                  </label>
+                  <select
+                    value={editAutoModal.data.voiceSpeed || 1.20}
+                    onChange={(e) => setEditAutoModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, voiceSpeed: parseFloat(e.target.value) || 1.20 }
+                    }))}
+                    className="admin-select"
+                  >
+                    <option value="1.00">1.00x (Standard)</option>
+                    <option value="1.10">1.10x (Crisp)</option>
+                    <option value="1.15">1.15x (Fast Viral)</option>
+                    <option value="1.20">1.20x (Recommended Retention)</option>
+                    <option value="1.25">1.25x (Rapid High-Energy)</option>
+                    <option value="1.30">1.30x (Ultra Fast)</option>
+                    <option value="1.50">1.50x (Maximum Speed)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                  Upcoming Topics Queue (One topic per line)
+                </label>
+                <textarea
+                  rows={4}
+                  value={editAutoModal.data.upcomingTopicsText || ''}
+                  onChange={(e) => setEditAutoModal(prev => ({
+                    ...prev,
+                    data: { ...prev.data, upcomingTopicsText: e.target.value }
+                  }))}
+                  placeholder="Enter upcoming custom topics here (one per day). If left empty, AI auto-brainstorms."
+                  className="admin-textarea"
+                  style={{ fontFamily: 'monospace', fontSize: '12px' }}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                  Each automated run consumes the first topic from this queue. When empty, AI auto-researches a viral topic.
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <button type="submit" className="admin-btn admin-btn-primary" style={{ flex: 1 }}>
+                  Save Schedule Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditAutoModal({ open: false, data: null })}
+                  className="admin-btn admin-btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Automation History & Video Links Modal */}
+      {viewHistoryModal.open && viewHistoryModal.data && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 99999, padding: '20px'
+        }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '720px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexShrink: 0 }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 2px 0', color: 'var(--admin-text-main)' }}>
+                  24h Automation History & Video Links
+                </h3>
+                <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
+                  User: <strong>{viewHistoryModal.data.userEmail}</strong> • Channel: <strong>{viewHistoryModal.data.channelTitle}</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewHistoryModal({ open: false, data: null })}
+                className="admin-btn admin-btn-secondary"
+                style={{ padding: '4px 8px', borderRadius: '50%' }}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: '200px' }}>
+              {(!viewHistoryModal.data.topicsHistory || viewHistoryModal.data.topicsHistory.length === 0) ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+                  <Film size={28} style={{ margin: '0 auto 10px auto', opacity: 0.4, display: 'block' }} />
+                  <div>No automated videos have been executed yet for this schedule.</div>
+                  <div style={{ fontSize: '11.5px', marginTop: '4px' }}>Click "Run Now" in the automations table to dispatch the first run.</div>
+                </div>
+              ) : (
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Day #</th>
+                      <th>Topic / Concept</th>
+                      <th>Executed At</th>
+                      <th>Target Channel</th>
+                      <th>Links & Video</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewHistoryModal.data.topicsHistory.map((item, idx) => (
+                      <tr key={idx}>
+                        <td style={{ fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>
+                          Day {item.day}
+                        </td>
+                        <td style={{ maxWidth: '200px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--admin-text-main)' }}>
+                            {item.topic}
+                          </div>
+                          {item.threadId && (
+                            <span style={{ fontSize: '9.5px', color: 'var(--admin-text-sub)', fontFamily: 'monospace' }}>
+                              {item.threadId}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                          {formatTimeAgo(item.executedAt)}
+                        </td>
+                        <td style={{ fontSize: '11.5px' }}>
+                          {item.channelTitle || 'YouTube'}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            {item.videoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewVideo({
+                                  videoUrl: item.videoUrl,
+                                  youtubeUrl: item.youtubeUrl,
+                                  title: item.topic,
+                                  userEmail: viewHistoryModal.data.userEmail
+                                })}
+                                className="admin-btn admin-btn-secondary"
+                                style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--admin-accent-cyan)' }}
+                              >
+                                Play MP4
+                              </button>
+                            )}
+                            {item.youtubeUrl && (
+                              <a
+                                href={item.youtubeUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="admin-btn admin-btn-secondary"
+                                style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--admin-accent-red)', textDecoration: 'none' }}
+                              >
+                                YouTube ↗
+                              </a>
+                            )}
+                            {!item.videoUrl && !item.youtubeUrl && (
+                              <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                                Processing in n8n...
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`admin-badge ${item.videoUrl || item.youtubeUrl ? 'admin-badge-success' : 'admin-badge-warning'}`}>
+                            ● {item.videoUrl || item.youtubeUrl ? 'COMPLETED' : item.status || 'dispatched'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--admin-border-glass)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => setViewHistoryModal({ open: false, data: null })}
+                className="admin-btn admin-btn-secondary"
+                style={{ fontSize: '12px' }}
+              >
+                Close History
+              </button>
+            </div>
           </div>
         </div>
       )}

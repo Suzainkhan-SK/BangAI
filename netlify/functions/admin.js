@@ -5,7 +5,10 @@
 
 import crypto from 'crypto';
 import https from 'https';
+import { ObjectId } from 'mongodb';
 import { getDb } from './db.js';
+import { getFreshGoogleToken } from './google-oauth.js';
+import { getN8nConfig } from './n8n-config.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'bang-ai-jwt-production-secret-9a8b7c6d5e4f3a2b1c0';
 const ADMIN_TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 Hours
@@ -2329,6 +2332,377 @@ export async function handler(event) {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({ success: true, message: 'Template deleted successfully' })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [13B] AUTONOMOUS 24-HOUR TEMPLATE AUTOMATIONS GOVERNANCE
+      // ----------------------------------------------------
+      case 'get-all-template-automations': {
+        const autoCol = db.collection('template_automations');
+        const usersCol = db.collection('users');
+
+        const automations = await autoCol.find({}).sort({ updatedAt: -1, createdAt: -1 }).toArray();
+
+        // Enrich with user information & connected YouTube channel details
+        const userEmails = [...new Set(automations.map(a => a.userEmail).filter(Boolean))];
+        const userDocs = await usersCol.find({ email: { $in: userEmails } }).toArray();
+        const userMap = new Map();
+        userDocs.forEach(u => userMap.set(String(u.email).toLowerCase(), u));
+
+        const enriched = automations.map(a => {
+          const u = userMap.get(String(a.userEmail || '').toLowerCase());
+          const channels = u?.youtubeChannels || [];
+          const targetChannel = (a.selectedChannelId && channels.find(c => c.channelId === a.selectedChannelId)) || channels[0] || null;
+          return {
+            ...a,
+            id: String(a._id),
+            userDisplayName: u?.name || u?.email?.split('@')[0] || 'User',
+            channelTitle: targetChannel?.channelTitle || a.channelTitle || 'No YouTube Connected',
+            channelId: targetChannel?.channelId || a.selectedChannelId || null,
+            channelAvatar: targetChannel?.thumbnailUrl || null,
+            hasChannel: !!targetChannel,
+            tokenValid: targetChannel ? !!targetChannel.tokens?.access_token : false
+          };
+        });
+
+        const activeCount = enriched.filter(a => a.status === 'ACTIVE').length;
+        const pausedCount = enriched.filter(a => a.status === 'PAUSED').length;
+        const completedCount = enriched.filter(a => a.status === 'COMPLETED').length;
+        const totalQueuedTopics = enriched.reduce((sum, a) => sum + (Array.isArray(a.upcomingTopics) ? a.upcomingTopics.length : 0), 0);
+        const totalAutomatedUploads = enriched.reduce((sum, a) => sum + Number(a.completedDays || 0), 0);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            automations: enriched,
+            stats: {
+              total: enriched.length,
+              active: activeCount,
+              paused: pausedCount,
+              completed: completedCount,
+              totalQueuedTopics,
+              totalAutomatedUploads
+            }
+          })
+        };
+      }
+
+      case 'admin-toggle-automation': {
+        const { automationId, status } = body;
+        const autoCol = db.collection('template_automations');
+
+        let query = {};
+        try {
+          query = { _id: new ObjectId(String(automationId)) };
+        } catch (_) {
+          query = { $or: [{ _id: automationId }, { userEmail: String(automationId).toLowerCase() }] };
+        }
+
+        const current = await autoCol.findOne(query);
+        if (!current) {
+          return {
+            statusCode: 404,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Automation document not found.' })
+          };
+        }
+
+        const newStatus = status || (current.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE');
+        const now = new Date();
+        let nextRunAt = current.nextRunAt;
+        if (newStatus === 'ACTIVE' && (!nextRunAt || new Date(nextRunAt) <= now)) {
+          nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        }
+
+        await autoCol.updateOne(query, {
+          $set: {
+            status: newStatus,
+            nextRunAt: newStatus === 'ACTIVE' ? nextRunAt : current.nextRunAt,
+            updatedAt: now
+          },
+          $push: {
+            executionLogs: {
+              $each: [{
+                timestamp: now,
+                status: 'admin_action',
+                message: `Master Admin toggled status to ${newStatus}.`
+              }],
+              $slice: -30
+            }
+          }
+        });
+
+        await logAdminAction(db, 'ADMIN_TOGGLE_AUTOMATION', { automationId, newStatus, userEmail: current.userEmail }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            status: newStatus,
+            message: `Automation for ${current.userEmail} updated to ${newStatus}.`
+          })
+        };
+      }
+
+      case 'admin-run-automation': {
+        const { automationId } = body;
+        const autoCol = db.collection('template_automations');
+
+        let query = {};
+        try {
+          query = { _id: new ObjectId(String(automationId)) };
+        } catch (_) {
+          query = { $or: [{ _id: automationId }, { userEmail: String(automationId).toLowerCase() }] };
+        }
+
+        const current = await autoCol.findOne(query);
+        if (!current) {
+          return {
+            statusCode: 404,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Automation document not found.' })
+          };
+        }
+
+        const defaultWebhooks = {
+          'world-mysteries': 'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
+          'last-24-hours':   'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
+          '3am-horror':      'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror'
+        };
+
+        const templateMeta = {
+          'world-mysteries': { name: 'World Mysteries & Paranormal [5 Direct Video Scenes - 75s]', title: 'World Mysteries & Paranormal', visualStyle: 'Dark Cinematic Mystery', language: 'English' },
+          'last-24-hours':   { name: 'Last 24 Hours [5 Direct Video Scenes - 75s]', title: 'Last 24 Hours', visualStyle: 'Cinematic Realistic', language: 'Hinglish' },
+          '3am-horror':      { name: '3-AM Horror [5 Direct Video Scenes - 75s]', title: '3-AM Horror', visualStyle: 'Dark Horror Cinematic', language: 'Hinglish' }
+        };
+
+        const templateId = current.templateId || 'world-mysteries';
+        const n8nCfg = await getN8nConfig();
+        const dynamicWebhooks = {
+          'world-mysteries': n8nCfg.webhooks?.template_world_mysteries || defaultWebhooks['world-mysteries'],
+          'last-24-hours':   n8nCfg.webhooks?.template_last_24_hours   || defaultWebhooks['last-24-hours'],
+          '3am-horror':      n8nCfg.webhooks?.template_3am_horror      || defaultWebhooks['3am-horror']
+        };
+        const webhookUrl = dynamicWebhooks[templateId];
+
+        // Resolve user channel
+        const userDoc = await db.collection('users').findOne({
+          $or: [{ id: current.userId }, { _id: current.userId }, { email: current.userEmail }]
+        });
+        const channels = userDoc?.youtubeChannels || [];
+        const targetChannel = (current.selectedChannelId && channels.find(c => c.channelId === current.selectedChannelId)) || channels[0] || null;
+
+        let userYouTubeAccessToken = '';
+        let userYouTubeChannelTitle = '';
+        let userYouTubeChannelId = '';
+        if (targetChannel && targetChannel.tokens) {
+          try {
+            userYouTubeAccessToken = await getFreshGoogleToken(targetChannel, 'youtubeChannels') || '';
+            userYouTubeChannelTitle = targetChannel.channelTitle || '';
+            userYouTubeChannelId = targetChannel.channelId || '';
+          } catch (_) {}
+        }
+
+        // Pick next topic
+        let nextTopic = '';
+        let updatedUpcomingTopics = [...(current.upcomingTopics || [])];
+        if (updatedUpcomingTopics.length > 0) {
+          nextTopic = updatedUpcomingTopics.shift().trim();
+        }
+
+        const completedDays = Number(current.completedDays || 0) + 1;
+        const totalDays = Number(current.totalDays || 0);
+        const threadId = `thread-auto-admin-${templateId}-${Date.now()}`;
+        const sessionId = `session-auto-admin-${Date.now()}`;
+        const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
+        const host = event.headers.host || 'bangai.netlify.app';
+        const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
+        const meta = templateMeta[templateId] || templateMeta['world-mysteries'];
+
+        const postData = JSON.stringify({
+          templateId,
+          templateName: meta.name,
+          prompt: nextTopic,
+          isAutomatedDailyRun: true,
+          dayNumber: completedDays,
+          callbackUrl,
+          threadId,
+          sessionId,
+          userId: current.userId || 'admin-triggered',
+          userEmail: current.userEmail,
+          webhookSecret,
+          autoUploadToYouTube: !!userYouTubeAccessToken,
+          userYouTubeAccessToken,
+          userYouTubeChannelTitle,
+          userYouTubeChannelId,
+          voiceId: current.voiceId || 'adam',
+          voiceSpeed: current.voiceSpeed !== undefined ? Number(current.voiceSpeed) : 1.20,
+          visualStyle: meta.visualStyle,
+          language: meta.language,
+          musicId: current.musicId || 'mystery2',
+          musicVolume: current.musicVolume !== undefined ? Number(current.musicVolume) : 0.08,
+          timestamp: new Date().toISOString()
+        });
+
+        // Record thread
+        await db.collection('threads').updateOne(
+          { threadId },
+          {
+            $set: {
+              threadId,
+              userId: current.userId || '',
+              userEmail: current.userEmail,
+              title: `${meta.title} (Day ${completedDays} · Admin Test Run)`,
+              templateId,
+              status: 'started',
+              isAutonomousDaily: true,
+              updatedAt: new Date()
+            },
+            $setOnInsert: { createdAt: new Date() }
+          },
+          { upsert: true }
+        );
+
+        await db.collection('template_generations').insertOne({
+          userId: current.userId || '',
+          userEmail: current.userEmail,
+          templateId,
+          templateTitle: `${meta.title} · Day ${completedDays} (Admin Run)`,
+          threadId,
+          prompt: nextTopic,
+          channelTitle: userYouTubeChannelTitle || null,
+          channelId: userYouTubeChannelId || null,
+          isAutomatedDaily: true,
+          dayNumber: completedDays,
+          createdAt: new Date(),
+          status: 'dispatched',
+          resetByAdmin: false
+        });
+
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-webhook-secret': webhookSecret },
+          body: postData
+        });
+
+        const now = new Date();
+        const nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const isFinished = totalDays > 0 && completedDays >= totalDays;
+        const newStatus = isFinished ? 'COMPLETED' : current.status;
+
+        const historyItem = {
+          day: completedDays,
+          topic: nextTopic || '(AI Auto-Brainstorm)',
+          threadId,
+          channelTitle: userYouTubeChannelTitle || 'Auto-Upload',
+          executedAt: now,
+          status: 'dispatched',
+          isAdminTrigger: true
+        };
+
+        await autoCol.updateOne(query, {
+          $set: {
+            completedDays,
+            upcomingTopics: updatedUpcomingTopics,
+            lastRunAt: now,
+            nextRunAt: isFinished ? null : nextRunAt,
+            status: newStatus,
+            updatedAt: now
+          },
+          $push: {
+            topicsHistory: { $each: [historyItem], $slice: -50 },
+            executionLogs: {
+              $each: [{
+                timestamp: now,
+                status: 'admin_action',
+                day: completedDays,
+                threadId,
+                message: `Master Admin triggered instant run for Day ${completedDays}.`
+              }],
+              $slice: -30
+            }
+          }
+        });
+
+        await logAdminAction(db, 'ADMIN_TRIGGERED_AUTOMATION_RUN', { automationId, userEmail: current.userEmail, dayNumber: completedDays }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            dayNumber: completedDays,
+            threadId,
+            message: `Instant video generation triggered successfully for ${current.userEmail} (Day ${completedDays}).`
+          })
+        };
+      }
+
+      case 'admin-update-automation': {
+        const { automationId, updates } = body;
+        const autoCol = db.collection('template_automations');
+
+        let query = {};
+        try {
+          query = { _id: new ObjectId(String(automationId)) };
+        } catch (_) {
+          query = { $or: [{ _id: automationId }, { userEmail: String(automationId).toLowerCase() }] };
+        }
+
+        const validFields = ['templateId', 'totalDays', 'completedDays', 'voiceId', 'voiceSpeed', 'musicId', 'musicVolume', 'status', 'upcomingTopics'];
+        const sanitized = {};
+        for (const k of validFields) {
+          if (updates && updates[k] !== undefined) sanitized[k] = updates[k];
+        }
+        sanitized.updatedAt = new Date();
+
+        await autoCol.updateOne(query, {
+          $set: sanitized,
+          $push: {
+            executionLogs: {
+              $each: [{
+                timestamp: new Date(),
+                status: 'admin_action',
+                message: `Master Admin updated automation parameters.`
+              }],
+              $slice: -30
+            }
+          }
+        });
+
+        await logAdminAction(db, 'ADMIN_UPDATED_AUTOMATION', { automationId, updates: sanitized }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: 'Automation settings updated successfully.' })
+        };
+      }
+
+      case 'admin-delete-automation': {
+        const { automationId } = body;
+        const autoCol = db.collection('template_automations');
+
+        let query = {};
+        try {
+          query = { _id: new ObjectId(String(automationId)) };
+        } catch (_) {
+          query = { $or: [{ _id: automationId }, { userEmail: String(automationId).toLowerCase() }] };
+        }
+
+        const current = await autoCol.findOne(query);
+        await autoCol.deleteOne(query);
+
+        await logAdminAction(db, 'ADMIN_DELETED_AUTOMATION', { automationId, userEmail: current?.userEmail }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: 'Automation record deleted successfully.' })
         };
       }
 

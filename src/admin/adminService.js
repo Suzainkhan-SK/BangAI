@@ -133,6 +133,18 @@ export const adminService = {
   deleteTemplate: async (templateId) =>
     adminFetch('delete-template', 'POST', { templateId }),
 
+  // 8B. Autonomous 24-Hour Template Automations Governance
+  getAllTemplateAutomations: async () =>
+    adminFetch('get-all-template-automations', 'GET'),
+  adminToggleAutomation: async (automationId, status) =>
+    adminFetch('admin-toggle-automation', 'POST', { automationId, status }),
+  adminRunAutomation: async (automationId) =>
+    adminFetch('admin-run-automation', 'POST', { automationId }),
+  adminUpdateAutomation: async (automationId, updates) =>
+    adminFetch('admin-update-automation', 'POST', { automationId, updates }),
+  adminDeleteAutomation: async (automationId) =>
+    adminFetch('admin-delete-automation', 'POST', { automationId }),
+
   // 9. Users & Quotas
   getUsers: async (limit = 100) => adminFetch('get-users', 'GET', null, { limit }),
   updateUserQuota: async (email, tier, credits, isBanned) =>

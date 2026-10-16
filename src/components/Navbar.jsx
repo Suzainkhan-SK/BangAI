@@ -3,7 +3,8 @@ import {
   Sparkles, Sun, Moon, Zap, User, ArrowRight,
   ChevronDown, Menu, LogOut, Settings as SettingsIcon,
   Video, LayoutDashboard, X, PanelLeft, Film, Bot,
-  Mic2, Type, Music, Code2, CreditCard, Image as ImageIcon
+  Mic2, Type, Music, Code2, CreditCard, Image as ImageIcon,
+  Palette
 } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
 import { useBreakpoint, useBodyScrollLock } from '../hooks/useMediaQuery';
@@ -70,17 +71,21 @@ export default function Navbar({
     }
   };
 
-  // Streamlined primary items with Thumbnail Studio
+  // Streamlined primary items with Design Studio & API
   const PRIMARY_LINKS = user
     ? [
         { label: 'Dashboard', view: 'dashboard', icon: LayoutDashboard },
         { label: 'AI Templates', view: 'templates', icon: Zap, badge: 'PRO' },
         { label: 'Stock Studio', view: 'basic-templates', icon: Film, badge: 'STOCK' },
         { label: 'Thumbnail Studio', view: 'thumbnails', icon: ImageIcon, badge: 'HOT' },
+        { label: 'Design Studio', view: 'studio/voices', icon: Palette },
+        { label: 'API', view: 'api', icon: Code2 },
         { label: 'Chat', view: 'chat', icon: Bot, badge: '4.5' },
       ]
     : [
         { label: 'Home', view: 'landing' },
+        { label: 'Design Studio', view: 'studio/voices', icon: Palette },
+        { label: 'API', view: 'api', icon: Code2 },
         { label: 'AI Chat', view: 'chat', icon: Bot, badge: '4.5' },
         { label: 'Features', view: 'landing', anchor: '#features' },
         { label: 'Showcase', view: 'landing', anchor: '#showcase' },

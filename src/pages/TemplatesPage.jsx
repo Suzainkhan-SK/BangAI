@@ -4,7 +4,8 @@ import {
   ChevronDown, ChevronUp, ChevronRight, Mic, Type, Play,
   Square, XCircle, ExternalLink, Cpu, Brain,
   Clapperboard, Mic2, Video, RefreshCw, Film, ArrowRight,
-  Sliders, Search, X, Sparkles, Eye, ShieldCheck, Clock, Lock, ShieldAlert
+  Sliders, Search, X, Sparkles, Eye, ShieldCheck, Clock, Lock, ShieldAlert,
+  Pause, Plus, Trash2, Calendar, ListOrdered, Share2, Check, Download
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 import GenerationThinkingAnimation from '../components/Dashboard/GenerationThinkingAnimation';
@@ -177,6 +178,167 @@ export default function TemplatesPage({
   useEffect(() => {
     fetchQuotaStatus();
   }, [user]);
+
+  // ── 24-Hour Autonomous Autopilot State & Handlers ──
+  const [showAutomateModal, setShowAutomateModal] = useState(false);
+  const [automationConfig, setAutomationConfig] = useState({
+    status: 'PAUSED',
+    templateId: 'world-mysteries',
+    totalDays: 7,
+    completedDays: 0,
+    upcomingTopics: [],
+    voiceId: 'adam',
+    voiceSpeed: 1.20,
+    musicId: 'mystery2',
+    musicVolume: 0.08,
+    selectedChannelId: '',
+    autoUploadToYouTube: true,
+    nextRunAt: null,
+    lastRunAt: null,
+    topicsHistory: []
+  });
+  const [loadingAutomation, setLoadingAutomation] = useState(false);
+  const [savingAutomation, setSavingAutomation] = useState(false);
+  const [triggeringRunNow, setTriggeringRunNow] = useState(false);
+  const [newTopicInput, setNewTopicInput] = useState('');
+  const [autoStatusMessage, setAutoStatusMessage] = useState('');
+
+  // Fetch user automation config
+  const fetchAutomationConfig = async () => {
+    if (!user) return;
+    setLoadingAutomation(true);
+    try {
+      const token = getAuthToken() || '';
+      const res = await fetch('/.netlify/functions/template-automation', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.automation) {
+          setAutomationConfig(data.automation);
+        }
+      }
+    } catch (e) {
+      console.warn('[TemplatesPage] fetchAutomation error:', e);
+    } finally {
+      setLoadingAutomation(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchAutomationConfig();
+    }
+  }, [user]);
+
+  const handleSaveAutomation = async (overrides = {}) => {
+    setSavingAutomation(true);
+    setAutoStatusMessage('');
+    try {
+      const token = getAuthToken() || '';
+      const payload = {
+        action: 'save',
+        ...automationConfig,
+        ...overrides,
+        selectedChannelId: selectedChannel?.channelId || automationConfig.selectedChannelId
+      };
+      const res = await fetch('/.netlify/functions/template-automation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAutomationConfig(data.automation || { ...automationConfig, ...payload });
+        setAutoStatusMessage(data.message || '✅ Automation settings saved!');
+        audioEngine.playSfx('success');
+      } else {
+        setAutoStatusMessage(`❌ Error: ${data.error || 'Failed to save settings'}`);
+      }
+    } catch (err) {
+      setAutoStatusMessage(`❌ Error: ${err.message}`);
+    } finally {
+      setSavingAutomation(false);
+    }
+  };
+
+  const handleToggleAutomation = async () => {
+    setSavingAutomation(true);
+    setAutoStatusMessage('');
+    try {
+      const token = getAuthToken() || '';
+      const res = await fetch('/.netlify/functions/template-automation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ action: 'toggle' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAutomationConfig(prev => ({ ...prev, status: data.status }));
+        setAutoStatusMessage(data.message);
+        audioEngine.playSfx('click');
+        fetchAutomationConfig();
+      } else {
+        setAutoStatusMessage(`❌ Error: ${data.error}`);
+      }
+    } catch (err) {
+      setAutoStatusMessage(`❌ Error: ${err.message}`);
+    } finally {
+      setSavingAutomation(false);
+    }
+  };
+
+  const handleTriggerRunNow = async () => {
+    if (triggeringRunNow) return;
+    setTriggeringRunNow(true);
+    setAutoStatusMessage("⏳ Launching today's autonomous video generation & YouTube auto-upload...");
+    audioEngine.playSfx('shimmer');
+    try {
+      const token = getAuthToken() || '';
+      const res = await fetch('/.netlify/functions/template-automation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ action: 'run-now' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAutoStatusMessage(`🚀 Video successfully dispatched! Autonomous rendering in progress.`);
+        audioEngine.playSfx('success');
+        fetchAutomationConfig();
+        fetchQuotaStatus();
+      } else {
+        setAutoStatusMessage(`❌ Run failed: ${data.error || data.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setAutoStatusMessage(`❌ Run failed: ${err.message}`);
+    } finally {
+      setTriggeringRunNow(false);
+    }
+  };
+
+  const handleAddTopic = (e) => {
+    e.preventDefault();
+    if (!newTopicInput.trim()) return;
+    const updated = [...(automationConfig.upcomingTopics || []), newTopicInput.trim()];
+    setAutomationConfig(prev => ({ ...prev, upcomingTopics: updated }));
+    setNewTopicInput('');
+    audioEngine.playSfx('click');
+  };
+
+  const handleRemoveTopic = (indexToRemove) => {
+    const updated = (automationConfig.upcomingTopics || []).filter((_, idx) => idx !== indexToRemove);
+    setAutomationConfig(prev => ({ ...prev, upcomingTopics: updated }));
+    audioEngine.playSfx('click');
+  };
 
   // Cooldown countdown ticker when daily limit is reached
   useEffect(() => {
@@ -820,6 +982,39 @@ export default function TemplatesPage({
                         </>
                       )}
                     </button>
+                    {/* Automate Chip on Mobile */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        audioEngine.playSfx('click');
+                        setShowAutomateModal(true);
+                      }}
+                      style={{
+                        gridColumn: '1 / -1',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '7px',
+                        padding: '7px 12px',
+                        borderRadius: '10px',
+                        background: automationConfig.status === 'ACTIVE'
+                          ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(6, 182, 212, 0.14))'
+                          : 'linear-gradient(135deg, rgba(255, 79, 0, 0.14), rgba(139, 92, 246, 0.12))',
+                        border: automationConfig.status === 'ACTIVE'
+                          ? '1px solid rgba(16, 185, 129, 0.5)'
+                          : '1px solid rgba(255, 79, 0, 0.35)',
+                        color: automationConfig.status === 'ACTIVE' ? '#10b981' : 'var(--text-primary)',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span style={{
+                        width: '6px', height: '6px', borderRadius: '50%',
+                        background: automationConfig.status === 'ACTIVE' ? '#10b981' : '#ff4f00'
+                      }} />
+                      <span>⚡ 24h Autopilot: {automationConfig.status === 'ACTIVE' ? `Active (Day ${Number(automationConfig.completedDays || 0) + 1}/${automationConfig.totalDays || '∞'})` : 'Automate Videos'}</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -935,6 +1130,58 @@ export default function TemplatesPage({
                           <span>Daily Quota: {quotaStatus.remaining}/{quotaStatus.dailyLimit} Video{quotaStatus.dailyLimit > 1 ? 's' : ''} Left</span>
                         </>
                       )}
+                    </button>
+                  )}
+
+                  {/* ⚡ Automate Section in Top Right Corner */}
+                  {user && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        audioEngine.playSfx('click');
+                        setShowAutomateModal(true);
+                      }}
+                      title="Autonomous 24-Hour Video Autopilot Engine"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '7px',
+                        padding: '5px 14px',
+                        borderRadius: '99px',
+                        background: automationConfig.status === 'ACTIVE'
+                          ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(6, 182, 212, 0.15))'
+                          : 'linear-gradient(135deg, rgba(255, 79, 0, 0.15), rgba(139, 92, 246, 0.12))',
+                        border: automationConfig.status === 'ACTIVE'
+                          ? '1px solid rgba(16, 185, 129, 0.5)'
+                          : '1px solid rgba(255, 79, 0, 0.4)',
+                        color: automationConfig.status === 'ACTIVE' ? '#10b981' : 'var(--text-primary)',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: automationConfig.status === 'ACTIVE' ? '0 0 16px rgba(16, 185, 129, 0.2)' : 'none',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <span style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: automationConfig.status === 'ACTIVE' ? '#10b981' : '#ff4f00',
+                        boxShadow: automationConfig.status === 'ACTIVE' ? '0 0 8px #10b981' : 'none'
+                      }} />
+                      <span>⚡ Automate</span>
+                      <span style={{
+                        padding: '1px 7px',
+                        borderRadius: '6px',
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        background: automationConfig.status === 'ACTIVE' ? 'rgba(16,185,129,0.2)' : 'rgba(255,79,0,0.15)',
+                        color: automationConfig.status === 'ACTIVE' ? '#10b981' : '#ff4f00'
+                      }}>
+                        {automationConfig.status === 'ACTIVE'
+                          ? `Day ${Number(automationConfig.completedDays || 0) + 1}/${automationConfig.totalDays || '∞'}`
+                          : '24h Autopilot'}
+                      </span>
                     </button>
                   )}
                 </div>
@@ -2135,6 +2382,561 @@ export default function TemplatesPage({
                 }}
               >
                 Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ⚡ AUTONOMOUS 24-HOUR VIDEO AUTOPILOT MODAL ═══ */}
+      {showAutomateModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 99999,
+          background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(12px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: isMobile ? '12px' : '24px'
+        }}>
+          <div style={{
+            width: '100%', maxWidth: '780px', maxHeight: '92vh',
+            background: 'var(--bg-card)',
+            border: automationConfig.status === 'ACTIVE'
+              ? '1px solid rgba(16, 185, 129, 0.4)'
+              : '1px solid rgba(255, 79, 0, 0.35)',
+            borderRadius: '24px',
+            boxShadow: automationConfig.status === 'ACTIVE'
+              ? '0 25px 70px rgba(0, 0, 0, 0.8), 0 0 40px rgba(16, 185, 129, 0.15)'
+              : '0 25px 70px rgba(0, 0, 0, 0.8), 0 0 40px rgba(255, 79, 0, 0.12)',
+            padding: isMobile ? '18px 16px' : '28px 30px',
+            display: 'flex', flexDirection: 'column', gap: '20px',
+            overflowY: 'auto'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '46px', height: '46px', borderRadius: '14px',
+                  background: automationConfig.status === 'ACTIVE'
+                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(6, 182, 212, 0.2))'
+                    : 'linear-gradient(135deg, rgba(255, 79, 0, 0.2), rgba(139, 92, 246, 0.2))',
+                  border: automationConfig.status === 'ACTIVE'
+                    ? '1px solid rgba(16, 185, 129, 0.45)'
+                    : '1px solid rgba(255, 79, 0, 0.4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: automationConfig.status === 'ACTIVE' ? '#10b981' : '#ff4f00',
+                  flexShrink: 0
+                }}>
+                  <Zap size={22} fill={automationConfig.status === 'ACTIVE' ? '#10b981' : '#ff4f00'} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <h2 style={{ margin: 0, fontSize: isMobile ? '18px' : '22px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                      Autonomous 24-Hour Video Autopilot
+                    </h2>
+                    <span style={{
+                      padding: '2px 8px', borderRadius: '99px',
+                      background: automationConfig.status === 'ACTIVE' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)',
+                      color: automationConfig.status === 'ACTIVE' ? '#10b981' : '#f59e0b',
+                      fontSize: '11px', fontWeight: 800
+                    }}>
+                      ● {automationConfig.status === 'ACTIVE' ? 'AUTOPILOT RUNNING' : 'PAUSED'}
+                    </span>
+                  </div>
+                  <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                    Auto-generates and publishes a high-retention 75s+ video directly to your YouTube channel every 24 hours — zero manual work.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAutomateModal(false)}
+                style={{
+                  background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-muted)', width: '32px', height: '32px', borderRadius: '50%',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Status Feedback Toast */}
+            {autoStatusMessage && (
+              <div style={{
+                padding: '10px 14px', borderRadius: '12px',
+                background: autoStatusMessage.startsWith('❌')
+                  ? 'rgba(239, 68, 68, 0.12)'
+                  : 'rgba(16, 185, 129, 0.12)',
+                border: `1px solid ${autoStatusMessage.startsWith('❌') ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+                color: autoStatusMessage.startsWith('❌') ? '#ef4444' : '#10b981',
+                fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px'
+              }}>
+                <span>{autoStatusMessage.startsWith('❌') ? '⚠️' : '⚡'}</span>
+                <span>{autoStatusMessage}</span>
+              </div>
+            )}
+
+            {/* Master Control & Countdown Banner */}
+            <div style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: '16px',
+              padding: '16px 20px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexWrap: 'wrap', gap: '14px'
+            }}>
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  24-Hour Cycle Status
+                </span>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: automationConfig.status === 'ACTIVE' ? '#10b981' : '#f59e0b', marginTop: '2px' }}>
+                  {automationConfig.status === 'ACTIVE' ? (
+                    automationConfig.nextRunAt ? (
+                      `Next Video in ${Math.max(0, Math.floor((new Date(automationConfig.nextRunAt) - Date.now()) / 3600000))}h ${Math.max(0, Math.floor(((new Date(automationConfig.nextRunAt) - Date.now()) % 3600000) / 60000))}m`
+                    ) : 'Scheduled Daily (Every 24h)'
+                  ) : 'Autopilot Paused'}
+                </div>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                  Completed: <strong>Day {automationConfig.completedDays || 0}</strong> {automationConfig.totalDays > 0 ? `of ${automationConfig.totalDays} Days` : '(Ongoing Daily)'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {/* Pause / Resume Button */}
+                <button
+                  type="button"
+                  onClick={handleToggleAutomation}
+                  disabled={savingAutomation}
+                  style={{
+                    padding: '8px 16px', borderRadius: '10px',
+                    background: automationConfig.status === 'ACTIVE' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.18)',
+                    border: `1px solid ${automationConfig.status === 'ACTIVE' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
+                    color: automationConfig.status === 'ACTIVE' ? '#f59e0b' : '#10b981',
+                    fontSize: '12.5px', fontWeight: 700, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}
+                >
+                  {automationConfig.status === 'ACTIVE' ? <Pause size={14} /> : <Play size={14} />}
+                  <span>{automationConfig.status === 'ACTIVE' ? 'Pause Autopilot' : 'Resume Autopilot'}</span>
+                </button>
+
+                {/* Run Today's Video Now */}
+                <button
+                  type="button"
+                  onClick={handleTriggerRunNow}
+                  disabled={triggeringRunNow || savingAutomation}
+                  style={{
+                    padding: '8px 16px', borderRadius: '10px',
+                    background: 'var(--accent-primary, #ff4f00)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontSize: '12.5px', fontWeight: 700, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    boxShadow: '0 2px 10px rgba(255, 79, 0, 0.3)'
+                  }}
+                >
+                  {triggeringRunNow ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                  <span>{triggeringRunNow ? 'Dispatching...' : "Run Today's Video Now"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Target YouTube Channel */}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                1. Target YouTube Channel (Auto-Upload Destination)
+              </label>
+              <div style={{
+                background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+                borderRadius: '14px', padding: '14px 16px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                flexWrap: 'wrap', gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <YouTubeIcon size={22} />
+                  <div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {selectedChannel?.title || 'No YouTube Channel Connected'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      {channels.length > 0 ? (
+                        isChannelTokenExpired ? (
+                          <span style={{ color: '#ef4444', fontWeight: 700 }}>● Connection Expired (Fix Needed)</span>
+                        ) : (
+                          <span style={{ color: '#10b981', fontWeight: 700 }}>● Active & Connected for Direct Uploads</span>
+                        )
+                      ) : (
+                        'Connect a channel to enable hands-free automatic video uploads'
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {channels.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => { audioEngine.playSfx('click'); openGoogleOAuthPopup('templates'); }}
+                    style={{
+                      padding: '7px 14px', borderRadius: '8px',
+                      background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+                      color: '#ef4444', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                    }}
+                  >
+                    Connect YouTube Channel
+                  </button>
+                ) : isChannelTokenExpired ? (
+                  <button
+                    type="button"
+                    onClick={() => { audioEngine.playSfx('shimmer'); openGoogleOAuthPopup('templates'); }}
+                    style={{
+                      padding: '7px 14px', borderRadius: '8px',
+                      background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+                      color: '#ef4444', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+                    }}
+                  >
+                    Re-authenticate Token
+                  </button>
+                ) : (
+                  <span style={{ fontSize: '11.5px', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <CheckCircle2 size={14} /> Ready for 24h Autopilot
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Template Pipeline Selector */}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                2. Select Template to Automate
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '10px' }}>
+                {[
+                  {
+                    id: 'world-mysteries',
+                    emoji: '🛸',
+                    title: 'World Mysteries',
+                    sub: 'Paranormal & Enigmas (75s+)',
+                    color: '#6366f1'
+                  },
+                  {
+                    id: 'last-24-hours',
+                    emoji: '⏳',
+                    title: 'Last 24 Hours',
+                    sub: 'True Historic Stories (75s+)',
+                    color: '#f59e0b'
+                  },
+                  {
+                    id: '3am-horror',
+                    emoji: '👻',
+                    title: '3-AM Horror',
+                    sub: 'Dark Psychological Terror (75s+)',
+                    color: '#ef4444'
+                  }
+                ].map(t => {
+                  const isSelected = automationConfig.templateId === t.id;
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => setAutomationConfig(prev => ({ ...prev, templateId: t.id }))}
+                      style={{
+                        padding: '14px', borderRadius: '14px', cursor: 'pointer',
+                        background: isSelected ? 'var(--bg-elevated)' : 'var(--bg-card)',
+                        border: isSelected ? `2px solid ${t.color}` : '1px solid var(--border-subtle)',
+                        boxShadow: isSelected ? `0 0 16px ${t.color}33` : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ fontSize: '24px', marginBottom: '6px' }}>{t.emoji}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-primary)' }}>{t.title}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{t.sub}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Duration (Days to run) */}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                3. Automation Duration (Days to Run)
+              </label>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {[
+                  { days: 3, label: '3 Days' },
+                  { days: 7, label: '7 Days (Popular)' },
+                  { days: 14, label: '14 Days' },
+                  { days: 30, label: '30 Days' },
+                  { days: 0, label: 'Ongoing (∞ Daily)' }
+                ].map(d => {
+                  const isSelected = Number(automationConfig.totalDays) === d.days;
+                  return (
+                    <button
+                      key={d.days}
+                      type="button"
+                      onClick={() => setAutomationConfig(prev => ({ ...prev, totalDays: d.days }))}
+                      style={{
+                        padding: '8px 14px', borderRadius: '10px',
+                        background: isSelected ? 'var(--accent-primary, #ff4f00)' : 'var(--bg-elevated)',
+                        border: `1px solid ${isSelected ? 'var(--accent-primary, #ff4f00)' : 'var(--border-subtle)'}`,
+                        color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                        fontSize: '12px', fontWeight: isSelected ? 700 : 500, cursor: 'pointer'
+                      }}
+                    >
+                      {d.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Upcoming Topics Schedule (Day 1, Day 2, Day 3...) */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  4. Upcoming Days Topics Queue (Optional)
+                </label>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  {(automationConfig.upcomingTopics || []).length} Custom Topic{(automationConfig.upcomingTopics || []).length !== 1 ? 's' : ''} Queued
+                </span>
+              </div>
+              <p style={{ margin: '0 0 10px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                Optionally enter topics for specific upcoming days. If a day is left blank or the queue runs out, BangAI's AI autonomously researches a viral topic.
+              </p>
+
+              {/* Topics Queue List */}
+              {(automationConfig.upcomingTopics || []).length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                  {(automationConfig.upcomingTopics || []).map((topic, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                        padding: '8px 12px', borderRadius: '10px',
+                        background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                        <span style={{
+                          padding: '2px 6px', borderRadius: '6px',
+                          background: 'rgba(139, 92, 246, 0.2)', color: '#c084fc',
+                          fontSize: '11px', fontWeight: 800, flexShrink: 0
+                        }}>
+                          Day {Number(automationConfig.completedDays || 0) + 1 + idx}
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {topic}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTopic(idx)}
+                        style={{
+                          background: 'none', border: 'none', padding: '4px',
+                          color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0
+                        }}
+                        title="Remove topic"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{
+                  padding: '12px 14px', borderRadius: '10px',
+                  background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.25)',
+                  color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '10px',
+                  display: 'flex', alignItems: 'center', gap: '8px'
+                }}>
+                  <Sparkles size={16} color="var(--admin-accent-cyan, #06b6d4)" />
+                  <span>
+                    <strong>Autonomous Brainstorming Active:</strong> BangAI will automatically research and write fresh, high-retention viral topics for each 24h upload.
+                  </span>
+                </div>
+              )}
+
+              {/* Add Topic Input */}
+              <form onSubmit={handleAddTopic} style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder={`Enter topic for Day ${Number(automationConfig.completedDays || 0) + 1 + (automationConfig.upcomingTopics || []).length} (e.g. Mystery of the Lost Submarine)`}
+                  value={newTopicInput}
+                  onChange={(e) => setNewTopicInput(e.target.value)}
+                  style={{
+                    flex: 1, padding: '9px 12px', borderRadius: '10px',
+                    background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
+                    color: 'var(--text-primary)', fontSize: '12.5px', outline: 'none'
+                  }}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    padding: '9px 14px', borderRadius: '10px',
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+                    color: 'var(--text-primary)', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0
+                  }}
+                >
+                  <Plus size={14} />
+                  <span>Add Day</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Voice & Narration Customizations */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
+                  5. Narration Voice
+                </label>
+                <select
+                  value={automationConfig.voiceId || 'adam'}
+                  onChange={(e) => setAutomationConfig(prev => ({ ...prev, voiceId: e.target.value }))}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '10px',
+                    background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
+                    color: 'var(--text-primary)', fontSize: '12.5px', outline: 'none'
+                  }}
+                >
+                  <option value="adam">Adam (Deep Narrative - Default)</option>
+                  <option value="marcus">Marcus (Authoritative Mystery)</option>
+                  <option value="sarah">Sarah (Engaging Viral)</option>
+                  <option value="liam">Liam (Dramatic Suspense)</option>
+                  <option value="george">George (Warm British)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
+                  6. Voice Speed ({automationConfig.voiceSpeed || 1.20}x)
+                </label>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {[1.10, 1.15, 1.20, 1.25, 1.30].map(s => {
+                    const isSelected = Number(automationConfig.voiceSpeed) === s;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setAutomationConfig(prev => ({ ...prev, voiceSpeed: s }))}
+                        style={{
+                          flex: 1, padding: '8px 0', borderRadius: '8px',
+                          background: isSelected ? 'var(--accent-primary, #ff4f00)' : 'var(--bg-elevated)',
+                          border: `1px solid ${isSelected ? 'var(--accent-primary, #ff4f00)' : 'var(--border-subtle)'}`,
+                          color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                          fontSize: '11px', fontWeight: isSelected ? 800 : 600, cursor: 'pointer'
+                        }}
+                      >
+                        {s.toFixed(2)}x
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Execution History */}
+            {automationConfig.topicsHistory && automationConfig.topicsHistory.length > 0 && (
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                  7. Autonomous Uploads History
+                </label>
+                <div style={{
+                  maxHeight: '160px', overflowY: 'auto',
+                  borderRadius: '12px', border: '1px solid var(--border-subtle)',
+                  background: 'var(--bg-elevated)'
+                }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                        <th style={{ padding: '8px 12px' }}>Day</th>
+                        <th style={{ padding: '8px 12px' }}>Topic</th>
+                        <th style={{ padding: '8px 12px' }}>Executed</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {automationConfig.topicsHistory.map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          <td style={{ padding: '8px 12px', fontWeight: 800, color: '#10b981' }}>Day {item.day}</td>
+                          <td style={{ padding: '8px 12px', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontWeight: 600 }}>{item.topic}</td>
+                          <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{new Date(item.executedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '6px' }}>
+                              {item.youtubeUrl && (
+                                <a
+                                  href={item.youtubeUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ color: '#ef4444', fontWeight: 700, textDecoration: 'none' }}
+                                >
+                                  YouTube ↗
+                                </a>
+                              )}
+                              {item.videoUrl && (
+                                <a
+                                  href={item.videoUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ color: 'var(--accent-primary, #ff4f00)', fontWeight: 700, textDecoration: 'none' }}
+                                >
+                                  MP4 ↗
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '6px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => handleSaveAutomation({ status: 'ACTIVE' })}
+                disabled={savingAutomation}
+                style={{
+                  flex: 1, minWidth: '180px',
+                  padding: '12px 20px', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                  border: 'none', color: '#ffffff',
+                  fontSize: '13.5px', fontWeight: 800, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  boxShadow: '0 4px 18px rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                {savingAutomation ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
+                <span>Save & Activate 24h Autopilot</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSaveAutomation({ status: 'PAUSED' })}
+                disabled={savingAutomation}
+                style={{
+                  padding: '12px 18px', borderRadius: '12px',
+                  background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '13px', fontWeight: 700, cursor: 'pointer'
+                }}
+              >
+                Save as Paused
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAutomateModal(false)}
+                style={{
+                  padding: '12px 18px', borderRadius: '12px',
+                  background: 'transparent', border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-muted)',
+                  fontSize: '13px', fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Close
               </button>
             </div>
           </div>
