@@ -227,7 +227,6 @@ export default function TemplatesPage({
   const [loadingAutomation, setLoadingAutomation] = useState(false);
   const [savingAutomation, setSavingAutomation] = useState(false);
   const [triggeringRunNow, setTriggeringRunNow] = useState(false);
-  const [newTopicInput, setNewTopicInput] = useState('');
   const [autoStatusMessage, setAutoStatusMessage] = useState('');
 
   // Fetch user automation config
@@ -375,21 +374,6 @@ export default function TemplatesPage({
     } finally {
       setTriggeringRunNow(false);
     }
-  };
-
-  const handleAddTopic = (e) => {
-    e.preventDefault();
-    if (!newTopicInput.trim()) return;
-    const updated = [...(automationConfig.upcomingTopics || []), newTopicInput.trim()];
-    setAutomationConfig(prev => ({ ...prev, upcomingTopics: updated }));
-    setNewTopicInput('');
-    audioEngine.playSfx('click');
-  };
-
-  const handleRemoveTopic = (indexToRemove) => {
-    const updated = (automationConfig.upcomingTopics || []).filter((_, idx) => idx !== indexToRemove);
-    setAutomationConfig(prev => ({ ...prev, upcomingTopics: updated }));
-    audioEngine.playSfx('click');
   };
 
   // Cooldown countdown ticker when daily limit is reached
@@ -2624,74 +2608,150 @@ export default function TemplatesPage({
               </div>
             </div>
 
-            {/* YouTube Destination Row */}
-            <div style={{
-              background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
-              borderRadius: '12px', padding: '10px 14px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              flexWrap: 'wrap', gap: '10px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                {automationTargetChannel?.avatarUrl ? (
-                  <img
-                    src={automationTargetChannel.avatarUrl}
-                    alt={automationTargetChannel.channelTitle || 'Channel'}
-                    style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
-                ) : (
-                  <div style={{
-                    width: '28px', height: '28px', borderRadius: '50%',
-                    background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    <YouTubeIcon size={16} />
-                  </div>
-                )}
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {automationTargetChannel?.channelTitle || automationTargetChannel?.title || 'No YouTube Channel'}
-                  </div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                    {channels.length > 0 ? (
-                      isAutomationChannelExpired ? (
-                        <span style={{ color: '#ef4444' }}>● Reconnection required</span>
-                      ) : (
-                        <span style={{ color: '#10b981' }}>● Connected for direct auto-uploads</span>
-                      )
-                    ) : (
-                      'Connect a YouTube channel for auto-uploads'
-                    )}
-                  </div>
-                </div>
+            {/* Destination YouTube Channel Selection */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <YouTubeIcon size={14} /> Destination YouTube Channel
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { audioEngine.playSfx('click'); openGoogleOAuthPopup('templates'); }}
+                  style={{
+                    background: 'none', border: 'none', color: 'var(--accent-primary, #ff4f00)',
+                    fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: 0,
+                    display: 'inline-flex', alignItems: 'center', gap: '4px'
+                  }}
+                >
+                  + Connect Channel
+                </button>
               </div>
 
-              <div>
-                {channels.length === 0 ? (
+              {channels.length === 0 ? (
+                <div style={{
+                  background: 'var(--bg-elevated)', border: '1px dashed var(--border-medium)',
+                  borderRadius: '12px', padding: '14px', textAlign: 'center',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'
+                }}>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                    No YouTube channel connected yet.
+                  </div>
                   <button
                     type="button"
                     onClick={() => { audioEngine.playSfx('click'); openGoogleOAuthPopup('templates'); }}
                     style={{
-                      padding: '5px 11px', borderRadius: '8px',
+                      padding: '7px 16px', borderRadius: '8px',
                       background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
-                      color: '#ef4444', fontSize: '11px', fontWeight: 700, cursor: 'pointer'
+                      color: '#ef4444', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: '6px'
                     }}
                   >
-                    Connect Channel
+                    <YouTubeIcon size={14} /> Connect YouTube Channel
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => { audioEngine.playSfx('click'); openGoogleOAuthPopup('templates'); }}
-                    style={{
-                      background: 'none', border: 'none', color: 'var(--text-muted)',
-                      fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: 0
-                    }}
-                  >
-                    Switch Channel ↗
-                  </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'flex', flexDirection: 'column', gap: '6px',
+                  maxHeight: '190px', overflowY: channels.length > 3 ? 'auto' : 'visible'
+                }}>
+                  {channels.map((ch) => {
+                    const isSelected = (automationConfig.selectedChannelId === ch.channelId) || (!automationConfig.selectedChannelId && ch.channelId === automationTargetChannel?.channelId);
+                    const isExpired = ch.needsReconnect || ch.isTokenExpired || ch.tokens?.needsReconnect;
+                    return (
+                      <div
+                        key={ch.channelId}
+                        onClick={() => {
+                          setAutomationConfig(prev => ({ ...prev, selectedChannelId: ch.channelId }));
+                          setSelectedChannelId(ch.channelId);
+                          audioEngine.playSfx('click');
+                        }}
+                        style={{
+                          padding: '9px 12px', borderRadius: '10px', cursor: 'pointer',
+                          background: isSelected ? 'rgba(255, 79, 0, 0.08)' : 'var(--bg-elevated)',
+                          border: isSelected ? '1.5px solid var(--accent-primary, #ff4f00)' : '1px solid var(--border-subtle)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                          {/* Radio Dot */}
+                          <div style={{
+                            width: '16px', height: '16px', borderRadius: '50%',
+                            border: isSelected ? '5px solid var(--accent-primary, #ff4f00)' : '2px solid var(--border-medium)',
+                            background: isSelected ? '#ffffff' : 'transparent',
+                            flexShrink: 0, transition: 'all 0.15s ease'
+                          }} />
+
+                          {ch.avatarUrl ? (
+                            <img
+                              src={ch.avatarUrl}
+                              alt={ch.channelTitle || ch.title || 'Channel'}
+                              style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div style={{
+                              width: '30px', height: '30px', borderRadius: '50%',
+                              background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              <YouTubeIcon size={14} />
+                            </div>
+                          )}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{
+                                fontSize: '12.5px', fontWeight: isSelected ? 700 : 600,
+                                color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                              }}>
+                                {ch.channelTitle || ch.title || 'YouTube Channel'}
+                              </span>
+                              {ch.isDefault && (
+                                <span style={{
+                                  fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px',
+                                  background: 'var(--bg-pill)', color: 'var(--text-muted)'
+                                }}>
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            {ch.customUrl && (
+                              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                                {ch.customUrl}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                          {isExpired ? (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); audioEngine.playSfx('shimmer'); openGoogleOAuthPopup('templates'); }}
+                              style={{
+                                padding: '3px 8px', borderRadius: '6px',
+                                background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                                color: '#ef4444', fontSize: '10.5px', fontWeight: 700, cursor: 'pointer'
+                              }}
+                            >
+                              Reconnect
+                            </button>
+                          ) : isSelected ? (
+                            <span style={{ fontSize: '11px', color: 'var(--accent-primary, #ff4f00)', fontWeight: 800 }}>
+                              ✓ Active Target
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                              Select
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Template Selection */}
@@ -2857,83 +2917,6 @@ export default function TemplatesPage({
               </div>
             </div>
 
-            {/* Custom Topics (100% Optional & Empty by Default) */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Custom Topics <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--text-muted)' }}>(Optional)</span>
-                </label>
-                {(automationConfig.upcomingTopics || []).length > 0 && (
-                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                    {automationConfig.upcomingTopics.length} queued
-                  </span>
-                )}
-              </div>
-
-              {/* Queued Topics Chips (if any entered by user) */}
-              {(automationConfig.upcomingTopics || []).length > 0 ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                  {automationConfig.upcomingTopics.map((topic, idx) => (
-                    <span
-                      key={idx}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '6px',
-                        padding: '4px 8px 4px 10px', borderRadius: '8px',
-                        background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
-                        fontSize: '11.5px', color: 'var(--text-primary)'
-                      }}
-                    >
-                      <span style={{ color: 'var(--accent-primary, #ff4f00)', fontWeight: 700 }}>Day {Number(automationConfig.completedDays || 0) + 1 + idx}:</span>
-                      <span>{topic}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTopic(idx)}
-                        style={{
-                          background: 'none', border: 'none', padding: 0,
-                          color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center'
-                        }}
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                  Leave empty for automatic AI topic brainstorming, or enter topics below.
-                </div>
-              )}
-
-              {/* Add Topic Input */}
-              <form onSubmit={handleAddTopic} style={{ display: 'flex', gap: '6px' }}>
-                <input
-                  type="text"
-                  placeholder="Optional topic for next upcoming day..."
-                  value={newTopicInput}
-                  onChange={(e) => setNewTopicInput(e.target.value)}
-                  style={{
-                    flex: 1, padding: '8px 10px', borderRadius: '8px',
-                    background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-primary)', fontSize: '12px', outline: 'none'
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={!newTopicInput.trim()}
-                  style={{
-                    padding: '8px 12px', borderRadius: '8px',
-                    background: newTopicInput.trim() ? 'var(--bg-elevated)' : 'transparent',
-                    border: '1px solid var(--border-subtle)',
-                    color: newTopicInput.trim() ? 'var(--text-primary)' : 'var(--text-muted)',
-                    fontSize: '11.5px', fontWeight: 600, cursor: newTopicInput.trim() ? 'pointer' : 'default',
-                    display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0
-                  }}
-                >
-                  <Plus size={13} />
-                  <span>Add</span>
-                </button>
-              </form>
-            </div>
 
             {/* Execution History (Only if history exists) */}
             {automationConfig.topicsHistory && automationConfig.topicsHistory.length > 0 && (
