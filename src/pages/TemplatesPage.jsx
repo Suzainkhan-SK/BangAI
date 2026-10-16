@@ -193,6 +193,18 @@ export default function TemplatesPage({
     fetchQuotaStatus();
   }, [user]);
 
+  // Connect to shared video settings so selected voice/speed applies smoothly across Bang AI
+  const { settings: videoSettings, updateSettings: updateVideoSettings } = useVideoSettings();
+  useVoiceCatalog();
+
+  const voiceId = videoSettings?.voiceId || 'adam';
+  const voiceSpeed = typeof videoSettings?.voiceSpeed === 'number'
+    ? Math.max(SPEED_MIN, Math.min(SPEED_MAX, videoSettings.voiceSpeed))
+    : SPEED_DEF;
+
+  const activeVoiceObj = getVoiceById(voiceId) || VOICES.find(v => v.id === voiceId || v.elevenLabsId === voiceId) || VOICES[0];
+  const isCustomVoice = !VOICES.some(v => v.id === voiceId || v.elevenLabsId === voiceId);
+
   // ── 24-Hour Autonomous Autopilot State & Handlers ──
   const [showAutomateModal, setShowAutomateModal] = useState(false);
   const [automationConfig, setAutomationConfig] = useState({
@@ -201,7 +213,8 @@ export default function TemplatesPage({
     totalDays: 7,
     completedDays: 0,
     upcomingTopics: [],
-    voiceId: 'adam',
+    voiceId: voiceId,
+    elevenLabsVoiceId: videoSettings?.elevenLabsVoiceId || '',
     voiceSpeed: 1.20,
     musicId: 'mystery2',
     musicVolume: 0.08,
@@ -229,7 +242,14 @@ export default function TemplatesPage({
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.automation) {
-          setAutomationConfig(data.automation);
+          // Keep voice synchronized with the user's active studio voice (videoSettings)
+          const resolvedVoiceId = videoSettings?.voiceId || data.automation.voiceId || 'adam';
+          const resolvedElVoiceId = videoSettings?.elevenLabsVoiceId || data.automation.elevenLabsVoiceId || '';
+          setAutomationConfig({
+            ...data.automation,
+            voiceId: resolvedVoiceId,
+            elevenLabsVoiceId: resolvedElVoiceId
+          });
           if (Array.isArray(data.channels) && data.channels.length > 0) {
             const norm = data.channels.map(normalizeChannel);
             setChannels(prev => (prev && prev.length > 0 ? prev : norm));
@@ -258,8 +278,8 @@ export default function TemplatesPage({
     try {
       const token = getAuthToken() || '';
       const targetChId = automationTargetChannel?.channelId || selectedChannel?.channelId || automationConfig.selectedChannelId || '';
-      const chosenVoiceId = overrides.voiceId || autoActiveVoiceObj?.id || automationConfig.voiceId || voiceId || 'adam';
-      const chosenElVoiceId = overrides.elevenLabsVoiceId || autoActiveVoiceObj?.elevenLabsId || automationConfig.elevenLabsVoiceId || '';
+      const chosenVoiceId = overrides.voiceId || voiceId || activeVoiceObj?.id || 'adam';
+      const chosenElVoiceId = overrides.elevenLabsVoiceId || videoSettings?.elevenLabsVoiceId || activeVoiceObj?.elevenLabsId || '';
       const payload = {
         action: 'save',
         ...automationConfig,
@@ -327,8 +347,8 @@ export default function TemplatesPage({
     audioEngine.playSfx('shimmer');
     try {
       const token = getAuthToken() || '';
-      const chosenVoiceId = autoActiveVoiceObj?.id || automationConfig.voiceId || voiceId || 'adam';
-      const chosenElVoiceId = autoActiveVoiceObj?.elevenLabsId || automationConfig.elevenLabsVoiceId || '';
+      const chosenVoiceId = voiceId || activeVoiceObj?.id || 'adam';
+      const chosenElVoiceId = videoSettings?.elevenLabsVoiceId || activeVoiceObj?.elevenLabsId || '';
       const res = await fetch('/.netlify/functions/template-automation', {
         method: 'POST',
         headers: {
@@ -397,30 +417,10 @@ export default function TemplatesPage({
     return () => clearInterval(interval);
   }, [quotaStatus?.nextResetTime, quotaStatus?.isLimitReached]);
 
-  // Connect to shared video settings so selected voice/speed applies smoothly across Bang AI
-  const { settings: videoSettings, updateSettings: updateVideoSettings } = useVideoSettings();
-  useVoiceCatalog();
-
-  const voiceId = videoSettings?.voiceId || 'adam';
-  const voiceSpeed = typeof videoSettings?.voiceSpeed === 'number'
-    ? Math.max(SPEED_MIN, Math.min(SPEED_MAX, videoSettings.voiceSpeed))
-    : SPEED_DEF;
-
   const uid = user?.id || user?.userId || user?._id || '';
   const threadCacheKey = uid ? `shortsai_threads_${uid}` : 'shortsai_all_threads';
 
-  const activeVoiceObj = getVoiceById(voiceId) || VOICES.find(v => v.id === voiceId || v.elevenLabsId === voiceId) || VOICES[0];
-  const isCustomVoice = !VOICES.some(v => v.id === voiceId || v.elevenLabsId === voiceId);
-
-  // Active voice for 24h automation (defaults to user's applied studio voice)
-  const currentAutoVoiceId = automationConfig.voiceId || voiceId || 'adam';
-  const autoActiveVoiceObj = getVoiceById(currentAutoVoiceId)
-    || VOICES.find(v => v.id === currentAutoVoiceId || v.elevenLabsId === currentAutoVoiceId)
-    || activeVoiceObj
-    || VOICES[0];
-  const isAutoCustomVoice = !VOICES.some(v => v.id === currentAutoVoiceId || v.elevenLabsId === currentAutoVoiceId);
-
-  // Synchronize applied voice from Design Studio into automationConfig if videoSettings changes
+  // Synchronize applied voice from Design Studio into automationConfig whenever videoSettings changes
   useEffect(() => {
     if (videoSettings?.voiceId) {
       setAutomationConfig(prev => {
@@ -2963,7 +2963,7 @@ export default function TemplatesPage({
                     <Mic size={13} style={{ color: 'var(--accent-primary, #ff4f00)' }} />
                     5. Narration Voice
                   </label>
-                  {isAutoCustomVoice && (
+                  {isCustomVoice && (
                     <span style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 7px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                       💎 Studio Selected
                     </span>
@@ -2972,7 +2972,7 @@ export default function TemplatesPage({
 
                 <div style={{ position: 'relative' }}>
                   <select
-                    value={autoActiveVoiceObj?.id || automationConfig.voiceId || voiceId}
+                    value={activeVoiceObj?.id || voiceId}
                     aria-label="Narration voice"
                     onChange={(e) => handleAutomateVoiceChange(e.target.value)}
                     style={{
@@ -2982,9 +2982,9 @@ export default function TemplatesPage({
                       outline: 'none', cursor: 'pointer', appearance: 'none'
                     }}
                   >
-                    {isAutoCustomVoice && autoActiveVoiceObj && (
-                      <option value={autoActiveVoiceObj.id}>
-                        💎 {autoActiveVoiceObj.name} ({autoActiveVoiceObj.flag || autoActiveVoiceObj.language || 'Premium JSON2Video'})
+                    {isCustomVoice && activeVoiceObj && (
+                      <option value={activeVoiceObj.id}>
+                        💎 {activeVoiceObj.name} ({activeVoiceObj.flag || activeVoiceObj.language || 'Premium JSON2Video'})
                       </option>
                     )}
                     <optgroup label="⚡ Native ElevenLabs Voices">
@@ -3004,7 +3004,7 @@ export default function TemplatesPage({
                 </div>
 
                 <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '4px' }}>
-                  <span>Applied: <strong>{autoActiveVoiceObj?.name || 'Adam'}</strong> ({autoActiveVoiceObj?.flag || autoActiveVoiceObj?.gender || 'Universal'})</span>
+                  <span>Applied: <strong>{activeVoiceObj?.name || 'Adam'}</strong> ({activeVoiceObj?.flag || activeVoiceObj?.gender || 'Universal'})</span>
                   <button
                     type="button"
                     onClick={() => {
