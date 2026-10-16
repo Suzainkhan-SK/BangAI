@@ -258,11 +258,15 @@ export default function TemplatesPage({
     try {
       const token = getAuthToken() || '';
       const targetChId = automationTargetChannel?.channelId || selectedChannel?.channelId || automationConfig.selectedChannelId || '';
+      const chosenVoiceId = overrides.voiceId || autoActiveVoiceObj?.id || automationConfig.voiceId || voiceId || 'adam';
+      const chosenElVoiceId = overrides.elevenLabsVoiceId || autoActiveVoiceObj?.elevenLabsId || automationConfig.elevenLabsVoiceId || '';
       const payload = {
         action: 'save',
         ...automationConfig,
         ...overrides,
-        selectedChannelId: targetChId
+        selectedChannelId: targetChId,
+        voiceId: chosenVoiceId,
+        elevenLabsVoiceId: chosenElVoiceId
       };
       const res = await fetch('/.netlify/functions/template-automation', {
         method: 'POST',
@@ -323,13 +327,19 @@ export default function TemplatesPage({
     audioEngine.playSfx('shimmer');
     try {
       const token = getAuthToken() || '';
+      const chosenVoiceId = autoActiveVoiceObj?.id || automationConfig.voiceId || voiceId || 'adam';
+      const chosenElVoiceId = autoActiveVoiceObj?.elevenLabsId || automationConfig.elevenLabsVoiceId || '';
       const res = await fetch('/.netlify/functions/template-automation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ action: 'run-now' })
+        body: JSON.stringify({
+          action: 'run-now',
+          voiceId: chosenVoiceId,
+          elevenLabsVoiceId: chosenElVoiceId
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -402,6 +412,30 @@ export default function TemplatesPage({
   const activeVoiceObj = getVoiceById(voiceId) || VOICES.find(v => v.id === voiceId || v.elevenLabsId === voiceId) || VOICES[0];
   const isCustomVoice = !VOICES.some(v => v.id === voiceId || v.elevenLabsId === voiceId);
 
+  // Active voice for 24h automation (defaults to user's applied studio voice)
+  const currentAutoVoiceId = automationConfig.voiceId || voiceId || 'adam';
+  const autoActiveVoiceObj = getVoiceById(currentAutoVoiceId)
+    || VOICES.find(v => v.id === currentAutoVoiceId || v.elevenLabsId === currentAutoVoiceId)
+    || activeVoiceObj
+    || VOICES[0];
+  const isAutoCustomVoice = !VOICES.some(v => v.id === currentAutoVoiceId || v.elevenLabsId === currentAutoVoiceId);
+
+  // Synchronize applied voice from Design Studio into automationConfig if videoSettings changes
+  useEffect(() => {
+    if (videoSettings?.voiceId) {
+      setAutomationConfig(prev => {
+        if (prev.voiceId !== videoSettings.voiceId) {
+          return {
+            ...prev,
+            voiceId: videoSettings.voiceId,
+            elevenLabsVoiceId: videoSettings.elevenLabsVoiceId || ''
+          };
+        }
+        return prev;
+      });
+    }
+  }, [videoSettings?.voiceId, videoSettings?.elevenLabsVoiceId]);
+
   const generatingTpl = ACTIVE_TEMPLATES.find(t => t.id === generatingTemplateId) || ACTIVE_TEMPLATES[0];
 
   const handleVoiceChange = (newVal) => {
@@ -415,6 +449,33 @@ export default function TemplatesPage({
     const matched = getVoiceById(newVal) || VOICES.find(v => v.id === newVal || v.elevenLabsId === newVal);
     const chosenId = matched?.id || newVal;
     const chosenElId = matched?.elevenLabsId || (matched?.source === 'elevenlabs' ? matched.id : 'pNInz6obpgDQGcFmaJgB');
+    if (typeof updateVideoSettings === 'function') {
+      updateVideoSettings({
+        voiceId: chosenId,
+        elevenLabsVoiceId: chosenElId
+      });
+    }
+  };
+
+  const handleAutomateVoiceChange = (newVal) => {
+    if (newVal === '__open_studio__') {
+      audioEngine.playSfx('click');
+      setShowAutomateModal(false);
+      if (typeof onNavigate === 'function') onNavigate('studio/voices');
+      else window.location.hash = '#/studio/voices';
+      return;
+    }
+    audioEngine.playSfx('click');
+    const matched = getVoiceById(newVal) || VOICES.find(v => v.id === newVal || v.elevenLabsId === newVal);
+    const chosenId = matched?.id || newVal;
+    const chosenElId = matched?.elevenLabsId || (matched?.source === 'elevenlabs' ? matched.id : 'pNInz6obpgDQGcFmaJgB');
+
+    setAutomationConfig(prev => ({
+      ...prev,
+      voiceId: chosenId,
+      elevenLabsVoiceId: chosenElId
+    }));
+
     if (typeof updateVideoSettings === 'function') {
       updateVideoSettings({
         voiceId: chosenId,
@@ -2897,24 +2958,70 @@ export default function TemplatesPage({
             {/* Voice & Narration Customizations */}
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
-                  5. Narration Voice
-                </label>
-                <select
-                  value={automationConfig.voiceId || 'adam'}
-                  onChange={(e) => setAutomationConfig(prev => ({ ...prev, voiceId: e.target.value }))}
-                  style={{
-                    width: '100%', padding: '10px 12px', borderRadius: '10px',
-                    background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
-                    color: 'var(--text-primary)', fontSize: '12.5px', outline: 'none'
-                  }}
-                >
-                  <option value="adam">Adam (Deep Narrative - Default)</option>
-                  <option value="marcus">Marcus (Authoritative Mystery)</option>
-                  <option value="sarah">Sarah (Engaging Viral)</option>
-                  <option value="liam">Liam (Dramatic Suspense)</option>
-                  <option value="george">George (Warm British)</option>
-                </select>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Mic size={13} style={{ color: 'var(--accent-primary, #ff4f00)' }} />
+                    5. Narration Voice
+                  </label>
+                  {isAutoCustomVoice && (
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 7px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      💎 Studio Selected
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={autoActiveVoiceObj?.id || automationConfig.voiceId || voiceId}
+                    aria-label="Narration voice"
+                    onChange={(e) => handleAutomateVoiceChange(e.target.value)}
+                    style={{
+                      width: '100%', padding: '10px 32px 10px 12px', borderRadius: '10px',
+                      background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
+                      color: 'var(--text-primary)', fontSize: '12.5px', fontWeight: 600,
+                      outline: 'none', cursor: 'pointer', appearance: 'none'
+                    }}
+                  >
+                    {isAutoCustomVoice && autoActiveVoiceObj && (
+                      <option value={autoActiveVoiceObj.id}>
+                        💎 {autoActiveVoiceObj.name} ({autoActiveVoiceObj.flag || autoActiveVoiceObj.language || 'Premium JSON2Video'})
+                      </option>
+                    )}
+                    <optgroup label="⚡ Native ElevenLabs Voices">
+                      {VOICES.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          🎙️ {v.name} ({v.flag || v.gender || 'Universal'})
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="🌐 Full Voice Library (9,650+ JSON2Video Voices)">
+                      <option value="__open_studio__">
+                        🌐 Browse & Apply 9,650+ Voices in Studio...
+                      </option>
+                    </optgroup>
+                  </select>
+                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+                </div>
+
+                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '4px' }}>
+                  <span>Applied: <strong>{autoActiveVoiceObj?.name || 'Adam'}</strong> ({autoActiveVoiceObj?.flag || autoActiveVoiceObj?.gender || 'Universal'})</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      audioEngine.playSfx('click');
+                      setShowAutomateModal(false);
+                      if (typeof onNavigate === 'function') onNavigate('studio/voices');
+                      else window.location.hash = '#/studio/voices';
+                    }}
+                    style={{
+                      background: 'none', border: 'none', padding: 0,
+                      color: 'var(--accent-primary, #ff4f00)', fontWeight: 700,
+                      cursor: 'pointer', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '3px'
+                    }}
+                  >
+                    Open Design Studio ↗
+                  </button>
+                </div>
               </div>
 
               <div>

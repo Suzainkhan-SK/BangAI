@@ -2513,6 +2513,56 @@ export async function handler(event) {
           } catch (_) {}
         }
 
+        // Google Sheets resolution (same as generate-template.js)
+        let userSheetAccessToken = '';
+        let userSpreadsheetId = '';
+        let userSheetName = 'Production Log';
+        let targetSheet = null;
+        if (userDoc?.googleSheets && userDoc.googleSheets.length > 0) {
+          targetSheet = userDoc.googleSheets.find(s => s.isDefault) || userDoc.googleSheets[0];
+        } else if (userDoc?.sheets && userDoc.sheets.length > 0) {
+          targetSheet = userDoc.sheets.find(s => s.isDefault) || userDoc.sheets[0];
+        }
+        if (targetSheet) {
+          const sheetTokenContainer = targetSheet.tokens ? targetSheet : targetChannel;
+          if (sheetTokenContainer) {
+            try {
+              userSheetAccessToken = await getFreshGoogleToken(sheetTokenContainer, 'youtubeChannels') || '';
+            } catch (_) {}
+          }
+          userSpreadsheetId = targetSheet.spreadsheetId || '';
+          userSheetName = targetSheet.sheetName || 'Production Log';
+        }
+        const autoLogToSheet = !!userSpreadsheetId;
+
+        // Native ElevenLabs voice mapping
+        const NATIVE_ELEVENLABS_VOICE_MAP = {
+          adam: 'pNInz6obpgDQGcFmaJgB',
+          marcus: 'AZnzlk1XvdvUeBnXmlld',
+          sarah: 'EXAVITQu4vr4xnSDxMaL',
+          liam: 'TX3LPaxmHKxFdv7VOQHJ',
+          george: 'JBFqnCBsd6RMkjVDRZzb',
+          charlie: 'IKne3meq5aSn9XLyUdCD',
+          callum: 'N2lVS1w4EtoT3dr4eOWO',
+          river: 'SAz9YHcvj6GT2YYXdXww',
+          harry: 'SOYHLrjzK2X1ezoPC6cr',
+          will: 'bIHbv24MWmeRgasZH58o',
+          eric: 'cjVigY5qzO86Huf0OWal',
+          chris: 'iP95p4xoKVk53GoZ742B',
+          brian: 'nPczCjzI2devNBz1zQrb',
+          daniel: 'onwK4e9ZLuTAKqWW03F9',
+          bill: 'pqHfZKP75CvOlQylNhV4',
+          alice: 'Xb7hH8MSUJpSbSDYk0k2',
+          jessica: 'cgSgspJ2msm6clMCkdW9',
+          matilda: 'XrExE9yKIg1WjnnlVkGX',
+          lily: 'pFZP5JQG7iQjIWhC4Od5',
+          charlotte: 'XB0fDUnXU5powFXDhCwa',
+          rachel: '21m00Tcm4TlvDq8ikWAM'
+        };
+
+        const chosenVoiceId = current.voiceId || 'adam';
+        const chosenElevenLabsVoiceId = current.elevenLabsVoiceId || NATIVE_ELEVENLABS_VOICE_MAP[chosenVoiceId] || chosenVoiceId;
+
         // Pick next topic
         let nextTopic = '';
         let updatedUpcomingTopics = [...(current.upcomingTopics || [])];
@@ -2533,24 +2583,38 @@ export async function handler(event) {
           templateId,
           templateName: meta.name,
           prompt: nextTopic,
-          isAutomatedDailyRun: true,
-          dayNumber: completedDays,
           callbackUrl,
           threadId,
           sessionId,
           userId: current.userId || 'admin-triggered',
           userEmail: current.userEmail,
           webhookSecret,
+          // YouTube settings
           autoUploadToYouTube: !!userYouTubeAccessToken,
           userYouTubeAccessToken,
           userYouTubeChannelTitle,
           userYouTubeChannelId,
-          voiceId: current.voiceId || 'adam',
+          // Google Sheets settings
+          autoLogToSheet,
+          userSheetAccessToken,
+          userSpreadsheetId,
+          userSheetName,
+          // Voice & visual settings
+          voiceId: chosenVoiceId,
+          elevenLabsVoiceId: chosenElevenLabsVoiceId,
           voiceSpeed: current.voiceSpeed !== undefined ? Number(current.voiceSpeed) : 1.20,
+          voiceVolume: 1.0,
           visualStyle: meta.visualStyle,
           language: meta.language,
+          aspectRatio: '9:16',
+          subtitleSettings: null,
+          subtitleStyle: 'hormozi',
           musicId: current.musicId || 'mystery2',
+          musicTrackUrl: '',
           musicVolume: current.musicVolume !== undefined ? Number(current.musicVolume) : 0.08,
+          // Automation metadata
+          isAutomatedDailyRun: true,
+          dayNumber: completedDays,
           timestamp: new Date().toISOString()
         });
 

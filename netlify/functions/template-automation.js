@@ -41,7 +41,7 @@ const TEMPLATE_META = {
 /**
  * Dispatches a single autonomous video generation for a given automation doc
  */
-async function executeAutonomousRun(db, automation, isManualTrigger = false, hostHeader = 'bangai.netlify.app') {
+export async function executeAutonomousRun(db, automation, isManualTrigger = false, hostHeader = 'bangai.netlify.app') {
   const userId = String(automation.userId || '');
   const userEmail = String(automation.userEmail || '').toLowerCase();
   const templateId = automation.templateId || 'world-mysteries';
@@ -97,7 +97,57 @@ async function executeAutonomousRun(db, automation, isManualTrigger = false, hos
     }
   }
 
+  // Resolve Target Google Sheet (same as generate-template.js)
+  let userSheetAccessToken = '';
+  let userSpreadsheetId = '';
+  let userSheetName = 'Production Log';
+  let targetSheet = null;
+  if (userDoc.googleSheets && userDoc.googleSheets.length > 0) {
+    targetSheet = userDoc.googleSheets.find(s => s.isDefault) || userDoc.googleSheets[0];
+  } else if (userDoc.sheets && userDoc.sheets.length > 0) {
+    targetSheet = userDoc.sheets.find(s => s.isDefault) || userDoc.sheets[0];
+  }
+  if (targetSheet) {
+    const sheetTokenContainer = targetSheet.tokens ? targetSheet : targetChannel;
+    if (sheetTokenContainer) {
+      try {
+        userSheetAccessToken = await getFreshGoogleToken(sheetTokenContainer, 'youtubeChannels') || '';
+      } catch (_) {}
+    }
+    userSpreadsheetId = targetSheet.spreadsheetId || '';
+    userSheetName = targetSheet.sheetName || 'Production Log';
+  }
+  const autoLogToSheet = !!userSpreadsheetId;
+
   const autoUploadToYouTube = automation.autoUploadToYouTube !== false && !!userYouTubeAccessToken;
+
+  // Resolve voice and ElevenLabs voice ID
+  const NATIVE_ELEVENLABS_VOICE_MAP = {
+    adam: 'pNInz6obpgDQGcFmaJgB',
+    marcus: 'AZnzlk1XvdvUeBnXmlld',
+    sarah: 'EXAVITQu4vr4xnSDxMaL',
+    liam: 'TX3LPaxmHKxFdv7VOQHJ',
+    george: 'JBFqnCBsd6RMkjVDRZzb',
+    charlie: 'IKne3meq5aSn9XLyUdCD',
+    callum: 'N2lVS1w4EtoT3dr4eOWO',
+    river: 'SAz9YHcvj6GT2YYXdXww',
+    harry: 'SOYHLrjzK2X1ezoPC6cr',
+    will: 'bIHbv24MWmeRgasZH58o',
+    eric: 'cjVigY5qzO86Huf0OWal',
+    chris: 'iP95p4xoKVk53GoZ742B',
+    brian: 'nPczCjzI2devNBz1zQrb',
+    daniel: 'onwK4e9ZLuTAKqWW03F9',
+    bill: 'pqHfZKP75CvOlQylNhV4',
+    alice: 'Xb7hH8MSUJpSbSDYk0k2',
+    jessica: 'cgSgspJ2msm6clMCkdW9',
+    matilda: 'XrExE9yKIg1WjnnlVkGX',
+    lily: 'pFZP5JQG7iQjIWhC4Od5',
+    charlotte: 'XB0fDUnXU5powFXDhCwa',
+    rachel: '21m00Tcm4TlvDq8ikWAM'
+  };
+
+  const chosenVoiceId = automation.voiceId || 'adam';
+  const chosenElevenLabsVoiceId = automation.elevenLabsVoiceId || NATIVE_ELEVENLABS_VOICE_MAP[chosenVoiceId] || chosenVoiceId;
 
   // 3. Pick Next Topic from Queue
   let nextTopic = '';
@@ -110,7 +160,7 @@ async function executeAutonomousRun(db, automation, isManualTrigger = false, hos
   const completedDays = Number(automation.completedDays || 0) + 1;
   const totalDays = Number(automation.totalDays || 0);
 
-  // 4. Construct Dispatch Payload
+  // 4. Construct Dispatch Payload (matches generate-template.js workflow contract exactly)
   const threadId = `thread-auto-${templateId}-${Date.now()}`;
   const sessionId = `session-auto-${Date.now()}`;
   const webhookSecret = process.env.SHORTSAI_WEBHOOK_SECRET || 's-vshorts-sec-9a8b7c6d5e4f3a2b1c0';
@@ -121,29 +171,38 @@ async function executeAutonomousRun(db, automation, isManualTrigger = false, hos
     templateId,
     templateName: meta.name,
     prompt: nextTopic,
-    isAutomatedDailyRun: true,
-    dayNumber: completedDays,
     callbackUrl,
     threadId,
     sessionId,
     userId: userId || 'anonymous',
-    userEmail: userEmail,
+    userEmail: String(userEmail || '').toLowerCase(),
     webhookSecret,
-    // YouTube Auto-Upload
+    // Dynamic YouTube Settings
     autoUploadToYouTube,
     userYouTubeAccessToken,
     userYouTubeChannelTitle,
     userYouTubeChannelId,
-    // Audio / Voice Customizations
-    voiceId: automation.voiceId || 'adam',
+    // Dynamic Google Sheet Settings
+    autoLogToSheet,
+    userSheetAccessToken,
+    userSpreadsheetId,
+    userSheetName,
+    // Voice & Visual Settings
+    voiceId: chosenVoiceId,
+    elevenLabsVoiceId: chosenElevenLabsVoiceId,
     voiceSpeed: automation.voiceSpeed !== undefined ? Number(automation.voiceSpeed) : 1.20,
     voiceVolume: 1.0,
     visualStyle: meta.visualStyle,
     language: meta.language,
     aspectRatio: '9:16',
+    subtitleSettings: null,
     subtitleStyle: 'hormozi',
     musicId: automation.musicId || meta.musicId,
+    musicTrackUrl: '',
     musicVolume: automation.musicVolume !== undefined ? Number(automation.musicVolume) : 0.08,
+    // Automation metadata
+    isAutomatedDailyRun: true,
+    dayNumber: completedDays,
     timestamp: new Date().toISOString()
   });
 
@@ -155,7 +214,7 @@ async function executeAutonomousRun(db, automation, isManualTrigger = false, hos
         $set: {
           threadId,
           userId,
-          userEmail,
+          userEmail: String(userEmail || '').toLowerCase(),
           title: `${meta.title} (Day ${completedDays})`,
           templateId,
           status: 'started',
@@ -167,7 +226,7 @@ async function executeAutonomousRun(db, automation, isManualTrigger = false, hos
           messages: [
             {
               role: 'system',
-              content: `Autonomous 24h Video Engine dispatched for Day ${completedDays}/${totalDays || '∞'}. Topic: ${nextTopic ? `"${nextTopic}"` : 'AI Auto-Brainstorm'}. Target Channel: ${userYouTubeChannelTitle || 'None'}.`,
+              content: `Autonomous 24h Video Engine dispatched for Day ${completedDays}/${totalDays || '∞'}. Topic: ${nextTopic ? `"${nextTopic}"` : 'AI Auto-Brainstorm'}. Target Channel: ${userYouTubeChannelTitle || 'None'}. Voice: ${chosenVoiceId}.`,
               timestamp: new Date().toISOString()
             }
           ]
@@ -176,23 +235,23 @@ async function executeAutonomousRun(db, automation, isManualTrigger = false, hos
       { upsert: true }
     );
 
+    // Record in template_generations collection for unified quota & analytics auditing
     await db.collection('template_generations').insertOne({
       userId,
-      userEmail,
+      userEmail: String(userEmail || '').toLowerCase(),
       templateId,
-      templateTitle: `${meta.title} · Day ${completedDays}`,
+      templateTitle: meta.title,
       threadId,
       prompt: nextTopic,
       channelTitle: userYouTubeChannelTitle || null,
       channelId: userYouTubeChannelId || null,
-      isAutomatedDaily: true,
-      dayNumber: completedDays,
       createdAt: new Date(),
       status: 'dispatched',
+      isAutonomousDaily: true,
       resetByAdmin: false
     });
-  } catch (dbErr) {
-    console.warn('[template-automation] DB log error:', dbErr.message);
+  } catch (err) {
+    console.warn('[template-automation] DB tracking write error:', err.message);
   }
 
   // 6. Call n8n Webhook
@@ -491,6 +550,7 @@ export const handler = async (event) => {
           ? payload.upcomingTopics.map(t => String(t || '').trim()).filter(Boolean)
           : (autoDoc?.upcomingTopics || []);
         const voiceId = payload.voiceId || autoDoc?.voiceId || 'adam';
+        const elevenLabsVoiceId = payload.elevenLabsVoiceId || autoDoc?.elevenLabsVoiceId || '';
         const voiceSpeed = payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : (autoDoc?.voiceSpeed ?? 1.20);
         const musicId = payload.musicId || autoDoc?.musicId || 'mystery2';
         const musicVolume = payload.musicVolume !== undefined ? Number(payload.musicVolume) : (autoDoc?.musicVolume ?? 0.08);
@@ -520,6 +580,7 @@ export const handler = async (event) => {
           totalDays,
           upcomingTopics,
           voiceId,
+          elevenLabsVoiceId,
           voiceSpeed,
           musicId,
           musicVolume,
@@ -660,7 +721,12 @@ export const handler = async (event) => {
         }
 
         console.log(`[template-automation] User ${userEmail} triggered immediate run.`);
-        const runResult = await executeAutonomousRun(db, autoDoc, true, hostHeader);
+        const runDoc = {
+          ...autoDoc,
+          voiceId: payload.voiceId || autoDoc.voiceId,
+          elevenLabsVoiceId: payload.elevenLabsVoiceId || autoDoc.elevenLabsVoiceId
+        };
+        const runResult = await executeAutonomousRun(db, runDoc, true, hostHeader);
 
         return {
           statusCode: 200,
