@@ -1772,6 +1772,16 @@ export async function handler(event) {
                     wf.kieKeys = activeKeys;
                   }
                 }
+                const b1 = cloudWf.nodes?.find(n => n.name === 'Config: Backup Video Master1');
+                if (b1?.parameters?.jsCode) {
+                  const matchB = b1.parameters.jsCode.match(/const\s+backupVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (matchB) {
+                    const strMatchesB = matchB[1].match(/["']([^"']+)["']/g);
+                    const backupKeys = strMatchesB ? strMatchesB.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+                    wf.backupKeysCount = backupKeys.length;
+                    wf.backupKeys = backupKeys;
+                  }
+                }
               }
             } catch (err) {
               console.warn(`[admin.js] Sync status notice for ${wf.id}:`, err.message);
@@ -1820,10 +1830,26 @@ export async function handler(event) {
       }
 
       // ----------------------------------------------------
-      // [11B] KIE.AI KEYS CLOUD SYNC & DISPATCHER
+      // [11B] VIDEO API KEYS CLOUD SYNC & DISPATCHER (PRIMARY & BACKUP)
       // ----------------------------------------------------
+      case 'append-video-keys':
+      case 'append-backup-keys':
       case 'append-kie-keys': {
-        const { workflowId, newKeys } = body;
+        const { workflowId, newKeys, provider } = body;
+        const isBackup = action === 'append-backup-keys' || provider === 'backup' || body.provider === 'backup';
+        const providerName = isBackup ? 'Backup Video' : 'Kie.ai Primary Video';
+        const nodePrefix = isBackup ? 'Config: Backup Video Master' : 'Config: Primary Video Master';
+        const varName = isBackup ? 'backupVideoApiKeys' : 'primaryVideoApiKeys';
+        const varRegex = isBackup ? /const\s+backupVideoApiKeys\s*=\s*\[([\s\S]*?)\];/ : /const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/;
+        const testRegex = isBackup ? /const\s+backupVideoApiKeys\s*=\s*\[[\s\S]*?\];/ : /const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/;
+        const mongoDocId = isBackup ? 'backup_video_keys' : 'kie_video_keys';
+        const mongoProvider = isBackup ? 'backup_video' : 'kie_video';
+        const mongoTitle = isBackup ? 'Backup Video API Keys' : 'Kie.ai Primary Video Keys (1080p Veo)';
+        const keyPrefixLabel = isBackup ? 'Backup Video Key' : 'Kie.ai Key';
+        const fallbackHeader = isBackup
+          ? `// ==========================================================\n// CONFIG: BACKUP VIDEO API KEYS\n// ==========================================================\n\n`
+          : `// ==========================================================\n// CONFIG: PRIMARY VIDEO API KEYS (Veo API - 1080p)\n// ==========================================================\n\n`;
+
         let keysToAdd = [];
         if (Array.isArray(newKeys)) {
           keysToAdd = newKeys.map(k => String(k).trim()).filter(k => k.length > 5);
@@ -1838,7 +1864,7 @@ export async function handler(event) {
           return {
             statusCode: 400,
             headers: corsHeaders,
-            body: JSON.stringify({ success: false, error: 'Please enter at least one valid Kie.ai API key.' })
+            body: JSON.stringify({ success: false, error: `Please enter at least one valid ${providerName} API key.` })
           };
         }
 
@@ -1879,11 +1905,11 @@ export async function handler(event) {
               throw new Error(`Failed to load workflow nodes from n8n Cloud`);
             }
 
-            // Extract existing keys from Config: Primary Video Master1
-            const master1 = wf.nodes.find(n => n.name === 'Config: Primary Video Master1');
+            // Extract existing keys from Master1 node for this provider
+            const master1 = wf.nodes.find(n => n.name === `${nodePrefix}1`);
             let existingKeys = [];
             if (master1 && master1.parameters?.jsCode) {
-              const match = master1.parameters.jsCode.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              const match = master1.parameters.jsCode.match(varRegex);
               if (match) {
                 const strMatches = match[1].match(/["']([^"']+)["']/g);
                 if (strMatches) {
@@ -1895,20 +1921,20 @@ export async function handler(event) {
             // Merge existing keys with new keys (preserving order, deduplicated)
             const combinedKeys = Array.from(new Set([...existingKeys, ...keysToAdd]));
             masterCombinedKeys = combinedKeys;
-            const replacementCode = `const primaryVideoApiKeys = ${JSON.stringify(combinedKeys, null, 2)};`;
+            const replacementCode = `const ${varName} = ${JSON.stringify(combinedKeys, null, 2)};`;
 
-            // Prepare update operations strictly for Config: Primary Video Master1..5
+            // Prepare update operations strictly for scenes 1..5 for this provider
             const operations = [];
             for (let s = 1; s <= 5; s++) {
-              const nodeName = `Config: Primary Video Master${s}`;
+              const nodeName = `${nodePrefix}${s}`;
               const targetNode = wf.nodes.find(n => n.name === nodeName);
               if (targetNode) {
                 const curCode = targetNode.parameters?.jsCode || '';
                 let updatedCode = curCode;
-                if (/const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/.test(curCode)) {
-                  updatedCode = curCode.replace(/const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/, replacementCode);
+                if (testRegex.test(curCode)) {
+                  updatedCode = curCode.replace(testRegex, replacementCode);
                 } else {
-                  updatedCode = `// ==========================================================\n// CONFIG: PRIMARY VIDEO API KEYS (Veo API - 1080p)\n// ==========================================================\n\n${replacementCode}\n\n${curCode}`;
+                  updatedCode = `${fallbackHeader}${replacementCode}\n\n${curCode}`;
                 }
                 operations.push({
                   type: 'updateNodeParameters',
@@ -1921,7 +1947,7 @@ export async function handler(event) {
             if (operations.length > 0) {
               await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
                 workflowId: target.id,
-                versionName: `Appended Kie.ai Keys (${combinedKeys.length} Total)`,
+                versionName: `Appended ${providerName} Keys (${combinedKeys.length} Total)`,
                 versionDescription: `Added ${combinedKeys.length - existingKeys.length} new keys. Total active: ${combinedKeys.length} keys across 5 scenes.`,
                 operations
               });
@@ -1931,6 +1957,7 @@ export async function handler(event) {
             results.push({
               workflowId: target.id,
               name: target.name,
+              provider: isBackup ? 'backup' : 'primary',
               success: true,
               nodesUpdated: operations.length,
               previousKeyCount: existingKeys.length,
@@ -1938,29 +1965,30 @@ export async function handler(event) {
               totalKeyCount: combinedKeys.length
             });
           } catch (err) {
-            console.error(`[append-kie-keys] Error on ${target.id}:`, err.message);
+            console.error(`[append-${isBackup ? 'backup' : 'kie'}-keys] Error on ${target.id}:`, err.message);
             results.push({
               workflowId: target.id,
               name: target.name,
+              provider: isBackup ? 'backup' : 'primary',
               success: false,
               error: err.message
             });
           }
         }
 
-        // Persist master combined keys to MongoDB Atlas (api_keys -> kie_video_keys)
+        // Persist master combined keys to MongoDB Atlas
         if (masterCombinedKeys.length > 0) {
           const keysCol = db.collection('api_keys');
           await keysCol.updateOne(
-            { _id: 'kie_video_keys' },
+            { _id: mongoDocId },
             {
               $set: {
-                provider: 'kie_video',
-                name: 'Kie.ai Primary Video Keys (1080p Veo)',
+                provider: mongoProvider,
+                name: mongoTitle,
                 keys: masterCombinedKeys,
                 pool: masterCombinedKeys.map((k, idx) => ({
                   key: k,
-                  label: `Kie.ai Key #${idx + 1}`,
+                  label: `${keyPrefixLabel} #${idx + 1}`,
                   status: 'active',
                   balance: 1000,
                   max: 1000,
@@ -1973,8 +2001,9 @@ export async function handler(event) {
           );
         }
 
-        await logAdminAction(db, 'KIE_KEYS_APPENDED', {
+        await logAdminAction(db, isBackup ? 'BACKUP_VIDEO_KEYS_APPENDED' : 'KIE_KEYS_APPENDED', {
           target: workflowId || 'all',
+          provider: isBackup ? 'backup' : 'primary',
           keysAdded: keysToAdd.length,
           totalNodesUpdated
         }, clientIp);
@@ -1984,7 +2013,8 @@ export async function handler(event) {
           headers: corsHeaders,
           body: JSON.stringify({
             success: results.some(r => r.success),
-            message: `Successfully processed ${results.length} workflow(s). Updated ${totalNodesUpdated} Primary Video Master config nodes in n8n Cloud.`,
+            message: `Successfully processed ${results.length} workflow(s). Updated ${totalNodesUpdated} ${providerName} Master config nodes in n8n Cloud.`,
+            provider: isBackup ? 'backup' : 'primary',
             results,
             keysAdded: keysToAdd.length,
             totalActiveKeys: masterCombinedKeys.length
@@ -2155,12 +2185,29 @@ export async function handler(event) {
                 }
               }
             }
+
+            const b1 = wf.nodes?.find(n => n.name === 'Config: Backup Video Master1');
+            let backupCount = 0;
+            let backupKeys = [];
+            if (b1?.parameters?.jsCode) {
+              const matchB = b1.parameters.jsCode.match(/const\s+backupVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              if (matchB) {
+                const strMatchesB = matchB[1].match(/["']([^"']+)["']/g);
+                if (strMatchesB) {
+                  backupKeys = strMatchesB.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+                  backupCount = backupKeys.length;
+                }
+              }
+            }
+
             statuses[t.id] = {
               online: true,
               active: wf.active !== false,
               nodesCount: wf.nodes?.length || 0,
               kieKeysCount: kieCount,
               keys: activeKeys,
+              backupKeysCount: backupCount,
+              backupKeys: backupKeys,
               updatedAt: wf.updatedAt
             };
           } catch (e) {
@@ -2185,10 +2232,24 @@ export async function handler(event) {
       }
 
       // ----------------------------------------------------
-      // [11F] REMOVE KIE.AI KEYS FROM WORKFLOWS
+      // [11F] REMOVE VIDEO API KEYS FROM WORKFLOWS (PRIMARY & BACKUP)
       // ----------------------------------------------------
+      case 'remove-video-keys':
+      case 'remove-backup-keys':
       case 'remove-kie-keys': {
-        const { workflowId, keysToRemove } = body;
+        const { workflowId, keysToRemove, provider } = body;
+        const isBackup = action === 'remove-backup-keys' || provider === 'backup' || body.provider === 'backup';
+        const providerName = isBackup ? 'Backup Video' : 'Kie.ai Primary Video';
+        const nodePrefix = isBackup ? 'Config: Backup Video Master' : 'Config: Primary Video Master';
+        const varName = isBackup ? 'backupVideoApiKeys' : 'primaryVideoApiKeys';
+        const varRegex = isBackup ? /const\s+backupVideoApiKeys\s*=\s*\[([\s\S]*?)\];/ : /const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/;
+        const testRegex = isBackup ? /const\s+backupVideoApiKeys\s*=\s*\[[\s\S]*?\];/ : /const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/;
+        const mongoDocId = isBackup ? 'backup_video_keys' : 'kie_video_keys';
+        const keyPrefixLabel = isBackup ? 'Backup Video Key' : 'Kie.ai Key';
+        const fallbackHeader = isBackup
+          ? `// ==========================================================\n// CONFIG: BACKUP VIDEO API KEYS\n// ==========================================================\n\n`
+          : `// ==========================================================\n// CONFIG: PRIMARY VIDEO API KEYS (Veo API - 1080p)\n// ==========================================================\n\n`;
+
         let keysToDelete = [];
         if (Array.isArray(keysToRemove)) {
           keysToDelete = keysToRemove.map(k => String(k).trim()).filter(Boolean);
@@ -2203,7 +2264,7 @@ export async function handler(event) {
           return {
             statusCode: 400,
             headers: corsHeaders,
-            body: JSON.stringify({ success: false, error: 'Please specify at least one Kie.ai API key to remove.' })
+            body: JSON.stringify({ success: false, error: `Please specify at least one ${providerName} API key to remove.` })
           };
         }
 
@@ -2246,11 +2307,11 @@ export async function handler(event) {
               throw new Error(`Failed to load workflow nodes from n8n Cloud`);
             }
 
-            // Extract existing keys from Config: Primary Video Master1
-            const master1 = wf.nodes.find(n => n.name === 'Config: Primary Video Master1');
+            // Extract existing keys from Master1 node for this provider
+            const master1 = wf.nodes.find(n => n.name === `${nodePrefix}1`);
             let existingKeys = [];
             if (master1 && master1.parameters?.jsCode) {
-              const match = master1.parameters.jsCode.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              const match = master1.parameters.jsCode.match(varRegex);
               if (match) {
                 const strMatches = match[1].match(/["']([^"']+)["']/g);
                 if (strMatches) {
@@ -2264,20 +2325,20 @@ export async function handler(event) {
             const removedForThisWf = existingKeys.length - remainingKeys.length;
             lastRemainingCount = remainingKeys.length;
 
-            const replacementCode = `const primaryVideoApiKeys = ${JSON.stringify(remainingKeys, null, 2)};`;
+            const replacementCode = `const ${varName} = ${JSON.stringify(remainingKeys, null, 2)};`;
 
-            // Prepare update operations strictly for Config: Primary Video Master1..5
+            // Prepare update operations strictly for scenes 1..5 for this provider
             const operations = [];
             for (let s = 1; s <= 5; s++) {
-              const nodeName = `Config: Primary Video Master${s}`;
+              const nodeName = `${nodePrefix}${s}`;
               const targetNode = wf.nodes.find(n => n.name === nodeName);
               if (targetNode) {
                 const curCode = targetNode.parameters?.jsCode || '';
                 let updatedCode = curCode;
-                if (/const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/.test(curCode)) {
-                  updatedCode = curCode.replace(/const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/, replacementCode);
+                if (testRegex.test(curCode)) {
+                  updatedCode = curCode.replace(testRegex, replacementCode);
                 } else {
-                  updatedCode = `// ==========================================================\n// CONFIG: PRIMARY VIDEO API KEYS (Veo API - 1080p)\n// ==========================================================\n\n${replacementCode}\n\n${curCode}`;
+                  updatedCode = `${fallbackHeader}${replacementCode}\n\n${curCode}`;
                 }
                 operations.push({
                   type: 'updateNodeParameters',
@@ -2290,7 +2351,7 @@ export async function handler(event) {
             if (operations.length > 0) {
               await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
                 workflowId: target.id,
-                versionName: `Removed Kie.ai Keys (${remainingKeys.length} Remaining)`,
+                versionName: `Removed ${providerName} Keys (${remainingKeys.length} Remaining)`,
                 versionDescription: `Removed ${removedForThisWf} key(s) via BangAI Admin Panel. Active total: ${remainingKeys.length} keys across 5 scenes.`,
                 operations
               });
@@ -2300,6 +2361,7 @@ export async function handler(event) {
             results.push({
               workflowId: target.id,
               name: target.name,
+              provider: isBackup ? 'backup' : 'primary',
               success: true,
               nodesUpdated: operations.length,
               previousKeyCount: existingKeys.length,
@@ -2307,29 +2369,30 @@ export async function handler(event) {
               remainingKeyCount: remainingKeys.length
             });
           } catch (err) {
-            console.error(`[remove-kie-keys] Error on ${target.id}:`, err.message);
+            console.error(`[remove-${isBackup ? 'backup' : 'kie'}-keys] Error on ${target.id}:`, err.message);
             results.push({
               workflowId: target.id,
               name: target.name,
+              provider: isBackup ? 'backup' : 'primary',
               success: false,
               error: err.message
             });
           }
         }
 
-        // Update MongoDB Atlas backup (api_keys -> kie_video_keys)
+        // Update MongoDB Atlas backup
         const keysCol = db.collection('api_keys');
-        const existingDoc = await keysCol.findOne({ _id: 'kie_video_keys' });
+        const existingDoc = await keysCol.findOne({ _id: mongoDocId });
         if (existingDoc && Array.isArray(existingDoc.keys)) {
           const updatedMasterKeys = existingDoc.keys.filter(k => !deleteSet.has(k));
           await keysCol.updateOne(
-            { _id: 'kie_video_keys' },
+            { _id: mongoDocId },
             {
               $set: {
                 keys: updatedMasterKeys,
                 pool: updatedMasterKeys.map((k, idx) => ({
                   key: k,
-                  label: `Kie.ai Key #${idx + 1}`,
+                  label: `${keyPrefixLabel} #${idx + 1}`,
                   status: 'active',
                   balance: 1000,
                   max: 1000,
@@ -2341,8 +2404,9 @@ export async function handler(event) {
           );
         }
 
-        await logAdminAction(db, 'KIE_KEYS_REMOVED', {
+        await logAdminAction(db, isBackup ? 'BACKUP_VIDEO_KEYS_REMOVED' : 'KIE_KEYS_REMOVED', {
           target: workflowId || 'all',
+          provider: isBackup ? 'backup' : 'primary',
           keysRemovedCount: keysToDelete.length,
           totalNodesUpdated
         }, clientIp);
@@ -2352,7 +2416,8 @@ export async function handler(event) {
           headers: corsHeaders,
           body: JSON.stringify({
             success: results.some(r => r.success),
-            message: `Successfully processed ${results.length} workflow(s). Removed specified keys from ${totalNodesUpdated} config nodes in n8n Cloud.`,
+            message: `Successfully processed ${results.length} workflow(s). Removed specified keys from ${totalNodesUpdated} ${providerName} config nodes in n8n Cloud.`,
+            provider: isBackup ? 'backup' : 'primary',
             results,
             keysRemovedCount: keysToDelete.length,
             remainingKeysCount: lastRemainingCount

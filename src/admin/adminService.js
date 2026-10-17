@@ -107,10 +107,18 @@ export const adminService = {
   getWorkflows: async (syncStatus = false) => adminFetch(`get-workflows${syncStatus ? '&syncStatus=true' : ''}`, 'GET'),
   saveWorkflowNodes: async (workflowId, nodeConfigs) =>
     adminFetch('save-workflow-nodes', 'POST', { workflowId, nodeConfigs }),
+  appendVideoKeys: async (workflowId, newKeys, provider = 'primary') =>
+    adminFetch('append-video-keys', 'POST', { workflowId, newKeys, provider }),
+  removeVideoKeys: async (workflowId, keysToRemove, provider = 'primary') =>
+    adminFetch('remove-video-keys', 'POST', { workflowId, keysToRemove, provider }),
   appendKieKeys: async (workflowId, newKeys) =>
-    adminFetch('append-kie-keys', 'POST', { workflowId, newKeys }),
+    adminFetch('append-kie-keys', 'POST', { workflowId, newKeys, provider: 'primary' }),
   removeKieKeys: async (workflowId, keysToRemove) =>
-    adminFetch('remove-kie-keys', 'POST', { workflowId, keysToRemove }),
+    adminFetch('remove-kie-keys', 'POST', { workflowId, keysToRemove, provider: 'primary' }),
+  appendBackupKeys: async (workflowId, newKeys) =>
+    adminFetch('append-backup-keys', 'POST', { workflowId, newKeys, provider: 'backup' }),
+  removeBackupKeys: async (workflowId, keysToRemove) =>
+    adminFetch('remove-backup-keys', 'POST', { workflowId, keysToRemove, provider: 'backup' }),
   toggleWorkflowPublish: async (workflowId, publish) =>
     adminFetch('toggle-workflow-publish', 'POST', { workflowId, publish }),
   autoDetectWorkflowIds: async () =>

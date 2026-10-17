@@ -8,21 +8,29 @@ export default function WorkflowManagerView() {
   const [loading, setLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Kie.ai Cloud Dispatcher State
-  const [kieMode, setKieMode] = useState('append'); // 'append' | 'remove'
-  const [kieTarget, setKieTarget] = useState('all');
-  const [kieKeysInput, setKieKeysInput] = useState('');
-  const [appendingKie, setAppendingKie] = useState(false);
-  const [kieLogs, setKieLogs] = useState([]);
+  // Video Provider Selection: 'primary' (Kie.ai) vs 'backup' (Backup Video)
+  const [videoProvider, setVideoProvider] = useState('primary'); // 'primary' | 'backup'
+
+  // Dispatcher Action & Target State
+  const [actionTab, setActionTab] = useState('append'); // 'append' | 'remove'
+  const [targetWorkflow, setTargetWorkflow] = useState('all');
+  const [keysInput, setKeysInput] = useState('');
+  const [appending, setAppending] = useState(false);
+  const [logs, setLogs] = useState([]);
   const [togglingPublish, setTogglingPublish] = useState({});
   const [detectingIds, setDetectingIds] = useState(false);
   const [syncingCloud, setSyncingCloud] = useState(false);
 
   // Key Removal State
   const [removeKeysInput, setRemoveKeysInput] = useState('');
-  const [removingKie, setRemovingKie] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [keySearchTerm, setKeySearchTerm] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
+
+  const isBackup = videoProvider === 'backup';
+  const providerLabel = isBackup ? 'Backup Video' : 'Kie.ai Primary Video';
+  const providerAccent = isBackup ? 'var(--admin-accent-purple)' : 'var(--admin-accent-cyan)';
+  const nodeTargetName = isBackup ? 'Config: Backup Video Master 1..5' : 'Config: Primary Video Master 1..5';
 
   const fetchWorkflows = async (syncCloud = false) => {
     if (syncCloud) setSyncingCloud(true);
@@ -71,7 +79,6 @@ export default function WorkflowManagerView() {
       const res = await adminService.toggleWorkflowPublish(wf.id, shouldPublish);
       if (res.success) {
         setToastMsg(`✅ Workflow "${wf.name}" is now ${res.status}!`);
-        // Update local state immediately
         setWorkflows(prev => prev.map(item => {
           if (item.id === wf.id) {
             return {
@@ -93,41 +100,41 @@ export default function WorkflowManagerView() {
     }
   };
 
-  // 2. Append Kie.ai API Keys to Primary Video Config Nodes
-  const handleAppendKieKeys = async (e) => {
+  // 2. Append API Keys to Config Nodes (Primary or Backup)
+  const handleAppendKeys = async (e) => {
     e.preventDefault();
-    const cleanKeys = kieKeysInput
+    const cleanKeys = keysInput
       .split(/[\r\n,;\s]+/)
       .map(k => k.replace(/["'\[\]]/g, '').trim())
       .filter(k => k.length > 5);
 
     if (cleanKeys.length === 0) {
-      alert('Please enter at least one valid Kie.ai API key.');
+      alert(`Please enter at least one valid ${providerLabel} API key.`);
       return;
     }
 
-    const targetDesc = kieTarget === 'all'
+    const targetDesc = targetWorkflow === 'all'
       ? 'ALL 4 flagship workflows simultaneously'
-      : `workflow "${workflows.find(w => w.id === kieTarget)?.name || kieTarget}"`;
+      : `workflow "${workflows.find(w => w.id === targetWorkflow)?.name || targetWorkflow}"`;
 
     const confirmed = window.confirm(
-      `Confirm appending ${cleanKeys.length} new Kie.ai API keys to ${targetDesc}?\n\n` +
-      `• These keys will be added to the existing keys in Config: Primary Video Master 1..5.\n` +
+      `Confirm appending ${cleanKeys.length} new ${providerLabel} API keys to ${targetDesc}?\n\n` +
+      `• These keys will be added to the existing keys in ${nodeTargetName}.\n` +
       `• Existing keys will be 100% PRESERVED.\n` +
       `• Keys will be backed up to MongoDB Atlas.`
     );
     if (!confirmed) return;
 
-    setAppendingKie(true);
-    setKieLogs([
-      `[${new Date().toLocaleTimeString()}] 🚀 Initiating cloud synchronization pipeline...`,
+    setAppending(true);
+    setLogs([
+      `[${new Date().toLocaleTimeString()}] 🚀 Initiating ${providerLabel} cloud synchronization...`,
       `[${new Date().toLocaleTimeString()}] Target: ${targetDesc}`,
       `[${new Date().toLocaleTimeString()}] Keys to inject: ${cleanKeys.length} keys`,
       `[${new Date().toLocaleTimeString()}] Connecting to n8n Cloud MCP Server at ${activeHost}...`
     ]);
 
     try {
-      const res = await adminService.appendKieKeys(kieTarget, cleanKeys);
+      const res = await adminService.appendVideoKeys(targetWorkflow, cleanKeys, videoProvider);
       if (res.success && Array.isArray(res.results)) {
         const newLogs = [];
         res.results.forEach(r => {
@@ -139,67 +146,67 @@ export default function WorkflowManagerView() {
         });
         newLogs.push(`[${new Date().toLocaleTimeString()}] 💾 Master key pool safely synchronized with MongoDB Atlas api_keys.`);
         newLogs.push(`[${new Date().toLocaleTimeString()}] 🎉 Cloud sync complete!`);
-        setKieLogs(prev => [...prev, ...newLogs]);
-        setToastMsg(`✅ Appended ${cleanKeys.length} Kie.ai keys successfully!`);
-        setKieKeysInput('');
+        setLogs(prev => [...prev, ...newLogs]);
+        setToastMsg(`✅ Appended ${cleanKeys.length} ${providerLabel} keys successfully!`);
+        setKeysInput('');
         fetchWorkflows(true);
       } else {
-        setKieLogs(prev => [
+        setLogs(prev => [
           ...prev,
           `[${new Date().toLocaleTimeString()}] ⚠️ Sync failed: ${res.error || 'Unknown error'}`
         ]);
         setToastMsg(`⚠️ Error: ${res.error || 'Failed to append keys'}`);
       }
     } catch (err) {
-      setKieLogs(prev => [
+      setLogs(prev => [
         ...prev,
         `[${new Date().toLocaleTimeString()}] ⚠️ Network exception: ${err.message}`
       ]);
       setToastMsg(`⚠️ Error: ${err.message}`);
     } finally {
-      setAppendingKie(false);
+      setAppending(false);
       setTimeout(() => setToastMsg(''), 6000);
     }
   };
 
-  // 3. Remove Kie.ai API Keys from Primary Video Config Nodes
+  // 3. Remove API Keys from Config Nodes (Primary or Backup)
   const handleRemoveKeys = async (keysToRemove, sourceLabel = 'selected') => {
     const cleanKeys = (Array.isArray(keysToRemove) ? keysToRemove : [keysToRemove])
       .map(k => String(k).replace(/["'\[\]]/g, '').trim())
       .filter(k => k.length > 5);
 
     if (cleanKeys.length === 0) {
-      alert('Please specify at least one valid Kie.ai API key to remove.');
+      alert(`Please specify at least one valid ${providerLabel} API key to remove.`);
       return;
     }
 
-    const targetDesc = kieTarget === 'all'
+    const targetDesc = targetWorkflow === 'all'
       ? 'ALL 4 flagship workflows simultaneously'
-      : `workflow "${workflows.find(w => w.id === kieTarget)?.name || kieTarget}"`;
+      : `workflow "${workflows.find(w => w.id === targetWorkflow)?.name || targetWorkflow}"`;
 
     const summaryText = cleanKeys.length === 1
       ? `Key "${cleanKeys[0]}"`
       : `${cleanKeys.length} keys (${cleanKeys[0].slice(0, 8)}...)`;
 
     const confirmed = window.confirm(
-      `⚠️ CONFIRM KEY REMOVAL:\n\n` +
+      `⚠️ CONFIRM ${providerLabel.toUpperCase()} KEY REMOVAL:\n\n` +
       `Are you sure you want to remove ${summaryText} from ${targetDesc}?\n\n` +
-      `• This will update Config: Primary Video Master 1..5 in n8n Cloud.\n` +
+      `• This will update ${nodeTargetName} in n8n Cloud.\n` +
       `• The key(s) will be completely removed from active rotation.\n` +
       `• MongoDB Atlas backup will be updated.`
     );
     if (!confirmed) return;
 
-    setRemovingKie(true);
-    setKieLogs([
-      `[${new Date().toLocaleTimeString()}] 🗑️ Initiating cloud key removal pipeline...`,
+    setRemoving(true);
+    setLogs([
+      `[${new Date().toLocaleTimeString()}] 🗑️ Initiating ${providerLabel} key removal pipeline...`,
       `[${new Date().toLocaleTimeString()}] Target: ${targetDesc}`,
       `[${new Date().toLocaleTimeString()}] Keys to remove: ${cleanKeys.length} key(s)`,
       `[${new Date().toLocaleTimeString()}] Connecting to n8n Cloud MCP Server at ${activeHost}...`
     ]);
 
     try {
-      const res = await adminService.removeKieKeys(kieTarget, cleanKeys);
+      const res = await adminService.removeVideoKeys(targetWorkflow, cleanKeys, videoProvider);
       if (res.success && Array.isArray(res.results)) {
         const newLogs = [];
         res.results.forEach(r => {
@@ -211,27 +218,27 @@ export default function WorkflowManagerView() {
         });
         newLogs.push(`[${new Date().toLocaleTimeString()}] 💾 Master key pool safely synchronized with MongoDB Atlas.`);
         newLogs.push(`[${new Date().toLocaleTimeString()}] 🎉 Cloud key removal complete!`);
-        setKieLogs(prev => [...prev, ...newLogs]);
-        setToastMsg(`✅ Removed ${cleanKeys.length} Kie.ai key(s) successfully!`);
+        setLogs(prev => [...prev, ...newLogs]);
+        setToastMsg(`✅ Removed ${cleanKeys.length} ${providerLabel} key(s) successfully!`);
         if (sourceLabel === 'bulk') {
           setRemoveKeysInput('');
         }
         fetchWorkflows(true);
       } else {
-        setKieLogs(prev => [
+        setLogs(prev => [
           ...prev,
           `[${new Date().toLocaleTimeString()}] ⚠️ Removal failed: ${res.error || 'Unknown error'}`
         ]);
         setToastMsg(`⚠️ Error: ${res.error || 'Failed to remove keys'}`);
       }
     } catch (err) {
-      setKieLogs(prev => [
+      setLogs(prev => [
         ...prev,
         `[${new Date().toLocaleTimeString()}] ⚠️ Network exception: ${err.message}`
       ]);
       setToastMsg(`⚠️ Error: ${err.message}`);
     } finally {
-      setRemovingKie(false);
+      setRemoving(false);
       setTimeout(() => setToastMsg(''), 6000);
     }
   };
@@ -271,7 +278,7 @@ export default function WorkflowManagerView() {
   };
 
   // Parse entered keys count for append
-  const detectedAppendCount = kieKeysInput
+  const detectedAppendCount = keysInput
     .split(/[\r\n,;\s]+/)
     .map(k => k.replace(/["'\[\]]/g, '').trim())
     .filter(k => k.length > 5).length;
@@ -282,19 +289,21 @@ export default function WorkflowManagerView() {
     .map(k => k.replace(/["'\[\]]/g, '').trim())
     .filter(k => k.length > 5).length;
 
-  // Active Keys pool for the currently selected target
+  // Active Keys pool for the currently selected target and active video provider
   const getActiveKeysForTarget = () => {
-    if (kieTarget === 'all') {
+    if (targetWorkflow === 'all') {
       const set = new Set();
       workflows.slice(0, 4).forEach(wf => {
-        if (Array.isArray(wf.kieKeys)) {
-          wf.kieKeys.forEach(k => set.add(k));
+        const arr = isBackup ? wf.backupKeys : wf.kieKeys;
+        if (Array.isArray(arr)) {
+          arr.forEach(k => set.add(k));
         }
       });
       return Array.from(set);
     } else {
-      const targetWf = workflows.find(w => w.id === kieTarget);
-      return Array.isArray(targetWf?.kieKeys) ? targetWf.kieKeys : [];
+      const targetWf = workflows.find(w => w.id === targetWorkflow);
+      const arr = isBackup ? targetWf?.backupKeys : targetWf?.kieKeys;
+      return Array.isArray(arr) ? arr : [];
     }
   };
 
@@ -310,7 +319,7 @@ export default function WorkflowManagerView() {
         <div>
           <h1 className="admin-view-title">Workflow & Cloud Control Center</h1>
           <p className="admin-view-desc">
-            Direct MCP-powered cloud execution across all 4 production pipelines on <code>{activeHost}</code>. Manage live publication states and synchronize Kie.ai video API keys.
+            Direct MCP-powered cloud execution across all 4 production pipelines on <code>{activeHost}</code>. Manage live publication states and synchronize Primary (Kie.ai) and Backup video API keys.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -408,8 +417,10 @@ export default function WorkflowManagerView() {
                     <div><strong>Workflow ID:</strong> <code>{wf.id}</code></div>
                     <div><strong>Nodes Count:</strong> {wf.nodesCount} Executable Nodes</div>
                     <div><strong>Trigger:</strong> <code>{wf.webhook ? (wf.webhook.split('/webhook')[1] || wf.webhook) : 'Webhook'}</code></div>
-                    {wf.kieKeysCount !== undefined && (
-                      <div style={{ marginTop: '2px' }}>
+
+                    {/* Both Primary (Kie.ai) and Backup Key Counts */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                      {wf.kieKeysCount !== undefined && (
                         <span style={{
                           padding: '2px 8px',
                           borderRadius: '6px',
@@ -418,10 +429,22 @@ export default function WorkflowManagerView() {
                           fontWeight: 700,
                           fontSize: '11px'
                         }}>
-                          🔑 {wf.kieKeysCount} Kie.ai Keys in Cloud
+                          🔑 {wf.kieKeysCount} Kie.ai Keys
                         </span>
-                      </div>
-                    )}
+                      )}
+                      {wf.backupKeysCount !== undefined && (
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          background: 'rgba(139, 92, 246, 0.15)',
+                          color: 'var(--admin-accent-purple)',
+                          fontWeight: 700,
+                          fontSize: '11px'
+                        }}>
+                          🛡️ {wf.backupKeysCount} Backup Keys
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -479,31 +502,95 @@ export default function WorkflowManagerView() {
         </div>
       </div>
 
-      {/* Kie.ai API Keys Cloud Dispatcher & Key Manager */}
+      {/* Video API Keys Cloud Dispatcher & Key Vault (Primary Kie.ai & Backup Video) */}
       <div className="admin-card" style={{
         marginBottom: '24px',
-        borderColor: 'rgba(6, 182, 212, 0.35)',
-        background: 'linear-gradient(180deg, rgba(6, 182, 212, 0.04) 0%, var(--admin-bg-surface) 100%)',
+        borderColor: isBackup ? 'rgba(139, 92, 246, 0.35)' : 'rgba(6, 182, 212, 0.35)',
+        background: isBackup
+          ? 'linear-gradient(180deg, rgba(139, 92, 246, 0.05) 0%, var(--admin-bg-surface) 100%)'
+          : 'linear-gradient(180deg, rgba(6, 182, 212, 0.04) 0%, var(--admin-bg-surface) 100%)',
         boxShadow: '0 8px 30px rgba(0, 0, 0, 0.2)'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+        {/* Card Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>⚡</span>
+              <span style={{ fontSize: '18px' }}>{isBackup ? '🛡️' : '⚡'}</span>
               <h2 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
-                Kie.ai API Keys Cloud Dispatcher (Primary Video Provider)
+                {isBackup ? 'Backup Video Provider Keys Dispatcher (Secondary Failover)' : 'Kie.ai API Keys Cloud Dispatcher (Primary Video Provider)'}
               </h2>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
-              Directly synchronize Kie.ai Veo API keys in <code>Config: Primary Video Master 1..5</code> across all 5 scenes. Add new keys or selectively remove existing keys safely.
+              Directly synchronize video API keys into <code>{nodeTargetName}</code> across all 5 scenes. Add new keys or selectively remove existing keys safely.
             </p>
           </div>
-          <span className="admin-badge admin-badge-cyan">
+          <span className={`admin-badge ${isBackup ? 'admin-badge-purple' : 'admin-badge-cyan'}`}>
             MCP Cloud Sync
           </span>
         </div>
 
-        {/* Feature Navigation Tabs: Append Keys vs Remove Keys */}
+        {/* 1. Video Provider Switcher: Primary (Kie.ai) vs Backup Video */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '16px',
+          padding: '4px',
+          background: 'var(--admin-bg-elevated)',
+          borderRadius: '10px',
+          border: '1px solid var(--admin-border-glass)',
+          width: 'fit-content'
+        }}>
+          <button
+            type="button"
+            onClick={() => {
+              setVideoProvider('primary');
+              setKeysInput('');
+              setRemoveKeysInput('');
+              setKeySearchTerm('');
+            }}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: !isBackup ? '1px solid var(--admin-accent-cyan)' : 'none',
+              background: !isBackup ? 'rgba(6, 182, 212, 0.18)' : 'transparent',
+              color: !isBackup ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
+              fontWeight: 700,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>⚡</span> Primary Video Provider (Kie.ai 1080p)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setVideoProvider('backup');
+              setKeysInput('');
+              setRemoveKeysInput('');
+              setKeySearchTerm('');
+            }}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: isBackup ? '1px solid var(--admin-accent-purple)' : 'none',
+              background: isBackup ? 'rgba(139, 92, 246, 0.22)' : 'transparent',
+              color: isBackup ? 'var(--admin-accent-purple)' : 'var(--admin-text-sub)',
+              fontWeight: 700,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>🛡️</span> Backup Video Provider (Secondary Failover)
+          </button>
+        </div>
+
+        {/* 2. Feature Navigation Tabs: Append Keys vs Remove Keys */}
         <div style={{
           display: 'flex',
           gap: '8px',
@@ -513,13 +600,13 @@ export default function WorkflowManagerView() {
         }}>
           <button
             type="button"
-            onClick={() => setKieMode('append')}
+            onClick={() => setActionTab('append')}
             style={{
               padding: '8px 18px',
               borderRadius: '8px',
-              border: kieMode === 'append' ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
-              background: kieMode === 'append' ? 'rgba(6, 182, 212, 0.15)' : 'var(--admin-bg-elevated)',
-              color: kieMode === 'append' ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
+              border: actionTab === 'append' ? `1px solid ${providerAccent}` : '1px solid var(--admin-border-glass)',
+              background: actionTab === 'append' ? (isBackup ? 'rgba(139, 92, 246, 0.15)' : 'rgba(6, 182, 212, 0.15)') : 'var(--admin-bg-elevated)',
+              color: actionTab === 'append' ? providerAccent : 'var(--admin-text-main)',
               fontSize: '13px',
               fontWeight: 700,
               cursor: 'pointer',
@@ -528,17 +615,17 @@ export default function WorkflowManagerView() {
               gap: '6px'
             }}
           >
-            <span>➕</span> Append New Keys
+            <span>➕</span> Append New {providerLabel} Keys
           </button>
           <button
             type="button"
-            onClick={() => setKieMode('remove')}
+            onClick={() => setActionTab('remove')}
             style={{
               padding: '8px 18px',
               borderRadius: '8px',
-              border: kieMode === 'remove' ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid var(--admin-border-glass)',
-              background: kieMode === 'remove' ? 'rgba(239, 68, 68, 0.15)' : 'var(--admin-bg-elevated)',
-              color: kieMode === 'remove' ? '#ef4444' : 'var(--admin-text-main)',
+              border: actionTab === 'remove' ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid var(--admin-border-glass)',
+              background: actionTab === 'remove' ? 'rgba(239, 68, 68, 0.15)' : 'var(--admin-bg-elevated)',
+              color: actionTab === 'remove' ? '#ef4444' : 'var(--admin-text-main)',
               fontSize: '13px',
               fontWeight: 700,
               cursor: 'pointer',
@@ -547,7 +634,7 @@ export default function WorkflowManagerView() {
               gap: '6px'
             }}
           >
-            <span>🗑️</span> Remove Existing Keys
+            <span>🗑️</span> Remove Existing {providerLabel} Keys
           </button>
         </div>
 
@@ -557,39 +644,48 @@ export default function WorkflowManagerView() {
             Target Cloud Workflow(s):
           </label>
           <select
-            value={kieTarget}
-            onChange={(e) => setKieTarget(e.target.value)}
+            value={targetWorkflow}
+            onChange={(e) => setTargetWorkflow(e.target.value)}
             className="admin-select"
             style={{ width: '100%', maxWidth: '600px', fontWeight: 600 }}
           >
-            <option value="all">🌟 All 4 Flagship Workflows (Simultaneous Cloud Push / Removal across 20 Nodes)</option>
-            {workflows.slice(0, 4).map(wf => (
-              <option key={wf.id} value={wf.id}>
-                {wf.name} ({wf.id}) — {wf.kieKeysCount ?? '?'} keys active
-              </option>
-            ))}
+            <option value="all">
+              🌟 All 4 Flagship Workflows (Simultaneous Cloud Push / Removal across 20 Nodes)
+            </option>
+            {workflows.slice(0, 4).map(wf => {
+              const count = isBackup ? wf.backupKeysCount : wf.kieKeysCount;
+              return (
+                <option key={wf.id} value={wf.id}>
+                  {wf.name} ({wf.id}) — {count ?? '?'} active keys
+                </option>
+              );
+            })}
           </select>
         </div>
 
         {/* TAB 1: APPEND KEYS FORM */}
-        {kieMode === 'append' && (
-          <form onSubmit={handleAppendKieKeys}>
+        {actionTab === 'append' && (
+          <form onSubmit={handleAppendKeys}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
-                    Enter New Kie.ai API Keys to Append:
+                    Enter New {providerLabel} API Keys to Append:
                   </label>
-                  <span style={{ fontSize: '11.5px', color: detectedAppendCount > 0 ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)', fontWeight: 600 }}>
+                  <span style={{ fontSize: '11.5px', color: detectedAppendCount > 0 ? providerAccent : 'var(--admin-text-sub)', fontWeight: 600 }}>
                     {detectedAppendCount} new valid key{detectedAppendCount === 1 ? '' : 's'} detected
                   </span>
                 </div>
                 <textarea
-                  value={kieKeysInput}
-                  onChange={(e) => setKieKeysInput(e.target.value)}
+                  value={keysInput}
+                  onChange={(e) => setKeysInput(e.target.value)}
                   rows={4}
                   className="admin-textarea"
-                  placeholder="Paste Kie.ai API keys here (one key per line, or separated by commas/spaces)...&#10;e.g.&#10;ad82c01b9b51720280eab511077d4242&#10;c60c4e8391441ef89abdd2dcbb9936fa"
+                  placeholder={
+                    isBackup
+                      ? "Paste Backup Video API keys here (one key per line, or separated by commas/spaces)...&#10;e.g.&#10;sk-live-bc4a502645e8449d98e6b1e738ca3646d7c68093036cb7a8&#10;sk-live-41cf4f6c5650367c3ea805aa058897fb6464c0e25e282b65"
+                      : "Paste Kie.ai API keys here (one key per line, or separated by commas/spaces)...&#10;e.g.&#10;ad82c01b9b51720280eab511077d4242&#10;c60c4e8391441ef89abdd2dcbb9936fa"
+                  }
                   style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '12.5px' }}
                 />
               </div>
@@ -600,14 +696,15 @@ export default function WorkflowManagerView() {
                 </div>
                 <button
                   type="submit"
-                  disabled={appendingKie || detectedAppendCount === 0}
+                  disabled={appending || detectedAppendCount === 0}
                   className="admin-btn admin-btn-primary"
                   style={{
                     minWidth: '220px',
-                    opacity: (appendingKie || detectedAppendCount === 0) ? 0.6 : 1
+                    background: isBackup ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' : undefined,
+                    opacity: (appending || detectedAppendCount === 0) ? 0.6 : 1
                   }}
                 >
-                  {appendingKie ? '🚀 Pushing Keys to n8n Cloud...' : `🚀 Append ${detectedAppendCount > 0 ? detectedAppendCount : ''} Kie.ai Keys`}
+                  {appending ? '🚀 Pushing Keys to n8n Cloud...' : `🚀 Append ${detectedAppendCount > 0 ? detectedAppendCount : ''} ${providerLabel} Keys`}
                 </button>
               </div>
             </div>
@@ -615,7 +712,7 @@ export default function WorkflowManagerView() {
         )}
 
         {/* TAB 2: REMOVE KEYS INTERFACE */}
-        {kieMode === 'remove' && (
+        {actionTab === 'remove' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             {/* Visual Active Keys Explorer */}
             <div style={{
@@ -627,18 +724,18 @@ export default function WorkflowManagerView() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
                   <h3 style={{ fontSize: '14px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
-                    Active Keys in {kieTarget === 'all' ? 'All 4 Workflows (Master Pool)' : (workflows.find(w => w.id === kieTarget)?.name || 'Selected Workflow')}
+                    Active {providerLabel} Keys in {targetWorkflow === 'all' ? 'All 4 Workflows (Master Pool)' : (workflows.find(w => w.id === targetWorkflow)?.name || 'Selected Workflow')}
                   </h3>
                   <p style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', margin: '3px 0 0 0' }}>
-                    Click <strong>Remove</strong> next to any key to delete it from the rotation.
+                    Click <strong>Remove</strong> next to any key to delete it from rotation in <code>{nodeTargetName}</code>.
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{
                     padding: '3px 10px',
                     borderRadius: '6px',
-                    background: 'rgba(6, 182, 212, 0.15)',
-                    color: 'var(--admin-accent-cyan)',
+                    background: isBackup ? 'rgba(139, 92, 246, 0.15)' : 'rgba(6, 182, 212, 0.15)',
+                    color: providerAccent,
                     fontSize: '11.5px',
                     fontWeight: 700
                   }}>
@@ -662,7 +759,7 @@ export default function WorkflowManagerView() {
                   type="text"
                   value={keySearchTerm}
                   onChange={(e) => setKeySearchTerm(e.target.value)}
-                  placeholder="🔍 Search / Filter active keys by character sequence..."
+                  placeholder={`🔍 Search / Filter active ${providerLabel} keys by character sequence...`}
                   className="admin-input"
                   style={{ fontSize: '12px', padding: '8px 12px' }}
                 />
@@ -687,7 +784,7 @@ export default function WorkflowManagerView() {
                     borderRadius: '8px'
                   }}>
                     {activeDisplayKeys.length === 0
-                      ? 'No active Kie.ai keys found for this target. Click "🔄 Refresh Keys" or "Sync Cloud State" above.'
+                      ? `No active ${providerLabel} keys found for this target. Click "🔄 Refresh Keys" or "Sync Cloud State" above.`
                       : `No keys matched search "${keySearchTerm}".`}
                   </div>
                 ) : (
@@ -756,7 +853,7 @@ export default function WorkflowManagerView() {
                           <button
                             type="button"
                             onClick={() => handleRemoveKeys([key], 'individual')}
-                            disabled={removingKie}
+                            disabled={removing}
                             style={{
                               padding: '4px 10px',
                               borderRadius: '6px',
@@ -787,7 +884,7 @@ export default function WorkflowManagerView() {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#ef4444' }}>
-                  Or Bulk Remove Multiple Keys (Paste Keys Below):
+                  Or Bulk Remove Multiple {providerLabel} Keys (Paste Keys Below):
                 </label>
                 <span style={{ fontSize: '11.5px', color: detectedRemoveCount > 0 ? '#ef4444' : 'var(--admin-text-sub)', fontWeight: 600 }}>
                   {detectedRemoveCount} key{detectedRemoveCount === 1 ? '' : 's'} to remove
@@ -798,18 +895,18 @@ export default function WorkflowManagerView() {
                 onChange={(e) => setRemoveKeysInput(e.target.value)}
                 rows={3}
                 className="admin-textarea"
-                placeholder="Paste keys to remove here (one per line, or separated by commas)..."
+                placeholder={`Paste ${providerLabel} keys to remove here (one per line, or separated by commas)...`}
                 style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '12px' }}
               />
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '10px' }}>
                 <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
-                  ⚠️ Only specified keys will be deleted. All other keys will remain untouched.
+                  ⚠️ Only specified keys will be deleted from {nodeTargetName}. All other keys will remain untouched.
                 </div>
                 <button
                   type="button"
                   onClick={() => handleRemoveKeys(removeKeysInput, 'bulk')}
-                  disabled={removingKie || detectedRemoveCount === 0}
+                  disabled={removing || detectedRemoveCount === 0}
                   className="admin-btn"
                   style={{
                     background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
@@ -819,11 +916,11 @@ export default function WorkflowManagerView() {
                     borderRadius: '8px',
                     fontWeight: 700,
                     fontSize: '12.5px',
-                    cursor: (removingKie || detectedRemoveCount === 0) ? 'not-allowed' : 'pointer',
-                    opacity: (removingKie || detectedRemoveCount === 0) ? 0.6 : 1
+                    cursor: (removing || detectedRemoveCount === 0) ? 'not-allowed' : 'pointer',
+                    opacity: (removing || detectedRemoveCount === 0) ? 0.6 : 1
                   }}
                 >
-                  {removingKie ? '🗑️ Removing from Cloud...' : `🗑️ Remove Pasted Keys (${detectedRemoveCount})`}
+                  {removing ? '🗑️ Removing from Cloud...' : `🗑️ Remove Pasted Keys (${detectedRemoveCount})`}
                 </button>
               </div>
             </div>
@@ -831,7 +928,7 @@ export default function WorkflowManagerView() {
         )}
 
         {/* Live Execution Console Logs */}
-        {kieLogs.length > 0 && (
+        {logs.length > 0 && (
           <div style={{
             marginTop: '16px',
             padding: '12px 14px',
@@ -846,9 +943,9 @@ export default function WorkflowManagerView() {
             overflowY: 'auto'
           }}>
             <div style={{ color: 'var(--admin-text-sub)', fontSize: '10.5px', marginBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '4px' }}>
-              LIVE MCP DISPATCH CONSOLE
+              LIVE MCP DISPATCH CONSOLE — {providerLabel.toUpperCase()}
             </div>
-            {kieLogs.map((log, idx) => (
+            {logs.map((log, idx) => (
               <div key={idx} style={{ color: log.includes('❌') ? '#ef4444' : log.includes('✅') ? '#34d399' : log.includes('⚠️') ? '#f59e0b' : '#38bdf8' }}>
                 {log}
               </div>
