@@ -1782,6 +1782,57 @@ export async function handler(event) {
                     wf.backupKeys = backupKeys;
                   }
                 }
+
+                // Extract LLM Master nodes keys
+                const pLlm = cloudWf.nodes?.find(n => n.name === 'Config: Primary LLM Master');
+                if (pLlm?.parameters?.jsCode) {
+                  const matchP = pLlm.parameters.jsCode.match(/const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (matchP) {
+                    const sm = matchP[1].match(/["']([^"']+)["']/g);
+                    wf.primaryLlmKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+                    wf.primaryLlmCount = wf.primaryLlmKeys.length;
+                  }
+                }
+
+                const bLlm = cloudWf.nodes?.find(n => n.name === 'Config: Backup LLM Master');
+                if (bLlm?.parameters?.jsCode) {
+                  const matchB = bLlm.parameters.jsCode.match(/const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (matchB) {
+                    const sm = matchB[1].match(/["']([^"']+)["']/g);
+                    wf.backupLlmKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+                    wf.backupLlmCount = wf.backupLlmKeys.length;
+                  }
+                }
+
+                const sbLlm = cloudWf.nodes?.find(n => n.name === 'Config: Strategy Backup LLM Master');
+                if (sbLlm?.parameters?.jsCode) {
+                  const matchSb = sbLlm.parameters.jsCode.match(/const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (matchSb) {
+                    const sm = matchSb[1].match(/["']([^"']+)["']/g);
+                    wf.strategyBackupLlmKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+                    wf.strategyBackupCount = wf.strategyBackupLlmKeys.length;
+                  }
+                }
+
+                const taLlm = cloudWf.nodes?.find(n => n.name === 'Config: Topic Analyzer LLM Master');
+                if (taLlm?.parameters?.jsCode) {
+                  const matchTa = taLlm.parameters.jsCode.match(/const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (matchTa) {
+                    const sm = matchTa[1].match(/["']([^"']+)["']/g);
+                    wf.topicAnalyzerLlmKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+                    wf.topicAnalyzerCount = wf.topicAnalyzerLlmKeys.length;
+                  }
+                }
+
+                const tabLlm = cloudWf.nodes?.find(n => n.name === 'Config: Topic Analyzer Backup LLM Master');
+                if (tabLlm?.parameters?.jsCode) {
+                  const matchTab = tabLlm.parameters.jsCode.match(/const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (matchTab) {
+                    const sm = matchTab[1].match(/["']([^"']+)["']/g);
+                    wf.topicAnalyzerBackupLlmKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+                    wf.topicAnalyzerBackupCount = wf.topicAnalyzerBackupLlmKeys.length;
+                  }
+                }
               }
             } catch (err) {
               console.warn(`[admin.js] Sync status notice for ${wf.id}:`, err.message);
@@ -2200,6 +2251,57 @@ export async function handler(event) {
               }
             }
 
+            // Extract LLM Master nodes keys
+            const pLlm = wf.nodes?.find(n => n.name === 'Config: Primary LLM Master');
+            let pLlmKeys = [];
+            if (pLlm?.parameters?.jsCode) {
+              const matchP = pLlm.parameters.jsCode.match(/const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              if (matchP) {
+                const sm = matchP[1].match(/["']([^"']+)["']/g);
+                if (sm) pLlmKeys = sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+              }
+            }
+
+            const bLlm = wf.nodes?.find(n => n.name === 'Config: Backup LLM Master');
+            let bLlmKeys = [];
+            if (bLlm?.parameters?.jsCode) {
+              const matchB = bLlm.parameters.jsCode.match(/const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              if (matchB) {
+                const sm = matchB[1].match(/["']([^"']+)["']/g);
+                if (sm) bLlmKeys = sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+              }
+            }
+
+            const sbLlm = wf.nodes?.find(n => n.name === 'Config: Strategy Backup LLM Master');
+            let sbLlmKeys = [];
+            if (sbLlm?.parameters?.jsCode) {
+              const matchSb = sbLlm.parameters.jsCode.match(/const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              if (matchSb) {
+                const sm = matchSb[1].match(/["']([^"']+)["']/g);
+                if (sm) sbLlmKeys = sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+              }
+            }
+
+            const taLlm = wf.nodes?.find(n => n.name === 'Config: Topic Analyzer LLM Master');
+            let taLlmKeys = [];
+            if (taLlm?.parameters?.jsCode) {
+              const matchTa = taLlm.parameters.jsCode.match(/const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              if (matchTa) {
+                const sm = matchTa[1].match(/["']([^"']+)["']/g);
+                if (sm) taLlmKeys = sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+              }
+            }
+
+            const tabLlm = wf.nodes?.find(n => n.name === 'Config: Topic Analyzer Backup LLM Master');
+            let tabLlmKeys = [];
+            if (tabLlm?.parameters?.jsCode) {
+              const matchTab = tabLlm.parameters.jsCode.match(/const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              if (matchTab) {
+                const sm = matchTab[1].match(/["']([^"']+)["']/g);
+                if (sm) tabLlmKeys = sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+              }
+            }
+
             statuses[t.id] = {
               online: true,
               active: wf.active !== false,
@@ -2208,6 +2310,16 @@ export async function handler(event) {
               keys: activeKeys,
               backupKeysCount: backupCount,
               backupKeys: backupKeys,
+              primaryLlmKeys: pLlmKeys,
+              primaryLlmCount: pLlmKeys.length,
+              backupLlmKeys: bLlmKeys,
+              backupLlmCount: bLlmKeys.length,
+              strategyBackupLlmKeys: sbLlmKeys,
+              strategyBackupCount: sbLlmKeys.length,
+              topicAnalyzerLlmKeys: taLlmKeys,
+              topicAnalyzerCount: taLlmKeys.length,
+              topicAnalyzerBackupLlmKeys: tabLlmKeys,
+              topicAnalyzerBackupCount: tabLlmKeys.length,
               updatedAt: wf.updatedAt
             };
           } catch (e) {
@@ -2421,6 +2533,438 @@ export async function handler(event) {
             results,
             keysRemovedCount: keysToDelete.length,
             remainingKeysCount: lastRemainingCount
+          })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [11G] LLM API KEYS CLOUD SYNC & DISPATCHER (PRIMARY, BACKUP, STRATEGY, ANALYZER)
+      // ----------------------------------------------------
+      case 'append-llm-keys': {
+        const { workflowId, newKeys, targetGroup = 'all_primary' } = body;
+
+        let keysToAdd = [];
+        if (Array.isArray(newKeys)) {
+          keysToAdd = newKeys.map(k => String(k).trim()).filter(k => k.length > 5);
+        } else if (typeof newKeys === 'string') {
+          keysToAdd = newKeys
+            .split(/[\r\n,;\s]+/)
+            .map(k => k.replace(/["'\[\]]/g, '').trim())
+            .filter(k => k.length > 5);
+        }
+
+        if (keysToAdd.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please enter at least one valid LLM API key.' })
+          };
+        }
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const resolveTargetDefs = (group) => {
+          if (group === 'all_primary') {
+            return [
+              { name: 'Config: Primary LLM Master', varName: 'primaryLlmApiKeys', regex: /const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ },
+              { name: 'Config: Topic Analyzer LLM Master', varName: 'primaryLlmApiKeys', regex: /const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }
+            ];
+          }
+          if (group === 'all_backup') {
+            return [
+              { name: 'Config: Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ },
+              { name: 'Config: Strategy Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ },
+              { name: 'Config: Topic Analyzer Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }
+            ];
+          }
+          if (group === 'Config: Critic LLM Master (Primary)' || group === 'Config: Primary LLM Master') {
+            return [{ name: 'Config: Primary LLM Master', varName: 'primaryLlmApiKeys', regex: /const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+          }
+          if (group === 'Config: Critic LLM Master (Backup)' || group === 'Config: Backup LLM Master') {
+            return [{ name: 'Config: Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+          }
+          if (group === 'Config: Strategy Backup LLM Master') {
+            return [{ name: 'Config: Strategy Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+          }
+          if (group === 'Config: Topic Analyzer LLM Master') {
+            return [{ name: 'Config: Topic Analyzer LLM Master', varName: 'primaryLlmApiKeys', regex: /const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+          }
+          if (group === 'Config: Topic Analyzer Backup LLM Master') {
+            return [{ name: 'Config: Topic Analyzer Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+          }
+          return [{ name: 'Config: Primary LLM Master', varName: 'primaryLlmApiKeys', regex: /const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+        };
+
+        const targetDefs = resolveTargetDefs(targetGroup);
+        const results = [];
+        let totalNodesUpdated = 0;
+        let masterPrimaryKeys = [];
+        let masterBackupKeys = [];
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) {
+              throw new Error(`Failed to load workflow nodes from n8n Cloud`);
+            }
+
+            const operations = [];
+            const updatedNodesList = [];
+
+            for (const def of targetDefs) {
+              const node = wf.nodes.find(n => n.name === def.name);
+              if (!node) continue;
+
+              const curCode = node.parameters?.jsCode || '';
+              let existingKeys = [];
+              const match = curCode.match(def.regex);
+              if (match) {
+                const strMatches = match[1].match(/["']([^"']+)["']/g);
+                if (strMatches) {
+                  existingKeys = strMatches.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+                }
+              }
+
+              const combinedKeys = Array.from(new Set([...existingKeys, ...keysToAdd]));
+              if (def.varName === 'primaryLlmApiKeys') masterPrimaryKeys = combinedKeys;
+              if (def.varName === 'backupLlmApiKeys') masterBackupKeys = combinedKeys;
+
+              const replacementCode = `const ${def.varName} = ${JSON.stringify(combinedKeys, null, 2)};`;
+              const updatedCode = def.regex.test(curCode)
+                ? curCode.replace(def.regex, replacementCode)
+                : `${replacementCode}\n\n${curCode}`;
+
+              operations.push({
+                type: 'updateNodeParameters',
+                nodeName: node.name,
+                parameters: { jsCode: updatedCode }
+              });
+
+              updatedNodesList.push({
+                nodeName: node.name,
+                previousCount: existingKeys.length,
+                addedCount: combinedKeys.length - existingKeys.length,
+                totalCount: combinedKeys.length
+              });
+            }
+
+            if (operations.length > 0) {
+              await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+                workflowId: target.id,
+                versionName: `Appended LLM Keys (${targetGroup})`,
+                versionDescription: `Added ${keysToAdd.length} LLM keys to ${operations.length} config node(s) via BangAI Admin Panel.`,
+                operations
+              });
+              totalNodesUpdated += operations.length;
+            }
+
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              nodesUpdated: operations.length,
+              nodeDetails: updatedNodesList
+            });
+          } catch (err) {
+            console.error(`[append-llm-keys] Error on ${target.id}:`, err.message);
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: false,
+              error: err.message
+            });
+          }
+        }
+
+        // Persist to MongoDB Atlas
+        const keysCol = db.collection('api_keys');
+        if (masterPrimaryKeys.length > 0) {
+          await keysCol.updateOne(
+            { _id: 'primary_llm_keys' },
+            {
+              $set: {
+                provider: 'gemini',
+                name: 'Primary LLM Keys (Gemini 2.5 Flash)',
+                keys: masterPrimaryKeys,
+                pool: masterPrimaryKeys.map((k, idx) => ({ key: k, label: `Primary LLM #${idx + 1}`, status: 'active', balance: 1000, max: 1000, unit: 'units' })),
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        }
+        if (masterBackupKeys.length > 0) {
+          await keysCol.updateOne(
+            { _id: 'backup_llm_keys' },
+            {
+              $set: {
+                provider: 'backup_llm',
+                name: 'Backup LLM Provider Keys',
+                keys: masterBackupKeys,
+                pool: masterBackupKeys.map((k, idx) => ({ key: k, label: `Backup LLM #${idx + 1}`, status: 'active', balance: 1000, max: 1000, unit: 'units' })),
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        }
+
+        await logAdminAction(db, 'LLM_KEYS_APPENDED', {
+          target: workflowId || 'all',
+          targetGroup,
+          keysAddedCount: keysToAdd.length,
+          totalNodesUpdated
+        }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Updated ${totalNodesUpdated} LLM config node(s) in n8n Cloud.`,
+            targetGroup,
+            results,
+            keysAdded: keysToAdd.length
+          })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [11H] REMOVE LLM API KEYS FROM WORKFLOWS
+      // ----------------------------------------------------
+      case 'remove-llm-keys': {
+        const { workflowId, keysToRemove, targetGroup = 'all_primary' } = body;
+
+        let keysToDelete = [];
+        if (Array.isArray(keysToRemove)) {
+          keysToDelete = keysToRemove.map(k => String(k).trim()).filter(Boolean);
+        } else if (typeof keysToRemove === 'string') {
+          keysToDelete = keysToRemove
+            .split(/[\r\n,;\s]+/)
+            .map(k => k.replace(/["'\[\]]/g, '').trim())
+            .filter(Boolean);
+        }
+
+        if (keysToDelete.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please specify at least one LLM API key to remove.' })
+          };
+        }
+
+        const deleteSet = new Set(keysToDelete.map(k => k.trim()));
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const resolveTargetDefs = (group) => {
+          if (group === 'all_primary') {
+            return [
+              { name: 'Config: Primary LLM Master', varName: 'primaryLlmApiKeys', regex: /const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ },
+              { name: 'Config: Topic Analyzer LLM Master', varName: 'primaryLlmApiKeys', regex: /const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }
+            ];
+          }
+          if (group === 'all_backup') {
+            return [
+              { name: 'Config: Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ },
+              { name: 'Config: Strategy Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ },
+              { name: 'Config: Topic Analyzer Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }
+            ];
+          }
+          if (group === 'Config: Critic LLM Master (Primary)' || group === 'Config: Primary LLM Master') {
+            return [{ name: 'Config: Primary LLM Master', varName: 'primaryLlmApiKeys', regex: /const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+          }
+          if (group === 'Config: Critic LLM Master (Backup)' || group === 'Config: Backup LLM Master') {
+            return [{ name: 'Config: Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+          }
+          if (group === 'Config: Strategy Backup LLM Master') {
+            return [{ name: 'Config: Strategy Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+          }
+          if (group === 'Config: Topic Analyzer LLM Master') {
+            return [{ name: 'Config: Topic Analyzer LLM Master', varName: 'primaryLlmApiKeys', regex: /const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+          }
+          if (group === 'Config: Topic Analyzer Backup LLM Master') {
+            return [{ name: 'Config: Topic Analyzer Backup LLM Master', varName: 'backupLlmApiKeys', regex: /const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+          }
+          return [{ name: 'Config: Primary LLM Master', varName: 'primaryLlmApiKeys', regex: /const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/ }];
+        };
+
+        const targetDefs = resolveTargetDefs(targetGroup);
+        const results = [];
+        let totalNodesUpdated = 0;
+        let masterPrimaryKeys = null;
+        let masterBackupKeys = null;
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) {
+              throw new Error(`Failed to load workflow nodes from n8n Cloud`);
+            }
+
+            const operations = [];
+            const updatedNodesList = [];
+
+            for (const def of targetDefs) {
+              const node = wf.nodes.find(n => n.name === def.name);
+              if (!node) continue;
+
+              const curCode = node.parameters?.jsCode || '';
+              let existingKeys = [];
+              const match = curCode.match(def.regex);
+              if (match) {
+                const strMatches = match[1].match(/["']([^"']+)["']/g);
+                if (strMatches) {
+                  existingKeys = strMatches.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+                }
+              }
+
+              const remainingKeys = existingKeys.filter(k => !deleteSet.has(k.trim()));
+              const removedCount = existingKeys.length - remainingKeys.length;
+
+              if (def.varName === 'primaryLlmApiKeys') masterPrimaryKeys = remainingKeys;
+              if (def.varName === 'backupLlmApiKeys') masterBackupKeys = remainingKeys;
+
+              const replacementCode = `const ${def.varName} = ${JSON.stringify(remainingKeys, null, 2)};`;
+              const updatedCode = def.regex.test(curCode)
+                ? curCode.replace(def.regex, replacementCode)
+                : `${replacementCode}\n\n${curCode}`;
+
+              operations.push({
+                type: 'updateNodeParameters',
+                nodeName: node.name,
+                parameters: { jsCode: updatedCode }
+              });
+
+              updatedNodesList.push({
+                nodeName: node.name,
+                previousCount: existingKeys.length,
+                removedCount,
+                remainingCount: remainingKeys.length
+              });
+            }
+
+            if (operations.length > 0) {
+              await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+                workflowId: target.id,
+                versionName: `Removed LLM Keys (${targetGroup})`,
+                versionDescription: `Removed ${keysToDelete.length} LLM key(s) from ${operations.length} config node(s) via BangAI Admin Panel.`,
+                operations
+              });
+              totalNodesUpdated += operations.length;
+            }
+
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              nodesUpdated: operations.length,
+              nodeDetails: updatedNodesList
+            });
+          } catch (err) {
+            console.error(`[remove-llm-keys] Error on ${target.id}:`, err.message);
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: false,
+              error: err.message
+            });
+          }
+        }
+
+        // Update MongoDB Atlas
+        const keysCol = db.collection('api_keys');
+        if (masterPrimaryKeys !== null) {
+          await keysCol.updateOne(
+            { _id: 'primary_llm_keys' },
+            {
+              $set: {
+                keys: masterPrimaryKeys,
+                pool: masterPrimaryKeys.map((k, idx) => ({ key: k, label: `Primary LLM #${idx + 1}`, status: 'active', balance: 1000, max: 1000, unit: 'units' })),
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        }
+        if (masterBackupKeys !== null) {
+          await keysCol.updateOne(
+            { _id: 'backup_llm_keys' },
+            {
+              $set: {
+                keys: masterBackupKeys,
+                pool: masterBackupKeys.map((k, idx) => ({ key: k, label: `Backup LLM #${idx + 1}`, status: 'active', balance: 1000, max: 1000, unit: 'units' })),
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        }
+
+        await logAdminAction(db, 'LLM_KEYS_REMOVED', {
+          target: workflowId || 'all',
+          targetGroup,
+          keysRemovedCount: keysToDelete.length,
+          totalNodesUpdated
+        }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Removed keys from ${totalNodesUpdated} LLM config node(s) in n8n Cloud.`,
+            targetGroup,
+            results,
+            keysRemovedCount: keysToDelete.length
           })
         };
       }

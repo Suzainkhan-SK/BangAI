@@ -119,6 +119,10 @@ export const adminService = {
     adminFetch('append-backup-keys', 'POST', { workflowId, newKeys, provider: 'backup' }),
   removeBackupKeys: async (workflowId, keysToRemove) =>
     adminFetch('remove-backup-keys', 'POST', { workflowId, keysToRemove, provider: 'backup' }),
+  appendLlmKeys: async (workflowId, newKeys, targetGroup = 'all_primary') =>
+    adminFetch('append-llm-keys', 'POST', { workflowId, newKeys, targetGroup }),
+  removeLlmKeys: async (workflowId, keysToRemove, targetGroup = 'all_primary') =>
+    adminFetch('remove-llm-keys', 'POST', { workflowId, keysToRemove, targetGroup }),
   toggleWorkflowPublish: async (workflowId, publish) =>
     adminFetch('toggle-workflow-publish', 'POST', { workflowId, publish }),
   autoDetectWorkflowIds: async () =>

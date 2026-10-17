@@ -8,8 +8,14 @@ export default function WorkflowManagerView() {
   const [loading, setLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState('');
 
+  // Category Switcher: 'video' (Kie.ai & Backup Video) | 'llm' (Master LLM Config Nodes)
+  const [managerCategory, setManagerCategory] = useState('video');
+
   // Video Provider: 'primary' (Kie.ai) | 'backup' (Backup Video)
   const [videoProvider, setVideoProvider] = useState('primary');
+
+  // LLM Node Target: 'all_primary' | 'all_backup' | specific node
+  const [llmTarget, setLlmTarget] = useState('all_primary');
 
   // Dispatcher Action: 'append' | 'manage'
   const [actionTab, setActionTab] = useState('append');
@@ -28,10 +34,30 @@ export default function WorkflowManagerView() {
   const [detectingIds, setDetectingIds] = useState(false);
   const [syncingCloud, setSyncingCloud] = useState(false);
 
+  const isLlm = managerCategory === 'llm';
   const isBackup = videoProvider === 'backup';
-  const providerLabel = isBackup ? 'Backup Video' : 'Kie.ai Primary Video';
-  const providerAccent = isBackup ? 'var(--admin-accent-purple, #8b5cf6)' : 'var(--admin-accent-cyan, #06b6d4)';
-  const nodeTargetName = isBackup ? 'Config: Backup Video Master 1..5' : 'Config: Primary Video Master 1..5';
+
+  const providerLabel = isLlm
+    ? (llmTarget === 'all_primary'
+        ? 'All Primary LLM Nodes'
+        : llmTarget === 'all_backup'
+          ? 'All Backup LLM Nodes'
+          : llmTarget)
+    : (isBackup ? 'Backup Video' : 'Kie.ai Primary Video');
+
+  const providerAccent = isLlm
+    ? (llmTarget === 'all_primary' || llmTarget.includes('Primary') || llmTarget.includes('Topic Analyzer LLM Master')
+        ? '#10b981'
+        : '#f59e0b')
+    : (isBackup ? 'var(--admin-accent-purple, #8b5cf6)' : 'var(--admin-accent-cyan, #06b6d4)');
+
+  const nodeTargetName = isLlm
+    ? (llmTarget === 'all_primary'
+        ? 'Config: Primary LLM Master & Config: Topic Analyzer LLM Master'
+        : llmTarget === 'all_backup'
+          ? 'Config: Backup LLM Master, Strategy Backup & Topic Analyzer Backup'
+          : llmTarget)
+    : (isBackup ? 'Config: Backup Video Master 1..5' : 'Config: Primary Video Master 1..5');
 
   const fetchWorkflows = async (syncCloud = false) => {
     if (syncCloud) setSyncingCloud(true);
@@ -86,21 +112,86 @@ export default function WorkflowManagerView() {
     return set.size;
   }, [flagshipWorkflows]);
 
+  const totalPrimaryLlmKeys = useMemo(() => {
+    const set = new Set();
+    flagshipWorkflows.forEach(w => {
+      if (Array.isArray(w.primaryLlmKeys)) w.primaryLlmKeys.forEach(k => set.add(k));
+      if (Array.isArray(w.topicAnalyzerLlmKeys)) w.topicAnalyzerLlmKeys.forEach(k => set.add(k));
+    });
+    return set.size;
+  }, [flagshipWorkflows]);
+
+  const totalBackupLlmKeys = useMemo(() => {
+    const set = new Set();
+    flagshipWorkflows.forEach(w => {
+      if (Array.isArray(w.backupLlmKeys)) w.backupLlmKeys.forEach(k => set.add(k));
+      if (Array.isArray(w.strategyBackupLlmKeys)) w.strategyBackupLlmKeys.forEach(k => set.add(k));
+      if (Array.isArray(w.topicAnalyzerBackupLlmKeys)) w.topicAnalyzerBackupLlmKeys.forEach(k => set.add(k));
+    });
+    return set.size;
+  }, [flagshipWorkflows]);
+
   // Active Keys pool for the currently selected target and active provider
   const activeDisplayKeys = useMemo(() => {
-    if (targetWorkflow === 'all') {
-      const set = new Set();
-      flagshipWorkflows.forEach(wf => {
-        const arr = isBackup ? wf.backupKeys : wf.kieKeys;
-        if (Array.isArray(arr)) arr.forEach(k => set.add(k));
-      });
-      return Array.from(set);
+    if (!isLlm) {
+      if (targetWorkflow === 'all') {
+        const set = new Set();
+        flagshipWorkflows.forEach(wf => {
+          const arr = isBackup ? wf.backupKeys : wf.kieKeys;
+          if (Array.isArray(arr)) arr.forEach(k => set.add(k));
+        });
+        return Array.from(set);
+      } else {
+        const targetWf = flagshipWorkflows.find(w => w.id === targetWorkflow);
+        const arr = isBackup ? targetWf?.backupKeys : targetWf?.kieKeys;
+        return Array.isArray(arr) ? arr : [];
+      }
     } else {
-      const targetWf = flagshipWorkflows.find(w => w.id === targetWorkflow);
-      const arr = isBackup ? targetWf?.backupKeys : targetWf?.kieKeys;
-      return Array.isArray(arr) ? arr : [];
+      const getKeysForWfAndTarget = (wf) => {
+        if (!wf) return [];
+        if (llmTarget === 'all_primary') {
+          const set = new Set([...(wf.primaryLlmKeys || []), ...(wf.topicAnalyzerLlmKeys || [])]);
+          return Array.from(set);
+        }
+        if (llmTarget === 'all_backup') {
+          const set = new Set([
+            ...(wf.backupLlmKeys || []),
+            ...(wf.strategyBackupLlmKeys || []),
+            ...(wf.topicAnalyzerBackupLlmKeys || [])
+          ]);
+          return Array.from(set);
+        }
+        if (llmTarget === 'Config: Primary LLM Master' || llmTarget === 'Config: Critic LLM Master (Primary)') {
+          return wf.primaryLlmKeys || [];
+        }
+        if (llmTarget === 'Config: Backup LLM Master' || llmTarget === 'Config: Critic LLM Master (Backup)') {
+          return wf.backupLlmKeys || [];
+        }
+        if (llmTarget === 'Config: Strategy Backup LLM Master') {
+          return wf.strategyBackupLlmKeys || [];
+        }
+        if (llmTarget === 'Config: Topic Analyzer LLM Master') {
+          return wf.topicAnalyzerLlmKeys || [];
+        }
+        if (llmTarget === 'Config: Topic Analyzer Backup LLM Master') {
+          return wf.topicAnalyzerBackupLlmKeys || [];
+        }
+        return wf.primaryLlmKeys || [];
+      };
+
+      if (targetWorkflow === 'all') {
+        const set = new Set();
+        flagshipWorkflows.forEach(wf => {
+          const arr = getKeysForWfAndTarget(wf);
+          if (Array.isArray(arr)) arr.forEach(k => set.add(k));
+        });
+        return Array.from(set);
+      } else {
+        const targetWf = flagshipWorkflows.find(w => w.id === targetWorkflow);
+        return getKeysForWfAndTarget(targetWf);
+      }
     }
-  }, [flagshipWorkflows, targetWorkflow, isBackup]);
+  }, [flagshipWorkflows, targetWorkflow, isLlm, isBackup, llmTarget]);
 
   const filteredActiveKeys = useMemo(() => {
     if (!keySearchTerm.trim()) return activeDisplayKeys;
@@ -176,7 +267,8 @@ export default function WorkflowManagerView() {
 
     const confirmed = window.confirm(
       `Confirm appending ${cleanKeys.length} new ${providerLabel} API keys to ${targetDesc}?\n\n` +
-      `• These keys will be added to the existing keys in ${nodeTargetName}.\n` +
+      `• Target Node(s): ${nodeTargetName}\n` +
+      `• These keys will be added to the existing keys.\n` +
       `• Existing keys will be 100% PRESERVED.\n` +
       `• Keys will be backed up to MongoDB Atlas.`
     );
@@ -187,22 +279,32 @@ export default function WorkflowManagerView() {
       ...prev,
       `[${new Date().toLocaleTimeString()}] 🚀 Initiating ${providerLabel} cloud synchronization...`,
       `[${new Date().toLocaleTimeString()}] Target: ${targetDesc}`,
+      `[${new Date().toLocaleTimeString()}] Target Node(s): ${nodeTargetName}`,
       `[${new Date().toLocaleTimeString()}] Keys to inject: ${cleanKeys.length} keys`,
       `[${new Date().toLocaleTimeString()}] Connecting to n8n Cloud MCP Server at ${activeHost}...`
     ]);
 
     try {
-      const res = await adminService.appendVideoKeys(targetWorkflow, cleanKeys, videoProvider);
+      const res = isLlm
+        ? await adminService.appendLlmKeys(targetWorkflow, cleanKeys, llmTarget)
+        : await adminService.appendVideoKeys(targetWorkflow, cleanKeys, videoProvider);
+
       if (res.success && Array.isArray(res.results)) {
         const newLogs = [];
         res.results.forEach(r => {
           if (r.success) {
-            newLogs.push(`[${new Date().toLocaleTimeString()}] ✅ ${r.name} (${r.workflowId}): Added ${r.addedCount} new keys. Total active: ${r.totalKeyCount} keys across ${r.nodesUpdated} Master config nodes.`);
+            if (r.nodeDetails && r.nodeDetails.length > 0) {
+              r.nodeDetails.forEach(nd => {
+                newLogs.push(`[${new Date().toLocaleTimeString()}] ✅ ${r.name}: ${nd.nodeName} -> Added ${nd.addedCount} new keys. Total active: ${nd.totalCount} keys.`);
+              });
+            } else {
+              newLogs.push(`[${new Date().toLocaleTimeString()}] ✅ ${r.name} (${r.workflowId}): Added ${r.addedCount || cleanKeys.length} new keys. Total active: ${r.totalKeyCount || '?'} keys across ${r.nodesUpdated} Master config nodes.`);
+            }
           } else {
             newLogs.push(`[${new Date().toLocaleTimeString()}] ❌ ${r.name} (${r.workflowId}): Failed - ${r.error}`);
           }
         });
-        newLogs.push(`[${new Date().toLocaleTimeString()}] 💾 Master key pool safely synchronized with MongoDB Atlas api_keys.`);
+        newLogs.push(`[${new Date().toLocaleTimeString()}] 💾 Master key pool safely synchronized with MongoDB Atlas.`);
         newLogs.push(`[${new Date().toLocaleTimeString()}] 🎉 Cloud sync complete!`);
         setLogs(prev => [...prev, ...newLogs]);
         setToastMsg(`✅ Appended ${cleanKeys.length} ${providerLabel} keys successfully!`);
@@ -249,8 +351,8 @@ export default function WorkflowManagerView() {
     const confirmed = window.confirm(
       `⚠️ CONFIRM ${providerLabel.toUpperCase()} KEY REMOVAL:\n\n` +
       `Are you sure you want to remove ${summaryText} from ${targetDesc}?\n\n` +
-      `• This will update ${nodeTargetName} in n8n Cloud.\n` +
-      `• The key(s) will be completely removed from active rotation.\n` +
+      `• Target Node(s): ${nodeTargetName}\n` +
+      `• The key(s) will be completely removed from active rotation in n8n Cloud.\n` +
       `• MongoDB Atlas backup will be updated.`
     );
     if (!confirmed) return;
@@ -260,17 +362,27 @@ export default function WorkflowManagerView() {
       ...prev,
       `[${new Date().toLocaleTimeString()}] 🗑️ Initiating ${providerLabel} key removal pipeline...`,
       `[${new Date().toLocaleTimeString()}] Target: ${targetDesc}`,
+      `[${new Date().toLocaleTimeString()}] Target Node(s): ${nodeTargetName}`,
       `[${new Date().toLocaleTimeString()}] Keys to remove: ${cleanKeys.length} key(s)`,
       `[${new Date().toLocaleTimeString()}] Connecting to n8n Cloud MCP Server at ${activeHost}...`
     ]);
 
     try {
-      const res = await adminService.removeVideoKeys(targetWorkflow, cleanKeys, videoProvider);
+      const res = isLlm
+        ? await adminService.removeLlmKeys(targetWorkflow, cleanKeys, llmTarget)
+        : await adminService.removeVideoKeys(targetWorkflow, cleanKeys, videoProvider);
+
       if (res.success && Array.isArray(res.results)) {
         const newLogs = [];
         res.results.forEach(r => {
           if (r.success) {
-            newLogs.push(`[${new Date().toLocaleTimeString()}] ✅ ${r.name} (${r.workflowId}): Removed ${r.removedCount} key(s). Remaining: ${r.remainingKeyCount} keys across ${r.nodesUpdated} Master config nodes.`);
+            if (r.nodeDetails && r.nodeDetails.length > 0) {
+              r.nodeDetails.forEach(nd => {
+                newLogs.push(`[${new Date().toLocaleTimeString()}] ✅ ${r.name}: ${nd.nodeName} -> Removed ${nd.removedCount} key(s). Remaining: ${nd.remainingCount} active keys.`);
+              });
+            } else {
+              newLogs.push(`[${new Date().toLocaleTimeString()}] ✅ ${r.name} (${r.workflowId}): Removed ${r.removedCount} key(s). Remaining: ${r.remainingKeyCount} keys across ${r.nodesUpdated} node(s).`);
+            }
           } else {
             newLogs.push(`[${new Date().toLocaleTimeString()}] ❌ ${r.name} (${r.workflowId}): Failed - ${r.error}`);
           }
@@ -473,7 +585,7 @@ export default function WorkflowManagerView() {
       )}
 
       {/* 2. Sleek KPI Metrics Overview Row */}
-      <div className="admin-grid-4">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
         {/* KPI 1: Live Pipelines */}
         <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -502,7 +614,7 @@ export default function WorkflowManagerView() {
         <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Kie.ai Primary Keys
+              Primary Video Keys
             </span>
             <span style={{ fontSize: '14px' }}>⚡</span>
           </div>
@@ -511,7 +623,7 @@ export default function WorkflowManagerView() {
               {totalPrimaryKeys}
             </span>
             <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 500 }}>
-              Keys across scenes
+              Kie.ai 1080p keys
             </span>
           </div>
         </div>
@@ -534,7 +646,43 @@ export default function WorkflowManagerView() {
           </div>
         </div>
 
-        {/* KPI 4: Cloud Host */}
+        {/* KPI 4: Primary LLM Keys */}
+        <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Primary LLM Keys
+            </span>
+            <span style={{ fontSize: '14px' }}>🧠</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '24px', fontWeight: 900, color: '#10b981' }}>
+              {totalPrimaryLlmKeys}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 500 }}>
+              Gemini & Analyzer
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 5: Backup LLM Keys */}
+        <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Backup LLM Keys
+            </span>
+            <span style={{ fontSize: '14px' }}>🛡️</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '24px', fontWeight: 900, color: '#f59e0b' }}>
+              {totalBackupLlmKeys}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 500 }}>
+              Failover & Strategy
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 6: Cloud Host */}
         <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -545,7 +693,7 @@ export default function WorkflowManagerView() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{
               fontFamily: 'var(--admin-font-mono)',
-              fontSize: '14px',
+              fontSize: '13px',
               fontWeight: 800,
               color: 'var(--admin-text-main)',
               overflow: 'hidden',
@@ -722,6 +870,41 @@ export default function WorkflowManagerView() {
                   </div>
                 </div>
 
+                {/* LLM Key Counters Row */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  <div style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Primary LLM:</span>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#10b981' }}>
+                      {wf.primaryLlmCount ?? '?'}
+                    </span>
+                  </div>
+
+                  <div style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    border: '1px solid rgba(245, 158, 11, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Backup LLM:</span>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b' }}>
+                      {wf.backupLlmCount ?? '?'}
+                    </span>
+                  </div>
+                </div>
+
                 {/* Bottom Card Actions */}
                 <div style={{
                   display: 'flex',
@@ -778,109 +961,279 @@ export default function WorkflowManagerView() {
         </div>
       </div>
 
-      {/* 4. Interactive Video Keys Dispatcher & Key Vault (Unified Glass Card) */}
+      {/* 4. Interactive Provider & LLM Engine Dispatcher & Key Vault (Unified Glass Card) */}
       <div className="admin-card" style={{
         padding: '24px',
         borderRadius: '16px',
-        borderColor: isBackup ? 'rgba(139, 92, 246, 0.3)' : 'rgba(6, 182, 212, 0.3)',
-        background: isBackup
-          ? 'linear-gradient(180deg, rgba(139, 92, 246, 0.04) 0%, var(--admin-bg-surface) 100%)'
-          : 'linear-gradient(180deg, rgba(6, 182, 212, 0.03) 0%, var(--admin-bg-surface) 100%)',
+        borderColor: isLlm
+          ? (llmTarget.includes('primary') ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)')
+          : (isBackup ? 'rgba(139, 92, 246, 0.3)' : 'rgba(6, 182, 212, 0.3)'),
+        background: isLlm
+          ? (llmTarget.includes('primary')
+              ? 'linear-gradient(180deg, rgba(16, 185, 129, 0.04) 0%, var(--admin-bg-surface) 100%)'
+              : 'linear-gradient(180deg, rgba(245, 158, 11, 0.04) 0%, var(--admin-bg-surface) 100%)')
+          : (isBackup
+              ? 'linear-gradient(180deg, rgba(139, 92, 246, 0.04) 0%, var(--admin-bg-surface) 100%)'
+              : 'linear-gradient(180deg, rgba(6, 182, 212, 0.03) 0%, var(--admin-bg-surface) 100%)'),
         boxShadow: '0 12px 36px rgba(0, 0, 0, 0.25)'
       }}>
         
-        {/* Dispatcher Header & Mode Switcher */}
+        {/* Master Category Selector (Video Providers vs LLM Engines) */}
         <div style={{
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '14px',
-          paddingBottom: '16px',
-          borderBottom: '1px solid var(--admin-border-glass)'
+          gap: '8px',
+          padding: '5px',
+          background: 'var(--admin-bg-elevated)',
+          borderRadius: '12px',
+          border: '1px solid var(--admin-border-glass)',
+          marginBottom: '20px'
         }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>{isBackup ? '🛡️' : '⚡'}</span>
-              <h2 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
-                {isBackup ? 'Backup Video Provider Dispatcher' : 'Primary Video Provider Dispatcher (Kie.ai)'}
-              </h2>
-            </div>
-            <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
-              Directly synchronize API rotation keys into <code>{nodeTargetName}</code> across all 5 scenes.
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setManagerCategory('video');
+              setKeySearchTerm('');
+            }}
+            style={{
+              flex: 1,
+              padding: '10px 16px',
+              borderRadius: '8px',
+              border: !isLlm ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid transparent',
+              background: !isLlm
+                ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.18) 0%, rgba(59, 130, 246, 0.18) 100%)'
+                : 'transparent',
+              color: !isLlm ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
+              fontWeight: 800,
+              fontSize: '13px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '15px' }}>🎬</span> Video Providers (Kie.ai & Backup)
+          </button>
 
-          {/* Provider Pill Switcher */}
-          <div style={{
-            display: 'flex',
-            gap: '4px',
-            padding: '4px',
-            background: 'var(--admin-bg-elevated)',
-            borderRadius: '12px',
-            border: '1px solid var(--admin-border-glass)'
-          }}>
-            <button
-              type="button"
-              onClick={() => {
-                setVideoProvider('primary');
-                setKeySearchTerm('');
-              }}
-              style={{
-                padding: '7px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                background: !isBackup ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
-                color: !isBackup ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span>⚡</span> Primary (Kie.ai 1080p)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setVideoProvider('backup');
-                setKeySearchTerm('');
-              }}
-              style={{
-                padding: '7px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                background: isBackup ? 'rgba(139, 92, 246, 0.22)' : 'transparent',
-                color: isBackup ? 'var(--admin-accent-purple)' : 'var(--admin-text-sub)',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span>🛡️</span> Backup Video (Failover)
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setManagerCategory('llm');
+              setKeySearchTerm('');
+            }}
+            style={{
+              flex: 1,
+              padding: '10px 16px',
+              borderRadius: '8px',
+              border: isLlm ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid transparent',
+              background: isLlm
+                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(245, 158, 11, 0.18) 100%)'
+                : 'transparent',
+              color: isLlm ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
+              fontWeight: 800,
+              fontSize: '13px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '15px' }}>🧠</span> LLM Config Nodes (Primary, Backup, Critic & Analyzer)
+          </button>
         </div>
 
-        {/* Action Controls Bar: Target Workflow & Append vs Manage Tabs */}
+        {/* Dispatcher Sub-Header & Controls */}
+        {!isLlm ? (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '14px',
+            paddingBottom: '16px',
+            borderBottom: '1px solid var(--admin-border-glass)'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>{isBackup ? '🛡️' : '⚡'}</span>
+                <h2 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                  {isBackup ? 'Backup Video Provider Dispatcher' : 'Primary Video Provider Dispatcher (Kie.ai)'}
+                </h2>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                Directly synchronize API rotation keys into <code>{nodeTargetName}</code> across all 5 scenes.
+              </p>
+            </div>
+
+            {/* Video Provider Pill Switcher */}
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+              padding: '4px',
+              background: 'var(--admin-bg-elevated)',
+              borderRadius: '12px',
+              border: '1px solid var(--admin-border-glass)'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setVideoProvider('primary');
+                  setKeySearchTerm('');
+                }}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: !isBackup ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
+                  color: !isBackup ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>⚡</span> Primary (Kie.ai 1080p)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setVideoProvider('backup');
+                  setKeySearchTerm('');
+                }}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: isBackup ? 'rgba(139, 92, 246, 0.22)' : 'transparent',
+                  color: isBackup ? 'var(--admin-accent-purple)' : 'var(--admin-text-sub)',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>🛡️</span> Backup Video (Failover)
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '14px',
+            paddingBottom: '16px',
+            borderBottom: '1px solid var(--admin-border-glass)'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>
+                  {llmTarget.includes('primary') ? '⚡' : '🛡️'}
+                </span>
+                <h2 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                  LLM Engine Master Dispatcher
+                </h2>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  background: (llmTarget.includes('primary') ? '#10b981' : '#f59e0b') + '22',
+                  color: llmTarget.includes('primary') ? '#10b981' : '#f59e0b',
+                  border: `1px solid ${llmTarget.includes('primary') ? '#10b981' : '#f59e0b'}44`
+                }}>
+                  {providerLabel}
+                </span>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                Target: <code>{nodeTargetName}</code>
+              </p>
+            </div>
+
+            {/* Direct Batch 1-Click Selectors */}
+            <div style={{
+              display: 'flex',
+              gap: '6px',
+              padding: '4px',
+              background: 'var(--admin-bg-elevated)',
+              borderRadius: '12px',
+              border: '1px solid var(--admin-border-glass)'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setLlmTarget('all_primary');
+                  setKeySearchTerm('');
+                }}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: llmTarget === 'all_primary' ? 'rgba(16, 185, 129, 0.22)' : 'transparent',
+                  color: llmTarget === 'all_primary' ? '#10b981' : 'var(--admin-text-sub)',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Direct Batch: Sync all Primary LLM nodes at once across workflows"
+              >
+                <span>⚡</span> All Primary LLM Nodes
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLlmTarget('all_backup');
+                  setKeySearchTerm('');
+                }}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: llmTarget === 'all_backup' ? 'rgba(245, 158, 11, 0.22)' : 'transparent',
+                  color: llmTarget === 'all_backup' ? '#f59e0b' : 'var(--admin-text-sub)',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Direct Batch: Sync all Backup LLM nodes at once across workflows"
+              >
+                <span>🛡️</span> All Backup LLM Nodes
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Action Controls Bar: Target Selector & Append vs Manage Tabs */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '12px',
-          margin: '18px 0'
+          margin: '18px 0 12px 0'
         }}>
-          {/* Target Workflow Select */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '280px' }}>
+          {/* Target Pipeline Select */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '260px' }}>
             <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
               Target Pipeline:
             </span>
@@ -893,14 +1246,25 @@ export default function WorkflowManagerView() {
                 fontSize: '12.5px',
                 fontWeight: 600,
                 borderRadius: '9px',
-                maxWidth: '480px'
+                maxWidth: '460px'
               }}
             >
               <option value="all">
-                🌟 All 4 Flagship Workflows (Simultaneous 20-Node Push/Remove)
+                🌟 All 4 Flagship Workflows (Simultaneous Cloud Push/Remove)
               </option>
               {flagshipWorkflows.map(wf => {
-                const count = isBackup ? wf.backupKeysCount : wf.kieKeysCount;
+                let count = '?';
+                if (!isLlm) {
+                  count = isBackup ? wf.backupKeysCount : wf.kieKeysCount;
+                } else {
+                  if (llmTarget === 'all_primary') count = (wf.primaryLlmCount || 0) + (wf.topicAnalyzerCount || 0);
+                  else if (llmTarget === 'all_backup') count = (wf.backupLlmCount || 0) + (wf.strategyBackupCount || 0) + (wf.topicAnalyzerBackupCount || 0);
+                  else if (llmTarget === 'Config: Primary LLM Master' || llmTarget === 'Config: Critic LLM Master (Primary)') count = wf.primaryLlmCount;
+                  else if (llmTarget === 'Config: Strategy Backup LLM Master') count = wf.strategyBackupCount;
+                  else if (llmTarget === 'Config: Backup LLM Master' || llmTarget === 'Config: Critic LLM Master (Backup)') count = wf.backupLlmCount;
+                  else if (llmTarget === 'Config: Topic Analyzer LLM Master') count = wf.topicAnalyzerCount;
+                  else if (llmTarget === 'Config: Topic Analyzer Backup LLM Master') count = wf.topicAnalyzerBackupCount;
+                }
                 return (
                   <option key={wf.id} value={wf.id}>
                     {wf.name} ({count ?? '?'} active keys)
@@ -909,6 +1273,67 @@ export default function WorkflowManagerView() {
               })}
             </select>
           </div>
+
+          {/* If in LLM mode, show Target LLM Node Dropdown */}
+          {isLlm && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '280px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
+                Target LLM Node:
+              </span>
+              <select
+                value={llmTarget}
+                onChange={(e) => {
+                  setLlmTarget(e.target.value);
+                  setKeySearchTerm('');
+                }}
+                className="admin-select"
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '9px',
+                  maxWidth: '480px',
+                  borderColor: providerAccent
+                }}
+              >
+                <optgroup label="🌟 Direct Batch Options (Recommended)">
+                  <option value="all_primary">
+                    ⚡ [DIRECT BATCH] All Primary LLM Nodes (Primary Master + Topic Analyzer)
+                  </option>
+                  <option value="all_backup">
+                    🛡️ [DIRECT BATCH] All Backup LLM Nodes (Backup Master + Strategy Backup + Topic Analyzer Backup)
+                  </option>
+                </optgroup>
+                <optgroup label="⚙️ Template & Main Workflow Nodes">
+                  <option value="Config: Primary LLM Master">
+                    Config: Primary LLM Master (Gemini 2.5 Flash / Primary Model)
+                  </option>
+                  <option value="Config: Strategy Backup LLM Master">
+                    Config: Strategy Backup LLM Master (GPT-5.1 Strategy Engine)
+                  </option>
+                  <option value="Config: Backup LLM Master">
+                    Config: Backup LLM Master (Failover LLM Provider Pool)
+                  </option>
+                </optgroup>
+                <optgroup label="🔬 Main Workflow Dedicated Nodes">
+                  <option value="Config: Topic Analyzer LLM Master">
+                    Config: Topic Analyzer LLM Master (Viral All-In-One AI)
+                  </option>
+                  <option value="Config: Topic Analyzer Backup LLM Master">
+                    Config: Topic Analyzer Backup LLM Master (Viral All-In-One AI)
+                  </option>
+                </optgroup>
+                <optgroup label="🔗 Dynamic Inherited Nodes">
+                  <option value="Config: Critic LLM Master (Primary)">
+                    Config: Critic LLM Master (Primary) [Inherits from Primary Master]
+                  </option>
+                  <option value="Config: Critic LLM Master (Backup)">
+                    Config: Critic LLM Master (Backup) [Inherits from Backup Master]
+                  </option>
+                </optgroup>
+              </select>
+            </div>
+          )}
 
           {/* Action Tabs: Append Keys vs Manage / Remove */}
           <div style={{
@@ -926,7 +1351,7 @@ export default function WorkflowManagerView() {
                 padding: '6px 14px',
                 borderRadius: '7px',
                 border: 'none',
-                background: actionTab === 'append' ? (isBackup ? 'rgba(139, 92, 246, 0.2)' : 'rgba(6, 182, 212, 0.2)') : 'transparent',
+                background: actionTab === 'append' ? (providerAccent + '22') : 'transparent',
                 color: actionTab === 'append' ? providerAccent : 'var(--admin-text-sub)',
                 fontSize: '12px',
                 fontWeight: 700,
@@ -963,6 +1388,31 @@ export default function WorkflowManagerView() {
           </div>
         </div>
 
+        {/* LLM Architecture Explanatory Callout Banner */}
+        {isLlm && (
+          <div style={{
+            margin: '8px 0 16px 0',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            background: 'rgba(16, 185, 129, 0.05)',
+            border: '1px solid rgba(16, 185, 129, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            fontSize: '12px',
+            lineHeight: '1.5',
+            color: 'var(--admin-text-sub)'
+          }}>
+            <span style={{ fontSize: '18px', flexShrink: 0 }}>💡</span>
+            <div>
+              <span style={{ fontWeight: 700, color: 'var(--admin-text-main)' }}>LLM Architecture Insight: </span>
+              Physical API keys are stored in <code>Config: Primary LLM Master</code>, <code>Config: Strategy Backup LLM Master</code>, <code>Config: Backup LLM Master</code>, and the Topic Analyzer nodes.
+              <code>Config: Critic LLM Master (Primary/Backup)</code> automatically and dynamically inherit keys from Primary & Backup LLM Masters at runtime.
+              Selecting <strong>"All Primary LLM Nodes"</strong> or <strong>"All Backup LLM Nodes"</strong> directly injects or removes keys across all matching nodes simultaneously!
+            </div>
+          </div>
+        )}
+
         {/* TAB 1: ADD / APPEND KEYS */}
         {actionTab === 'append' && (
           <form onSubmit={handleAppendKeys}>
@@ -992,9 +1442,13 @@ export default function WorkflowManagerView() {
                   rows={4}
                   className="admin-textarea"
                   placeholder={
-                    isBackup
-                      ? "sk-live-bc4a502645e8449d98e6b1e738ca3646d7c68093036cb7a8\nsk-live-41cf4f6c5650367c3ea805aa058897fb6464c0e25e282b65"
-                      : "ad82c01b9b51720280eab511077d4242\nc60c4e8391441ef89abdd2dcbb9936fa"
+                    isLlm
+                      ? (llmTarget.includes('primary') || llmTarget.includes('Primary')
+                          ? "sk-xt-e2786f0d32f17f1a0211ec5f1333c45379691ec0d6f9c954\nsk-xt-450bf12af511af1eceb44dd398886c93a08b8bc52341e623"
+                          : "93fa453252mshd676e411e75bd70p175580jsn4e69cd205b0a\neebced792emsh92d38cce4af7791p1609cfjsnac695534647")
+                      : (isBackup
+                          ? "sk-live-bc4a502645e8449d98e6b1e738ca3646d7c68093036cb7a8\nsk-live-41cf4f6c5650367c3ea805aa058897fb6464c0e25e282b65"
+                          : "ad82c01b9b51720280eab511077d4242\nc60c4e8391441ef89abdd2dcbb9936fa")
                   }
                   style={{
                     fontFamily: 'var(--admin-font-mono)',
@@ -1019,9 +1473,13 @@ export default function WorkflowManagerView() {
                       fontWeight: 700,
                       fontSize: '12.5px',
                       color: '#fff',
-                      background: isBackup
-                        ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)'
-                        : 'linear-gradient(135deg, var(--admin-accent-cyan) 0%, var(--admin-accent-blue) 100%)',
+                      background: isLlm
+                        ? (llmTarget.includes('primary') || llmTarget.includes('Primary')
+                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                            : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)')
+                        : (isBackup
+                            ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)'
+                            : 'linear-gradient(135deg, var(--admin-accent-cyan) 0%, var(--admin-accent-blue) 100%)'),
                       border: 'none',
                       cursor: (appending || detectedAppendCount === 0) ? 'not-allowed' : 'pointer',
                       opacity: (appending || detectedAppendCount === 0) ? 0.6 : 1,
