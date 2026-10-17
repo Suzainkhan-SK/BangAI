@@ -104,9 +104,17 @@ export const adminService = {
   syncKeysToModal: async () => adminFetch('sync-keys-to-modal', 'POST'),
 
   // 5. Workflow Node Manager
-  getWorkflows: async () => adminFetch('get-workflows', 'GET'),
+  getWorkflows: async (syncStatus = false) => adminFetch(`get-workflows${syncStatus ? '&syncStatus=true' : ''}`, 'GET'),
   saveWorkflowNodes: async (workflowId, nodeConfigs) =>
     adminFetch('save-workflow-nodes', 'POST', { workflowId, nodeConfigs }),
+  appendKieKeys: async (workflowId, newKeys) =>
+    adminFetch('append-kie-keys', 'POST', { workflowId, newKeys }),
+  toggleWorkflowPublish: async (workflowId, publish) =>
+    adminFetch('toggle-workflow-publish', 'POST', { workflowId, publish }),
+  autoDetectWorkflowIds: async () =>
+    adminFetch('auto-detect-workflow-ids', 'POST'),
+  getCloudWorkflowStatus: async () =>
+    adminFetch('get-cloud-workflow-status', 'GET'),
 
   // 6. Modal.com Dual-Cluster Hub
   getModalStatus: async () => adminFetch('get-modal-status', 'GET'),

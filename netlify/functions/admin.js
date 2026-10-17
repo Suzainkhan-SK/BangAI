@@ -102,6 +102,53 @@ function makeHttpRequest(options, bodyData = null) {
   });
 }
 
+// Helper: Call n8n Cloud MCP Server via JSON-RPC 2.0 over SSE
+async function callN8nMcp(hostUrl, token, toolName, args = {}) {
+  const cleanHost = String(hostUrl || 'https://cmpunktg29.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const url = `https://${cleanHost}/mcp-server/http`;
+  const payload = {
+    jsonrpc: '2.0',
+    id: Date.now(),
+    method: 'tools/call',
+    params: { name: toolName, arguments: args }
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json, text/event-stream'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`n8n Cloud MCP HTTP error ${res.status}: ${errText.slice(0, 300)}`);
+  }
+
+  const raw = await res.text();
+  const line = raw.split('\n').find(l => l.startsWith('data: '));
+  if (!line) {
+    throw new Error('No SSE data returned from n8n MCP: ' + raw.slice(0, 300));
+  }
+  const json = JSON.parse(line.replace('data: ', ''));
+  if (json.error) {
+    throw new Error('n8n MCP Error: ' + (json.error.message || JSON.stringify(json.error)));
+  }
+
+  const contentText = json.result?.content?.[0]?.text;
+  if (contentText) {
+    try {
+      return JSON.parse(contentText);
+    } catch {
+      return contentText;
+    }
+  }
+  return json.result || json;
+}
+
 // Main Serverless Handler
 export async function handler(event) {
   const origin = event.headers.origin || '*';
@@ -1625,46 +1672,60 @@ export async function handler(event) {
         ]);
 
         const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
 
         const defaultWorkflows = [
           {
-            id: 'YKl6hhWT4kEs9Ytc',
+            id: studioId,
+            key: 'viralShorts',
             slug: 'viral-all-in-one',
             name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]',
             webhook: `${activeBaseUrl}/webhook/viral-shorts-ai`,
-            n8nUrl: `${activeBaseUrl}/workflow/YKl6hhWT4kEs9Ytc`,
+            n8nUrl: `${activeBaseUrl}/workflow/${studioId}`,
             nodesCount: 34,
             status: 'ACTIVE',
+            published: true,
             category: 'Flagship Master Pipeline'
           },
           {
-            id: 'NXZyaUNBciJ9gzCT',
+            id: mysteriesId,
+            key: 'worldMysteries',
             slug: 'world-mysteries',
             name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]',
             webhook: `${activeBaseUrl}/webhook/template-world-mysteries`,
-            n8nUrl: `${activeBaseUrl}/workflow/NXZyaUNBciJ9gzCT`,
+            n8nUrl: `${activeBaseUrl}/workflow/${mysteriesId}`,
             nodesCount: 29,
             status: 'ACTIVE',
+            published: true,
             category: 'Autonomous Niche Template'
           },
           {
-            id: 'SpEEzOq1LHWbGbti',
+            id: last24hId,
+            key: 'last24Hours',
             slug: 'last-24-hours',
             name: 'Last 24 Hours [5 Direct Video Scenes - 75s]',
             webhook: `${activeBaseUrl}/webhook/template-last-24-hours`,
-            n8nUrl: `${activeBaseUrl}/workflow/SpEEzOq1LHWbGbti`,
+            n8nUrl: `${activeBaseUrl}/workflow/${last24hId}`,
             nodesCount: 29,
             status: 'ACTIVE',
+            published: true,
             category: 'Autonomous Niche Template'
           },
           {
-            id: 'sY13UPWrlpUWyNJR',
+            id: horrorId,
+            key: 'horror3am',
             slug: '3am-horror',
             name: '3-AM Horror [5 Direct Video Scenes - 75s]',
             webhook: `${activeBaseUrl}/webhook/template-3am-horror`,
-            n8nUrl: `${activeBaseUrl}/workflow/sY13UPWrlpUWyNJR`,
+            n8nUrl: `${activeBaseUrl}/workflow/${horrorId}`,
             nodesCount: 27,
             status: 'ACTIVE',
+            published: true,
             category: 'Autonomous Niche Template'
           },
           {
@@ -1672,9 +1733,10 @@ export async function handler(event) {
             slug: 'story-approval',
             name: 'Story Approval & Script Polish Callback',
             webhook: `${activeBaseUrl}/webhook/story-approval`,
-            n8nUrl: `${activeBaseUrl}/workflow/YKl6hhWT4kEs9Ytc`,
+            n8nUrl: `${activeBaseUrl}/workflow/${studioId}`,
             nodesCount: 8,
             status: 'ACTIVE',
+            published: true,
             category: 'Interactive Hook Engine'
           },
           {
@@ -1682,12 +1744,38 @@ export async function handler(event) {
             slug: 'youtube-upload',
             name: 'YouTube Direct Channel Auto-Publisher',
             webhook: `${activeBaseUrl}/webhook/viral-shorts-ai-youtube-upload`,
-            n8nUrl: `${activeBaseUrl}/workflow/YKl6hhWT4kEs9Ytc`,
+            n8nUrl: `${activeBaseUrl}/workflow/${studioId}`,
             nodesCount: 14,
             status: 'ACTIVE',
+            published: true,
             category: 'OAuth Multi-Channel Publisher'
           }
         ];
+
+        // Optionally fetch real-time cloud status if requested
+        if (query.syncStatus === 'true' || query.syncStatus === true) {
+          await Promise.allSettled(defaultWorkflows.slice(0, 4).map(async (wf) => {
+            try {
+              const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: wf.id });
+              const cloudWf = details.workflow || details;
+              if (cloudWf) {
+                wf.published = cloudWf.active !== false;
+                wf.status = wf.published ? 'ACTIVE' : 'DRAFT';
+                wf.nodesCount = cloudWf.nodes?.length || wf.nodesCount;
+                const m1 = cloudWf.nodes?.find(n => n.name === 'Config: Primary Video Master1');
+                if (m1?.parameters?.jsCode) {
+                  const match = m1.parameters.jsCode.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (match) {
+                    const strMatches = match[1].match(/["']([^"']+)["']/g);
+                    wf.kieKeysCount = strMatches ? strMatches.length : 0;
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn(`[admin.js] Sync status notice for ${wf.id}:`, err.message);
+            }
+          }));
+        }
 
         return {
           statusCode: 200,
@@ -1726,6 +1814,365 @@ export async function handler(event) {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({ success: true, message: `Node configuration for workflow ${workflowId} updated successfully` })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [11B] KIE.AI KEYS CLOUD SYNC & DISPATCHER
+      // ----------------------------------------------------
+      case 'append-kie-keys': {
+        const { workflowId, newKeys } = body;
+        let keysToAdd = [];
+        if (Array.isArray(newKeys)) {
+          keysToAdd = newKeys.map(k => String(k).trim()).filter(k => k.length > 5);
+        } else if (typeof newKeys === 'string') {
+          keysToAdd = newKeys
+            .split(/[\r\n,;\s]+/)
+            .map(k => k.replace(/["'\[\]]/g, '').trim())
+            .filter(k => k.length > 5);
+        }
+
+        if (keysToAdd.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please enter at least one valid Kie.ai API key.' })
+          };
+        }
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const results = [];
+        let totalNodesUpdated = 0;
+        let masterCombinedKeys = [];
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) {
+              throw new Error(`Failed to load workflow nodes from n8n Cloud`);
+            }
+
+            // Extract existing keys from Config: Primary Video Master1
+            const master1 = wf.nodes.find(n => n.name === 'Config: Primary Video Master1');
+            let existingKeys = [];
+            if (master1 && master1.parameters?.jsCode) {
+              const match = master1.parameters.jsCode.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              if (match) {
+                const strMatches = match[1].match(/["']([^"']+)["']/g);
+                if (strMatches) {
+                  existingKeys = strMatches.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+                }
+              }
+            }
+
+            // Merge existing keys with new keys (preserving order, deduplicated)
+            const combinedKeys = Array.from(new Set([...existingKeys, ...keysToAdd]));
+            masterCombinedKeys = combinedKeys;
+            const replacementCode = `const primaryVideoApiKeys = ${JSON.stringify(combinedKeys, null, 2)};`;
+
+            // Prepare update operations strictly for Config: Primary Video Master1..5
+            const operations = [];
+            for (let s = 1; s <= 5; s++) {
+              const nodeName = `Config: Primary Video Master${s}`;
+              const targetNode = wf.nodes.find(n => n.name === nodeName);
+              if (targetNode) {
+                const curCode = targetNode.parameters?.jsCode || '';
+                let updatedCode = curCode;
+                if (/const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/.test(curCode)) {
+                  updatedCode = curCode.replace(/const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/, replacementCode);
+                } else {
+                  updatedCode = `// ==========================================================\n// CONFIG: PRIMARY VIDEO API KEYS (Veo API - 1080p)\n// ==========================================================\n\n${replacementCode}\n\n${curCode}`;
+                }
+                operations.push({
+                  type: 'updateNodeParameters',
+                  nodeName: nodeName,
+                  parameters: { jsCode: updatedCode }
+                });
+              }
+            }
+
+            if (operations.length > 0) {
+              await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+                workflowId: target.id,
+                versionName: `Appended Kie.ai Keys (${combinedKeys.length} Total)`,
+                versionDescription: `Added ${combinedKeys.length - existingKeys.length} new keys. Total active: ${combinedKeys.length} keys across 5 scenes.`,
+                operations
+              });
+              totalNodesUpdated += operations.length;
+            }
+
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              nodesUpdated: operations.length,
+              previousKeyCount: existingKeys.length,
+              addedCount: combinedKeys.length - existingKeys.length,
+              totalKeyCount: combinedKeys.length
+            });
+          } catch (err) {
+            console.error(`[append-kie-keys] Error on ${target.id}:`, err.message);
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: false,
+              error: err.message
+            });
+          }
+        }
+
+        // Persist master combined keys to MongoDB Atlas (api_keys -> kie_video_keys)
+        if (masterCombinedKeys.length > 0) {
+          const keysCol = db.collection('api_keys');
+          await keysCol.updateOne(
+            { _id: 'kie_video_keys' },
+            {
+              $set: {
+                provider: 'kie_video',
+                name: 'Kie.ai Primary Video Keys (1080p Veo)',
+                keys: masterCombinedKeys,
+                pool: masterCombinedKeys.map((k, idx) => ({
+                  key: k,
+                  label: `Kie.ai Key #${idx + 1}`,
+                  status: 'active',
+                  balance: 1000,
+                  max: 1000,
+                  unit: 'units'
+                })),
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        }
+
+        await logAdminAction(db, 'KIE_KEYS_APPENDED', {
+          target: workflowId || 'all',
+          keysAdded: keysToAdd.length,
+          totalNodesUpdated
+        }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Updated ${totalNodesUpdated} Primary Video Master config nodes in n8n Cloud.`,
+            results,
+            keysAdded: keysToAdd.length,
+            totalActiveKeys: masterCombinedKeys.length
+          })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [11C] WORKFLOW PUBLISH / UNPUBLISH TOGGLE
+      // ----------------------------------------------------
+      case 'toggle-workflow-publish': {
+        const { workflowId, publish } = body;
+        if (!workflowId) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'workflowId required' }) };
+        }
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
+
+        const shouldPublish = !!publish;
+        const toolName = shouldPublish ? 'publish_workflow' : 'unpublish_workflow';
+
+        try {
+          await callN8nMcp(activeBaseUrl, mcpToken, toolName, {
+            workflowId,
+            versionDescription: shouldPublish ? 'Published via BangAI Admin Panel' : 'Unpublished (Draft) via BangAI Admin Panel'
+          });
+
+          await logAdminAction(db, 'WORKFLOW_PUBLISH_TOGGLED', { workflowId, published: shouldPublish }, clientIp);
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: true,
+              workflowId,
+              published: shouldPublish,
+              status: shouldPublish ? 'ACTIVE' : 'DRAFT',
+              message: shouldPublish
+                ? `Workflow ${workflowId} published successfully! Webhook triggers are live.`
+                : `Workflow ${workflowId} unpublished (Draft mode). Webhook triggers are paused.`
+            })
+          };
+        } catch (mcpErr) {
+          console.error('[toggle-workflow-publish] MCP error:', mcpErr.message);
+          return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: `n8n Cloud MCP error: ${mcpErr.message}` })
+          };
+        }
+      }
+
+      // ----------------------------------------------------
+      // [11D] AUTO-DETECT WORKFLOW IDS (FOR 14-DAY MIGRATION)
+      // ----------------------------------------------------
+      case 'auto-detect-workflow-ids': {
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
+
+        try {
+          const searchResult = await callN8nMcp(activeBaseUrl, mcpToken, 'search_workflows', { query: '' });
+          let list = [];
+          if (Array.isArray(searchResult?.structuredContent?.data)) {
+            list = searchResult.structuredContent.data;
+          } else if (Array.isArray(searchResult?.data)) {
+            list = searchResult.data;
+          } else if (Array.isArray(searchResult)) {
+            list = searchResult;
+          } else if (searchResult?.content?.[0]?.text) {
+            try {
+              const p = JSON.parse(searchResult.content[0].text);
+              list = p.data || p;
+            } catch (e) {}
+          }
+
+          const viralMatch = list.find(w => w.name && /viral\s*all-in-one/i.test(w.name));
+          const mysteriesMatch = list.find(w => w.name && /world\s*mysteries/i.test(w.name));
+          const last24hMatch = list.find(w => w.name && /last\s*24\s*hours/i.test(w.name));
+          const horrorMatch = list.find(w => w.name && /3-?\s*am\s*horror/i.test(w.name));
+
+          const detectedWorkflows = {
+            viralShorts: viralMatch?.id || n8nDoc?.productionWorkflows?.viralShorts || 'YKl6hhWT4kEs9Ytc',
+            worldMysteries: mysteriesMatch?.id || n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT',
+            last24Hours: last24hMatch?.id || n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti',
+            horror3am: horrorMatch?.id || n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR'
+          };
+
+          await sysCol.updateOne(
+            { _id: 'n8n_configuration' },
+            {
+              $set: {
+                productionWorkflows: detectedWorkflows,
+                workflowId: detectedWorkflows.viralShorts,
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+
+          await logAdminAction(db, 'AUTO_DETECT_WORKFLOW_IDS', { detectedWorkflows }, clientIp);
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: true,
+              message: `Auto-detected workflows on ${activeBaseUrl}. Flagship IDs updated successfully.`,
+              detectedWorkflows,
+              matches: {
+                viralShorts: viralMatch ? { id: viralMatch.id, name: viralMatch.name } : null,
+                worldMysteries: mysteriesMatch ? { id: mysteriesMatch.id, name: mysteriesMatch.name } : null,
+                last24Hours: last24hMatch ? { id: last24hMatch.id, name: last24hMatch.name } : null,
+                horror3am: horrorMatch ? { id: horrorMatch.id, name: horrorMatch.name } : null
+              }
+            })
+          };
+        } catch (err) {
+          console.error('[auto-detect-workflow-ids] Error:', err.message);
+          return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: err.message })
+          };
+        }
+      }
+
+      // ----------------------------------------------------
+      // [11E] GET CLOUD WORKFLOW LIVE STATUS & KEY COUNTS
+      // ----------------------------------------------------
+      case 'get-cloud-workflow-status': {
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+
+        const targets = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]', key: 'viralShorts' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]', key: 'worldMysteries' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]', key: 'last24Hours' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]', key: 'horror3am' }
+        ];
+
+        const statuses = {};
+        await Promise.allSettled(targets.map(async (t) => {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: t.id });
+            const wf = details.workflow || details;
+            const m1 = wf.nodes?.find(n => n.name === 'Config: Primary Video Master1');
+            let kieCount = 0;
+            if (m1?.parameters?.jsCode) {
+              const match = m1.parameters.jsCode.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              if (match) {
+                const strMatches = match[1].match(/["']([^"']+)["']/g);
+                if (strMatches) kieCount = strMatches.length;
+              }
+            }
+            statuses[t.id] = {
+              online: true,
+              active: wf.active !== false,
+              nodesCount: wf.nodes?.length || 0,
+              kieKeysCount: kieCount,
+              updatedAt: wf.updatedAt
+            };
+          } catch (e) {
+            statuses[t.id] = {
+              online: false,
+              active: false,
+              error: e.message
+            };
+          }
+        }));
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            activeHost: activeBaseUrl,
+            statuses
+          })
         };
       }
 

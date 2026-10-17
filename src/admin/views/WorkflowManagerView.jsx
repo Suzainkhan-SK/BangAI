@@ -24,17 +24,32 @@ export default function WorkflowManagerView() {
   const [saving, setSaving] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
-  const fetchWorkflows = async () => {
-    setLoading(true);
+  // Kie.ai Cloud Dispatcher State
+  const [kieTarget, setKieTarget] = useState('all');
+  const [kieKeysInput, setKieKeysInput] = useState('');
+  const [appendingKie, setAppendingKie] = useState(false);
+  const [kieLogs, setKieLogs] = useState([]);
+  const [togglingPublish, setTogglingPublish] = useState({});
+  const [detectingIds, setDetectingIds] = useState(false);
+  const [syncingCloud, setSyncingCloud] = useState(false);
+
+  const fetchWorkflows = async (syncCloud = false) => {
+    if (syncCloud) setSyncingCloud(true);
+    else setLoading(true);
     try {
-      const res = await adminService.getWorkflows();
+      const res = await adminService.getWorkflows(syncCloud);
       if (res.success && res.data) {
-        setWorkflows(res.data.workflows || []);
+        const wfs = res.data.workflows || [];
+        setWorkflows(wfs);
         setActiveHost(res.data.activeHost || 'https://cmpunktg29.app.n8n.cloud');
-        if (res.data.workflows && res.data.workflows.length > 0) {
-          const defaultWf = res.data.workflows[0];
-          setSelectedWf(defaultWf);
-          const savedConfig = res.data.nodeConfigs?.[defaultWf.id];
+        if (wfs.length > 0) {
+          if (!selectedWf) {
+            setSelectedWf(wfs[0]);
+          } else {
+            const currentSelected = wfs.find(w => w.id === selectedWf.id) || wfs[0];
+            setSelectedWf(currentSelected);
+          }
+          const savedConfig = res.data.nodeConfigs?.[wfs[0].id];
           if (savedConfig) {
             if (savedConfig.modelName) setModelName(savedConfig.modelName);
             if (savedConfig.promptOverride) setPromptOverride(savedConfig.promptOverride);
@@ -46,17 +61,149 @@ export default function WorkflowManagerView() {
       console.warn('Failed to fetch workflows:', e.message);
     } finally {
       setLoading(false);
+      setSyncingCloud(false);
     }
   };
 
   useEffect(() => {
-    fetchWorkflows();
+    fetchWorkflows(true);
   }, []);
 
   const handleSelectWorkflow = (wf) => {
     setSelectedWf(wf);
   };
 
+  // 1. Toggle Workflow Publish / Unpublish via MCP
+  const handleTogglePublish = async (e, wf) => {
+    e.stopPropagation();
+    const shouldPublish = !wf.published;
+    const actionLabel = shouldPublish ? 'Publish (Activate)' : 'Unpublish (Draft)';
+    const confirmed = window.confirm(`Confirm: ${actionLabel} workflow "${wf.name}" (${wf.id}) in n8n Cloud?`);
+    if (!confirmed) return;
+
+    setTogglingPublish(prev => ({ ...prev, [wf.id]: true }));
+    try {
+      const res = await adminService.toggleWorkflowPublish(wf.id, shouldPublish);
+      if (res.success) {
+        setToastMsg(`✅ Workflow "${wf.name}" is now ${res.status}!`);
+        // Update local state immediately
+        setWorkflows(prev => prev.map(item => {
+          if (item.id === wf.id) {
+            return {
+              ...item,
+              published: shouldPublish,
+              status: shouldPublish ? 'ACTIVE' : 'DRAFT'
+            };
+          }
+          return item;
+        }));
+      } else {
+        setToastMsg(`⚠️ Error: ${res.error || 'Failed to toggle publish status'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    } finally {
+      setTogglingPublish(prev => ({ ...prev, [wf.id]: false }));
+      setTimeout(() => setToastMsg(''), 5000);
+    }
+  };
+
+  // 2. Append Kie.ai API Keys to Primary Video Config Nodes
+  const handleAppendKieKeys = async (e) => {
+    e.preventDefault();
+    const cleanKeys = kieKeysInput
+      .split(/[\r\n,;\s]+/)
+      .map(k => k.replace(/["'\[\]]/g, '').trim())
+      .filter(k => k.length > 5);
+
+    if (cleanKeys.length === 0) {
+      alert('Please enter at least one valid Kie.ai API key.');
+      return;
+    }
+
+    const targetDesc = kieTarget === 'all'
+      ? 'ALL 4 flagship workflows simultaneously'
+      : `workflow "${workflows.find(w => w.id === kieTarget)?.name || kieTarget}"`;
+
+    const confirmed = window.confirm(
+      `Confirm appending ${cleanKeys.length} new Kie.ai API keys to ${targetDesc}?\n\n` +
+      `• These keys will be added to the existing keys in Config: Primary Video Master 1..5.\n` +
+      `• Existing keys will be 100% PRESERVED.\n` +
+      `• Keys will be backed up to MongoDB Atlas.`
+    );
+    if (!confirmed) return;
+
+    setAppendingKie(true);
+    setKieLogs([
+      `[${new Date().toLocaleTimeString()}] 🚀 Initiating cloud synchronization pipeline...`,
+      `[${new Date().toLocaleTimeString()}] Target: ${targetDesc}`,
+      `[${new Date().toLocaleTimeString()}] Keys to inject: ${cleanKeys.length} keys`,
+      `[${new Date().toLocaleTimeString()}] Connecting to n8n Cloud MCP Server at ${activeHost}...`
+    ]);
+
+    try {
+      const res = await adminService.appendKieKeys(kieTarget, cleanKeys);
+      if (res.success && Array.isArray(res.results)) {
+        const newLogs = [];
+        res.results.forEach(r => {
+          if (r.success) {
+            newLogs.push(`[${new Date().toLocaleTimeString()}] ✅ ${r.name} (${r.workflowId}): Added ${r.addedCount} new keys. Total active: ${r.totalKeyCount} keys across ${r.nodesUpdated} Master config nodes.`);
+          } else {
+            newLogs.push(`[${new Date().toLocaleTimeString()}] ❌ ${r.name} (${r.workflowId}): Failed - ${r.error}`);
+          }
+        });
+        newLogs.push(`[${new Date().toLocaleTimeString()}] 💾 Master key pool safely synchronized with MongoDB Atlas api_keys.`);
+        newLogs.push(`[${new Date().toLocaleTimeString()}] 🎉 Cloud sync complete!`);
+        setKieLogs(prev => [...prev, ...newLogs]);
+        setToastMsg(`✅ Appended ${cleanKeys.length} Kie.ai keys successfully!`);
+        setKieKeysInput('');
+        fetchWorkflows(true);
+      } else {
+        setKieLogs(prev => [
+          ...prev,
+          `[${new Date().toLocaleTimeString()}] ⚠️ Sync failed: ${res.error || 'Unknown error'}`
+        ]);
+        setToastMsg(`⚠️ Error: ${res.error || 'Failed to append keys'}`);
+      }
+    } catch (err) {
+      setKieLogs(prev => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] ⚠️ Network exception: ${err.message}`
+      ]);
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    } finally {
+      setAppendingKie(false);
+      setTimeout(() => setToastMsg(''), 6000);
+    }
+  };
+
+  // 3. Auto-Detect Workflow IDs from active n8n instance (For 14-day Migration)
+  const handleAutoDetectIds = async () => {
+    const confirmed = window.confirm(
+      `Scan active n8n instance (${activeHost}) via MCP and auto-detect the 4 flagship workflow IDs?\n\n` +
+      `Use this whenever you migrate to a new 14-day free trial n8n account to automatically re-wire workflow IDs without editing code.`
+    );
+    if (!confirmed) return;
+
+    setDetectingIds(true);
+    setToastMsg('🔍 Scanning active n8n cloud workflows via MCP...');
+    try {
+      const res = await adminService.autoDetectWorkflowIds();
+      if (res.success && res.detectedWorkflows) {
+        setToastMsg(`🎉 Auto-detected 4 flagship workflows! MongoDB configuration updated.`);
+        fetchWorkflows(true);
+      } else {
+        setToastMsg(`⚠️ Detection notice: ${res.error || 'Could not find all matching workflows'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    } finally {
+      setDetectingIds(false);
+      setTimeout(() => setToastMsg(''), 6000);
+    }
+  };
+
+  // 4. Save individual node parameters (MongoDB config store)
   const handleSaveNode = async () => {
     if (!selectedWf) return;
     setSaving(true);
@@ -82,17 +229,40 @@ export default function WorkflowManagerView() {
     }
   };
 
+  // Parse entered keys count
+  const detectedKeysCount = kieKeysInput
+    .split(/[\r\n,;\s]+/)
+    .map(k => k.replace(/["'\[\]]/g, '').trim())
+    .filter(k => k.length > 5).length;
+
   return (
     <div className="admin-view-container">
       {/* View Header */}
       <div className="admin-view-header">
         <div>
-          <h1 className="admin-view-title">Workflow Node Manager</h1>
+          <h1 className="admin-view-title">Workflow & Cloud Control Center</h1>
           <p className="admin-view-desc">
-            Visual inspection, node-by-node configuration, dynamic key injection, and direct cloud sync across all 4 flagship production pipelines on <code>{activeHost}</code>.
+            Direct MCP-powered cloud execution across all 4 production pipelines on <code>{activeHost}</code>. Manage live publication states and synchronize Kie.ai video API keys.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={handleAutoDetectIds}
+            disabled={detectingIds}
+            className="admin-btn admin-btn-secondary"
+            title="Auto-detect workflow IDs on active n8n instance (useful after 14-day trial migrations)"
+          >
+            {detectingIds ? '🔍 Scanning Cloud...' : '🔍 Auto-Detect Cloud IDs'}
+          </button>
+          <button
+            type="button"
+            onClick={() => fetchWorkflows(true)}
+            disabled={syncingCloud || loading}
+            className="admin-btn admin-btn-secondary"
+          >
+            {syncingCloud ? '🔄 Syncing...' : '🔄 Sync Cloud State'}
+          </button>
           {selectedWf && (
             <a
               href={selectedWf.n8nUrl}
@@ -104,14 +274,6 @@ export default function WorkflowManagerView() {
               ↗ Open in n8n Cloud
             </a>
           )}
-          <button
-            type="button"
-            onClick={handleSaveNode}
-            disabled={saving}
-            className="admin-btn admin-btn-primary"
-          >
-            {saving ? 'Saving...' : '☁️ Save & Sync Node Config'}
-          </button>
         </div>
       </div>
 
@@ -119,55 +281,255 @@ export default function WorkflowManagerView() {
         <div style={{
           padding: '12px 18px',
           borderRadius: '10px',
-          background: 'rgba(16, 185, 129, 0.12)',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
-          color: '#10b981',
+          background: toastMsg.includes('⚠️') ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+          border: toastMsg.includes('⚠️') ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+          color: toastMsg.includes('⚠️') ? '#ef4444' : '#10b981',
           fontSize: '13.5px',
-          fontWeight: 600
+          fontWeight: 600,
+          marginBottom: '16px'
         }}>
           {toastMsg}
         </div>
       )}
 
-      {/* Flagship Workflows Grid */}
-      <div className="admin-grid-3">
-        {workflows.slice(0, 3).map((wf) => {
-          const isSelected = selectedWf?.id === wf.id;
-          return (
-            <div
-              key={wf.id}
-              onClick={() => handleSelectWorkflow(wf)}
-              className="admin-card"
-              style={{
-                cursor: 'pointer',
-                borderColor: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-border-glass)',
-                background: isSelected ? 'var(--admin-card-hover)' : 'var(--admin-bg-surface)',
-                boxShadow: isSelected ? '0 0 20px rgba(6, 182, 212, 0.15)' : 'var(--admin-card-shadow)'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span className="admin-badge admin-badge-cyan">{wf.category}</span>
-                <span className="admin-badge admin-badge-success">● {wf.status}</span>
+      {/* 4 Flagship Production Workflows Grid */}
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+            Flagship Production Pipelines (4 Live Cloud Automations)
+          </h2>
+          <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
+            Click card to inspect node parameters below
+          </span>
+        </div>
+
+        <div className="admin-grid-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+          {workflows.slice(0, 4).map((wf) => {
+            const isSelected = selectedWf?.id === wf.id;
+            const isToggling = !!togglingPublish[wf.id];
+            const isPublished = wf.published !== false && wf.status === 'ACTIVE';
+
+            return (
+              <div
+                key={wf.id}
+                onClick={() => handleSelectWorkflow(wf)}
+                className="admin-card"
+                style={{
+                  cursor: 'pointer',
+                  borderColor: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-border-glass)',
+                  background: isSelected ? 'var(--admin-card-hover)' : 'var(--admin-bg-surface)',
+                  boxShadow: isSelected ? '0 0 20px rgba(6, 182, 212, 0.15)' : 'var(--admin-card-shadow)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span className="admin-badge admin-badge-cyan">{wf.category}</span>
+                    <span className={`admin-badge ${isPublished ? 'admin-badge-success' : 'admin-badge-amber'}`}>
+                      {isPublished ? '● ACTIVE (PUBLISHED)' : '○ DRAFT (UNPUBLISHED)'}
+                    </span>
+                  </div>
+
+                  <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '6px 0 10px 0', color: 'var(--admin-text-main)' }}>
+                    {wf.name}
+                  </h3>
+
+                  <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div><strong>Workflow ID:</strong> <code>{wf.id}</code></div>
+                    <div><strong>Nodes Count:</strong> {wf.nodesCount} Executable Nodes</div>
+                    <div><strong>Trigger:</strong> <code>{wf.webhook ? (wf.webhook.split('/webhook')[1] || wf.webhook) : 'Webhook'}</code></div>
+                    {wf.kieKeysCount !== undefined && (
+                      <div style={{ marginTop: '2px' }}>
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          background: 'rgba(6, 182, 212, 0.15)',
+                          color: 'var(--admin-accent-cyan)',
+                          fontWeight: 700,
+                          fontSize: '11px'
+                        }}>
+                          🔑 {wf.kieKeysCount} Kie.ai Keys in Cloud
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Card Action Controls: View in Cloud & Publish / Unpublish Toggle */}
+                <div style={{
+                  display: 'flex',
+                  gap: '8px',
+                  marginTop: '16px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid var(--admin-border-glass)'
+                }}>
+                  <a
+                    href={wf.n8nUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      flex: 1,
+                      textAlign: 'center',
+                      padding: '7px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--admin-bg-elevated)',
+                      border: '1px solid var(--admin-border-glass)',
+                      color: 'var(--admin-text-main)',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      textDecoration: 'none'
+                    }}
+                  >
+                    ↗ View in Cloud
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={(e) => handleTogglePublish(e, wf)}
+                    disabled={isToggling}
+                    style={{
+                      flex: 1,
+                      padding: '7px 10px',
+                      borderRadius: '8px',
+                      border: isPublished ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+                      background: isPublished ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                      color: isPublished ? '#ef4444' : '#10b981',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {isToggling ? 'Processing...' : (isPublished ? '⏸️ Unpublish' : '▶️ Publish')}
+                  </button>
+                </div>
               </div>
-              <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '4px 0 8px 0', color: 'var(--admin-text-main)' }}>
-                {wf.name}
-              </h3>
-              <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div><strong>Workflow ID:</strong> <code>{wf.id}</code></div>
-                <div><strong>Nodes Count:</strong> {wf.nodesCount} Executable Nodes</div>
-                <div><strong>Trigger:</strong> <code>{wf.webhook.split('/webhook')[1] || wf.webhook}</code></div>
-              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* NEW FEATURE: Kie.ai API Keys Cloud Dispatcher */}
+      <div className="admin-card" style={{
+        marginBottom: '24px',
+        borderColor: 'rgba(6, 182, 212, 0.35)',
+        background: 'linear-gradient(180deg, rgba(6, 182, 212, 0.04) 0%, var(--admin-bg-surface) 100%)',
+        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.2)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>⚡</span>
+              <h2 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                Kie.ai API Keys Cloud Dispatcher (Primary Video Provider)
+              </h2>
             </div>
-          );
-        })}
+            <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+              Directly appends new Kie.ai Veo API keys into <code>Config: Primary Video Master 1..5</code> across all 5 scenes. Existing keys are <strong>never overwritten or erased</strong>.
+            </p>
+          </div>
+          <span className="admin-badge admin-badge-cyan">
+            MCP Cloud Sync
+          </span>
+        </div>
+
+        <form onSubmit={handleAppendKieKeys}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Target Workflow Selector */}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', marginBottom: '6px' }}>
+                Target Cloud Workflow(s):
+              </label>
+              <select
+                value={kieTarget}
+                onChange={(e) => setKieTarget(e.target.value)}
+                className="admin-select"
+                style={{ width: '100%', maxWidth: '600px', fontWeight: 600 }}
+              >
+                <option value="all">🌟 All 4 Flagship Workflows (Simultaneous Cloud Push to 20 Nodes)</option>
+                {workflows.slice(0, 4).map(wf => (
+                  <option key={wf.id} value={wf.id}>
+                    {wf.name} ({wf.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Keys Textarea */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                  Enter New Kie.ai API Keys:
+                </label>
+                <span style={{ fontSize: '11.5px', color: detectedKeysCount > 0 ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)', fontWeight: 600 }}>
+                  {detectedKeysCount} new valid key{detectedKeysCount === 1 ? '' : 's'} detected
+                </span>
+              </div>
+              <textarea
+                value={kieKeysInput}
+                onChange={(e) => setKieKeysInput(e.target.value)}
+                rows={4}
+                className="admin-textarea"
+                placeholder="Paste Kie.ai API keys here (one key per line, or separated by commas/spaces)...&#10;e.g.&#10;ad82c01b9b51720280eab511077d4242&#10;c60c4e8391441ef89abdd2dcbb9936fa"
+                style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '12.5px' }}
+              />
+            </div>
+
+            {/* Action Row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '4px' }}>
+              <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
+                🛡️ Safe Merge: Automatically filters duplicates and creates a master backup in MongoDB Atlas.
+              </div>
+              <button
+                type="submit"
+                disabled={appendingKie || detectedKeysCount === 0}
+                className="admin-btn admin-btn-primary"
+                style={{
+                  minWidth: '220px',
+                  opacity: (appendingKie || detectedKeysCount === 0) ? 0.6 : 1
+                }}
+              >
+                {appendingKie ? '🚀 Pushing Keys to n8n Cloud...' : `🚀 Append ${detectedKeysCount > 0 ? detectedKeysCount : ''} Kie.ai Keys`}
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {/* Live Execution Console Logs */}
+        {kieLogs.length > 0 && (
+          <div style={{
+            marginTop: '16px',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            background: '#070a12',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            fontFamily: 'var(--admin-font-mono)',
+            fontSize: '11.5px',
+            lineHeight: '1.6',
+            color: '#a7f3d0',
+            maxHeight: '180px',
+            overflowY: 'auto'
+          }}>
+            <div style={{ color: 'var(--admin-text-sub)', fontSize: '10.5px', marginBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '4px' }}>
+              LIVE MCP DISPATCH CONSOLE
+            </div>
+            {kieLogs.map((log, idx) => (
+              <div key={idx} style={{ color: log.includes('❌') ? '#ef4444' : log.includes('✅') ? '#34d399' : log.includes('⚠️') ? '#f59e0b' : '#38bdf8' }}>
+                {log}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Secondary Workflows Bar */}
-      <div className="admin-card" style={{ padding: '14px 20px' }}>
+      <div className="admin-card" style={{ padding: '14px 20px', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--admin-text-main)' }}>Additional Pipelines:</span>
-            {workflows.slice(3).map((wf) => {
+            {workflows.slice(4).map((wf) => {
               const isSelected = selectedWf?.id === wf.id;
               return (
                 <button
