@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { adminService } from '../adminService';
 
 export default function WorkflowManagerView() {
@@ -8,28 +8,29 @@ export default function WorkflowManagerView() {
   const [loading, setLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Video Provider Selection: 'primary' (Kie.ai) vs 'backup' (Backup Video)
-  const [videoProvider, setVideoProvider] = useState('primary'); // 'primary' | 'backup'
+  // Video Provider: 'primary' (Kie.ai) | 'backup' (Backup Video)
+  const [videoProvider, setVideoProvider] = useState('primary');
 
-  // Dispatcher Action & Target State
-  const [actionTab, setActionTab] = useState('append'); // 'append' | 'remove'
+  // Dispatcher Action: 'append' | 'manage'
+  const [actionTab, setActionTab] = useState('append');
   const [targetWorkflow, setTargetWorkflow] = useState('all');
   const [keysInput, setKeysInput] = useState('');
+  const [removeKeysInput, setRemoveKeysInput] = useState('');
   const [appending, setAppending] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [logs, setLogs] = useState([]);
+  const [isConsoleExpanded, setIsConsoleExpanded] = useState(true);
+
+  // Filter & Search State
+  const [keySearchTerm, setKeySearchTerm] = useState('');
+  const [copiedKey, setCopiedKey] = useState('');
   const [togglingPublish, setTogglingPublish] = useState({});
   const [detectingIds, setDetectingIds] = useState(false);
   const [syncingCloud, setSyncingCloud] = useState(false);
 
-  // Key Removal State
-  const [removeKeysInput, setRemoveKeysInput] = useState('');
-  const [removing, setRemoving] = useState(false);
-  const [keySearchTerm, setKeySearchTerm] = useState('');
-  const [copiedKey, setCopiedKey] = useState('');
-
   const isBackup = videoProvider === 'backup';
   const providerLabel = isBackup ? 'Backup Video' : 'Kie.ai Primary Video';
-  const providerAccent = isBackup ? 'var(--admin-accent-purple)' : 'var(--admin-accent-cyan)';
+  const providerAccent = isBackup ? 'var(--admin-accent-purple, #8b5cf6)' : 'var(--admin-accent-cyan, #06b6d4)';
   const nodeTargetName = isBackup ? 'Config: Backup Video Master 1..5' : 'Config: Primary Video Master 1..5';
 
   const fetchWorkflows = async (syncCloud = false) => {
@@ -62,9 +63,65 @@ export default function WorkflowManagerView() {
     fetchWorkflows(true);
   }, []);
 
-  const handleSelectWorkflow = (wf) => {
-    setSelectedWf(wf);
-  };
+  // Compute KPI Totals
+  const flagshipWorkflows = useMemo(() => workflows.slice(0, 4), [workflows]);
+  
+  const liveCount = useMemo(() => {
+    return flagshipWorkflows.filter(w => w.published !== false && w.status === 'ACTIVE').length;
+  }, [flagshipWorkflows]);
+
+  const totalPrimaryKeys = useMemo(() => {
+    const set = new Set();
+    flagshipWorkflows.forEach(w => {
+      if (Array.isArray(w.kieKeys)) w.kieKeys.forEach(k => set.add(k));
+    });
+    return set.size;
+  }, [flagshipWorkflows]);
+
+  const totalBackupKeys = useMemo(() => {
+    const set = new Set();
+    flagshipWorkflows.forEach(w => {
+      if (Array.isArray(w.backupKeys)) w.backupKeys.forEach(k => set.add(k));
+    });
+    return set.size;
+  }, [flagshipWorkflows]);
+
+  // Active Keys pool for the currently selected target and active provider
+  const activeDisplayKeys = useMemo(() => {
+    if (targetWorkflow === 'all') {
+      const set = new Set();
+      flagshipWorkflows.forEach(wf => {
+        const arr = isBackup ? wf.backupKeys : wf.kieKeys;
+        if (Array.isArray(arr)) arr.forEach(k => set.add(k));
+      });
+      return Array.from(set);
+    } else {
+      const targetWf = flagshipWorkflows.find(w => w.id === targetWorkflow);
+      const arr = isBackup ? targetWf?.backupKeys : targetWf?.kieKeys;
+      return Array.isArray(arr) ? arr : [];
+    }
+  }, [flagshipWorkflows, targetWorkflow, isBackup]);
+
+  const filteredActiveKeys = useMemo(() => {
+    if (!keySearchTerm.trim()) return activeDisplayKeys;
+    const term = keySearchTerm.toLowerCase().trim();
+    return activeDisplayKeys.filter(k => k.toLowerCase().includes(term));
+  }, [activeDisplayKeys, keySearchTerm]);
+
+  // Detected key counts for inputs
+  const detectedAppendCount = useMemo(() => {
+    return keysInput
+      .split(/[\r\n,;\s]+/)
+      .map(k => k.replace(/["'\[\]]/g, '').trim())
+      .filter(k => k.length > 5).length;
+  }, [keysInput]);
+
+  const detectedRemoveCount = useMemo(() => {
+    return removeKeysInput
+      .split(/[\r\n,;\s]+/)
+      .map(k => k.replace(/["'\[\]]/g, '').trim())
+      .filter(k => k.length > 5).length;
+  }, [removeKeysInput]);
 
   // 1. Toggle Workflow Publish / Unpublish via MCP
   const handleTogglePublish = async (e, wf) => {
@@ -100,7 +157,7 @@ export default function WorkflowManagerView() {
     }
   };
 
-  // 2. Append API Keys to Config Nodes (Primary or Backup)
+  // 2. Append API Keys
   const handleAppendKeys = async (e) => {
     e.preventDefault();
     const cleanKeys = keysInput
@@ -126,7 +183,8 @@ export default function WorkflowManagerView() {
     if (!confirmed) return;
 
     setAppending(true);
-    setLogs([
+    setLogs(prev => [
+      ...prev,
       `[${new Date().toLocaleTimeString()}] 🚀 Initiating ${providerLabel} cloud synchronization...`,
       `[${new Date().toLocaleTimeString()}] Target: ${targetDesc}`,
       `[${new Date().toLocaleTimeString()}] Keys to inject: ${cleanKeys.length} keys`,
@@ -169,7 +227,7 @@ export default function WorkflowManagerView() {
     }
   };
 
-  // 3. Remove API Keys from Config Nodes (Primary or Backup)
+  // 3. Remove API Keys
   const handleRemoveKeys = async (keysToRemove, sourceLabel = 'selected') => {
     const cleanKeys = (Array.isArray(keysToRemove) ? keysToRemove : [keysToRemove])
       .map(k => String(k).replace(/["'\[\]]/g, '').trim())
@@ -198,7 +256,8 @@ export default function WorkflowManagerView() {
     if (!confirmed) return;
 
     setRemoving(true);
-    setLogs([
+    setLogs(prev => [
+      ...prev,
       `[${new Date().toLocaleTimeString()}] 🗑️ Initiating ${providerLabel} key removal pipeline...`,
       `[${new Date().toLocaleTimeString()}] Target: ${targetDesc}`,
       `[${new Date().toLocaleTimeString()}] Keys to remove: ${cleanKeys.length} key(s)`,
@@ -243,7 +302,7 @@ export default function WorkflowManagerView() {
     }
   };
 
-  // 4. Auto-Detect Workflow IDs from active n8n instance (For 14-day Migration)
+  // 4. Auto-Detect Workflow IDs from active n8n instance
   const handleAutoDetectIds = async () => {
     const confirmed = window.confirm(
       `Scan active n8n instance (${activeHost}) via MCP and auto-detect the 4 flagship workflow IDs?\n\n` +
@@ -277,111 +336,256 @@ export default function WorkflowManagerView() {
     }
   };
 
-  // Parse entered keys count for append
-  const detectedAppendCount = keysInput
-    .split(/[\r\n,;\s]+/)
-    .map(k => k.replace(/["'\[\]]/g, '').trim())
-    .filter(k => k.length > 5).length;
-
-  // Parse entered keys count for remove
-  const detectedRemoveCount = removeKeysInput
-    .split(/[\r\n,;\s]+/)
-    .map(k => k.replace(/["'\[\]]/g, '').trim())
-    .filter(k => k.length > 5).length;
-
-  // Active Keys pool for the currently selected target and active video provider
-  const getActiveKeysForTarget = () => {
-    if (targetWorkflow === 'all') {
-      const set = new Set();
-      workflows.slice(0, 4).forEach(wf => {
-        const arr = isBackup ? wf.backupKeys : wf.kieKeys;
-        if (Array.isArray(arr)) {
-          arr.forEach(k => set.add(k));
-        }
-      });
-      return Array.from(set);
-    } else {
-      const targetWf = workflows.find(w => w.id === targetWorkflow);
-      const arr = isBackup ? targetWf?.backupKeys : targetWf?.kieKeys;
-      return Array.isArray(arr) ? arr : [];
-    }
-  };
-
-  const activeDisplayKeys = getActiveKeysForTarget();
-  const filteredActiveKeys = activeDisplayKeys.filter(k =>
-    !keySearchTerm || k.toLowerCase().includes(keySearchTerm.toLowerCase())
-  );
-
   return (
-    <div className="admin-view-container">
-      {/* View Header */}
-      <div className="admin-view-header">
-        <div>
-          <h1 className="admin-view-title">Workflow & Cloud Control Center</h1>
-          <p className="admin-view-desc">
-            Direct MCP-powered cloud execution across all 4 production pipelines on <code>{activeHost}</code>. Manage live publication states and synchronize Primary (Kie.ai) and Backup video API keys.
+    <div className="admin-view-container" style={{ gap: '22px' }}>
+      
+      {/* 1. Sleek Modern Header */}
+      <div className="admin-view-header" style={{
+        padding: '20px 24px',
+        borderRadius: '16px',
+        background: 'var(--admin-bg-surface)',
+        border: '1px solid var(--admin-border-glass)',
+        boxShadow: 'var(--admin-card-shadow)',
+        backdropFilter: 'blur(20px)',
+        alignItems: 'center'
+      }}>
+        <div style={{ flex: 1, minWidth: '280px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <h1 className="admin-view-title" style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>
+              Workflow Cloud Manager
+            </h1>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '2px 10px',
+              borderRadius: '9999px',
+              fontSize: '11px',
+              fontWeight: 700,
+              background: 'rgba(16, 185, 129, 0.12)',
+              color: '#10b981',
+              border: '1px solid rgba(16, 185, 129, 0.25)'
+            }}>
+              <span style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#10b981',
+                boxShadow: '0 0 8px #10b981'
+              }} />
+              MCP Active
+            </span>
+          </div>
+          <p className="admin-view-desc" style={{ fontSize: '12.5px', margin: 0 }}>
+            Unified real-time cloud operations on <code style={{
+              background: 'var(--admin-bg-elevated)',
+              padding: '2px 6px',
+              borderRadius: '6px',
+              color: 'var(--admin-accent-cyan)',
+              fontFamily: 'var(--admin-font-mono)'
+            }}>{activeHost.replace('https://', '')}</code>
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+
+        {/* Global Action Controls */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             type="button"
             onClick={handleAutoDetectIds}
             disabled={detectingIds}
             className="admin-btn admin-btn-secondary"
+            style={{
+              padding: '8px 14px',
+              fontSize: '12px',
+              fontWeight: 600,
+              borderRadius: '9px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
             title="Auto-detect workflow IDs on active n8n instance (useful after 14-day trial migrations)"
           >
-            {detectingIds ? '🔍 Scanning Cloud...' : '🔍 Auto-Detect Cloud IDs'}
+            <span>🔍</span> {detectingIds ? 'Scanning...' : 'Auto-Detect IDs'}
           </button>
+
           <button
             type="button"
             onClick={() => fetchWorkflows(true)}
             disabled={syncingCloud || loading}
             className="admin-btn admin-btn-secondary"
+            style={{
+              padding: '8px 14px',
+              fontSize: '12px',
+              fontWeight: 600,
+              borderRadius: '9px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
           >
-            {syncingCloud ? '🔄 Syncing...' : '🔄 Sync Cloud State'}
+            <span style={{ display: 'inline-block', transform: syncingCloud ? 'rotate(360deg)' : 'none', transition: 'transform 0.5s ease' }}>🔄</span>
+            {syncingCloud ? 'Syncing...' : 'Sync Cloud'}
           </button>
+
           {selectedWf && (
             <a
               href={selectedWf.n8nUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="admin-btn admin-btn-secondary"
-              style={{ textDecoration: 'none' }}
+              className="admin-btn"
+              style={{
+                padding: '8px 14px',
+                fontSize: '12px',
+                fontWeight: 700,
+                borderRadius: '9px',
+                background: 'linear-gradient(135deg, var(--admin-accent-cyan) 0%, var(--admin-accent-blue) 100%)',
+                color: '#fff',
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 14px rgba(6, 182, 212, 0.25)'
+              }}
             >
-              ↗ Open in n8n Cloud
+              <span>↗</span> Open n8n Cloud
             </a>
           )}
         </div>
       </div>
 
+      {/* Toast Alert Banner */}
       {toastMsg && (
         <div style={{
           padding: '12px 18px',
-          borderRadius: '10px',
+          borderRadius: '12px',
           background: toastMsg.includes('⚠️') ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
           border: toastMsg.includes('⚠️') ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
           color: toastMsg.includes('⚠️') ? '#ef4444' : '#10b981',
-          fontSize: '13.5px',
+          fontSize: '13px',
           fontWeight: 600,
-          marginBottom: '16px'
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
         }}>
           {toastMsg}
         </div>
       )}
 
-      {/* 4 Flagship Production Workflows Grid */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
-            Flagship Production Pipelines (4 Live Cloud Automations)
-          </h2>
+      {/* 2. Sleek KPI Metrics Overview Row */}
+      <div className="admin-grid-4">
+        {/* KPI 1: Live Pipelines */}
+        <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Live Pipelines
+            </span>
+            <span style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: '#10b981',
+              boxShadow: '0 0 10px #10b981'
+            }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '24px', fontWeight: 900, color: 'var(--admin-text-main)' }}>
+              {liveCount} / {flagshipWorkflows.length}
+            </span>
+            <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
+              Active in Cloud
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 2: Primary Kie.ai Keys */}
+        <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Kie.ai Primary Keys
+            </span>
+            <span style={{ fontSize: '14px' }}>⚡</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '24px', fontWeight: 900, color: 'var(--admin-accent-cyan)' }}>
+              {totalPrimaryKeys}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 500 }}>
+              Keys across scenes
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 3: Backup Video Keys */}
+        <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Backup Video Keys
+            </span>
+            <span style={{ fontSize: '14px' }}>🛡️</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '24px', fontWeight: 900, color: 'var(--admin-accent-purple)' }}>
+              {totalBackupKeys}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 500 }}>
+              Failover pool keys
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 4: Cloud Host */}
+        <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Active Cloud Host
+            </span>
+            <span style={{ fontSize: '14px' }}>☁️</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{
+              fontFamily: 'var(--admin-font-mono)',
+              fontSize: '14px',
+              fontWeight: 800,
+              color: 'var(--admin-text-main)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {activeHost.replace('https://', '').split('.')[0]}
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+              .app.n8n.cloud
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Flagship Production Pipelines (4 Modern Interactive Cards) */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)', letterSpacing: '-0.01em' }}>
+              Production Pipelines
+            </h2>
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: '6px',
+              background: 'var(--admin-bg-elevated)',
+              color: 'var(--admin-text-sub)'
+            }}>
+              4 Automated Workflows
+            </span>
+          </div>
           <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
-            Live status from n8n cloud MCP instance
+            Click card to focus in key dispatcher below
           </span>
         </div>
 
         <div className="admin-grid-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-          {workflows.slice(0, 4).map((wf) => {
+          {flagshipWorkflows.map((wf) => {
             const isSelected = selectedWf?.id === wf.id;
             const isToggling = !!togglingPublish[wf.id];
             const isPublished = wf.published !== false && wf.status === 'ACTIVE';
@@ -389,70 +593,140 @@ export default function WorkflowManagerView() {
             return (
               <div
                 key={wf.id}
-                onClick={() => handleSelectWorkflow(wf)}
+                onClick={() => {
+                  handleSelectWorkflow(wf);
+                  setTargetWorkflow(wf.id);
+                }}
                 className="admin-card"
                 style={{
                   cursor: 'pointer',
+                  padding: '20px',
+                  borderRadius: '14px',
                   borderColor: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-border-glass)',
                   background: isSelected ? 'var(--admin-card-hover)' : 'var(--admin-bg-surface)',
-                  boxShadow: isSelected ? '0 0 20px rgba(6, 182, 212, 0.15)' : 'var(--admin-card-shadow)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between'
+                  boxShadow: isSelected ? '0 0 24px rgba(6, 182, 212, 0.16)' : 'var(--admin-card-shadow)',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  position: 'relative'
                 }}
               >
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span className="admin-badge admin-badge-cyan">{wf.category}</span>
-                    <span className={`admin-badge ${isPublished ? 'admin-badge-success' : 'admin-badge-amber'}`}>
-                      {isPublished ? '● ACTIVE (PUBLISHED)' : '○ DRAFT (UNPUBLISHED)'}
+                {/* Top Badge Row */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'var(--admin-bg-elevated)',
+                    color: 'var(--admin-text-sub)',
+                    border: '1px solid var(--admin-border-glass)'
+                  }}>
+                    {wf.category || 'Automated Pipeline'}
+                  </span>
+
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '3px 9px',
+                    borderRadius: '9999px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    background: isPublished ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                    color: isPublished ? '#10b981' : '#f59e0b',
+                    border: isPublished ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(245, 158, 11, 0.25)'
+                  }}>
+                    <span style={{
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      background: isPublished ? '#10b981' : '#f59e0b',
+                      boxShadow: isPublished ? '0 0 6px #10b981' : 'none'
+                    }} />
+                    {isPublished ? 'ACTIVE' : 'DRAFT'}
+                  </span>
+                </div>
+
+                {/* Workflow Title */}
+                <h3 style={{
+                  fontSize: '15px',
+                  fontWeight: 800,
+                  margin: '0 0 10px 0',
+                  color: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
+                  lineHeight: '1.4'
+                }}>
+                  {wf.name}
+                </h3>
+
+                {/* Metadata details */}
+                <div style={{
+                  fontSize: '11.5px',
+                  color: 'var(--admin-text-sub)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  background: 'var(--admin-bg-elevated)',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--admin-border-glass)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Workflow ID:</span>
+                    <code style={{ fontFamily: 'var(--admin-font-mono)', color: 'var(--admin-text-main)', fontWeight: 600 }}>{wf.id}</code>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Trigger:</span>
+                    <span style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '11px', color: 'var(--admin-accent-cyan)' }}>
+                      {wf.webhook ? (wf.webhook.split('/webhook')[1] || wf.webhook) : 'Webhook'}
                     </span>
                   </div>
-
-                  <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '6px 0 10px 0', color: 'var(--admin-text-main)' }}>
-                    {wf.name}
-                  </h3>
-
-                  <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <div><strong>Workflow ID:</strong> <code>{wf.id}</code></div>
-                    <div><strong>Nodes Count:</strong> {wf.nodesCount} Executable Nodes</div>
-                    <div><strong>Trigger:</strong> <code>{wf.webhook ? (wf.webhook.split('/webhook')[1] || wf.webhook) : 'Webhook'}</code></div>
-
-                    {/* Both Primary (Kie.ai) and Backup Key Counts */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                      {wf.kieKeysCount !== undefined && (
-                        <span style={{
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          background: 'rgba(6, 182, 212, 0.15)',
-                          color: 'var(--admin-accent-cyan)',
-                          fontWeight: 700,
-                          fontSize: '11px'
-                        }}>
-                          🔑 {wf.kieKeysCount} Kie.ai Keys
-                        </span>
-                      )}
-                      {wf.backupKeysCount !== undefined && (
-                        <span style={{
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          background: 'rgba(139, 92, 246, 0.15)',
-                          color: 'var(--admin-accent-purple)',
-                          fontWeight: 700,
-                          fontSize: '11px'
-                        }}>
-                          🛡️ {wf.backupKeysCount} Backup Keys
-                        </span>
-                      )}
-                    </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Node Count:</span>
+                    <span style={{ fontWeight: 600, color: 'var(--admin-text-main)' }}>{wf.nodesCount} Nodes</span>
                   </div>
                 </div>
 
-                {/* Card Action Controls: View in Cloud & Publish / Unpublish Toggle */}
+                {/* Key Pool Counters */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  <div style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    background: 'rgba(6, 182, 212, 0.08)',
+                    border: '1px solid rgba(6, 182, 212, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Kie.ai:</span>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>
+                      {wf.kieKeysCount ?? '?'}
+                    </span>
+                  </div>
+
+                  <div style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    background: 'rgba(139, 92, 246, 0.08)',
+                    border: '1px solid rgba(139, 92, 246, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Backup:</span>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-purple)' }}>
+                      {wf.backupKeysCount ?? '?'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom Card Actions */}
                 <div style={{
                   display: 'flex',
                   gap: '8px',
-                  marginTop: '16px',
+                  marginTop: '14px',
                   paddingTop: '12px',
                   borderTop: '1px solid var(--admin-border-glass)'
                 }}>
@@ -466,15 +740,16 @@ export default function WorkflowManagerView() {
                       textAlign: 'center',
                       padding: '7px 10px',
                       borderRadius: '8px',
-                      background: 'var(--admin-bg-elevated)',
+                      background: 'transparent',
                       border: '1px solid var(--admin-border-glass)',
                       color: 'var(--admin-text-main)',
                       fontSize: '11.5px',
                       fontWeight: 600,
-                      textDecoration: 'none'
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease'
                     }}
                   >
-                    ↗ View in Cloud
+                    ↗ Cloud View
                   </a>
 
                   <button
@@ -486,14 +761,15 @@ export default function WorkflowManagerView() {
                       padding: '7px 10px',
                       borderRadius: '8px',
                       border: isPublished ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
-                      background: isPublished ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                      background: isPublished ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
                       color: isPublished ? '#ef4444' : '#10b981',
                       fontSize: '11.5px',
                       fontWeight: 700,
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
                     }}
                   >
-                    {isToggling ? 'Processing...' : (isPublished ? '⏸️ Unpublish' : '▶️ Publish')}
+                    {isToggling ? 'Syncing...' : (isPublished ? '⏸️ Unpublish' : '▶️ Publish')}
                   </button>
                 </div>
               </div>
@@ -502,180 +778,214 @@ export default function WorkflowManagerView() {
         </div>
       </div>
 
-      {/* Video API Keys Cloud Dispatcher & Key Vault (Primary Kie.ai & Backup Video) */}
+      {/* 4. Interactive Video Keys Dispatcher & Key Vault (Unified Glass Card) */}
       <div className="admin-card" style={{
-        marginBottom: '24px',
-        borderColor: isBackup ? 'rgba(139, 92, 246, 0.35)' : 'rgba(6, 182, 212, 0.35)',
+        padding: '24px',
+        borderRadius: '16px',
+        borderColor: isBackup ? 'rgba(139, 92, 246, 0.3)' : 'rgba(6, 182, 212, 0.3)',
         background: isBackup
-          ? 'linear-gradient(180deg, rgba(139, 92, 246, 0.05) 0%, var(--admin-bg-surface) 100%)'
-          : 'linear-gradient(180deg, rgba(6, 182, 212, 0.04) 0%, var(--admin-bg-surface) 100%)',
-        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.2)'
+          ? 'linear-gradient(180deg, rgba(139, 92, 246, 0.04) 0%, var(--admin-bg-surface) 100%)'
+          : 'linear-gradient(180deg, rgba(6, 182, 212, 0.03) 0%, var(--admin-bg-surface) 100%)',
+        boxShadow: '0 12px 36px rgba(0, 0, 0, 0.25)'
       }}>
-        {/* Card Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+        
+        {/* Dispatcher Header & Mode Switcher */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '14px',
+          paddingBottom: '16px',
+          borderBottom: '1px solid var(--admin-border-glass)'
+        }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '18px' }}>{isBackup ? '🛡️' : '⚡'}</span>
-              <h2 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
-                {isBackup ? 'Backup Video Provider Keys Dispatcher (Secondary Failover)' : 'Kie.ai API Keys Cloud Dispatcher (Primary Video Provider)'}
+              <h2 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                {isBackup ? 'Backup Video Provider Dispatcher' : 'Primary Video Provider Dispatcher (Kie.ai)'}
               </h2>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
-              Directly synchronize video API keys into <code>{nodeTargetName}</code> across all 5 scenes. Add new keys or selectively remove existing keys safely.
+              Directly synchronize API rotation keys into <code>{nodeTargetName}</code> across all 5 scenes.
             </p>
           </div>
-          <span className={`admin-badge ${isBackup ? 'admin-badge-purple' : 'admin-badge-cyan'}`}>
-            MCP Cloud Sync
-          </span>
+
+          {/* Provider Pill Switcher */}
+          <div style={{
+            display: 'flex',
+            gap: '4px',
+            padding: '4px',
+            background: 'var(--admin-bg-elevated)',
+            borderRadius: '12px',
+            border: '1px solid var(--admin-border-glass)'
+          }}>
+            <button
+              type="button"
+              onClick={() => {
+                setVideoProvider('primary');
+                setKeySearchTerm('');
+              }}
+              style={{
+                padding: '7px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                background: !isBackup ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
+                color: !isBackup ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>⚡</span> Primary (Kie.ai 1080p)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setVideoProvider('backup');
+                setKeySearchTerm('');
+              }}
+              style={{
+                padding: '7px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                background: isBackup ? 'rgba(139, 92, 246, 0.22)' : 'transparent',
+                color: isBackup ? 'var(--admin-accent-purple)' : 'var(--admin-text-sub)',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>🛡️</span> Backup Video (Failover)
+            </button>
+          </div>
         </div>
 
-        {/* 1. Video Provider Switcher: Primary (Kie.ai) vs Backup Video */}
+        {/* Action Controls Bar: Target Workflow & Append vs Manage Tabs */}
         <div style={{
           display: 'flex',
-          gap: '8px',
-          marginBottom: '16px',
-          padding: '4px',
-          background: 'var(--admin-bg-elevated)',
-          borderRadius: '10px',
-          border: '1px solid var(--admin-border-glass)',
-          width: 'fit-content'
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          margin: '18px 0'
         }}>
-          <button
-            type="button"
-            onClick={() => {
-              setVideoProvider('primary');
-              setKeysInput('');
-              setRemoveKeysInput('');
-              setKeySearchTerm('');
-            }}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: !isBackup ? '1px solid var(--admin-accent-cyan)' : 'none',
-              background: !isBackup ? 'rgba(6, 182, 212, 0.18)' : 'transparent',
-              color: !isBackup ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
-              fontWeight: 700,
-              fontSize: '12.5px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <span>⚡</span> Primary Video Provider (Kie.ai 1080p)
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setVideoProvider('backup');
-              setKeysInput('');
-              setRemoveKeysInput('');
-              setKeySearchTerm('');
-            }}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: isBackup ? '1px solid var(--admin-accent-purple)' : 'none',
-              background: isBackup ? 'rgba(139, 92, 246, 0.22)' : 'transparent',
-              color: isBackup ? 'var(--admin-accent-purple)' : 'var(--admin-text-sub)',
-              fontWeight: 700,
-              fontSize: '12.5px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <span>🛡️</span> Backup Video Provider (Secondary Failover)
-          </button>
+          {/* Target Workflow Select */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '280px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
+              Target Pipeline:
+            </span>
+            <select
+              value={targetWorkflow}
+              onChange={(e) => setTargetWorkflow(e.target.value)}
+              className="admin-select"
+              style={{
+                padding: '8px 12px',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                borderRadius: '9px',
+                maxWidth: '480px'
+              }}
+            >
+              <option value="all">
+                🌟 All 4 Flagship Workflows (Simultaneous 20-Node Push/Remove)
+              </option>
+              {flagshipWorkflows.map(wf => {
+                const count = isBackup ? wf.backupKeysCount : wf.kieKeysCount;
+                return (
+                  <option key={wf.id} value={wf.id}>
+                    {wf.name} ({count ?? '?'} active keys)
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Action Tabs: Append Keys vs Manage / Remove */}
+          <div style={{
+            display: 'flex',
+            gap: '6px',
+            background: 'var(--admin-bg-elevated)',
+            padding: '3px',
+            borderRadius: '10px',
+            border: '1px solid var(--admin-border-glass)'
+          }}>
+            <button
+              type="button"
+              onClick={() => setActionTab('append')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '7px',
+                border: 'none',
+                background: actionTab === 'append' ? (isBackup ? 'rgba(139, 92, 246, 0.2)' : 'rgba(6, 182, 212, 0.2)') : 'transparent',
+                color: actionTab === 'append' ? providerAccent : 'var(--admin-text-sub)',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>➕</span> Add New Keys
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActionTab('manage')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '7px',
+                border: 'none',
+                background: actionTab === 'manage' ? 'rgba(239, 68, 68, 0.18)' : 'transparent',
+                color: actionTab === 'manage' ? '#ef4444' : 'var(--admin-text-sub)',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>🗑️</span> Active Keys & Removal ({activeDisplayKeys.length})
+            </button>
+          </div>
         </div>
 
-        {/* 2. Feature Navigation Tabs: Append Keys vs Remove Keys */}
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          marginBottom: '18px',
-          borderBottom: '1px solid var(--admin-border-glass)',
-          paddingBottom: '10px'
-        }}>
-          <button
-            type="button"
-            onClick={() => setActionTab('append')}
-            style={{
-              padding: '8px 18px',
-              borderRadius: '8px',
-              border: actionTab === 'append' ? `1px solid ${providerAccent}` : '1px solid var(--admin-border-glass)',
-              background: actionTab === 'append' ? (isBackup ? 'rgba(139, 92, 246, 0.15)' : 'rgba(6, 182, 212, 0.15)') : 'var(--admin-bg-elevated)',
-              color: actionTab === 'append' ? providerAccent : 'var(--admin-text-main)',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <span>➕</span> Append New {providerLabel} Keys
-          </button>
-          <button
-            type="button"
-            onClick={() => setActionTab('remove')}
-            style={{
-              padding: '8px 18px',
-              borderRadius: '8px',
-              border: actionTab === 'remove' ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid var(--admin-border-glass)',
-              background: actionTab === 'remove' ? 'rgba(239, 68, 68, 0.15)' : 'var(--admin-bg-elevated)',
-              color: actionTab === 'remove' ? '#ef4444' : 'var(--admin-text-main)',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <span>🗑️</span> Remove Existing {providerLabel} Keys
-          </button>
-        </div>
-
-        {/* Target Workflow Selector (Shared between Append & Remove) */}
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', marginBottom: '6px' }}>
-            Target Cloud Workflow(s):
-          </label>
-          <select
-            value={targetWorkflow}
-            onChange={(e) => setTargetWorkflow(e.target.value)}
-            className="admin-select"
-            style={{ width: '100%', maxWidth: '600px', fontWeight: 600 }}
-          >
-            <option value="all">
-              🌟 All 4 Flagship Workflows (Simultaneous Cloud Push / Removal across 20 Nodes)
-            </option>
-            {workflows.slice(0, 4).map(wf => {
-              const count = isBackup ? wf.backupKeysCount : wf.kieKeysCount;
-              return (
-                <option key={wf.id} value={wf.id}>
-                  {wf.name} ({wf.id}) — {count ?? '?'} active keys
-                </option>
-              );
-            })}
-          </select>
-        </div>
-
-        {/* TAB 1: APPEND KEYS FORM */}
+        {/* TAB 1: ADD / APPEND KEYS */}
         {actionTab === 'append' && (
           <form onSubmit={handleAppendKeys}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
-                    Enter New {providerLabel} API Keys to Append:
+              <div style={{
+                background: 'var(--admin-bg-elevated)',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid var(--admin-border-glass)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                    Paste {providerLabel} API Keys:
                   </label>
-                  <span style={{ fontSize: '11.5px', color: detectedAppendCount > 0 ? providerAccent : 'var(--admin-text-sub)', fontWeight: 600 }}>
+                  <span style={{
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    color: detectedAppendCount > 0 ? providerAccent : 'var(--admin-text-sub)'
+                  }}>
                     {detectedAppendCount} new valid key{detectedAppendCount === 1 ? '' : 's'} detected
                   </span>
                 </div>
+
                 <textarea
                   value={keysInput}
                   onChange={(e) => setKeysInput(e.target.value)}
@@ -683,199 +993,229 @@ export default function WorkflowManagerView() {
                   className="admin-textarea"
                   placeholder={
                     isBackup
-                      ? "Paste Backup Video API keys here (one key per line, or separated by commas/spaces)...&#10;e.g.&#10;sk-live-bc4a502645e8449d98e6b1e738ca3646d7c68093036cb7a8&#10;sk-live-41cf4f6c5650367c3ea805aa058897fb6464c0e25e282b65"
-                      : "Paste Kie.ai API keys here (one key per line, or separated by commas/spaces)...&#10;e.g.&#10;ad82c01b9b51720280eab511077d4242&#10;c60c4e8391441ef89abdd2dcbb9936fa"
+                      ? "sk-live-bc4a502645e8449d98e6b1e738ca3646d7c68093036cb7a8\nsk-live-41cf4f6c5650367c3ea805aa058897fb6464c0e25e282b65"
+                      : "ad82c01b9b51720280eab511077d4242\nc60c4e8391441ef89abdd2dcbb9936fa"
                   }
-                  style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '12.5px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '4px' }}>
-                <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
-                  🛡️ Safe Merge: Automatically filters duplicates and creates a master backup in MongoDB Atlas. Existing keys are preserved.
-                </div>
-                <button
-                  type="submit"
-                  disabled={appending || detectedAppendCount === 0}
-                  className="admin-btn admin-btn-primary"
                   style={{
-                    minWidth: '220px',
-                    background: isBackup ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' : undefined,
-                    opacity: (appending || detectedAppendCount === 0) ? 0.6 : 1
+                    fontFamily: 'var(--admin-font-mono)',
+                    fontSize: '12.5px',
+                    lineHeight: '1.6',
+                    background: 'var(--admin-bg-surface)'
                   }}
-                >
-                  {appending ? '🚀 Pushing Keys to n8n Cloud...' : `🚀 Append ${detectedAppendCount > 0 ? detectedAppendCount : ''} ${providerLabel} Keys`}
-                </button>
+                />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                  <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
+                    🛡️ Auto-deduplicates keys, preserves existing rotation, and backs up to MongoDB Atlas.
+                  </span>
+
+                  <button
+                    type="submit"
+                    disabled={appending || detectedAppendCount === 0}
+                    className="admin-btn"
+                    style={{
+                      padding: '9px 20px',
+                      borderRadius: '9px',
+                      fontWeight: 700,
+                      fontSize: '12.5px',
+                      color: '#fff',
+                      background: isBackup
+                        ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)'
+                        : 'linear-gradient(135deg, var(--admin-accent-cyan) 0%, var(--admin-accent-blue) 100%)',
+                      border: 'none',
+                      cursor: (appending || detectedAppendCount === 0) ? 'not-allowed' : 'pointer',
+                      opacity: (appending || detectedAppendCount === 0) ? 0.6 : 1,
+                      boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
+                    }}
+                  >
+                    {appending ? 'Pushing to Cloud...' : `🚀 Push ${detectedAppendCount > 0 ? detectedAppendCount : ''} Keys to Cloud`}
+                  </button>
+                </div>
               </div>
             </div>
           </form>
         )}
 
-        {/* TAB 2: REMOVE KEYS INTERFACE */}
-        {actionTab === 'remove' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {/* Visual Active Keys Explorer */}
+        {/* TAB 2: ACTIVE KEYS & REMOVAL */}
+        {actionTab === 'manage' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            
+            {/* Search Filter Header */}
             <div style={{
-              padding: '16px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              padding: '12px 16px',
               borderRadius: '12px',
               background: 'var(--admin-bg-elevated)',
               border: '1px solid var(--admin-border-glass)'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
-                <div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
-                    Active {providerLabel} Keys in {targetWorkflow === 'all' ? 'All 4 Workflows (Master Pool)' : (workflows.find(w => w.id === targetWorkflow)?.name || 'Selected Workflow')}
-                  </h3>
-                  <p style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', margin: '3px 0 0 0' }}>
-                    Click <strong>Remove</strong> next to any key to delete it from rotation in <code>{nodeTargetName}</code>.
-                  </p>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{
-                    padding: '3px 10px',
-                    borderRadius: '6px',
-                    background: isBackup ? 'rgba(139, 92, 246, 0.15)' : 'rgba(6, 182, 212, 0.15)',
-                    color: providerAccent,
-                    fontSize: '11.5px',
-                    fontWeight: 700
-                  }}>
-                    {activeDisplayKeys.length} Total Keys
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => fetchWorkflows(true)}
-                    disabled={syncingCloud}
-                    className="admin-btn admin-btn-secondary"
-                    style={{ padding: '4px 10px', fontSize: '11px' }}
-                  >
-                    {syncingCloud ? 'Syncing...' : '🔄 Refresh Keys'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Search Filter Input */}
-              <div style={{ marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '240px' }}>
                 <input
                   type="text"
                   value={keySearchTerm}
                   onChange={(e) => setKeySearchTerm(e.target.value)}
-                  placeholder={`🔍 Search / Filter active ${providerLabel} keys by character sequence...`}
+                  placeholder={`🔍 Filter keys...`}
                   className="admin-input"
-                  style={{ fontSize: '12px', padding: '8px 12px' }}
+                  style={{
+                    padding: '7px 12px',
+                    fontSize: '12px',
+                    borderRadius: '8px',
+                    maxWidth: '360px',
+                    background: 'var(--admin-bg-surface)'
+                  }}
                 />
+                {keySearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setKeySearchTerm('')}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: 'rgba(255,255,255,0.08)',
+                      color: 'var(--admin-text-sub)',
+                      fontSize: '11px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
 
-              {/* Keys List (Scrollable) */}
-              <div style={{
-                maxHeight: '260px',
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-                paddingRight: '4px'
-              }}>
-                {filteredActiveKeys.length === 0 ? (
-                  <div style={{
-                    padding: '24px',
-                    textAlign: 'center',
-                    color: 'var(--admin-text-sub)',
-                    fontSize: '12.5px',
-                    border: '1px dashed var(--admin-border-glass)',
-                    borderRadius: '8px'
-                  }}>
-                    {activeDisplayKeys.length === 0
-                      ? `No active ${providerLabel} keys found for this target. Click "🔄 Refresh Keys" or "Sync Cloud State" above.`
-                      : `No keys matched search "${keySearchTerm}".`}
-                  </div>
-                ) : (
-                  filteredActiveKeys.map((key, idx) => {
-                    const isCopied = copiedKey === key;
-                    return (
-                      <div
-                        key={key}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          background: 'var(--admin-bg-surface)',
-                          border: '1px solid var(--admin-border-glass)',
-                          fontSize: '12px',
-                          gap: '10px'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                          <span style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            color: 'var(--admin-text-sub)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '10.5px',
-                            fontWeight: 700,
-                            flexShrink: 0
-                          }}>
-                            {idx + 1}
-                          </span>
-                          <code style={{
-                            fontFamily: 'var(--admin-font-mono)',
-                            fontSize: '11.5px',
-                            color: 'var(--admin-text-main)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {key}
-                          </code>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyKey(key)}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: '6px',
-                              background: 'transparent',
-                              border: '1px solid var(--admin-border-glass)',
-                              color: isCopied ? '#10b981' : 'var(--admin-text-sub)',
-                              fontSize: '11px',
-                              cursor: 'pointer'
-                            }}
-                            title="Copy key to clipboard"
-                          >
-                            {isCopied ? '✓ Copied' : '📋 Copy'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveKeys([key], 'individual')}
-                            disabled={removing}
-                            style={{
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              background: 'rgba(239, 68, 68, 0.12)',
-                              border: '1px solid rgba(239, 68, 68, 0.35)',
-                              color: '#ef4444',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            🗑️ Remove
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>
+                  Showing {filteredActiveKeys.length} of {activeDisplayKeys.length} keys
+                </span>
+                <button
+                  type="button"
+                  onClick={() => fetchWorkflows(true)}
+                  disabled={syncingCloud}
+                  className="admin-btn admin-btn-secondary"
+                  style={{ padding: '5px 10px', fontSize: '11.5px', borderRadius: '7px' }}
+                >
+                  {syncingCloud ? 'Syncing...' : '🔄 Refresh'}
+                </button>
               </div>
             </div>
 
-            {/* Bulk Removal Input (Alternative to Individual Clicks) */}
+            {/* Active Keys List */}
+            <div style={{
+              maxHeight: '280px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              paddingRight: '4px'
+            }}>
+              {filteredActiveKeys.length === 0 ? (
+                <div style={{
+                  padding: '32px 20px',
+                  textAlign: 'center',
+                  color: 'var(--admin-text-sub)',
+                  fontSize: '12.5px',
+                  border: '1px dashed var(--admin-border-glass)',
+                  borderRadius: '10px',
+                  background: 'var(--admin-bg-elevated)'
+                }}>
+                  {activeDisplayKeys.length === 0
+                    ? `No active ${providerLabel} keys found for this workflow. Click "Refresh" or add keys using the Add New Keys tab.`
+                    : `No keys matched search "${keySearchTerm}".`}
+                </div>
+              ) : (
+                filteredActiveKeys.map((key, idx) => {
+                  const isCopied = copiedKey === key;
+                  return (
+                    <div
+                      key={key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 14px',
+                        borderRadius: '9px',
+                        background: 'var(--admin-bg-elevated)',
+                        border: '1px solid var(--admin-border-glass)',
+                        fontSize: '12px',
+                        gap: '12px',
+                        transition: 'background 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                        <span style={{
+                          width: '26px',
+                          height: '26px',
+                          borderRadius: '6px',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          color: 'var(--admin-text-sub)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          flexShrink: 0
+                        }}>
+                          {String(idx + 1).padStart(2, '0')}
+                        </span>
+                        <code style={{
+                          fontFamily: 'var(--admin-font-mono)',
+                          fontSize: '11.5px',
+                          color: 'var(--admin-text-main)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {key}
+                        </code>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyKey(key)}
+                          style={{
+                            padding: '4px 9px',
+                            borderRadius: '6px',
+                            background: 'transparent',
+                            border: '1px solid var(--admin-border-glass)',
+                            color: isCopied ? '#10b981' : 'var(--admin-text-sub)',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Copy key to clipboard"
+                        >
+                          {isCopied ? '✓ Copied' : '📋 Copy'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveKeys([key], 'individual')}
+                          disabled={removing}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#ef4444',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          🗑️ Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Bulk Removal Drawer */}
             <div style={{
               padding: '16px',
               borderRadius: '12px',
@@ -883,26 +1223,26 @@ export default function WorkflowManagerView() {
               border: '1px solid rgba(239, 68, 68, 0.2)'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#ef4444' }}>
-                  Or Bulk Remove Multiple {providerLabel} Keys (Paste Keys Below):
-                </label>
-                <span style={{ fontSize: '11.5px', color: detectedRemoveCount > 0 ? '#ef4444' : 'var(--admin-text-sub)', fontWeight: 600 }}>
-                  {detectedRemoveCount} key{detectedRemoveCount === 1 ? '' : 's'} to remove
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#ef4444' }}>
+                  Bulk Remove (Paste Multiple Keys Below):
+                </span>
+                <span style={{ fontSize: '11px', color: detectedRemoveCount > 0 ? '#ef4444' : 'var(--admin-text-sub)', fontWeight: 600 }}>
+                  {detectedRemoveCount} keys to remove
                 </span>
               </div>
               <textarea
                 value={removeKeysInput}
                 onChange={(e) => setRemoveKeysInput(e.target.value)}
-                rows={3}
+                rows={2}
                 className="admin-textarea"
-                placeholder={`Paste ${providerLabel} keys to remove here (one per line, or separated by commas)...`}
-                style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '12px' }}
+                placeholder="Paste keys to remove (one per line, or separated by commas)..."
+                style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '12px', background: 'var(--admin-bg-surface)' }}
               />
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '10px' }}>
-                <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
-                  ⚠️ Only specified keys will be deleted from {nodeTargetName}. All other keys will remain untouched.
-                </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '10px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                  ⚠️ Only exact matching keys will be deleted. All other keys remain intact.
+                </span>
                 <button
                   type="button"
                   onClick={() => handleRemoveKeys(removeKeysInput, 'bulk')}
@@ -912,46 +1252,107 @@ export default function WorkflowManagerView() {
                     background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
                     color: '#fff',
                     border: 'none',
-                    padding: '8px 18px',
+                    padding: '7px 16px',
                     borderRadius: '8px',
                     fontWeight: 700,
-                    fontSize: '12.5px',
+                    fontSize: '12px',
                     cursor: (removing || detectedRemoveCount === 0) ? 'not-allowed' : 'pointer',
                     opacity: (removing || detectedRemoveCount === 0) ? 0.6 : 1
                   }}
                 >
-                  {removing ? '🗑️ Removing from Cloud...' : `🗑️ Remove Pasted Keys (${detectedRemoveCount})`}
+                  {removing ? 'Removing...' : `🗑️ Remove ${detectedRemoveCount > 0 ? detectedRemoveCount : ''} Keys`}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Live Execution Console Logs */}
+        {/* 5. Sleek Live MCP Execution Terminal */}
         {logs.length > 0 && (
           <div style={{
-            marginTop: '16px',
-            padding: '12px 14px',
-            borderRadius: '10px',
+            marginTop: '18px',
+            borderRadius: '12px',
             background: '#070a12',
             border: '1px solid rgba(255, 255, 255, 0.08)',
-            fontFamily: 'var(--admin-font-mono)',
-            fontSize: '11.5px',
-            lineHeight: '1.6',
-            color: '#a7f3d0',
-            maxHeight: '180px',
-            overflowY: 'auto'
+            overflow: 'hidden',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)'
           }}>
-            <div style={{ color: 'var(--admin-text-sub)', fontSize: '10.5px', marginBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '4px' }}>
-              LIVE MCP DISPATCH CONSOLE — {providerLabel.toUpperCase()}
-            </div>
-            {logs.map((log, idx) => (
-              <div key={idx} style={{ color: log.includes('❌') ? '#ef4444' : log.includes('✅') ? '#34d399' : log.includes('⚠️') ? '#f59e0b' : '#38bdf8' }}>
-                {log}
+            {/* Terminal Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '8px 14px',
+              background: '#0d111a',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                <span style={{
+                  fontFamily: 'var(--admin-font-mono)',
+                  fontSize: '10.5px',
+                  fontWeight: 700,
+                  color: 'var(--admin-text-sub)',
+                  letterSpacing: '0.06em'
+                }}>
+                  LIVE MCP DISPATCH CONSOLE ({logs.length} EVENTS)
+                </span>
               </div>
-            ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setLogs([])}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--admin-text-sub)',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    padding: '2px 6px'
+                  }}
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsConsoleExpanded(!isConsoleExpanded)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--admin-text-sub)',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    padding: '2px 6px'
+                  }}
+                >
+                  {isConsoleExpanded ? 'Minimize' : 'Expand'}
+                </button>
+              </div>
+            </div>
+
+            {/* Terminal Output */}
+            {isConsoleExpanded && (
+              <div style={{
+                padding: '12px 14px',
+                fontFamily: 'var(--admin-font-mono)',
+                fontSize: '11.5px',
+                lineHeight: '1.6',
+                maxHeight: '160px',
+                overflowY: 'auto'
+              }}>
+                {logs.map((log, idx) => (
+                  <div key={idx} style={{
+                    color: log.includes('❌') ? '#ef4444' : log.includes('✅') ? '#34d399' : log.includes('⚠️') ? '#f59e0b' : '#38bdf8',
+                    padding: '1px 0'
+                  }}>
+                    {log}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
+
       </div>
     </div>
   );
