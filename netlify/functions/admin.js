@@ -461,7 +461,13 @@ export async function handler(event) {
 
         // If destination does not have the flagship workflows yet, transfer them!
         if (!flagshipMap.viralShorts || destWorkflows.length === 0) {
-          const srcEmail = currentDoc?.adminCredentials?.email || process.env.N8N_ADMIN_EMAIL || 'cmpunktg1@outlook.com';
+          let srcEmail = currentDoc?.adminCredentials?.email;
+          if (cleanSrcHost.includes('cmpunktg31')) srcEmail = 'cmpunktg31@gmail.com';
+          else if (cleanSrcHost.includes('cmpunktg30')) srcEmail = 'cmpunktg30@gmail.com';
+          else if (cleanSrcHost.includes('cmpunktg1outlook')) srcEmail = 'cmpunktg1@outlook.com';
+          else if (cleanSrcHost.includes('cmpunktg29')) srcEmail = 'cmpunktg29@gmail.com';
+          if (!srcEmail) srcEmail = currentDoc?.adminCredentials?.email || 'cmpunktg31@gmail.com';
+
           const srcPassword = currentDoc?.adminCredentials?.password || process.env.N8N_ADMIN_PASSWORD || '@Suzainkhan6361';
 
           let srcCookie;
@@ -515,6 +521,10 @@ export async function handler(event) {
                       delete cleanWf.versionId;
                       delete cleanWf.isArchived;
                       delete cleanWf.sharedWith;
+                      delete cleanWf.parentFolderId;
+                      delete cleanWf.folderId;
+                      delete cleanWf.homeFolder;
+                      delete cleanWf.tags;
                       cleanWf.active = false;
 
                       if (Array.isArray(cleanWf.nodes)) {
@@ -528,6 +538,7 @@ export async function handler(event) {
                       jsonStr = jsonStr.replaceAll('cmpunktg1outlook', cleanDestHost);
                       jsonStr = jsonStr.replaceAll('cmpunktg29', cleanDestHost);
                       jsonStr = jsonStr.replaceAll('cmpunktg30', cleanDestHost);
+                      jsonStr = jsonStr.replaceAll('cmpunktg31', cleanDestHost);
                       const payload = JSON.parse(jsonStr);
 
                       const createRes = await fetch(`https://${cleanDestHost}/rest/workflows`, {
@@ -548,6 +559,9 @@ export async function handler(event) {
                         else if (/world\s*mysteries/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.worldMysteries) flagshipMap.worldMysteries = newWf.id;
                         else if (/last\s*24\s*hours/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.last24Hours) flagshipMap.last24Hours = newWf.id;
                         else if (/3-?\s*am\s*horror/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.horror3am) flagshipMap.horror3am = newWf.id;
+                      } else {
+                        const errText = await createRes.text().catch(() => '');
+                        console.warn(`[migrate-n8n] Create ${summary.name} failed (${createRes.status}):`, errText.slice(0, 200));
                       }
                     } catch (itemErr) {
                       console.warn(`[migrate-n8n] Error transferring ${summary.name}:`, itemErr.message);
@@ -578,6 +592,10 @@ export async function handler(event) {
                 delete cleanWf.versionId;
                 delete cleanWf.isArchived;
                 delete cleanWf.sharedWith;
+                delete cleanWf.parentFolderId;
+                delete cleanWf.folderId;
+                delete cleanWf.homeFolder;
+                delete cleanWf.tags;
                 cleanWf.active = false;
                 if (Array.isArray(cleanWf.nodes)) {
                   for (const n of cleanWf.nodes) delete n.credentials;
@@ -587,6 +605,7 @@ export async function handler(event) {
                 jsonStr = jsonStr.replaceAll('cmpunktg29', cleanDestHost);
                 jsonStr = jsonStr.replaceAll('cmpunktg1outlook', cleanDestHost);
                 jsonStr = jsonStr.replaceAll('cmpunktg30', cleanDestHost);
+                jsonStr = jsonStr.replaceAll('cmpunktg31', cleanDestHost);
                 const payload = JSON.parse(jsonStr);
 
                 const createRes = await fetch(`https://${cleanDestHost}/rest/workflows`, {
@@ -603,6 +622,9 @@ export async function handler(event) {
                   else if (tmpl.role === 'worldMysteries') flagshipMap.worldMysteries = newWf.id;
                   else if (tmpl.role === 'last24Hours') flagshipMap.last24Hours = newWf.id;
                   else if (tmpl.role === 'horror3am') flagshipMap.horror3am = newWf.id;
+                } else {
+                  const errText = await createRes.text().catch(() => '');
+                  console.warn(`[migrate-n8n] Master template create ${tmpl.role} failed (${createRes.status}):`, errText.slice(0, 200));
                 }
               }));
             } catch (masterErr) {
