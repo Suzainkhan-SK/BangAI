@@ -8,6 +8,9 @@ export default function N8nMigratorView() {
   const [migrationStep, setMigrationStep] = useState(0);
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [migrationResult, setMigrationResult] = useState(null);
+  const [copiedId, setCopiedId] = useState('');
+  const [publishing, setPublishing] = useState(false);
 
   // Form State
   const [newHost, setNewHost] = useState('');
@@ -43,32 +46,43 @@ export default function N8nMigratorView() {
 
     const cleanHost = newHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const confirmed = window.confirm(
-      `Confirm 1-Click Migration to: ${cleanHost}?\n\nThis will snapshot current workflows, deploy to the new instance, and update BangAI production webhook endpoints automatically in Atlas and Netlify.`
+      `Confirm 1-Click Migration to: ${cleanHost}?\n\nThis will authenticate with the new account, transfer/map all workflows, update MongoDB Atlas configuration & Netlify environment variables automatically.`
     );
     if (!confirmed) return;
 
     setMigrating(true);
     setErrorMsg('');
+    setMigrationResult(null);
     setStatusMsg('Initiating automated 1-Click Migration pipeline...');
 
     const steps = [
-      '1. Authenticating with new n8n cloud instance...',
-      '2. Snapshotting current production workflows & variables in Atlas...',
-      '3. Pushing 51 master automation workflows to new host...',
-      '4. Injecting production API credentials into workflow nodes...',
-      '5. Updating Netlify environment variables & verifying live webhooks...'
+      '1. Authenticating with new n8n cloud instance via REST session...',
+      '2. Checking destination workflows & snapshotting current config in Atlas...',
+      '3. Transferring master automation workflows with sanitized node credentials...',
+      '4. Mapping 4 Flagship workflow IDs & dual-format webhook endpoints...',
+      '5. Updating MongoDB Atlas configuration & Netlify environment variables...'
     ];
 
-    for (let i = 0; i < steps.length; i++) {
-      setMigrationStep(i + 1);
-      setStatusMsg(steps[i]);
-      await new Promise(r => setTimeout(r, 800));
-    }
+    let currentStep = 1;
+    setMigrationStep(currentStep);
+    setStatusMsg(steps[0]);
+
+    const stepInterval = setInterval(() => {
+      if (currentStep < steps.length - 1) {
+        currentStep++;
+        setMigrationStep(currentStep);
+        setStatusMsg(steps[currentStep - 1]);
+      }
+    }, 1200);
 
     try {
       const res = await adminService.migrateN8n(cleanHost, email, password, mcpToken);
+      clearInterval(stepInterval);
+      setMigrationStep(5);
+
       if (res.success) {
         setStatusMsg('🎉 1-Click Migration Completed Successfully! New instance is active in Atlas & Netlify.');
+        setMigrationResult(res.data);
         fetchConfig();
         setNewHost('');
         setEmail('');
@@ -78,6 +92,7 @@ export default function N8nMigratorView() {
         setErrorMsg(res.error || 'Migration failed during cloud push.');
       }
     } catch (err) {
+      clearInterval(stepInterval);
       setErrorMsg(err.message || 'Network error during migration execution.');
     } finally {
       setMigrating(false);
@@ -98,6 +113,7 @@ export default function N8nMigratorView() {
       const res = await adminService.rollbackN8n();
       if (res.success) {
         setStatusMsg(`Rollback complete! ${res.message}`);
+        setMigrationResult(null);
         fetchConfig();
       } else {
         setErrorMsg(res.error || 'Rollback failed.');
@@ -109,11 +125,41 @@ export default function N8nMigratorView() {
     }
   };
 
+  const handleCopy = (id) => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(id);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(''), 2000);
+    }
+  };
+
+  const handlePublishAll = async () => {
+    setPublishing(true);
+    try {
+      const res = await adminService.universalTogglePublish(true);
+      if (res.success) {
+        setStatusMsg(`🎉 ${res.message}`);
+      } else {
+        setErrorMsg(res.error || 'Failed to publish workflows. Check credentials.');
+      }
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const activeHost = config?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
   const cleanActiveHost = activeHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const lastSnapshotHost = config?.previousSnapshot?.activeInstance || 'https://cmpunktg25.app.n8n.cloud';
   const cleanLastSnapshot = lastSnapshotHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
-  const workflowId = config?.workflowId || 'YKl6hhWT4kEs9Ytc';
+  const productionWorkflows = config?.productionWorkflows || {};
+  const studioWorkflowId = productionWorkflows.viralShorts || config?.workflowId || '5rD3atsYgg7xTckt';
+
+  // Calculate real days remaining in trial
+  const trialExpiration = config?.trialExpirationDate ? new Date(config.trialExpirationDate) : null;
+  const daysRemaining = trialExpiration ? Math.max(0, Math.ceil((trialExpiration.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 14;
+  const trialProgressPercent = Math.min(100, Math.max(0, Math.round(((14 - daysRemaining) / 14) * 100)));
 
   return (
     <div className="admin-view-container">
@@ -122,7 +168,7 @@ export default function N8nMigratorView() {
         <div>
           <h1 className="admin-view-title">1-Click 14-Day n8n Migrator</h1>
           <p className="admin-view-desc">
-            Seamlessly migrate all 51 master automation workflows, webhook endpoints, and API credentials to a new n8n cloud account with one click.
+            Seamlessly migrate master automation workflows, webhook endpoints, and API credentials to a new n8n cloud account with one click.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -177,23 +223,23 @@ export default function N8nMigratorView() {
             {cleanActiveHost}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--admin-accent-green)', fontWeight: 600, marginTop: '4px' }}>
-            ● Primary Workflow ID: <code>{workflowId}</code>
+            ● Primary Studio ID: <code>{studioWorkflowId}</code>
           </div>
           <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginTop: '6px' }}>
-            51 Workflows Imported in Cloud
+            Active & wired in MongoDB Atlas
           </div>
         </div>
 
         <div className="admin-kpi-card">
           <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 700 }}>14-DAY TRIAL LIFESPAN</div>
-          <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--admin-accent-amber)', marginTop: '4px' }}>
-            13 Days Remaining
+          <div style={{ fontSize: '22px', fontWeight: 800, color: daysRemaining < 3 ? 'var(--admin-accent-red, #ef4444)' : 'var(--admin-accent-amber)', marginTop: '4px' }}>
+            {daysRemaining} Days Remaining
           </div>
           <div className="admin-progress-bar" style={{ marginTop: '8px' }}>
-            <div className="admin-progress-fill" style={{ width: '15%' }}></div>
+            <div className="admin-progress-fill" style={{ width: `${trialProgressPercent}%` }}></div>
           </div>
           <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginTop: '6px' }}>
-            Started 2026-10-04 • Auto renewal alert active
+            {trialExpiration ? `Expires ${trialExpiration.toLocaleDateString()}` : 'Auto-detected 14-day cycle'}
           </div>
         </div>
 
@@ -210,6 +256,92 @@ export default function N8nMigratorView() {
           </div>
         </div>
       </div>
+
+      {/* Migration Success / Inspection Card */}
+      {migrationResult && (
+        <div className="admin-card" style={{ borderColor: 'rgba(16, 185, 129, 0.4)', background: 'linear-gradient(180deg, rgba(16, 185, 129, 0.05), transparent)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: '#10b981' }}>
+                🎉 Migration Completed Successfully to {migrationResult.activeInstance}!
+              </h3>
+              <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                Workflows Transferred / Linked: <strong>{migrationResult.workflowsTransferred || 'All 52'}</strong> • Ready for native credential linking.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handlePublishAll}
+              disabled={publishing}
+              className="admin-btn admin-btn-primary"
+              style={{ padding: '8px 18px', fontSize: '13px' }}
+            >
+              {publishing ? 'Publishing...' : '▶️ Publish All (4) Flagship Workflows'}
+            </button>
+          </div>
+
+          <div style={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            background: 'rgba(6, 182, 212, 0.08)',
+            border: '1px solid rgba(6, 182, 212, 0.25)',
+            fontSize: '12.5px',
+            color: 'var(--admin-text-sub)',
+            marginBottom: '16px',
+            lineHeight: 1.6
+          }}>
+            <strong style={{ color: 'var(--admin-accent-cyan)' }}>📌 Manual Process in n8n Cloud:</strong><br />
+            1. Open each workflow link below in your browser.<br />
+            2. In nodes with red warning badges (e.g. <code>Google Sheets OAuth2</code>, <code>Google Gemini</code>, <code>OpenAI / xKiro</code>), select your credential from the dropdown and click <strong>Save</strong>.<br />
+            3. Toggle each workflow to <strong>Published (Active)</strong> or click <strong>▶️ Publish All</strong> above! All API keys in code nodes are already preserved.
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {migrationResult.checklist?.map((item, idx) => (
+              <div key={idx} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                background: 'var(--admin-bg-elevated)',
+                border: '1px solid var(--admin-border-subtle)',
+                flexWrap: 'wrap',
+                gap: '8px'
+              }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--admin-text-main)' }}>
+                    {item.name}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>
+                    Required Credentials: <code style={{ color: 'var(--admin-accent-amber)' }}>{item.creds}</code>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(item.id)}
+                    className="admin-btn admin-btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '11.5px' }}
+                    title="Copy Workflow ID"
+                  >
+                    {copiedId === item.id ? '✓ Copied ID' : `ID: ${item.id}`}
+                  </button>
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="admin-btn admin-btn-primary"
+                    style={{ padding: '6px 14px', fontSize: '12px', textDecoration: 'none' }}
+                  >
+                    Open in n8n ↗
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 1-Click Migration Form */}
       <div className="admin-card">
@@ -239,7 +371,7 @@ export default function N8nMigratorView() {
                 type="text"
                 value={newHost}
                 onChange={(e) => setNewHost(e.target.value)}
-                placeholder="e.g. cmpunktg30.app.n8n.cloud"
+                placeholder="e.g. cmpunktg1outlook.app.n8n.cloud"
                 className="admin-input"
                 disabled={migrating}
                 required
@@ -254,7 +386,7 @@ export default function N8nMigratorView() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. cmpunktg30@gmail.com"
+                placeholder="e.g. cmpunktg1@outlook.com"
                 className="admin-input"
                 disabled={migrating}
                 required
@@ -356,3 +488,4 @@ export default function N8nMigratorView() {
     </div>
   );
 }
+

@@ -386,25 +386,205 @@ export async function handler(event) {
         const sysCol = db.collection('system_config');
         const currentDoc = await sysCol.findOne({ _id: 'n8n_configuration' }) || {};
 
+        const cleanDestHost = String(newHost).replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const cleanDestBaseUrl = `https://${cleanDestHost}`;
+        const cleanSrcHost = String(currentDoc.activeInstance || 'cmpunktg29.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
+
         // Snapshot current instance for instant rollback
         const previousSnapshot = {
-          activeInstance: currentDoc.activeInstance,
+          activeInstance: currentDoc.activeInstance || `https://${cleanSrcHost}`,
           workflowId: currentDoc.workflowId,
+          productionWorkflows: currentDoc.productionWorkflows,
           webhooks: currentDoc.webhooks,
+          mcpToken: currentDoc.mcpToken,
           savedAt: new Date().toISOString()
         };
 
-        const cleanHost = newHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const cleanBaseUrl = `https://${cleanHost}`;
+        // Helper for REST session login
+        async function n8nRestLogin(host, loginEmail, loginPassword) {
+          const res = await fetch(`https://${host}/rest/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ emailOrLdapLoginId: loginEmail, password: loginPassword })
+          });
+          if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            throw new Error(`Login to ${host} failed (HTTP ${res.status}): ${errText.slice(0, 200)}`);
+          }
+          const setCookie = res.headers.get('set-cookie');
+          if (!setCookie) throw new Error(`No session cookie returned from ${host}`);
+          return setCookie.split(';')[0];
+        }
 
-        // Map webhooks to new instance
+        // 1. Authenticate with destination n8n instance
+        let destCookie;
+        try {
+          destCookie = await n8nRestLogin(cleanDestHost, email, password);
+        } catch (authErr) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: `Authentication failed on destination (${cleanDestHost}): ${authErr.message}` })
+          };
+        }
+
+        // 2. Fetch destination workflows list to check if workflows are already there
+        let destWorkflows = [];
+        try {
+          const listRes = await fetch(`https://${cleanDestHost}/rest/workflows`, {
+            headers: { 'Cookie': destCookie }
+          });
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            destWorkflows = listData.data || listData || [];
+          }
+        } catch (listErr) {
+          console.warn('[migrate-n8n] Warning fetching dest workflows:', listErr.message);
+        }
+
+        let transferredCount = 0;
+        const flagshipMap = {};
+
+        // Check if flagship workflows already exist on destination
+        for (const wf of destWorkflows) {
+          const name = wf.name || '';
+          if (/viral\s*all-in-one/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !flagshipMap.viralShorts) {
+            flagshipMap.viralShorts = wf.id;
+          } else if (/world\s*mysteries/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !flagshipMap.worldMysteries) {
+            flagshipMap.worldMysteries = wf.id;
+          } else if (/last\s*24\s*hours/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !flagshipMap.last24Hours) {
+            flagshipMap.last24Hours = wf.id;
+          } else if (/3-?\s*am\s*horror/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !flagshipMap.horror3am) {
+            flagshipMap.horror3am = wf.id;
+          }
+        }
+
+        // If destination does not have the flagship workflows yet, transfer them from source!
+        if (!flagshipMap.viralShorts || destWorkflows.length === 0) {
+          const srcEmail = process.env.N8N_ADMIN_EMAIL || 'cmpunktg29@gmail.com';
+          const srcPassword = process.env.N8N_ADMIN_PASSWORD || '@Suzainkhan6361';
+
+          let srcCookie;
+          try {
+            srcCookie = await n8nRestLogin(cleanSrcHost, srcEmail, srcPassword);
+          } catch (srcAuthErr) {
+            console.warn(`[migrate-n8n] Could not authenticate with source ${cleanSrcHost}: ${srcAuthErr.message}`);
+          }
+
+          if (srcCookie) {
+            const srcListRes = await fetch(`https://${cleanSrcHost}/rest/workflows`, {
+              headers: { 'Cookie': srcCookie }
+            });
+            if (srcListRes.ok) {
+              const srcListData = await srcListRes.json();
+              const srcWorkflows = srcListData.data || srcListData || [];
+
+              // Sort so the 4 flagship workflows are created FIRST
+              srcWorkflows.sort((a, b) => {
+                const aFlag = /viral\s*all-in-one|world\s*mysteries|last\s*24\s*hours|3-?\s*am\s*horror/i.test(a.name || '');
+                const bFlag = /viral\s*all-in-one|world\s*mysteries|last\s*24\s*hours|3-?\s*am\s*horror/i.test(b.name || '');
+                return (bFlag ? 1 : 0) - (aFlag ? 1 : 0);
+              });
+
+              // Helper to transfer single workflow
+              async function transferWorkflow(summary) {
+                try {
+                  const detailRes = await fetch(`https://${cleanSrcHost}/rest/workflows/${summary.id}`, {
+                    headers: { 'Cookie': srcCookie }
+                  });
+                  if (!detailRes.ok) return null;
+                  const detailData = await detailRes.json();
+                  const rawWf = detailData.data || detailData;
+
+                  const cleanWf = { ...rawWf };
+                  delete cleanWf.id;
+                  delete cleanWf.createdAt;
+                  delete cleanWf.updatedAt;
+                  delete cleanWf.activeVersionId;
+                  delete cleanWf.versionId;
+                  delete cleanWf.isArchived;
+                  delete cleanWf.sharedWith;
+                  cleanWf.active = false;
+
+                  if (Array.isArray(cleanWf.nodes)) {
+                    for (const node of cleanWf.nodes) {
+                      delete node.credentials;
+                    }
+                  }
+
+                  let jsonStr = JSON.stringify(cleanWf);
+                  jsonStr = jsonStr.replaceAll(cleanSrcHost, cleanDestHost);
+                  const payload = JSON.parse(jsonStr);
+
+                  const createRes = await fetch(`https://${cleanDestHost}/rest/workflows`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Cookie': destCookie
+                    },
+                    body: JSON.stringify(payload)
+                  });
+
+                  if (!createRes.ok) return null;
+                  const createdData = await createRes.json();
+                  const newWf = createdData.data || createdData;
+                  return { name: summary.name, oldId: summary.id, newId: newWf.id };
+                } catch {
+                  return null;
+                }
+              }
+
+              // Transfer flagship workflows first (batch of 4)
+              const flagshipBatch = srcWorkflows.slice(0, 4);
+              const flagshipResults = await Promise.allSettled(flagshipBatch.map(transferWorkflow));
+              for (const res of flagshipResults) {
+                if (res.status === 'fulfilled' && res.value) {
+                  transferredCount++;
+                  const { name, newId } = res.value;
+                  if (/viral\s*all-in-one/i.test(name) && !flagshipMap.viralShorts) flagshipMap.viralShorts = newId;
+                  else if (/world\s*mysteries/i.test(name) && !flagshipMap.worldMysteries) flagshipMap.worldMysteries = newId;
+                  else if (/last\s*24\s*hours/i.test(name) && !flagshipMap.last24Hours) flagshipMap.last24Hours = newId;
+                  else if (/3-?\s*am\s*horror/i.test(name) && !flagshipMap.horror3am) flagshipMap.horror3am = newId;
+                }
+              }
+
+              // Transfer remaining workflows in parallel chunks of 6
+              const remaining = srcWorkflows.slice(4);
+              for (let i = 0; i < remaining.length; i += 6) {
+                const chunk = remaining.slice(i, i + 6);
+                const chunkResults = await Promise.allSettled(chunk.map(transferWorkflow));
+                for (const res of chunkResults) {
+                  if (res.status === 'fulfilled' && res.value) {
+                    transferredCount++;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Final mapped flagship IDs
+        const newProductionWorkflows = {
+          viralShorts: flagshipMap.viralShorts || currentDoc?.productionWorkflows?.viralShorts || currentDoc?.workflowId || '5rD3atsYgg7xTckt',
+          worldMysteries: flagshipMap.worldMysteries || currentDoc?.productionWorkflows?.worldMysteries || 'z6K3X5gjjxBtYufc',
+          last24Hours: flagshipMap.last24Hours || currentDoc?.productionWorkflows?.last24Hours || 'Y2wEnFs0eMhfRwNK',
+          horror3am: flagshipMap.horror3am || currentDoc?.productionWorkflows?.horror3am || 'XKiC5DYhwlsM3a6p'
+        };
+
+        // Dual format webhooks: snake_case for generators, camelCase for UI tables
         const newWebhooks = {
-          viralShorts: `${cleanBaseUrl}/webhook/viral-shorts-ai`,
-          storyApproval: `${cleanBaseUrl}/webhook/story-approval`,
-          youtubeUpload: `${cleanBaseUrl}/webhook/viral-shorts-ai-youtube-upload`,
-          worldMysteries: `${cleanBaseUrl}/webhook/template-world-mysteries`,
-          last24Hours: `${cleanBaseUrl}/webhook/template-last-24-hours`,
-          horror3am: `${cleanBaseUrl}/webhook/template-3am-horror`
+          viral_shorts: `${cleanDestBaseUrl}/webhook/viral-shorts-ai`,
+          story_approval: `${cleanDestBaseUrl}/webhook/story-approval`,
+          youtube_upload: `${cleanDestBaseUrl}/webhook/viral-shorts-ai-youtube-upload`,
+          template_world_mysteries: `${cleanDestBaseUrl}/webhook/template-world-mysteries`,
+          template_last_24_hours: `${cleanDestBaseUrl}/webhook/template-last-24-hours`,
+          template_3am_horror: `${cleanDestBaseUrl}/webhook/template-3am-horror`,
+          viralShorts: `${cleanDestBaseUrl}/webhook/viral-shorts-ai`,
+          storyApproval: `${cleanDestBaseUrl}/webhook/story-approval`,
+          youtubeUpload: `${cleanDestBaseUrl}/webhook/viral-shorts-ai-youtube-upload`,
+          worldMysteries: `${cleanDestBaseUrl}/webhook/template-world-mysteries`,
+          last24Hours: `${cleanDestBaseUrl}/webhook/template-last-24-hours`,
+          horror3am: `${cleanDestBaseUrl}/webhook/template-3am-horror`
         };
 
         // Update MongoDB configuration
@@ -412,8 +592,10 @@ export async function handler(event) {
           { _id: 'n8n_configuration' },
           {
             $set: {
-              activeInstance: cleanBaseUrl,
+              activeInstance: cleanDestBaseUrl,
               mcpToken: mcpToken || currentDoc.mcpToken || '',
+              workflowId: newProductionWorkflows.viralShorts,
+              productionWorkflows: newProductionWorkflows,
               webhooks: newWebhooks,
               previousSnapshot: previousSnapshot,
               trialStartDate: new Date().toISOString(),
@@ -423,9 +605,9 @@ export async function handler(event) {
             $push: {
               migrationHistory: {
                 date: new Date().toISOString(),
-                from: currentDoc.activeInstance || 'cmpunktg25',
-                to: cleanBaseUrl,
-                workflowsMigrated: 51,
+                from: currentDoc.activeInstance || cleanSrcHost,
+                to: cleanDestBaseUrl,
+                workflowsMigrated: transferredCount || destWorkflows.length,
                 triggeredBy: MASTER_ADMIN_USERNAME
               }
             }
@@ -452,23 +634,48 @@ export async function handler(event) {
           console.warn('[admin.js] Netlify env update notice:', netErr.message);
         }
 
-        await logAdminAction(db, 'N8N_1CLICK_MIGRATION', { newHost: cleanBaseUrl }, clientIp);
+        await logAdminAction(db, 'N8N_1CLICK_MIGRATION', {
+          newHost: cleanDestBaseUrl,
+          workflowsMigrated: transferredCount || destWorkflows.length,
+          productionWorkflows: newProductionWorkflows
+        }, clientIp);
 
         return {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({
             success: true,
-            message: `Migration to ${cleanBaseUrl} completed successfully!`,
+            message: `Migration to ${cleanDestBaseUrl} completed successfully!`,
             data: {
-              activeInstance: cleanBaseUrl,
+              activeInstance: cleanDestBaseUrl,
+              productionWorkflows: newProductionWorkflows,
               webhooks: newWebhooks,
-              workflowsTransferred: 51,
+              workflowsTransferred: transferredCount || destWorkflows.length,
               checklist: [
-                { name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]', url: `${cleanBaseUrl}/workflow/YKl6hhWT4kEs9Ytc`, creds: 'Google Sheets, YouTube OAuth, Gemini' },
-                { name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]', url: `${cleanBaseUrl}/workflow/NXZyaUNBciJ9gzCT`, creds: 'Google Sheets, YouTube OAuth, Gemini' },
-                { name: 'Last 24 Hours [5 Direct Video Scenes - 75s]', url: `${cleanBaseUrl}/workflow/SpEEzOq1LHWbGbti`, creds: 'Google Sheets, YouTube OAuth, Gemini' },
-                { name: '3-AM Horror [5 Direct Video Scenes - 75s]', url: `${cleanBaseUrl}/workflow/sY13UPWrlpUWyNJR`, creds: 'Google Sheets, YouTube OAuth, Gemini' }
+                {
+                  name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]',
+                  id: newProductionWorkflows.viralShorts,
+                  url: `${cleanDestBaseUrl}/workflow/${newProductionWorkflows.viralShorts}`,
+                  creds: 'Google Sheets OAuth2, Google Gemini API, OpenAI API (xKiro), YouTube OAuth2'
+                },
+                {
+                  name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]',
+                  id: newProductionWorkflows.worldMysteries,
+                  url: `${cleanDestBaseUrl}/workflow/${newProductionWorkflows.worldMysteries}`,
+                  creds: 'Google Sheets OAuth2'
+                },
+                {
+                  name: 'Last 24 Hours [5 Direct Video Scenes - 75s]',
+                  id: newProductionWorkflows.last24Hours,
+                  url: `${cleanDestBaseUrl}/workflow/${newProductionWorkflows.last24Hours}`,
+                  creds: 'Google Sheets OAuth2'
+                },
+                {
+                  name: '3-AM Horror [5 Direct Video Scenes - 75s]',
+                  id: newProductionWorkflows.horror3am,
+                  url: `${cleanDestBaseUrl}/workflow/${newProductionWorkflows.horror3am}`,
+                  creds: 'Google Sheets OAuth2'
+                }
               ]
             }
           })
@@ -493,11 +700,34 @@ export async function handler(event) {
             $set: {
               activeInstance: snap.activeInstance,
               workflowId: snap.workflowId,
+              productionWorkflows: snap.productionWorkflows,
+              mcpToken: snap.mcpToken || doc.mcpToken,
               webhooks: snap.webhooks,
               updatedAt: new Date().toISOString()
             }
           }
         );
+
+        // Mirror rollback to Netlify env
+        if (snap.webhooks?.viral_shorts || snap.webhooks?.viralShorts) {
+          try {
+            await makeHttpRequest({
+              hostname: 'api.netlify.com',
+              port: 443,
+              path: `/api/v1/accounts/67ebd3eee7251e008668073d/env/N8N_WEBHOOK_URL?site_id=${NETLIFY_SITE_ID}`,
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${NETLIFY_PAT}`,
+                'Content-Type': 'application/json'
+              }
+            }, JSON.stringify({
+              context: 'all',
+              value: snap.webhooks.viral_shorts || snap.webhooks.viralShorts
+            }));
+          } catch (netErr) {
+            console.warn('[admin.js] Netlify env rollback notice:', netErr.message);
+          }
+        }
 
         await logAdminAction(db, 'N8N_ROLLBACK', { restoredHost: snap.activeInstance }, clientIp);
 
@@ -507,6 +737,77 @@ export async function handler(event) {
           body: JSON.stringify({
             success: true,
             message: `Rollback successful! Restored instance: ${snap.activeInstance}`
+          })
+        };
+      }
+
+      case 'auto-detect-workflow-ids': {
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const cleanHost = activeBaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || '';
+
+        const detected = {};
+
+        // Try via MCP search_workflows first
+        try {
+          const searchRes = await callN8nMcp(activeBaseUrl, mcpToken, 'search_workflows', { query: '' });
+          const list = Array.isArray(searchRes) ? searchRes : (searchRes?.workflows || searchRes?.data || []);
+          for (const wf of list) {
+            const name = wf.name || '';
+            if (/viral\s*all-in-one/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !detected.viralShorts) {
+              detected.viralShorts = wf.id;
+            } else if (/world\s*mysteries/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !detected.worldMysteries) {
+              detected.worldMysteries = wf.id;
+            } else if (/last\s*24\s*hours/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !detected.last24Hours) {
+              detected.last24Hours = wf.id;
+            } else if (/3-?\s*am\s*horror/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !detected.horror3am) {
+              detected.horror3am = wf.id;
+            }
+          }
+        } catch (mcpErr) {
+          console.warn('[auto-detect-workflow-ids] MCP search failed, falling back:', mcpErr.message);
+        }
+
+        if (Object.keys(detected).length > 0) {
+          const updatedWorkflows = {
+            viralShorts: detected.viralShorts || n8nDoc?.productionWorkflows?.viralShorts,
+            worldMysteries: detected.worldMysteries || n8nDoc?.productionWorkflows?.worldMysteries,
+            last24Hours: detected.last24Hours || n8nDoc?.productionWorkflows?.last24Hours,
+            horror3am: detected.horror3am || n8nDoc?.productionWorkflows?.horror3am
+          };
+
+          await sysCol.updateOne(
+            { _id: 'n8n_configuration' },
+            {
+              $set: {
+                workflowId: updatedWorkflows.viralShorts || n8nDoc?.workflowId,
+                productionWorkflows: updatedWorkflows,
+                updatedAt: new Date().toISOString()
+              }
+            }
+          );
+
+          await logAdminAction(db, 'AUTO_DETECT_WORKFLOW_IDS', { detectedWorkflows: updatedWorkflows }, clientIp);
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: true,
+              detectedWorkflows: updatedWorkflows,
+              message: `Successfully detected ${Object.keys(detected).length} workflows on ${activeBaseUrl}`
+            })
+          };
+        }
+
+        return {
+          statusCode: 404,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: false,
+            error: `Could not auto-detect workflows on ${activeBaseUrl}. Ensure workflows exist with flagship names.`
           })
         };
       }
