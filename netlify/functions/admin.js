@@ -682,14 +682,17 @@ export async function handler(event) {
             hostname: 'api.netlify.com',
             port: 443,
             path: `/api/v1/accounts/67ebd3eee7251e008668073d/env/N8N_WEBHOOK_URL?site_id=${NETLIFY_SITE_ID}`,
-            method: 'PATCH',
+            method: 'PUT',
             headers: {
               'Authorization': `Bearer ${NETLIFY_PAT}`,
               'Content-Type': 'application/json'
             }
           }, JSON.stringify({
-            context: 'all',
-            value: newWebhooks.viralShorts
+            key: 'N8N_WEBHOOK_URL',
+            scopes: ['builds', 'functions', 'post_processing', 'runtime'],
+            values: [
+              { value: newWebhooks.viralShorts, context: 'all' }
+            ]
           }));
         } catch (netErr) {
           console.warn('[admin.js] Netlify env update notice:', netErr.message);
