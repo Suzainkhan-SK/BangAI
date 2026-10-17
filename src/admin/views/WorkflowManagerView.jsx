@@ -215,6 +215,12 @@ export default function WorkflowManagerView() {
       .filter(k => k.length > 5).length;
   }, [removeKeysInput]);
 
+  // Helper: Append formatted log to MCP console
+  const addLog = (type, message) => {
+    const icon = type === 'action' ? '🚀' : type === 'success' ? '✅' : '⚠️';
+    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${icon} ${message}`]);
+  };
+
   // 1. Toggle Workflow Publish / Unpublish via MCP
   const handleTogglePublish = async (e, wf) => {
     e.stopPropagation();
@@ -263,11 +269,10 @@ export default function WorkflowManagerView() {
     flagshipWorkflows.forEach(wf => { allTogglingMap[wf.id] = true; });
     setTogglingPublish(allTogglingMap);
 
-    addLog('action', `Dispatched Universal ${actionLabel} command across all 4 production workflows in n8n Cloud...`);
-
     try {
+      addLog('action', `Dispatched Universal ${actionLabel} command across all 4 production workflows in n8n Cloud...`);
       const res = await adminService.universalTogglePublish(shouldPublish);
-      if (res.success) {
+      if (res && res.success) {
         setToastMsg(shouldPublish
           ? '🚀 Universal Publish Complete! All 4 production workflows are live in n8n Cloud.'
           : '⏸️ Universal Unpublish Complete! All 4 workflows are set to Draft mode in n8n Cloud.'
@@ -282,10 +287,12 @@ export default function WorkflowManagerView() {
 
         fetchWorkflows(true);
       } else {
-        setToastMsg(`⚠️ Universal toggle error: ${res.error || 'Failed to toggle all workflows'}`);
-        addLog('error', `Universal ${actionLabel} failed: ${res.error || 'Unknown error'}`);
+        const errText = res?.error || 'Failed to toggle all workflows';
+        setToastMsg(`⚠️ Universal toggle error: ${errText}`);
+        addLog('error', `Universal ${actionLabel} failed: ${errText}`);
       }
     } catch (err) {
+      console.error('[Universal Toggle Publish Error]', err);
       setToastMsg(`⚠️ Universal toggle error: ${err.message}`);
       addLog('error', `Universal ${actionLabel} exception: ${err.message}`);
     } finally {
