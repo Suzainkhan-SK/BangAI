@@ -123,6 +123,18 @@ export const adminService = {
     adminFetch('append-llm-keys', 'POST', { workflowId, newKeys, targetGroup }),
   removeLlmKeys: async (workflowId, keysToRemove, targetGroup = 'all_primary') =>
     adminFetch('remove-llm-keys', 'POST', { workflowId, keysToRemove, targetGroup }),
+  appendJ2vKeys: async (workflowId, newKeys) =>
+    adminFetch('append-j2v-keys', 'POST', { workflowId, newKeys }),
+  removeJ2vKeys: async (workflowId, keysToRemove) =>
+    adminFetch('remove-j2v-keys', 'POST', { workflowId, keysToRemove }),
+  appendCloudConvertKeys: async (workflowId, newKeys) =>
+    adminFetch('append-cloudconvert-keys', 'POST', { workflowId, newKeys }),
+  removeCloudConvertKeys: async (workflowId, keysToRemove) =>
+    adminFetch('remove-cloudconvert-keys', 'POST', { workflowId, keysToRemove }),
+  appendZvidKeys: async (workflowId, newKeys) =>
+    adminFetch('append-zvid-keys', 'POST', { workflowId, newKeys }),
+  removeZvidKeys: async (workflowId, keysToRemove) =>
+    adminFetch('remove-zvid-keys', 'POST', { workflowId, keysToRemove }),
   toggleWorkflowPublish: async (workflowId, publish) =>
     adminFetch('toggle-workflow-publish', 'POST', { workflowId, publish }),
   universalTogglePublish: async (publish) =>

@@ -36,29 +36,60 @@ export default function WorkflowManagerView() {
   const [syncingCloud, setSyncingCloud] = useState(false);
 
   const isLlm = managerCategory === 'llm';
+  const isVoice = managerCategory === 'voice';
+  const isCloudConvert = managerCategory === 'cloudconvert';
+  const isZvid = managerCategory === 'zvid';
+  const isVideo = managerCategory === 'video';
   const isBackup = videoProvider === 'backup';
 
-  const providerLabel = isLlm
-    ? (llmTarget === 'all_primary'
+  const providerLabel = useMemo(() => {
+    if (managerCategory === 'video') {
+      return isBackup ? 'Backup Video' : 'Kie.ai Primary Video';
+    }
+    if (managerCategory === 'llm') {
+      return llmTarget === 'all_primary'
         ? 'All Primary LLM Nodes'
         : llmTarget === 'all_backup'
           ? 'All Backup LLM Nodes'
-          : llmTarget)
-    : (isBackup ? 'Backup Video' : 'Kie.ai Primary Video');
+          : llmTarget;
+    }
+    if (managerCategory === 'voice') return 'json2video Voiceover Engine';
+    if (managerCategory === 'cloudconvert') return 'CloudConvert Audio Bridge';
+    if (managerCategory === 'zvid') return 'Zvid 75s Render Engine';
+    return 'Provider';
+  }, [managerCategory, isBackup, llmTarget]);
 
-  const providerAccent = isLlm
-    ? (llmTarget === 'all_primary' || llmTarget.includes('Primary') || llmTarget.includes('Topic Analyzer LLM Master')
+  const providerAccent = useMemo(() => {
+    if (managerCategory === 'video') {
+      return isBackup ? 'var(--admin-accent-purple, #8b5cf6)' : 'var(--admin-accent-cyan, #06b6d4)';
+    }
+    if (managerCategory === 'llm') {
+      return (llmTarget === 'all_primary' || llmTarget.includes('Primary') || llmTarget.includes('Topic Analyzer LLM Master'))
         ? '#10b981'
-        : '#f59e0b')
-    : (isBackup ? 'var(--admin-accent-purple, #8b5cf6)' : 'var(--admin-accent-cyan, #06b6d4)');
+        : '#f59e0b';
+    }
+    if (managerCategory === 'voice') return '#ec4899';
+    if (managerCategory === 'cloudconvert') return '#3b82f6';
+    if (managerCategory === 'zvid') return '#f43f5e';
+    return 'var(--admin-accent-cyan, #06b6d4)';
+  }, [managerCategory, isBackup, llmTarget]);
 
-  const nodeTargetName = isLlm
-    ? (llmTarget === 'all_primary'
+  const nodeTargetName = useMemo(() => {
+    if (managerCategory === 'video') {
+      return isBackup ? 'Config: Backup Video Master 1..5' : 'Config: Primary Video Master 1..5';
+    }
+    if (managerCategory === 'llm') {
+      return llmTarget === 'all_primary'
         ? 'Config: Primary LLM Master & Config: Topic Analyzer LLM Master'
         : llmTarget === 'all_backup'
           ? 'Config: Backup LLM Master, Strategy Backup & Topic Analyzer Backup'
-          : llmTarget)
-    : (isBackup ? 'Config: Backup Video Master 1..5' : 'Config: Primary Video Master 1..5');
+          : llmTarget;
+    }
+    if (managerCategory === 'voice') return 'Config: json2video Keys (Voiceover / ElevenLabs)';
+    if (managerCategory === 'cloudconvert') return 'Config: CloudConvert Master (Dual-Voice to MP3)';
+    if (managerCategory === 'zvid') return 'Config: Zvid Master (Multi-Track 75s Render Engine)';
+    return 'Config Node';
+  }, [managerCategory, isBackup, llmTarget]);
 
   const fetchWorkflows = async (syncCloud = false) => {
     if (syncCloud) setSyncingCloud(true);
@@ -132,9 +163,33 @@ export default function WorkflowManagerView() {
     return set.size;
   }, [flagshipWorkflows]);
 
+  const totalJ2vKeys = useMemo(() => {
+    const set = new Set();
+    flagshipWorkflows.forEach(w => {
+      if (Array.isArray(w.j2vKeys)) w.j2vKeys.forEach(k => set.add(k));
+    });
+    return set.size;
+  }, [flagshipWorkflows]);
+
+  const totalCloudConvertKeys = useMemo(() => {
+    const set = new Set();
+    flagshipWorkflows.forEach(w => {
+      if (Array.isArray(w.cloudConvertKeys)) w.cloudConvertKeys.forEach(k => set.add(k));
+    });
+    return set.size;
+  }, [flagshipWorkflows]);
+
+  const totalZvidKeys = useMemo(() => {
+    const set = new Set();
+    flagshipWorkflows.forEach(w => {
+      if (Array.isArray(w.zvidKeys)) w.zvidKeys.forEach(k => set.add(k));
+    });
+    return set.size;
+  }, [flagshipWorkflows]);
+
   // Active Keys pool for the currently selected target and active provider
   const activeDisplayKeys = useMemo(() => {
-    if (!isLlm) {
+    if (managerCategory === 'video') {
       if (targetWorkflow === 'all') {
         const set = new Set();
         flagshipWorkflows.forEach(wf => {
@@ -147,7 +202,7 @@ export default function WorkflowManagerView() {
         const arr = isBackup ? targetWf?.backupKeys : targetWf?.kieKeys;
         return Array.isArray(arr) ? arr : [];
       }
-    } else {
+    } else if (managerCategory === 'llm') {
       const getKeysForWfAndTarget = (wf) => {
         if (!wf) return [];
         if (llmTarget === 'all_primary') {
@@ -191,8 +246,42 @@ export default function WorkflowManagerView() {
         const targetWf = flagshipWorkflows.find(w => w.id === targetWorkflow);
         return getKeysForWfAndTarget(targetWf);
       }
+    } else if (managerCategory === 'voice') {
+      if (targetWorkflow === 'all') {
+        const set = new Set();
+        flagshipWorkflows.forEach(wf => {
+          if (Array.isArray(wf.j2vKeys)) wf.j2vKeys.forEach(k => set.add(k));
+        });
+        return Array.from(set);
+      } else {
+        const targetWf = flagshipWorkflows.find(w => w.id === targetWorkflow);
+        return Array.isArray(targetWf?.j2vKeys) ? targetWf.j2vKeys : [];
+      }
+    } else if (managerCategory === 'cloudconvert') {
+      if (targetWorkflow === 'all') {
+        const set = new Set();
+        flagshipWorkflows.forEach(wf => {
+          if (Array.isArray(wf.cloudConvertKeys)) wf.cloudConvertKeys.forEach(k => set.add(k));
+        });
+        return Array.from(set);
+      } else {
+        const targetWf = flagshipWorkflows.find(w => w.id === targetWorkflow);
+        return Array.isArray(targetWf?.cloudConvertKeys) ? targetWf.cloudConvertKeys : [];
+      }
+    } else if (managerCategory === 'zvid') {
+      if (targetWorkflow === 'all') {
+        const set = new Set();
+        flagshipWorkflows.forEach(wf => {
+          if (Array.isArray(wf.zvidKeys)) wf.zvidKeys.forEach(k => set.add(k));
+        });
+        return Array.from(set);
+      } else {
+        const targetWf = flagshipWorkflows.find(w => w.id === targetWorkflow);
+        return Array.isArray(targetWf?.zvidKeys) ? targetWf.zvidKeys : [];
+      }
     }
-  }, [flagshipWorkflows, targetWorkflow, isLlm, isBackup, llmTarget]);
+    return [];
+  }, [flagshipWorkflows, targetWorkflow, managerCategory, isBackup, llmTarget]);
 
   const filteredActiveKeys = useMemo(() => {
     if (!keySearchTerm.trim()) return activeDisplayKeys;
@@ -339,9 +428,18 @@ export default function WorkflowManagerView() {
     ]);
 
     try {
-      const res = isLlm
-        ? await adminService.appendLlmKeys(targetWorkflow, cleanKeys, llmTarget)
-        : await adminService.appendVideoKeys(targetWorkflow, cleanKeys, videoProvider);
+      let res;
+      if (managerCategory === 'video') {
+        res = await adminService.appendVideoKeys(targetWorkflow, cleanKeys, videoProvider);
+      } else if (managerCategory === 'llm') {
+        res = await adminService.appendLlmKeys(targetWorkflow, cleanKeys, llmTarget);
+      } else if (managerCategory === 'voice') {
+        res = await adminService.appendJ2vKeys(targetWorkflow, cleanKeys);
+      } else if (managerCategory === 'cloudconvert') {
+        res = await adminService.appendCloudConvertKeys(targetWorkflow, cleanKeys);
+      } else if (managerCategory === 'zvid') {
+        res = await adminService.appendZvidKeys(targetWorkflow, cleanKeys);
+      }
 
       if (res.success && Array.isArray(res.results)) {
         const newLogs = [];
@@ -422,9 +520,18 @@ export default function WorkflowManagerView() {
     ]);
 
     try {
-      const res = isLlm
-        ? await adminService.removeLlmKeys(targetWorkflow, cleanKeys, llmTarget)
-        : await adminService.removeVideoKeys(targetWorkflow, cleanKeys, videoProvider);
+      let res;
+      if (managerCategory === 'video') {
+        res = await adminService.removeVideoKeys(targetWorkflow, cleanKeys, videoProvider);
+      } else if (managerCategory === 'llm') {
+        res = await adminService.removeLlmKeys(targetWorkflow, cleanKeys, llmTarget);
+      } else if (managerCategory === 'voice') {
+        res = await adminService.removeJ2vKeys(targetWorkflow, cleanKeys);
+      } else if (managerCategory === 'cloudconvert') {
+        res = await adminService.removeCloudConvertKeys(targetWorkflow, cleanKeys);
+      } else if (managerCategory === 'zvid') {
+        res = await adminService.removeZvidKeys(targetWorkflow, cleanKeys);
+      }
 
       if (res.success && Array.isArray(res.results)) {
         const newLogs = [];
@@ -788,7 +895,61 @@ export default function WorkflowManagerView() {
           </div>
         </div>
 
-        {/* KPI 6: Cloud Host */}
+        {/* KPI 6: Voiceover Keys (json2video) */}
+        <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Voiceover Keys
+            </span>
+            <span style={{ fontSize: '14px' }}>🎙️</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '24px', fontWeight: 900, color: '#ec4899' }}>
+              {totalJ2vKeys}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 500 }}>
+              json2video pool
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 7: CloudConvert Tokens */}
+        <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Audio Bridge
+            </span>
+            <span style={{ fontSize: '14px' }}>🔄</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '24px', fontWeight: 900, color: '#3b82f6' }}>
+              {totalCloudConvertKeys}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 500 }}>
+              CloudConvert JWTs
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 8: Zvid Render Keys */}
+        <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Render Engine
+            </span>
+            <span style={{ fontSize: '14px' }}>⚡</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '24px', fontWeight: 900, color: '#f43f5e' }}>
+              {totalZvidKeys}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 500 }}>
+              Zvid 75s keys
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 9: Cloud Host */}
         <div className="admin-kpi-card" style={{ padding: '16px 18px', gap: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1060,6 +1221,57 @@ export default function WorkflowManagerView() {
                   </div>
                 </div>
 
+                {/* Downstream Engine Key Counters Row */}
+                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                  <div style={{
+                    flex: 1,
+                    padding: '5px 8px',
+                    borderRadius: '7px',
+                    background: 'rgba(236, 72, 153, 0.08)',
+                    border: '1px solid rgba(236, 72, 153, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>Voice:</span>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#ec4899' }}>
+                      {wf.j2vKeysCount ?? '?'}
+                    </span>
+                  </div>
+
+                  <div style={{
+                    flex: 1,
+                    padding: '5px 8px',
+                    borderRadius: '7px',
+                    background: 'rgba(59, 130, 246, 0.08)',
+                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>CloudConv:</span>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#3b82f6' }}>
+                      {wf.cloudConvertCount ?? '?'}
+                    </span>
+                  </div>
+
+                  <div style={{
+                    flex: 1,
+                    padding: '5px 8px',
+                    borderRadius: '7px',
+                    background: 'rgba(244, 63, 94, 0.08)',
+                    border: '1px solid rgba(244, 63, 94, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>Zvid:</span>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#f43f5e' }}>
+                      {wf.zvidCount ?? '?'}
+                    </span>
+                  </div>
+                </div>
+
                 {/* Bottom Card Actions */}
                 <div style={{
                   display: 'flex',
@@ -1116,33 +1328,27 @@ export default function WorkflowManagerView() {
         </div>
       </div>
 
-      {/* 4. Interactive Provider & LLM Engine Dispatcher & Key Vault (Unified Glass Card) */}
+      {/* 4. Interactive Provider & Downstream Engine Dispatcher & Key Vault (Unified Glass Card) */}
       <div className="admin-card" style={{
         padding: '24px',
         borderRadius: '16px',
-        borderColor: isLlm
-          ? (llmTarget.includes('primary') ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)')
-          : (isBackup ? 'rgba(139, 92, 246, 0.3)' : 'rgba(6, 182, 212, 0.3)'),
-        background: isLlm
-          ? (llmTarget.includes('primary')
-              ? 'linear-gradient(180deg, rgba(16, 185, 129, 0.04) 0%, var(--admin-bg-surface) 100%)'
-              : 'linear-gradient(180deg, rgba(245, 158, 11, 0.04) 0%, var(--admin-bg-surface) 100%)')
-          : (isBackup
-              ? 'linear-gradient(180deg, rgba(139, 92, 246, 0.04) 0%, var(--admin-bg-surface) 100%)'
-              : 'linear-gradient(180deg, rgba(6, 182, 212, 0.03) 0%, var(--admin-bg-surface) 100%)'),
+        borderColor: `${providerAccent}40`,
+        background: `linear-gradient(180deg, ${providerAccent}08 0%, var(--admin-bg-surface) 100%)`,
         boxShadow: '0 12px 36px rgba(0, 0, 0, 0.25)'
       }}>
         
-        {/* Master Category Selector (Video Providers vs LLM Engines) */}
+        {/* Master Category Selector (Video Providers, LLM Brains, Voiceover, Audio Normalizer, Render Engine) */}
         <div style={{
           display: 'flex',
           gap: '8px',
-          padding: '5px',
+          padding: '6px',
           background: 'var(--admin-bg-elevated)',
           borderRadius: '12px',
           border: '1px solid var(--admin-border-glass)',
-          marginBottom: '20px'
+          marginBottom: '20px',
+          flexWrap: 'wrap'
         }}>
+          {/* 1. Video Providers */}
           <button
             type="button"
             onClick={() => {
@@ -1150,27 +1356,38 @@ export default function WorkflowManagerView() {
               setKeySearchTerm('');
             }}
             style={{
-              flex: 1,
-              padding: '10px 16px',
+              flex: '1 1 180px',
+              padding: '10px 14px',
               borderRadius: '8px',
-              border: !isLlm ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid transparent',
-              background: !isLlm
+              border: isVideo ? '1px solid rgba(6, 182, 212, 0.45)' : '1px solid transparent',
+              background: isVideo
                 ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.18) 0%, rgba(59, 130, 246, 0.18) 100%)'
                 : 'transparent',
-              color: !isLlm ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
+              color: isVideo ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
               fontWeight: 800,
-              fontSize: '13px',
+              fontSize: '12.5px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
+              gap: '7px',
               transition: 'all 0.15s ease'
             }}
           >
-            <span style={{ fontSize: '15px' }}>🎬</span> Video Providers (Kie.ai & Backup)
+            <span style={{ fontSize: '15px' }}>🎬</span>
+            <span>Video Providers</span>
+            <span style={{
+              fontSize: '10.5px',
+              padding: '1px 6px',
+              borderRadius: '9999px',
+              background: isVideo ? 'rgba(6, 182, 212, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              color: isVideo ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)'
+            }}>
+              {totalPrimaryKeys + totalBackupKeys}
+            </span>
           </button>
 
+          {/* 2. LLM Brains */}
           <button
             type="button"
             onClick={() => {
@@ -1178,30 +1395,157 @@ export default function WorkflowManagerView() {
               setKeySearchTerm('');
             }}
             style={{
-              flex: 1,
-              padding: '10px 16px',
+              flex: '1 1 180px',
+              padding: '10px 14px',
               borderRadius: '8px',
-              border: isLlm ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid transparent',
+              border: isLlm ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid transparent',
               background: isLlm
                 ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(245, 158, 11, 0.18) 100%)'
                 : 'transparent',
               color: isLlm ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
               fontWeight: 800,
-              fontSize: '13px',
+              fontSize: '12.5px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
+              gap: '7px',
               transition: 'all 0.15s ease'
             }}
           >
-            <span style={{ fontSize: '15px' }}>🧠</span> LLM Config Nodes (Primary, Backup, Critic & Analyzer)
+            <span style={{ fontSize: '15px' }}>🧠</span>
+            <span>LLM Brains</span>
+            <span style={{
+              fontSize: '10.5px',
+              padding: '1px 6px',
+              borderRadius: '9999px',
+              background: isLlm ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              color: isLlm ? '#10b981' : 'var(--admin-text-sub)'
+            }}>
+              {totalPrimaryLlmKeys + totalBackupLlmKeys}
+            </span>
+          </button>
+
+          {/* 3. Voiceover Engine */}
+          <button
+            type="button"
+            onClick={() => {
+              setManagerCategory('voice');
+              setKeySearchTerm('');
+            }}
+            style={{
+              flex: '1 1 180px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: isVoice ? '1px solid rgba(236, 72, 153, 0.45)' : '1px solid transparent',
+              background: isVoice
+                ? 'linear-gradient(135deg, rgba(236, 72, 153, 0.2) 0%, rgba(219, 39, 119, 0.15) 100%)'
+                : 'transparent',
+              color: isVoice ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '7px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '15px' }}>🎙️</span>
+            <span>Voiceover (j2v)</span>
+            <span style={{
+              fontSize: '10.5px',
+              padding: '1px 6px',
+              borderRadius: '9999px',
+              background: isVoice ? 'rgba(236, 72, 153, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              color: isVoice ? '#ec4899' : 'var(--admin-text-sub)'
+            }}>
+              {totalJ2vKeys}
+            </span>
+          </button>
+
+          {/* 4. Audio Normalizer (CloudConvert) */}
+          <button
+            type="button"
+            onClick={() => {
+              setManagerCategory('cloudconvert');
+              setKeySearchTerm('');
+            }}
+            style={{
+              flex: '1 1 180px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: isCloudConvert ? '1px solid rgba(59, 130, 246, 0.45)' : '1px solid transparent',
+              background: isCloudConvert
+                ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.15) 100%)'
+                : 'transparent',
+              color: isCloudConvert ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '7px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '15px' }}>🔄</span>
+            <span>Audio (CloudConvert)</span>
+            <span style={{
+              fontSize: '10.5px',
+              padding: '1px 6px',
+              borderRadius: '9999px',
+              background: isCloudConvert ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              color: isCloudConvert ? '#3b82f6' : 'var(--admin-text-sub)'
+            }}>
+              {totalCloudConvertKeys}
+            </span>
+          </button>
+
+          {/* 5. Render Engine (Zvid) */}
+          <button
+            type="button"
+            onClick={() => {
+              setManagerCategory('zvid');
+              setKeySearchTerm('');
+            }}
+            style={{
+              flex: '1 1 180px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: isZvid ? '1px solid rgba(244, 63, 94, 0.45)' : '1px solid transparent',
+              background: isZvid
+                ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.2) 0%, rgba(225, 29, 72, 0.15) 100%)'
+                : 'transparent',
+              color: isZvid ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '7px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '15px' }}>⚡</span>
+            <span>Render (Zvid 75s)</span>
+            <span style={{
+              fontSize: '10.5px',
+              padding: '1px 6px',
+              borderRadius: '9999px',
+              background: isZvid ? 'rgba(244, 63, 94, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              color: isZvid ? '#f43f5e' : 'var(--admin-text-sub)'
+            }}>
+              {totalZvidKeys}
+            </span>
           </button>
         </div>
 
         {/* Dispatcher Sub-Header & Controls */}
-        {!isLlm ? (
+        {isVideo && (
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -1281,7 +1625,9 @@ export default function WorkflowManagerView() {
               </button>
             </div>
           </div>
-        ) : (
+        )}
+
+        {isLlm && (
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -1378,6 +1724,156 @@ export default function WorkflowManagerView() {
           </div>
         )}
 
+        {isVoice && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '14px',
+            paddingBottom: '16px',
+            borderBottom: '1px solid var(--admin-border-glass)'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🎙️</span>
+                <h2 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                  Voiceover & Narration Engine Dispatcher
+                </h2>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  background: 'rgba(236, 72, 153, 0.15)',
+                  color: '#ec4899',
+                  border: '1px solid rgba(236, 72, 153, 0.35)'
+                }}>
+                  json2video + ElevenLabs
+                </span>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                Directly synchronize API tokens into <code>{nodeTargetName}</code> across all workflows.
+              </p>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '10px',
+              background: 'rgba(236, 72, 153, 0.08)',
+              border: '1px solid rgba(236, 72, 153, 0.25)',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: '#ec4899'
+            }}>
+              <span>🎙️</span> {totalJ2vKeys} Active Audio Voice Keys
+            </div>
+          </div>
+        )}
+
+        {isCloudConvert && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '14px',
+            paddingBottom: '16px',
+            borderBottom: '1px solid var(--admin-border-glass)'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🔄</span>
+                <h2 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                  CloudConvert Audio Normalizer Dispatcher
+                </h2>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  color: '#3b82f6',
+                  border: '1px solid rgba(59, 130, 246, 0.35)'
+                }}>
+                  Audio Ducking & MP3 Mastering
+                </span>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                Synchronize CloudConvert API bearer tokens in <code>{nodeTargetName}</code> for high-res audio encoding.
+              </p>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '10px',
+              background: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: '#3b82f6'
+            }}>
+              <span>🔄</span> {totalCloudConvertKeys} CloudConvert Tokens Active
+            </div>
+          </div>
+        )}
+
+        {isZvid && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '14px',
+            paddingBottom: '16px',
+            borderBottom: '1px solid var(--admin-border-glass)'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>⚡</span>
+                <h2 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                  Zvid 75-Second Video Render Dispatcher
+                </h2>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  background: 'rgba(244, 63, 94, 0.15)',
+                  color: '#f43f5e',
+                  border: '1px solid rgba(244, 63, 94, 0.35)'
+                }}>
+                  5-Scene Video Stitching Engine
+                </span>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                Synchronize multi-scene video stitcher render tokens into <code>{nodeTargetName}</code>.
+              </p>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '10px',
+              background: 'rgba(244, 63, 94, 0.08)',
+              border: '1px solid rgba(244, 63, 94, 0.25)',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: '#f43f5e'
+            }}>
+              <span>⚡</span> {totalZvidKeys} Zvid Render Keys Active
+            </div>
+          </div>
+        )}
+
         {/* Action Controls Bar: Target Selector & Append vs Manage Tabs */}
         <div style={{
           display: 'flex',
@@ -1409,9 +1905,15 @@ export default function WorkflowManagerView() {
               </option>
               {flagshipWorkflows.map(wf => {
                 let count = '?';
-                if (!isLlm) {
+                if (managerCategory === 'video') {
                   count = isBackup ? wf.backupKeysCount : wf.kieKeysCount;
-                } else {
+                } else if (managerCategory === 'voice') {
+                  count = wf.j2vKeysCount ?? 0;
+                } else if (managerCategory === 'cloudconvert') {
+                  count = wf.cloudConvertCount ?? 0;
+                } else if (managerCategory === 'zvid') {
+                  count = wf.zvidCount ?? 0;
+                } else if (managerCategory === 'llm') {
                   if (llmTarget === 'all_primary') count = (wf.primaryLlmCount || 0) + (wf.topicAnalyzerCount || 0);
                   else if (llmTarget === 'all_backup') count = (wf.backupLlmCount || 0) + (wf.strategyBackupCount || 0) + (wf.topicAnalyzerBackupCount || 0);
                   else if (llmTarget === 'Config: Primary LLM Master' || llmTarget === 'Config: Critic LLM Master (Primary)') count = wf.primaryLlmCount;
@@ -1568,6 +2070,79 @@ export default function WorkflowManagerView() {
           </div>
         )}
 
+        {/* Voiceover Architecture Explanatory Callout Banner */}
+        {isVoice && (
+          <div style={{
+            margin: '8px 0 16px 0',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            background: 'rgba(236, 72, 153, 0.05)',
+            border: '1px solid rgba(236, 72, 153, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            fontSize: '12px',
+            lineHeight: '1.5',
+            color: 'var(--admin-text-sub)'
+          }}>
+            <span style={{ fontSize: '18px', flexShrink: 0 }}>🎙️</span>
+            <div>
+              <span style={{ fontWeight: 700, color: 'var(--admin-text-main)' }}>Voiceover Engine Architecture: </span>
+              Credentials in <code>Config: json2video Keys</code> drive ElevenLabs narration and caption generation across all 5 scenes.
+              You can paste pure API keys (one per line) or <code>apiKey,projectId</code> pairs.
+              The system automatically parses and injects rotation objects into n8n Cloud and MongoDB Atlas.
+            </div>
+          </div>
+        )}
+
+        {/* CloudConvert Pipeline Explanatory Callout Banner */}
+        {isCloudConvert && (
+          <div style={{
+            margin: '8px 0 16px 0',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            background: 'rgba(59, 130, 246, 0.05)',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            fontSize: '12px',
+            lineHeight: '1.5',
+            color: 'var(--admin-text-sub)'
+          }}>
+            <span style={{ fontSize: '18px', flexShrink: 0 }}>🔄</span>
+            <div>
+              <span style={{ fontWeight: 700, color: 'var(--admin-text-main)' }}>Audio Normalization Bridge: </span>
+              <code>Config: CloudConvert Master</code> balances audio levels, applies ducking, and generates synchronized MP3 tracks.
+              Paste CloudConvert JWT bearer tokens (one per line). Long tokens are cleanly truncated for readability while fully preserved for API calls.
+            </div>
+          </div>
+        )}
+
+        {/* Zvid Render Engine Explanatory Callout Banner */}
+        {isZvid && (
+          <div style={{
+            margin: '8px 0 16px 0',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            background: 'rgba(244, 63, 94, 0.05)',
+            border: '1px solid rgba(244, 63, 94, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            fontSize: '12px',
+            lineHeight: '1.5',
+            color: 'var(--admin-text-sub)'
+          }}>
+            <span style={{ fontSize: '18px', flexShrink: 0 }}>⚡</span>
+            <div>
+              <span style={{ fontWeight: 700, color: 'var(--admin-text-main)' }}>Video Render Engine: </span>
+              <code>Config: Zvid Master</code> manages render queue tokens for stitching 5 multi-track visual scenes into 75-second high-definition MP4 videos.
+              Paste <code>zvid_...</code> rotation keys (one per line) to expand render throughput across all 4 workflows simultaneously.
+            </div>
+          </div>
+        )}
+
         {/* TAB 1: ADD / APPEND KEYS */}
         {actionTab === 'append' && (
           <form onSubmit={handleAppendKeys}>
@@ -1597,7 +2172,13 @@ export default function WorkflowManagerView() {
                   rows={4}
                   className="admin-textarea"
                   placeholder={
-                    isLlm
+                    isVoice
+                      ? "e81d4fb08c1a29367d79b9d3,prj_voice_01\nad93fc129b51720280eab511077d4242"
+                      : isCloudConvert
+                      ? "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FwaS5jbG91ZGNvbnZlcnQuY29tIiwic3ViIjoi...\neyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FwaS5jbG91ZGNvbnZlcnQuY29tIiwic3ViIjoi..."
+                      : isZvid
+                      ? "zvid_live_829fa12b9c51720280eab511\nzvid_live_4490cb221a9987f6543210ab"
+                      : isLlm
                       ? (llmTarget.includes('primary') || llmTarget.includes('Primary')
                           ? "sk-xt-e2786f0d32f17f1a0211ec5f1333c45379691ec0d6f9c954\nsk-xt-450bf12af511af1eceb44dd398886c93a08b8bc52341e623"
                           : "93fa453252mshd676e411e75bd70p175580jsn4e69cd205b0a\neebced792emsh92d38cce4af7791p1609cfjsnac695534647")
@@ -1628,7 +2209,13 @@ export default function WorkflowManagerView() {
                       fontWeight: 700,
                       fontSize: '12.5px',
                       color: '#fff',
-                      background: isLlm
+                      background: isVoice
+                        ? 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)'
+                        : isCloudConvert
+                        ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)'
+                        : isZvid
+                        ? 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)'
+                        : isLlm
                         ? (llmTarget.includes('primary') || llmTarget.includes('Primary')
                             ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
                             : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)')
@@ -1773,15 +2360,18 @@ export default function WorkflowManagerView() {
                         }}>
                           {String(idx + 1).padStart(2, '0')}
                         </span>
-                        <code style={{
-                          fontFamily: 'var(--admin-font-mono)',
-                          fontSize: '11.5px',
-                          color: 'var(--admin-text-main)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {key}
+                        <code
+                          title={key}
+                          style={{
+                            fontFamily: 'var(--admin-font-mono)',
+                            fontSize: '11.5px',
+                            color: 'var(--admin-text-main)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {key.length > 55 ? `${key.slice(0, 26)}...${key.slice(-16)}` : key}
                         </code>
                       </div>
 

@@ -2247,6 +2247,44 @@ export async function handler(event) {
                     wf.topicAnalyzerBackupCount = wf.topicAnalyzerBackupLlmKeys.length;
                   }
                 }
+
+                // Extract json2video Keys
+                const j2vNode = cloudWf.nodes?.find(n => n.name === 'Config: json2video Keys');
+                if (j2vNode?.parameters?.jsCode) {
+                  const jCode = j2vNode.parameters.jsCode;
+                  const keyMatches = [...jCode.matchAll(/apiKey:\s*["']([^"']+)["']/g)].map(m => m[1]);
+                  wf.j2vKeys = keyMatches;
+                  wf.j2vKeysCount = keyMatches.length;
+                  const objMatches = [];
+                  const objRegex = /\{\s*json:\s*\{\s*apiKey:\s*["']([^"']+)["'](?:,\s*projectId:\s*["']([^"']+)["'])?/g;
+                  let om;
+                  while ((om = objRegex.exec(jCode)) !== null) {
+                    objMatches.push({ apiKey: om[1], projectId: om[2] || '' });
+                  }
+                  wf.j2vEntries = objMatches;
+                }
+
+                // Extract CloudConvert Master keys
+                const ccNode = cloudWf.nodes?.find(n => n.name === 'Config: CloudConvert Master');
+                if (ccNode?.parameters?.jsCode) {
+                  const matchCc = ccNode.parameters.jsCode.match(/const\s+cloudConvertApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (matchCc) {
+                    const sm = matchCc[1].match(/["']([^"']+)["']/g);
+                    wf.cloudConvertKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+                    wf.cloudConvertCount = wf.cloudConvertKeys.length;
+                  }
+                }
+
+                // Extract Zvid Master keys
+                const zNode = cloudWf.nodes?.find(n => n.name === 'Config: Zvid Master');
+                if (zNode?.parameters?.jsCode) {
+                  const matchZ = zNode.parameters.jsCode.match(/const\s+zvidApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (matchZ) {
+                    const sm = matchZ[1].match(/["']([^"']+)["']/g);
+                    wf.zvidKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+                    wf.zvidCount = wf.zvidKeys.length;
+                  }
+                }
               }
             } catch (err) {
               console.warn(`[admin.js] Sync status notice for ${wf.id}:`, err.message);
@@ -3433,6 +3471,846 @@ export async function handler(event) {
           })
         };
       }
+
+      // ----------------------------------------------------
+      // [11D] JSON2VIDEO / VOICEOVER API KEYS CLOUD SYNC & DISPATCHER
+      // ----------------------------------------------------
+      case 'append-j2v-keys': {
+        const { workflowId, newKeys } = body;
+        let keysToAdd = [];
+        if (Array.isArray(newKeys)) {
+          keysToAdd = newKeys.map(k => String(k).trim()).filter(Boolean);
+        } else if (typeof newKeys === 'string') {
+          keysToAdd = newKeys
+            .split(/[\r\n]+/)
+            .map(k => k.trim())
+            .filter(Boolean);
+        }
+
+        const parsedNewEntries = keysToAdd.map(line => {
+          const cleanLine = line.replace(/["'\[\]]/g, '').trim();
+          if (cleanLine.includes(',')) {
+            const [k, p] = cleanLine.split(',').map(s => s.trim());
+            return { apiKey: k, projectId: p || crypto.randomBytes(8).toString('hex') };
+          }
+          return { apiKey: cleanLine, projectId: crypto.randomBytes(8).toString('hex') };
+        }).filter(e => e.apiKey && e.apiKey.length > 5);
+
+        if (parsedNewEntries.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please enter at least one valid json2video API key.' })
+          };
+        }
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const results = [];
+        let totalNodesUpdated = 0;
+        let masterCombinedKeys = [];
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) throw new Error('Failed to load workflow nodes from n8n Cloud');
+
+            const j2vNode = wf.nodes.find(n => n.name === 'Config: json2video Keys');
+            if (!j2vNode) {
+              results.push({ workflowId: target.id, name: target.name, success: false, error: 'Config: json2video Keys node not found' });
+              continue;
+            }
+
+            const curCode = j2vNode.parameters?.jsCode || '';
+            const existingEntries = [];
+            const objRegex = /\{\s*json:\s*\{\s*apiKey:\s*["']([^"']+)["'](?:,\s*projectId:\s*["']([^"']+)["'])?\s*\}\s*\}/g;
+            let om;
+            while ((om = objRegex.exec(curCode)) !== null) {
+              existingEntries.push({ apiKey: om[1], projectId: om[2] || crypto.randomBytes(8).toString('hex') });
+            }
+
+            const entryMap = new Map();
+            existingEntries.forEach(e => entryMap.set(e.apiKey, e.projectId));
+            parsedNewEntries.forEach(e => {
+              if (!entryMap.has(e.apiKey)) {
+                entryMap.set(e.apiKey, e.projectId);
+              }
+            });
+
+            const combinedEntries = Array.from(entryMap.entries()).map(([apiKey, projectId]) => ({ apiKey, projectId }));
+            masterCombinedKeys = combinedEntries.map(e => e.apiKey);
+
+            const replacementCode = `return [\n${combinedEntries.map(e => `  { json: { apiKey: "${e.apiKey}", projectId: "${e.projectId}" } }`).join(',\n')}\n];`;
+
+            const operations = [{
+              type: 'updateNodeParameters',
+              nodeName: 'Config: json2video Keys',
+              parameters: { jsCode: replacementCode }
+            }];
+
+            await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+              workflowId: target.id,
+              versionName: `Appended json2video Keys (${combinedEntries.length} Total)`,
+              versionDescription: `Added ${parsedNewEntries.length} new keys. Total active: ${combinedEntries.length} keys in voiceover pool.`,
+              operations
+            });
+
+            totalNodesUpdated++;
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              addedCount: parsedNewEntries.length,
+              totalKeyCount: combinedEntries.length,
+              nodesUpdated: 1
+            });
+          } catch (err) {
+            results.push({ workflowId: target.id, name: target.name, success: false, error: err.message });
+          }
+        }
+
+        if (masterCombinedKeys.length > 0) {
+          try {
+            const keysCol = db.collection('api_keys');
+            await keysCol.updateOne(
+              { _id: 'json2video_keys' },
+              {
+                $set: {
+                  provider: 'json2video',
+                  title: 'json2video Voiceover Engine API Keys',
+                  keys: masterCombinedKeys,
+                  pool: masterCombinedKeys,
+                  updatedAt: new Date().toISOString()
+                }
+              },
+              { upsert: true }
+            );
+          } catch (dbErr) {
+            console.warn('[admin.js] MongoDB json2video sync warning:', dbErr.message);
+          }
+        }
+
+        await logAdminAction(db, 'APPEND_J2V_KEYS', { target: workflowId, added: parsedNewEntries.length, totalNodesUpdated }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Injected keys into ${totalNodesUpdated} node(s) in n8n Cloud.`,
+            results,
+            addedCount: parsedNewEntries.length
+          })
+        };
+      }
+
+      case 'remove-j2v-keys': {
+        const { workflowId, keysToRemove } = body;
+        let keysToDelete = [];
+        if (Array.isArray(keysToRemove)) {
+          keysToDelete = keysToRemove.map(k => String(k).replace(/["'\[\]]/g, '').trim()).filter(k => k.length > 5);
+        } else if (typeof keysToRemove === 'string') {
+          keysToDelete = keysToRemove
+            .split(/[\r\n,;\s]+/)
+            .map(k => k.replace(/["'\[\]]/g, '').trim())
+            .filter(k => k.length > 5);
+        }
+
+        if (keysToDelete.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please specify at least one valid json2video API key to remove.' })
+          };
+        }
+
+        const deleteSet = new Set(keysToDelete);
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const results = [];
+        let totalNodesUpdated = 0;
+        let masterRemainingKeys = [];
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) throw new Error('Failed to load workflow nodes from n8n Cloud');
+
+            const j2vNode = wf.nodes.find(n => n.name === 'Config: json2video Keys');
+            if (!j2vNode) {
+              results.push({ workflowId: target.id, name: target.name, success: false, error: 'Config: json2video Keys node not found' });
+              continue;
+            }
+
+            const curCode = j2vNode.parameters?.jsCode || '';
+            const existingEntries = [];
+            const objRegex = /\{\s*json:\s*\{\s*apiKey:\s*["']([^"']+)["'](?:,\s*projectId:\s*["']([^"']+)["'])?\s*\}\s*\}/g;
+            let om;
+            while ((om = objRegex.exec(curCode)) !== null) {
+              existingEntries.push({ apiKey: om[1], projectId: om[2] || crypto.randomBytes(8).toString('hex') });
+            }
+
+            const remainingEntries = existingEntries.filter(e => !deleteSet.has(e.apiKey));
+            masterRemainingKeys = remainingEntries.map(e => e.apiKey);
+
+            const replacementCode = `return [\n${remainingEntries.map(e => `  { json: { apiKey: "${e.apiKey}", projectId: "${e.projectId}" } }`).join(',\n')}\n];`;
+
+            const operations = [{
+              type: 'updateNodeParameters',
+              nodeName: 'Config: json2video Keys',
+              parameters: { jsCode: replacementCode }
+            }];
+
+            await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+              workflowId: target.id,
+              versionName: `Removed json2video Keys (${remainingEntries.length} Remaining)`,
+              versionDescription: `Removed ${existingEntries.length - remainingEntries.length} keys from voiceover pool.`,
+              operations
+            });
+
+            totalNodesUpdated++;
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              removedCount: existingEntries.length - remainingEntries.length,
+              remainingKeyCount: remainingEntries.length,
+              nodesUpdated: 1
+            });
+          } catch (err) {
+            results.push({ workflowId: target.id, name: target.name, success: false, error: err.message });
+          }
+        }
+
+        try {
+          const keysCol = db.collection('api_keys');
+          await keysCol.updateOne(
+            { _id: 'json2video_keys' },
+            {
+              $set: {
+                provider: 'json2video',
+                title: 'json2video Voiceover Engine API Keys',
+                keys: masterRemainingKeys,
+                pool: masterRemainingKeys,
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        } catch (dbErr) {
+          console.warn('[admin.js] MongoDB json2video remove sync warning:', dbErr.message);
+        }
+
+        await logAdminAction(db, 'REMOVE_J2V_KEYS', { target: workflowId, removed: keysToDelete.length, totalNodesUpdated }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Purged keys from ${totalNodesUpdated} node(s) in n8n Cloud.`,
+            results,
+            keysRemovedCount: keysToDelete.length
+          })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [11E] CLOUDCONVERT AUDIO API KEYS CLOUD SYNC & DISPATCHER
+      // ----------------------------------------------------
+      case 'append-cloudconvert-keys': {
+        const { workflowId, newKeys } = body;
+        let keysToAdd = [];
+        if (Array.isArray(newKeys)) {
+          keysToAdd = newKeys.map(k => String(k).trim()).filter(k => k.length > 10);
+        } else if (typeof newKeys === 'string') {
+          keysToAdd = newKeys
+            .split(/[\r\n,;\s]+/)
+            .map(k => k.replace(/["'\[\]]/g, '').trim())
+            .filter(k => k.length > 10);
+        }
+
+        if (keysToAdd.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please enter at least one valid CloudConvert API token.' })
+          };
+        }
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const results = [];
+        let totalNodesUpdated = 0;
+        let masterCombinedKeys = [];
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) throw new Error('Failed to load workflow nodes from n8n Cloud');
+
+            const ccNode = wf.nodes.find(n => n.name === 'Config: CloudConvert Master');
+            if (!ccNode) {
+              results.push({ workflowId: target.id, name: target.name, success: false, error: 'Config: CloudConvert Master node not found' });
+              continue;
+            }
+
+            const curCode = ccNode.parameters?.jsCode || '';
+            let existingKeys = [];
+            const matchCc = curCode.match(/const\s+cloudConvertApiKeys\s*=\s*\[([\s\S]*?)\];/);
+            if (matchCc) {
+              const sm = matchCc[1].match(/["']([^"']+)["']/g);
+              existingKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+            }
+
+            const combinedKeys = Array.from(new Set([...existingKeys, ...keysToAdd]));
+            masterCombinedKeys = combinedKeys;
+
+            const replacementCode = `// ==========================================================\n// CONFIG: CLOUDCONVERT MASTER API KEYS (Audio Bridge)\n// ==========================================================\n\nconst cloudConvertApiKeys = ${JSON.stringify(combinedKeys, null, 2)};\n\nreturn {\n  json: {\n    keys: cloudConvertApiKeys\n  }\n};`;
+
+            const operations = [{
+              type: 'updateNodeParameters',
+              nodeName: 'Config: CloudConvert Master',
+              parameters: { jsCode: replacementCode }
+            }];
+
+            await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+              workflowId: target.id,
+              versionName: `Appended CloudConvert Keys (${combinedKeys.length} Total)`,
+              versionDescription: `Added ${combinedKeys.length - existingKeys.length} new tokens. Total active: ${combinedKeys.length}.`,
+              operations
+            });
+
+            totalNodesUpdated++;
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              addedCount: combinedKeys.length - existingKeys.length,
+              totalKeyCount: combinedKeys.length,
+              nodesUpdated: 1
+            });
+          } catch (err) {
+            results.push({ workflowId: target.id, name: target.name, success: false, error: err.message });
+          }
+        }
+
+        if (masterCombinedKeys.length > 0) {
+          try {
+            const keysCol = db.collection('api_keys');
+            await keysCol.updateOne(
+              { _id: 'cloudconvert_keys' },
+              {
+                $set: {
+                  provider: 'cloudconvert',
+                  title: 'CloudConvert Audio Bridge API Tokens',
+                  keys: masterCombinedKeys,
+                  pool: masterCombinedKeys,
+                  updatedAt: new Date().toISOString()
+                }
+              },
+              { upsert: true }
+            );
+          } catch (dbErr) {
+            console.warn('[admin.js] MongoDB CloudConvert sync warning:', dbErr.message);
+          }
+        }
+
+        await logAdminAction(db, 'APPEND_CLOUDCONVERT_KEYS', { target: workflowId, added: keysToAdd.length, totalNodesUpdated }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Injected tokens into ${totalNodesUpdated} node(s) in n8n Cloud.`,
+            results,
+            addedCount: keysToAdd.length
+          })
+        };
+      }
+
+      case 'remove-cloudconvert-keys': {
+        const { workflowId, keysToRemove } = body;
+        let keysToDelete = [];
+        if (Array.isArray(keysToRemove)) {
+          keysToDelete = keysToRemove.map(k => String(k).replace(/["'\[\]]/g, '').trim()).filter(k => k.length > 10);
+        } else if (typeof keysToRemove === 'string') {
+          keysToDelete = keysToRemove
+            .split(/[\r\n,;\s]+/)
+            .map(k => k.replace(/["'\[\]]/g, '').trim())
+            .filter(k => k.length > 10);
+        }
+
+        if (keysToDelete.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please specify at least one valid CloudConvert token to remove.' })
+          };
+        }
+
+        const deleteSet = new Set(keysToDelete);
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const results = [];
+        let totalNodesUpdated = 0;
+        let masterRemainingKeys = [];
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) throw new Error('Failed to load workflow nodes from n8n Cloud');
+
+            const ccNode = wf.nodes.find(n => n.name === 'Config: CloudConvert Master');
+            if (!ccNode) {
+              results.push({ workflowId: target.id, name: target.name, success: false, error: 'Config: CloudConvert Master node not found' });
+              continue;
+            }
+
+            const curCode = ccNode.parameters?.jsCode || '';
+            let existingKeys = [];
+            const matchCc = curCode.match(/const\s+cloudConvertApiKeys\s*=\s*\[([\s\S]*?)\];/);
+            if (matchCc) {
+              const sm = matchCc[1].match(/["']([^"']+)["']/g);
+              existingKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+            }
+
+            const remainingKeys = existingKeys.filter(k => !deleteSet.has(k));
+            masterRemainingKeys = remainingKeys;
+
+            const replacementCode = `// ==========================================================\n// CONFIG: CLOUDCONVERT MASTER API KEYS (Audio Bridge)\n// ==========================================================\n\nconst cloudConvertApiKeys = ${JSON.stringify(remainingKeys, null, 2)};\n\nreturn {\n  json: {\n    keys: cloudConvertApiKeys\n  }\n};`;
+
+            const operations = [{
+              type: 'updateNodeParameters',
+              nodeName: 'Config: CloudConvert Master',
+              parameters: { jsCode: replacementCode }
+            }];
+
+            await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+              workflowId: target.id,
+              versionName: `Removed CloudConvert Keys (${remainingKeys.length} Remaining)`,
+              versionDescription: `Removed ${existingKeys.length - remainingKeys.length} tokens. Remaining: ${remainingKeys.length}.`,
+              operations
+            });
+
+            totalNodesUpdated++;
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              removedCount: existingKeys.length - remainingKeys.length,
+              remainingKeyCount: remainingKeys.length,
+              nodesUpdated: 1
+            });
+          } catch (err) {
+            results.push({ workflowId: target.id, name: target.name, success: false, error: err.message });
+          }
+        }
+
+        try {
+          const keysCol = db.collection('api_keys');
+          await keysCol.updateOne(
+            { _id: 'cloudconvert_keys' },
+            {
+              $set: {
+                provider: 'cloudconvert',
+                title: 'CloudConvert Audio Bridge API Tokens',
+                keys: masterRemainingKeys,
+                pool: masterRemainingKeys,
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        } catch (dbErr) {
+          console.warn('[admin.js] MongoDB CloudConvert remove sync warning:', dbErr.message);
+        }
+
+        await logAdminAction(db, 'REMOVE_CLOUDCONVERT_KEYS', { target: workflowId, removed: keysToDelete.length, totalNodesUpdated }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Purged tokens from ${totalNodesUpdated} node(s) in n8n Cloud.`,
+            results,
+            keysRemovedCount: keysToDelete.length
+          })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [11F] ZVID 75S RENDER ENGINE API KEYS CLOUD SYNC & DISPATCHER
+      // ----------------------------------------------------
+      case 'append-zvid-keys': {
+        const { workflowId, newKeys } = body;
+        let keysToAdd = [];
+        if (Array.isArray(newKeys)) {
+          keysToAdd = newKeys.map(k => String(k).trim()).filter(k => k.length > 5);
+        } else if (typeof newKeys === 'string') {
+          keysToAdd = newKeys
+            .split(/[\r\n,;\s]+/)
+            .map(k => k.replace(/["'\[\]]/g, '').trim())
+            .filter(k => k.length > 5);
+        }
+
+        if (keysToAdd.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please enter at least one valid Zvid API key.' })
+          };
+        }
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const results = [];
+        let totalNodesUpdated = 0;
+        let masterCombinedKeys = [];
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) throw new Error('Failed to load workflow nodes from n8n Cloud');
+
+            const zvidNode = wf.nodes.find(n => n.name === 'Config: Zvid Master');
+            if (!zvidNode) {
+              results.push({ workflowId: target.id, name: target.name, success: false, error: 'Config: Zvid Master node not found' });
+              continue;
+            }
+
+            const curCode = zvidNode.parameters?.jsCode || '';
+            let existingKeys = [];
+            const matchZ = curCode.match(/const\s+zvidApiKeys\s*=\s*\[([\s\S]*?)\];/);
+            if (matchZ) {
+              const sm = matchZ[1].match(/["']([^"']+)["']/g);
+              existingKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+            }
+
+            const combinedKeys = Array.from(new Set([...existingKeys, ...keysToAdd]));
+            masterCombinedKeys = combinedKeys;
+
+            const replacementCode = `// ==========================================================\n// CONFIG: ZVID MASTER API KEYS (Multi-Track 75s Render Engine)\n// ==========================================================\n\nconst zvidApiKeys = ${JSON.stringify(combinedKeys, null, 2)};\n\nreturn {\n  json: {\n    keys: zvidApiKeys,\n    zvidApiKeys: zvidApiKeys\n  }\n};`;
+
+            const operations = [{
+              type: 'updateNodeParameters',
+              nodeName: 'Config: Zvid Master',
+              parameters: { jsCode: replacementCode }
+            }];
+
+            await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+              workflowId: target.id,
+              versionName: `Appended Zvid Keys (${combinedKeys.length} Total)`,
+              versionDescription: `Added ${combinedKeys.length - existingKeys.length} new keys. Total active: ${combinedKeys.length}.`,
+              operations
+            });
+
+            totalNodesUpdated++;
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              addedCount: combinedKeys.length - existingKeys.length,
+              totalKeyCount: combinedKeys.length,
+              nodesUpdated: 1
+            });
+          } catch (err) {
+            results.push({ workflowId: target.id, name: target.name, success: false, error: err.message });
+          }
+        }
+
+        if (masterCombinedKeys.length > 0) {
+          try {
+            const keysCol = db.collection('api_keys');
+            await keysCol.updateOne(
+              { _id: 'zvid_keys' },
+              {
+                $set: {
+                  provider: 'zvid',
+                  title: 'Zvid Cloud Render Engine API Keys',
+                  keys: masterCombinedKeys,
+                  pool: masterCombinedKeys,
+                  updatedAt: new Date().toISOString()
+                }
+              },
+              { upsert: true }
+            );
+          } catch (dbErr) {
+            console.warn('[admin.js] MongoDB Zvid sync warning:', dbErr.message);
+          }
+        }
+
+        await logAdminAction(db, 'APPEND_ZVID_KEYS', { target: workflowId, added: keysToAdd.length, totalNodesUpdated }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Injected keys into ${totalNodesUpdated} node(s) in n8n Cloud.`,
+            results,
+            addedCount: keysToAdd.length
+          })
+        };
+      }
+
+      case 'remove-zvid-keys': {
+        const { workflowId, keysToRemove } = body;
+        let keysToDelete = [];
+        if (Array.isArray(keysToRemove)) {
+          keysToDelete = keysToRemove.map(k => String(k).replace(/["'\[\]]/g, '').trim()).filter(k => k.length > 5);
+        } else if (typeof keysToRemove === 'string') {
+          keysToDelete = keysToRemove
+            .split(/[\r\n,;\s]+/)
+            .map(k => k.replace(/["'\[\]]/g, '').trim())
+            .filter(k => k.length > 5);
+        }
+
+        if (keysToDelete.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please specify at least one valid Zvid key to remove.' })
+          };
+        }
+
+        const deleteSet = new Set(keysToDelete);
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const results = [];
+        let totalNodesUpdated = 0;
+        let masterRemainingKeys = [];
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) throw new Error('Failed to load workflow nodes from n8n Cloud');
+
+            const zvidNode = wf.nodes.find(n => n.name === 'Config: Zvid Master');
+            if (!zvidNode) {
+              results.push({ workflowId: target.id, name: target.name, success: false, error: 'Config: Zvid Master node not found' });
+              continue;
+            }
+
+            const curCode = zvidNode.parameters?.jsCode || '';
+            let existingKeys = [];
+            const matchZ = curCode.match(/const\s+zvidApiKeys\s*=\s*\[([\s\S]*?)\];/);
+            if (matchZ) {
+              const sm = matchZ[1].match(/["']([^"']+)["']/g);
+              existingKeys = sm ? sm.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+            }
+
+            const remainingKeys = existingKeys.filter(k => !deleteSet.has(k));
+            masterRemainingKeys = remainingKeys;
+
+            const replacementCode = `// ==========================================================\n// CONFIG: ZVID MASTER API KEYS (Multi-Track 75s Render Engine)\n// ==========================================================\n\nconst zvidApiKeys = ${JSON.stringify(remainingKeys, null, 2)};\n\nreturn {\n  json: {\n    keys: zvidApiKeys,\n    zvidApiKeys: zvidApiKeys\n  }\n};`;
+
+            const operations = [{
+              type: 'updateNodeParameters',
+              nodeName: 'Config: Zvid Master',
+              parameters: { jsCode: replacementCode }
+            }];
+
+            await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+              workflowId: target.id,
+              versionName: `Removed Zvid Keys (${remainingKeys.length} Remaining)`,
+              versionDescription: `Removed ${existingKeys.length - remainingKeys.length} keys from render pool.`,
+              operations
+            });
+
+            totalNodesUpdated++;
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              removedCount: existingKeys.length - remainingKeys.length,
+              remainingKeyCount: remainingKeys.length,
+              nodesUpdated: 1
+            });
+          } catch (err) {
+            results.push({ workflowId: target.id, name: target.name, success: false, error: err.message });
+          }
+        }
+
+        try {
+          const keysCol = db.collection('api_keys');
+          await keysCol.updateOne(
+            { _id: 'zvid_keys' },
+            {
+              $set: {
+                provider: 'zvid',
+                title: 'Zvid Cloud Render Engine API Keys',
+                keys: masterRemainingKeys,
+                pool: masterRemainingKeys,
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        } catch (dbErr) {
+          console.warn('[admin.js] MongoDB Zvid remove sync warning:', dbErr.message);
+        }
+
+        await logAdminAction(db, 'REMOVE_ZVID_KEYS', { target: workflowId, removed: keysToDelete.length, totalNodesUpdated }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Purged keys from ${totalNodesUpdated} node(s) in n8n Cloud.`,
+            results,
+            keysRemovedCount: keysToDelete.length
+          })
+        };
+      }
+
 
       // ----------------------------------------------------
       // [12] SYNC KEYS TO NETLIFY ENVIRONMENT VARIABLES
