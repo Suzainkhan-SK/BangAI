@@ -31,6 +31,7 @@ export default function WorkflowManagerView() {
   const [keySearchTerm, setKeySearchTerm] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
   const [togglingPublish, setTogglingPublish] = useState({});
+  const [universalToggling, setUniversalToggling] = useState(null); // 'publish' | 'unpublish' | null
   const [detectingIds, setDetectingIds] = useState(false);
   const [syncingCloud, setSyncingCloud] = useState(false);
 
@@ -245,6 +246,52 @@ export default function WorkflowManagerView() {
     } finally {
       setTogglingPublish(prev => ({ ...prev, [wf.id]: false }));
       setTimeout(() => setToastMsg(''), 5000);
+    }
+  };
+
+  // 1B. Universal Publish / Unpublish ALL 4 Workflows via MCP
+  const handleUniversalPublish = async (shouldPublish) => {
+    const actionLabel = shouldPublish ? 'PUBLISH & ACTIVATE' : 'UNPUBLISH (Draft mode)';
+    const warning = shouldPublish
+      ? 'Confirm: Are you sure you want to PUBLISH all 4 production workflows in n8n Cloud? This will make all webhook triggers live.'
+      : '⚠️ Confirm: Are you sure you want to UNPUBLISH all 4 production workflows in n8n Cloud? Webhook triggers will be paused until re-published.';
+
+    if (!window.confirm(warning)) return;
+
+    setUniversalToggling(shouldPublish ? 'publish' : 'unpublish');
+    const allTogglingMap = {};
+    flagshipWorkflows.forEach(wf => { allTogglingMap[wf.id] = true; });
+    setTogglingPublish(allTogglingMap);
+
+    addLog('action', `Dispatched Universal ${actionLabel} command across all 4 production workflows in n8n Cloud...`);
+
+    try {
+      const res = await adminService.universalTogglePublish(shouldPublish);
+      if (res.success) {
+        setToastMsg(shouldPublish
+          ? '🚀 Universal Publish Complete! All 4 production workflows are live in n8n Cloud.'
+          : '⏸️ Universal Unpublish Complete! All 4 workflows are set to Draft mode in n8n Cloud.'
+        );
+        addLog('success', res.message || `Universal ${actionLabel} applied successfully across all 4 workflows.`);
+
+        setWorkflows(prev => prev.map(item => ({
+          ...item,
+          published: shouldPublish,
+          status: shouldPublish ? 'ACTIVE' : 'DRAFT'
+        })));
+
+        fetchWorkflows(true);
+      } else {
+        setToastMsg(`⚠️ Universal toggle error: ${res.error || 'Failed to toggle all workflows'}`);
+        addLog('error', `Universal ${actionLabel} failed: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Universal toggle error: ${err.message}`);
+      addLog('error', `Universal ${actionLabel} exception: ${err.message}`);
+    } finally {
+      setUniversalToggling(null);
+      setTogglingPublish({});
+      setTimeout(() => setToastMsg(''), 6000);
     }
   };
 
@@ -501,6 +548,58 @@ export default function WorkflowManagerView() {
 
         {/* Global Action Controls */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Universal Publish All (4) */}
+          <button
+            type="button"
+            onClick={() => handleUniversalPublish(true)}
+            disabled={!!universalToggling || syncingCloud}
+            className="admin-btn"
+            style={{
+              padding: '8px 14px',
+              fontSize: '12px',
+              fontWeight: 700,
+              borderRadius: '9px',
+              background: 'rgba(16, 185, 129, 0.12)',
+              color: '#10b981',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: universalToggling ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title="Publish (Activate) all 4 production workflows in n8n Cloud simultaneously"
+          >
+            <span>{universalToggling === 'publish' ? '⏳' : '▶️'}</span>
+            {universalToggling === 'publish' ? 'Publishing All...' : 'Publish All (4)'}
+          </button>
+
+          {/* Universal Unpublish All (4) */}
+          <button
+            type="button"
+            onClick={() => handleUniversalPublish(false)}
+            disabled={!!universalToggling || syncingCloud}
+            className="admin-btn"
+            style={{
+              padding: '8px 14px',
+              fontSize: '12px',
+              fontWeight: 700,
+              borderRadius: '9px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#ef4444',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: universalToggling ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title="Unpublish (Draft mode) all 4 production workflows in n8n Cloud simultaneously"
+          >
+            <span>{universalToggling === 'unpublish' ? '⏳' : '⏸️'}</span>
+            {universalToggling === 'unpublish' ? 'Unpublishing All...' : 'Unpublish All (4)'}
+          </button>
+
           <button
             type="button"
             onClick={handleAutoDetectIds}
@@ -711,7 +810,7 @@ export default function WorkflowManagerView() {
 
       {/* 3. Flagship Production Pipelines (4 Modern Interactive Cards) */}
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)', letterSpacing: '-0.01em' }}>
               Production Pipelines
@@ -727,9 +826,58 @@ export default function WorkflowManagerView() {
               4 Automated Workflows
             </span>
           </div>
-          <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
-            Click card to focus in key dispatcher below
-          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => handleUniversalPublish(true)}
+              disabled={!!universalToggling || syncingCloud}
+              className="admin-btn"
+              style={{
+                padding: '6px 12px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                borderRadius: '8px',
+                background: 'rgba(16, 185, 129, 0.12)',
+                color: '#10b981',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: universalToggling ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Publish all 4 production workflows in n8n Cloud simultaneously"
+            >
+              <span>{universalToggling === 'publish' ? '⏳' : '▶️'}</span>
+              {universalToggling === 'publish' ? 'Publishing All...' : 'Publish All (4)'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleUniversalPublish(false)}
+              disabled={!!universalToggling || syncingCloud}
+              className="admin-btn"
+              style={{
+                padding: '6px 12px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                borderRadius: '8px',
+                background: 'rgba(239, 68, 68, 0.12)',
+                color: '#ef4444',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: universalToggling ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Unpublish (Draft mode) all 4 production workflows in n8n Cloud simultaneously"
+            >
+              <span>{universalToggling === 'unpublish' ? '⏳' : '⏸️'}</span>
+              {universalToggling === 'unpublish' ? 'Unpublishing All...' : 'Unpublish All (4)'}
+            </button>
+          </div>
         </div>
 
         <div className="admin-grid-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>

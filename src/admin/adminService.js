@@ -125,6 +125,8 @@ export const adminService = {
     adminFetch('remove-llm-keys', 'POST', { workflowId, keysToRemove, targetGroup }),
   toggleWorkflowPublish: async (workflowId, publish) =>
     adminFetch('toggle-workflow-publish', 'POST', { workflowId, publish }),
+  universalTogglePublish: async (publish) =>
+    adminFetch('toggle-workflow-publish', 'POST', { workflowId: 'all', publish }),
   autoDetectWorkflowIds: async () =>
     adminFetch('auto-detect-workflow-ids', 'POST'),
   getCloudWorkflowStatus: async () =>

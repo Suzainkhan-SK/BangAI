@@ -2074,7 +2074,7 @@ export async function handler(event) {
       }
 
       // ----------------------------------------------------
-      // [11C] WORKFLOW PUBLISH / UNPUBLISH TOGGLE
+      // [11C] WORKFLOW PUBLISH / UNPUBLISH TOGGLE (SINGLE OR UNIVERSAL ALL)
       // ----------------------------------------------------
       case 'toggle-workflow-publish': {
         const { workflowId, publish } = body;
@@ -2089,6 +2089,57 @@ export async function handler(event) {
 
         const shouldPublish = !!publish;
         const toolName = shouldPublish ? 'publish_workflow' : 'unpublish_workflow';
+
+        // UNIVERSAL TOGGLE: Publish or Unpublish ALL 4 workflows at once
+        if (workflowId === 'all') {
+          const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
+          const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
+          const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
+          const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+
+          const targets = [
+            { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+            { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+            { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+            { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          ];
+
+          const results = [];
+          for (const t of targets) {
+            try {
+              await callN8nMcp(activeBaseUrl, mcpToken, toolName, {
+                workflowId: t.id,
+                versionDescription: shouldPublish ? 'Universal Published via BangAI Admin Panel' : 'Universal Unpublished (Draft) via BangAI Admin Panel'
+              });
+              results.push({ workflowId: t.id, name: t.name, success: true, published: shouldPublish, status: shouldPublish ? 'ACTIVE' : 'DRAFT' });
+            } catch (err) {
+              console.error(`[toggle-workflow-publish:all] Error on ${t.name}:`, err.message);
+              results.push({ workflowId: t.id, name: t.name, success: false, error: err.message });
+            }
+          }
+
+          const successCount = results.filter(r => r.success).length;
+          await logAdminAction(db, 'ALL_WORKFLOWS_PUBLISH_TOGGLED', {
+            published: shouldPublish,
+            successCount,
+            totalWorkflows: targets.length
+          }, clientIp);
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: successCount > 0,
+              workflowId: 'all',
+              published: shouldPublish,
+              status: shouldPublish ? 'ACTIVE' : 'DRAFT',
+              message: shouldPublish
+                ? `Universal Publish Complete! All ${successCount} of ${targets.length} workflows are published & live in n8n Cloud.`
+                : `Universal Unpublish Complete! All ${successCount} of ${targets.length} workflows are set to Draft mode in n8n Cloud.`,
+              results
+            })
+          };
+        }
 
         try {
           await callN8nMcp(activeBaseUrl, mcpToken, toolName, {
