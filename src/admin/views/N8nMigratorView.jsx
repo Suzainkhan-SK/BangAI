@@ -266,7 +266,7 @@ export default function N8nMigratorView() {
                 🎉 Migration Completed Successfully to {migrationResult.activeInstance}!
               </h3>
               <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
-                Workflows Transferred / Linked: <strong>{migrationResult.workflowsTransferred || 'All 52'}</strong> • Ready for native credential linking.
+                Workflows Transferred / Linked: <strong>{migrationResult.workflowsTransferred}</strong> • Ready for native credential linking.
               </p>
             </div>
             <button

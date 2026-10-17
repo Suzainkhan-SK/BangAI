@@ -459,10 +459,10 @@ export async function handler(event) {
           }
         }
 
-        // If destination does not have the flagship workflows yet, transfer them from source!
+        // If destination does not have the flagship workflows yet, transfer them!
         if (!flagshipMap.viralShorts || destWorkflows.length === 0) {
-          const srcEmail = process.env.N8N_ADMIN_EMAIL || 'cmpunktg29@gmail.com';
-          const srcPassword = process.env.N8N_ADMIN_PASSWORD || '@Suzainkhan6361';
+          const srcEmail = currentDoc?.adminCredentials?.email || process.env.N8N_ADMIN_EMAIL || 'cmpunktg1@outlook.com';
+          const srcPassword = currentDoc?.adminCredentials?.password || process.env.N8N_ADMIN_PASSWORD || '@Suzainkhan6361';
 
           let srcCookie;
           try {
@@ -472,103 +472,150 @@ export async function handler(event) {
           }
 
           if (srcCookie) {
-            const srcListRes = await fetch(`https://${cleanSrcHost}/rest/workflows`, {
-              headers: { 'Cookie': srcCookie }
-            });
-            if (srcListRes.ok) {
-              const srcListData = await srcListRes.json();
-              const srcWorkflows = srcListData.data || srcListData || [];
-
-              // Sort so the 4 flagship workflows are created FIRST
-              srcWorkflows.sort((a, b) => {
-                const aFlag = /viral\s*all-in-one|world\s*mysteries|last\s*24\s*hours|3-?\s*am\s*horror/i.test(a.name || '');
-                const bFlag = /viral\s*all-in-one|world\s*mysteries|last\s*24\s*hours|3-?\s*am\s*horror/i.test(b.name || '');
-                return (bFlag ? 1 : 0) - (aFlag ? 1 : 0);
+            try {
+              const srcListRes = await fetch(`https://${cleanSrcHost}/rest/workflows`, {
+                headers: { 'Cookie': srcCookie }
               });
+              if (srcListRes.ok) {
+                const srcListData = await srcListRes.json();
+                const srcWorkflows = srcListData.data || srcListData || [];
 
-              // Helper to transfer single workflow
-              async function transferWorkflow(summary) {
-                try {
-                  const detailRes = await fetch(`https://${cleanSrcHost}/rest/workflows/${summary.id}`, {
-                    headers: { 'Cookie': srcCookie }
-                  });
-                  if (!detailRes.ok) return null;
-                  const detailData = await detailRes.json();
-                  const rawWf = detailData.data || detailData;
+                // Sort so the 4 flagship workflows are created FIRST
+                srcWorkflows.sort((a, b) => {
+                  const aFlag = /viral\s*all-in-one|world\s*mysteries|last\s*24\s*hours|3-?\s*am\s*horror/i.test(a.name || '');
+                  const bFlag = /viral\s*all-in-one|world\s*mysteries|last\s*24\s*hours|3-?\s*am\s*horror/i.test(b.name || '');
+                  return (bFlag ? 1 : 0) - (aFlag ? 1 : 0);
+                });
 
-                  const cleanWf = { ...rawWf };
-                  delete cleanWf.id;
-                  delete cleanWf.createdAt;
-                  delete cleanWf.updatedAt;
-                  delete cleanWf.activeVersionId;
-                  delete cleanWf.versionId;
-                  delete cleanWf.isArchived;
-                  delete cleanWf.sharedWith;
-                  cleanWf.active = false;
+                for (const summary of srcWorkflows) {
+                  try {
+                    const detailRes = await fetch(`https://${cleanSrcHost}/rest/workflows/${summary.id}`, {
+                      headers: { 'Cookie': srcCookie }
+                    });
+                    if (!detailRes.ok) continue;
+                    const detailData = await detailRes.json();
+                    const rawWf = detailData.data || detailData;
 
-                  if (Array.isArray(cleanWf.nodes)) {
-                    for (const node of cleanWf.nodes) {
-                      delete node.credentials;
+                    const cleanWf = { ...rawWf };
+                    delete cleanWf.id;
+                    delete cleanWf.createdAt;
+                    delete cleanWf.updatedAt;
+                    delete cleanWf.activeVersionId;
+                    delete cleanWf.versionId;
+                    delete cleanWf.isArchived;
+                    delete cleanWf.sharedWith;
+                    cleanWf.active = false;
+
+                    if (Array.isArray(cleanWf.nodes)) {
+                      for (const node of cleanWf.nodes) {
+                        delete node.credentials;
+                      }
                     }
+
+                    let jsonStr = JSON.stringify(cleanWf);
+                    jsonStr = jsonStr.replaceAll(cleanSrcHost, cleanDestHost);
+                    jsonStr = jsonStr.replaceAll('cmpunktg1outlook', cleanDestHost);
+                    jsonStr = jsonStr.replaceAll('cmpunktg29', cleanDestHost);
+                    const payload = JSON.parse(jsonStr);
+
+                    const createRes = await fetch(`https://${cleanDestHost}/rest/workflows`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Cookie': destCookie
+                      },
+                      body: JSON.stringify(payload)
+                    });
+
+                    if (createRes.ok) {
+                      const createdData = await createRes.json();
+                      const newWf = createdData.data || createdData;
+                      transferredCount++;
+                      const name = summary.name || '';
+                      if (/viral\s*all-in-one/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.viralShorts) flagshipMap.viralShorts = newWf.id;
+                      else if (/world\s*mysteries/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.worldMysteries) flagshipMap.worldMysteries = newWf.id;
+                      else if (/last\s*24\s*hours/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.last24Hours) flagshipMap.last24Hours = newWf.id;
+                      else if (/3-?\s*am\s*horror/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.horror3am) flagshipMap.horror3am = newWf.id;
+                    }
+                    await new Promise(r => setTimeout(r, 100));
+                  } catch (itemErr) {
+                    console.warn(`[migrate-n8n] Error transferring ${summary.name}:`, itemErr.message);
                   }
+                }
+              }
+            } catch (listErr) {
+              console.warn(`[migrate-n8n] Failed to fetch source workflows list:`, listErr.message);
+            }
+          }
 
-                  let jsonStr = JSON.stringify(cleanWf);
-                  jsonStr = jsonStr.replaceAll(cleanSrcHost, cleanDestHost);
-                  const payload = JSON.parse(jsonStr);
+          // Fallback: If source instance could not be read or 0 workflows transferred, deploy from MongoDB master templates!
+          if (transferredCount === 0 || !flagshipMap.viralShorts) {
+            console.log('[migrate-n8n] Deploying master flagship templates from MongoDB Atlas store...');
+            try {
+              const masterCol = db.collection('n8n_master_templates');
+              const templates = await masterCol.find({}).toArray();
 
-                  const createRes = await fetch(`https://${cleanDestHost}/rest/workflows`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Cookie': destCookie
-                    },
-                    body: JSON.stringify(payload)
-                  });
+              for (const tmpl of templates) {
+                const raw = tmpl.workflowJson;
+                if (!raw) continue;
+                const cleanWf = { ...raw };
+                delete cleanWf.id;
+                delete cleanWf.createdAt;
+                delete cleanWf.updatedAt;
+                delete cleanWf.activeVersionId;
+                delete cleanWf.versionId;
+                delete cleanWf.isArchived;
+                delete cleanWf.sharedWith;
+                cleanWf.active = false;
+                if (Array.isArray(cleanWf.nodes)) {
+                  for (const n of cleanWf.nodes) delete n.credentials;
+                }
 
-                  if (!createRes.ok) return null;
+                let jsonStr = JSON.stringify(cleanWf);
+                jsonStr = jsonStr.replaceAll('cmpunktg29', cleanDestHost);
+                jsonStr = jsonStr.replaceAll('cmpunktg1outlook', cleanDestHost);
+                const payload = JSON.parse(jsonStr);
+
+                const createRes = await fetch(`https://${cleanDestHost}/rest/workflows`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Cookie': destCookie },
+                  body: JSON.stringify(payload)
+                });
+
+                if (createRes.ok) {
                   const createdData = await createRes.json();
                   const newWf = createdData.data || createdData;
-                  return { name: summary.name, oldId: summary.id, newId: newWf.id };
-                } catch {
-                  return null;
-                }
-              }
-
-              // Transfer flagship workflows first (batch of 4)
-              const flagshipBatch = srcWorkflows.slice(0, 4);
-              const flagshipResults = await Promise.allSettled(flagshipBatch.map(transferWorkflow));
-              for (const res of flagshipResults) {
-                if (res.status === 'fulfilled' && res.value) {
                   transferredCount++;
-                  const { name, newId } = res.value;
-                  if (/viral\s*all-in-one/i.test(name) && !flagshipMap.viralShorts) flagshipMap.viralShorts = newId;
-                  else if (/world\s*mysteries/i.test(name) && !flagshipMap.worldMysteries) flagshipMap.worldMysteries = newId;
-                  else if (/last\s*24\s*hours/i.test(name) && !flagshipMap.last24Hours) flagshipMap.last24Hours = newId;
-                  else if (/3-?\s*am\s*horror/i.test(name) && !flagshipMap.horror3am) flagshipMap.horror3am = newId;
+                  if (tmpl.role === 'viralShorts') flagshipMap.viralShorts = newWf.id;
+                  else if (tmpl.role === 'worldMysteries') flagshipMap.worldMysteries = newWf.id;
+                  else if (tmpl.role === 'last24Hours') flagshipMap.last24Hours = newWf.id;
+                  else if (tmpl.role === 'horror3am') flagshipMap.horror3am = newWf.id;
                 }
               }
-
-              // Transfer remaining workflows in parallel chunks of 6
-              const remaining = srcWorkflows.slice(4);
-              for (let i = 0; i < remaining.length; i += 6) {
-                const chunk = remaining.slice(i, i + 6);
-                const chunkResults = await Promise.allSettled(chunk.map(transferWorkflow));
-                for (const res of chunkResults) {
-                  if (res.status === 'fulfilled' && res.value) {
-                    transferredCount++;
-                  }
-                }
-              }
+            } catch (masterErr) {
+              console.warn('[migrate-n8n] Master template deployment error:', masterErr.message);
             }
           }
         }
 
+        // Strict validation: Never return success if zero workflows exist or were created
+        if (transferredCount === 0 && destWorkflows.length === 0 && !flagshipMap.viralShorts) {
+          return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: false,
+              error: `Migration failed: 0 workflows were transferred to ${cleanDestHost}. Please check credentials and n8n instance status.`
+            })
+          };
+        }
+
         // Final mapped flagship IDs
         const newProductionWorkflows = {
-          viralShorts: flagshipMap.viralShorts || currentDoc?.productionWorkflows?.viralShorts || currentDoc?.workflowId || '5rD3atsYgg7xTckt',
-          worldMysteries: flagshipMap.worldMysteries || currentDoc?.productionWorkflows?.worldMysteries || 'z6K3X5gjjxBtYufc',
-          last24Hours: flagshipMap.last24Hours || currentDoc?.productionWorkflows?.last24Hours || 'Y2wEnFs0eMhfRwNK',
-          horror3am: flagshipMap.horror3am || currentDoc?.productionWorkflows?.horror3am || 'XKiC5DYhwlsM3a6p'
+          viralShorts: flagshipMap.viralShorts || currentDoc?.productionWorkflows?.viralShorts || 'xTS6yv1JN162f8lo',
+          worldMysteries: flagshipMap.worldMysteries || currentDoc?.productionWorkflows?.worldMysteries || 'llwcAag8VqEm1U8T',
+          last24Hours: flagshipMap.last24Hours || currentDoc?.productionWorkflows?.last24Hours || 'deyTtuLvUmFhGhhx',
+          horror3am: flagshipMap.horror3am || currentDoc?.productionWorkflows?.horror3am || 'sKyl4j8AOitPJTIS'
         };
 
         // Dual format webhooks: snake_case for generators, camelCase for UI tables
@@ -596,6 +643,7 @@ export async function handler(event) {
               mcpToken: mcpToken || currentDoc.mcpToken || '',
               workflowId: newProductionWorkflows.viralShorts,
               productionWorkflows: newProductionWorkflows,
+              adminCredentials: { email, password },
               webhooks: newWebhooks,
               previousSnapshot: previousSnapshot,
               trialStartDate: new Date().toISOString(),
