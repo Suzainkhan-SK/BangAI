@@ -1767,7 +1767,9 @@ export async function handler(event) {
                   const match = m1.parameters.jsCode.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
                   if (match) {
                     const strMatches = match[1].match(/["']([^"']+)["']/g);
-                    wf.kieKeysCount = strMatches ? strMatches.length : 0;
+                    const activeKeys = strMatches ? strMatches.map(s => s.replace(/["']/g, '').trim()).filter(Boolean) : [];
+                    wf.kieKeysCount = activeKeys.length;
+                    wf.kieKeys = activeKeys;
                   }
                 }
               }
@@ -2142,11 +2144,15 @@ export async function handler(event) {
             const wf = details.workflow || details;
             const m1 = wf.nodes?.find(n => n.name === 'Config: Primary Video Master1');
             let kieCount = 0;
+            let activeKeys = [];
             if (m1?.parameters?.jsCode) {
               const match = m1.parameters.jsCode.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
               if (match) {
                 const strMatches = match[1].match(/["']([^"']+)["']/g);
-                if (strMatches) kieCount = strMatches.length;
+                if (strMatches) {
+                  activeKeys = strMatches.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+                  kieCount = activeKeys.length;
+                }
               }
             }
             statuses[t.id] = {
@@ -2154,12 +2160,14 @@ export async function handler(event) {
               active: wf.active !== false,
               nodesCount: wf.nodes?.length || 0,
               kieKeysCount: kieCount,
+              keys: activeKeys,
               updatedAt: wf.updatedAt
             };
           } catch (e) {
             statuses[t.id] = {
               online: false,
               active: false,
+              keys: [],
               error: e.message
             };
           }
@@ -2172,6 +2180,182 @@ export async function handler(event) {
             success: true,
             activeHost: activeBaseUrl,
             statuses
+          })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [11F] REMOVE KIE.AI KEYS FROM WORKFLOWS
+      // ----------------------------------------------------
+      case 'remove-kie-keys': {
+        const { workflowId, keysToRemove } = body;
+        let keysToDelete = [];
+        if (Array.isArray(keysToRemove)) {
+          keysToDelete = keysToRemove.map(k => String(k).trim()).filter(Boolean);
+        } else if (typeof keysToRemove === 'string') {
+          keysToDelete = keysToRemove
+            .split(/[\r\n,;\s]+/)
+            .map(k => k.replace(/["'\[\]]/g, '').trim())
+            .filter(Boolean);
+        }
+
+        if (keysToDelete.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please specify at least one Kie.ai API key to remove.' })
+          };
+        }
+
+        const deleteSet = new Set(keysToDelete);
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const results = [];
+        let totalNodesUpdated = 0;
+        let lastRemainingCount = 0;
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) {
+              throw new Error(`Failed to load workflow nodes from n8n Cloud`);
+            }
+
+            // Extract existing keys from Config: Primary Video Master1
+            const master1 = wf.nodes.find(n => n.name === 'Config: Primary Video Master1');
+            let existingKeys = [];
+            if (master1 && master1.parameters?.jsCode) {
+              const match = master1.parameters.jsCode.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+              if (match) {
+                const strMatches = match[1].match(/["']([^"']+)["']/g);
+                if (strMatches) {
+                  existingKeys = strMatches.map(s => s.replace(/["']/g, '').trim()).filter(Boolean);
+                }
+              }
+            }
+
+            // Filter out keys to remove
+            const remainingKeys = existingKeys.filter(k => !deleteSet.has(k));
+            const removedForThisWf = existingKeys.length - remainingKeys.length;
+            lastRemainingCount = remainingKeys.length;
+
+            const replacementCode = `const primaryVideoApiKeys = ${JSON.stringify(remainingKeys, null, 2)};`;
+
+            // Prepare update operations strictly for Config: Primary Video Master1..5
+            const operations = [];
+            for (let s = 1; s <= 5; s++) {
+              const nodeName = `Config: Primary Video Master${s}`;
+              const targetNode = wf.nodes.find(n => n.name === nodeName);
+              if (targetNode) {
+                const curCode = targetNode.parameters?.jsCode || '';
+                let updatedCode = curCode;
+                if (/const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/.test(curCode)) {
+                  updatedCode = curCode.replace(/const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/, replacementCode);
+                } else {
+                  updatedCode = `// ==========================================================\n// CONFIG: PRIMARY VIDEO API KEYS (Veo API - 1080p)\n// ==========================================================\n\n${replacementCode}\n\n${curCode}`;
+                }
+                operations.push({
+                  type: 'updateNodeParameters',
+                  nodeName: nodeName,
+                  parameters: { jsCode: updatedCode }
+                });
+              }
+            }
+
+            if (operations.length > 0) {
+              await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+                workflowId: target.id,
+                versionName: `Removed Kie.ai Keys (${remainingKeys.length} Remaining)`,
+                versionDescription: `Removed ${removedForThisWf} key(s) via BangAI Admin Panel. Active total: ${remainingKeys.length} keys across 5 scenes.`,
+                operations
+              });
+              totalNodesUpdated += operations.length;
+            }
+
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              nodesUpdated: operations.length,
+              previousKeyCount: existingKeys.length,
+              removedCount: removedForThisWf,
+              remainingKeyCount: remainingKeys.length
+            });
+          } catch (err) {
+            console.error(`[remove-kie-keys] Error on ${target.id}:`, err.message);
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: false,
+              error: err.message
+            });
+          }
+        }
+
+        // Update MongoDB Atlas backup (api_keys -> kie_video_keys)
+        const keysCol = db.collection('api_keys');
+        const existingDoc = await keysCol.findOne({ _id: 'kie_video_keys' });
+        if (existingDoc && Array.isArray(existingDoc.keys)) {
+          const updatedMasterKeys = existingDoc.keys.filter(k => !deleteSet.has(k));
+          await keysCol.updateOne(
+            { _id: 'kie_video_keys' },
+            {
+              $set: {
+                keys: updatedMasterKeys,
+                pool: updatedMasterKeys.map((k, idx) => ({
+                  key: k,
+                  label: `Kie.ai Key #${idx + 1}`,
+                  status: 'active',
+                  balance: 1000,
+                  max: 1000,
+                  unit: 'units'
+                })),
+                updatedAt: new Date().toISOString()
+              }
+            }
+          );
+        }
+
+        await logAdminAction(db, 'KIE_KEYS_REMOVED', {
+          target: workflowId || 'all',
+          keysRemovedCount: keysToDelete.length,
+          totalNodesUpdated
+        }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Removed specified keys from ${totalNodesUpdated} config nodes in n8n Cloud.`,
+            results,
+            keysRemovedCount: keysToDelete.length,
+            remainingKeysCount: lastRemainingCount
           })
         };
       }

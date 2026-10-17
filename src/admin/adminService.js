@@ -109,6 +109,8 @@ export const adminService = {
     adminFetch('save-workflow-nodes', 'POST', { workflowId, nodeConfigs }),
   appendKieKeys: async (workflowId, newKeys) =>
     adminFetch('append-kie-keys', 'POST', { workflowId, newKeys }),
+  removeKieKeys: async (workflowId, keysToRemove) =>
+    adminFetch('remove-kie-keys', 'POST', { workflowId, keysToRemove }),
   toggleWorkflowPublish: async (workflowId, publish) =>
     adminFetch('toggle-workflow-publish', 'POST', { workflowId, publish }),
   autoDetectWorkflowIds: async () =>

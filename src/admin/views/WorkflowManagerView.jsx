@@ -1,30 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '../adminService';
 
-const DEFAULT_NODES = [
-  { id: 'node_webhook', name: 'Webhook Ingestion Trigger', type: 'n8n-nodes-base.webhook', status: 'ACTIVE', desc: 'Accepts topic, voice ID, duration, and user credentials from BangAI frontend' },
-  { id: 'node_brain', name: 'Strategy Brain & Script AI', type: 'n8n-nodes-base.httpRequest', status: 'ACTIVE', desc: 'Synthesizes high-retention 5-scene script with viral hooks' },
-  { id: 'node_voice', name: 'Dual-Voice Synthesis (ElevenLabs)', type: 'n8n-nodes-base.httpRequest', status: 'ACTIVE', desc: 'Generates studio-grade narration with auto-failover voice keys' },
-  { id: 'node_media', name: 'Visual Scene Collector (Pexels / Kie.ai)', type: 'n8n-nodes-base.httpRequest', status: 'ACTIVE', desc: 'Matches vertical cinematic B-roll and AI visuals for 5 scenes' },
-  { id: 'node_subtitles', name: 'Dynamic Subtitle Engine (ASS/SRT)', type: 'n8n-nodes-base.code', status: 'ACTIVE', desc: 'Compiles word-by-word animated highlights (Electric Gold typography)' },
-  { id: 'node_render', name: 'Json2Video Cloud Render Dispatcher', type: 'n8n-nodes-base.httpRequest', status: 'ACTIVE', desc: 'Assembles video, background music, audio, and subtitles into 1080p MP4' },
-  { id: 'node_callback', name: 'Status Poller & Webhook Callback', type: 'n8n-nodes-base.webhook', status: 'ACTIVE', desc: 'Updates video preview status in MongoDB Atlas previews collection' },
-  { id: 'node_uploader', name: 'Direct YouTube Multi-Channel Uploader', type: 'n8n-nodes-base.httpRequest', status: 'ACTIVE', desc: 'Uploads rendered MP4 directly to user authenticated YouTube channel' }
-];
-
 export default function WorkflowManagerView() {
   const [workflows, setWorkflows] = useState([]);
   const [activeHost, setActiveHost] = useState('https://cmpunktg29.app.n8n.cloud');
   const [selectedWf, setSelectedWf] = useState(null);
-  const [selectedNode, setSelectedNode] = useState(DEFAULT_NODES[1]);
-  const [modelName, setModelName] = useState('gemini-2.5-flash');
-  const [promptOverride, setPromptOverride] = useState('Generate a high-retention 5-scene viral short under 75 seconds with a powerful 3-second hook.');
-  const [apiKeyOverride, setApiKeyOverride] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
   // Kie.ai Cloud Dispatcher State
+  const [kieMode, setKieMode] = useState('append'); // 'append' | 'remove'
   const [kieTarget, setKieTarget] = useState('all');
   const [kieKeysInput, setKieKeysInput] = useState('');
   const [appendingKie, setAppendingKie] = useState(false);
@@ -32,6 +17,12 @@ export default function WorkflowManagerView() {
   const [togglingPublish, setTogglingPublish] = useState({});
   const [detectingIds, setDetectingIds] = useState(false);
   const [syncingCloud, setSyncingCloud] = useState(false);
+
+  // Key Removal State
+  const [removeKeysInput, setRemoveKeysInput] = useState('');
+  const [removingKie, setRemovingKie] = useState(false);
+  const [keySearchTerm, setKeySearchTerm] = useState('');
+  const [copiedKey, setCopiedKey] = useState('');
 
   const fetchWorkflows = async (syncCloud = false) => {
     if (syncCloud) setSyncingCloud(true);
@@ -48,12 +39,6 @@ export default function WorkflowManagerView() {
           } else {
             const currentSelected = wfs.find(w => w.id === selectedWf.id) || wfs[0];
             setSelectedWf(currentSelected);
-          }
-          const savedConfig = res.data.nodeConfigs?.[wfs[0].id];
-          if (savedConfig) {
-            if (savedConfig.modelName) setModelName(savedConfig.modelName);
-            if (savedConfig.promptOverride) setPromptOverride(savedConfig.promptOverride);
-            if (savedConfig.apiKeyOverride) setApiKeyOverride(savedConfig.apiKeyOverride);
           }
         }
       }
@@ -177,7 +162,81 @@ export default function WorkflowManagerView() {
     }
   };
 
-  // 3. Auto-Detect Workflow IDs from active n8n instance (For 14-day Migration)
+  // 3. Remove Kie.ai API Keys from Primary Video Config Nodes
+  const handleRemoveKeys = async (keysToRemove, sourceLabel = 'selected') => {
+    const cleanKeys = (Array.isArray(keysToRemove) ? keysToRemove : [keysToRemove])
+      .map(k => String(k).replace(/["'\[\]]/g, '').trim())
+      .filter(k => k.length > 5);
+
+    if (cleanKeys.length === 0) {
+      alert('Please specify at least one valid Kie.ai API key to remove.');
+      return;
+    }
+
+    const targetDesc = kieTarget === 'all'
+      ? 'ALL 4 flagship workflows simultaneously'
+      : `workflow "${workflows.find(w => w.id === kieTarget)?.name || kieTarget}"`;
+
+    const summaryText = cleanKeys.length === 1
+      ? `Key "${cleanKeys[0]}"`
+      : `${cleanKeys.length} keys (${cleanKeys[0].slice(0, 8)}...)`;
+
+    const confirmed = window.confirm(
+      `⚠️ CONFIRM KEY REMOVAL:\n\n` +
+      `Are you sure you want to remove ${summaryText} from ${targetDesc}?\n\n` +
+      `• This will update Config: Primary Video Master 1..5 in n8n Cloud.\n` +
+      `• The key(s) will be completely removed from active rotation.\n` +
+      `• MongoDB Atlas backup will be updated.`
+    );
+    if (!confirmed) return;
+
+    setRemovingKie(true);
+    setKieLogs([
+      `[${new Date().toLocaleTimeString()}] 🗑️ Initiating cloud key removal pipeline...`,
+      `[${new Date().toLocaleTimeString()}] Target: ${targetDesc}`,
+      `[${new Date().toLocaleTimeString()}] Keys to remove: ${cleanKeys.length} key(s)`,
+      `[${new Date().toLocaleTimeString()}] Connecting to n8n Cloud MCP Server at ${activeHost}...`
+    ]);
+
+    try {
+      const res = await adminService.removeKieKeys(kieTarget, cleanKeys);
+      if (res.success && Array.isArray(res.results)) {
+        const newLogs = [];
+        res.results.forEach(r => {
+          if (r.success) {
+            newLogs.push(`[${new Date().toLocaleTimeString()}] ✅ ${r.name} (${r.workflowId}): Removed ${r.removedCount} key(s). Remaining: ${r.remainingKeyCount} keys across ${r.nodesUpdated} Master config nodes.`);
+          } else {
+            newLogs.push(`[${new Date().toLocaleTimeString()}] ❌ ${r.name} (${r.workflowId}): Failed - ${r.error}`);
+          }
+        });
+        newLogs.push(`[${new Date().toLocaleTimeString()}] 💾 Master key pool safely synchronized with MongoDB Atlas.`);
+        newLogs.push(`[${new Date().toLocaleTimeString()}] 🎉 Cloud key removal complete!`);
+        setKieLogs(prev => [...prev, ...newLogs]);
+        setToastMsg(`✅ Removed ${cleanKeys.length} Kie.ai key(s) successfully!`);
+        if (sourceLabel === 'bulk') {
+          setRemoveKeysInput('');
+        }
+        fetchWorkflows(true);
+      } else {
+        setKieLogs(prev => [
+          ...prev,
+          `[${new Date().toLocaleTimeString()}] ⚠️ Removal failed: ${res.error || 'Unknown error'}`
+        ]);
+        setToastMsg(`⚠️ Error: ${res.error || 'Failed to remove keys'}`);
+      }
+    } catch (err) {
+      setKieLogs(prev => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] ⚠️ Network exception: ${err.message}`
+      ]);
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    } finally {
+      setRemovingKie(false);
+      setTimeout(() => setToastMsg(''), 6000);
+    }
+  };
+
+  // 4. Auto-Detect Workflow IDs from active n8n instance (For 14-day Migration)
   const handleAutoDetectIds = async () => {
     const confirmed = window.confirm(
       `Scan active n8n instance (${activeHost}) via MCP and auto-detect the 4 flagship workflow IDs?\n\n` +
@@ -203,37 +262,46 @@ export default function WorkflowManagerView() {
     }
   };
 
-  // 4. Save individual node parameters (MongoDB config store)
-  const handleSaveNode = async () => {
-    if (!selectedWf) return;
-    setSaving(true);
-    try {
-      const nodeConfigs = {
-        selectedNodeId: selectedNode.id,
-        modelName,
-        promptOverride,
-        apiKeyOverride,
-        updatedAt: new Date().toISOString()
-      };
-      const res = await adminService.saveWorkflowNodes(selectedWf.id, nodeConfigs);
-      if (res.success) {
-        setToastMsg(`✅ Node [${selectedNode.name}] configured and saved to MongoDB Atlas!`);
-      } else {
-        setToastMsg(`⚠️ Error: ${res.error}`);
-      }
-    } catch (err) {
-      setToastMsg(`⚠️ Error saving: ${err.message}`);
-    } finally {
-      setSaving(false);
-      setTimeout(() => setToastMsg(''), 4500);
+  const handleCopyKey = (key) => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(key);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(''), 1800);
     }
   };
 
-  // Parse entered keys count
-  const detectedKeysCount = kieKeysInput
+  // Parse entered keys count for append
+  const detectedAppendCount = kieKeysInput
     .split(/[\r\n,;\s]+/)
     .map(k => k.replace(/["'\[\]]/g, '').trim())
     .filter(k => k.length > 5).length;
+
+  // Parse entered keys count for remove
+  const detectedRemoveCount = removeKeysInput
+    .split(/[\r\n,;\s]+/)
+    .map(k => k.replace(/["'\[\]]/g, '').trim())
+    .filter(k => k.length > 5).length;
+
+  // Active Keys pool for the currently selected target
+  const getActiveKeysForTarget = () => {
+    if (kieTarget === 'all') {
+      const set = new Set();
+      workflows.slice(0, 4).forEach(wf => {
+        if (Array.isArray(wf.kieKeys)) {
+          wf.kieKeys.forEach(k => set.add(k));
+        }
+      });
+      return Array.from(set);
+    } else {
+      const targetWf = workflows.find(w => w.id === kieTarget);
+      return Array.isArray(targetWf?.kieKeys) ? targetWf.kieKeys : [];
+    }
+  };
+
+  const activeDisplayKeys = getActiveKeysForTarget();
+  const filteredActiveKeys = activeDisplayKeys.filter(k =>
+    !keySearchTerm || k.toLowerCase().includes(keySearchTerm.toLowerCase())
+  );
 
   return (
     <div className="admin-view-container">
@@ -299,7 +367,7 @@ export default function WorkflowManagerView() {
             Flagship Production Pipelines (4 Live Cloud Automations)
           </h2>
           <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
-            Click card to inspect node parameters below
+            Live status from n8n cloud MCP instance
           </span>
         </div>
 
@@ -411,7 +479,7 @@ export default function WorkflowManagerView() {
         </div>
       </div>
 
-      {/* NEW FEATURE: Kie.ai API Keys Cloud Dispatcher */}
+      {/* Kie.ai API Keys Cloud Dispatcher & Key Manager */}
       <div className="admin-card" style={{
         marginBottom: '24px',
         borderColor: 'rgba(6, 182, 212, 0.35)',
@@ -427,7 +495,7 @@ export default function WorkflowManagerView() {
               </h2>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
-              Directly appends new Kie.ai Veo API keys into <code>Config: Primary Video Master 1..5</code> across all 5 scenes. Existing keys are <strong>never overwritten or erased</strong>.
+              Directly synchronize Kie.ai Veo API keys in <code>Config: Primary Video Master 1..5</code> across all 5 scenes. Add new keys or selectively remove existing keys safely.
             </p>
           </div>
           <span className="admin-badge admin-badge-cyan">
@@ -435,67 +503,332 @@ export default function WorkflowManagerView() {
           </span>
         </div>
 
-        <form onSubmit={handleAppendKieKeys}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Target Workflow Selector */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', marginBottom: '6px' }}>
-                Target Cloud Workflow(s):
-              </label>
-              <select
-                value={kieTarget}
-                onChange={(e) => setKieTarget(e.target.value)}
-                className="admin-select"
-                style={{ width: '100%', maxWidth: '600px', fontWeight: 600 }}
-              >
-                <option value="all">🌟 All 4 Flagship Workflows (Simultaneous Cloud Push to 20 Nodes)</option>
-                {workflows.slice(0, 4).map(wf => (
-                  <option key={wf.id} value={wf.id}>
-                    {wf.name} ({wf.id})
-                  </option>
-                ))}
-              </select>
+        {/* Feature Navigation Tabs: Append Keys vs Remove Keys */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '18px',
+          borderBottom: '1px solid var(--admin-border-glass)',
+          paddingBottom: '10px'
+        }}>
+          <button
+            type="button"
+            onClick={() => setKieMode('append')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '8px',
+              border: kieMode === 'append' ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
+              background: kieMode === 'append' ? 'rgba(6, 182, 212, 0.15)' : 'var(--admin-bg-elevated)',
+              color: kieMode === 'append' ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>➕</span> Append New Keys
+          </button>
+          <button
+            type="button"
+            onClick={() => setKieMode('remove')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '8px',
+              border: kieMode === 'remove' ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid var(--admin-border-glass)',
+              background: kieMode === 'remove' ? 'rgba(239, 68, 68, 0.15)' : 'var(--admin-bg-elevated)',
+              color: kieMode === 'remove' ? '#ef4444' : 'var(--admin-text-main)',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>🗑️</span> Remove Existing Keys
+          </button>
+        </div>
+
+        {/* Target Workflow Selector (Shared between Append & Remove) */}
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', marginBottom: '6px' }}>
+            Target Cloud Workflow(s):
+          </label>
+          <select
+            value={kieTarget}
+            onChange={(e) => setKieTarget(e.target.value)}
+            className="admin-select"
+            style={{ width: '100%', maxWidth: '600px', fontWeight: 600 }}
+          >
+            <option value="all">🌟 All 4 Flagship Workflows (Simultaneous Cloud Push / Removal across 20 Nodes)</option>
+            {workflows.slice(0, 4).map(wf => (
+              <option key={wf.id} value={wf.id}>
+                {wf.name} ({wf.id}) — {wf.kieKeysCount ?? '?'} keys active
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* TAB 1: APPEND KEYS FORM */}
+        {kieMode === 'append' && (
+          <form onSubmit={handleAppendKieKeys}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                    Enter New Kie.ai API Keys to Append:
+                  </label>
+                  <span style={{ fontSize: '11.5px', color: detectedAppendCount > 0 ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)', fontWeight: 600 }}>
+                    {detectedAppendCount} new valid key{detectedAppendCount === 1 ? '' : 's'} detected
+                  </span>
+                </div>
+                <textarea
+                  value={kieKeysInput}
+                  onChange={(e) => setKieKeysInput(e.target.value)}
+                  rows={4}
+                  className="admin-textarea"
+                  placeholder="Paste Kie.ai API keys here (one key per line, or separated by commas/spaces)...&#10;e.g.&#10;ad82c01b9b51720280eab511077d4242&#10;c60c4e8391441ef89abdd2dcbb9936fa"
+                  style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '12.5px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '4px' }}>
+                <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
+                  🛡️ Safe Merge: Automatically filters duplicates and creates a master backup in MongoDB Atlas. Existing keys are preserved.
+                </div>
+                <button
+                  type="submit"
+                  disabled={appendingKie || detectedAppendCount === 0}
+                  className="admin-btn admin-btn-primary"
+                  style={{
+                    minWidth: '220px',
+                    opacity: (appendingKie || detectedAppendCount === 0) ? 0.6 : 1
+                  }}
+                >
+                  {appendingKie ? '🚀 Pushing Keys to n8n Cloud...' : `🚀 Append ${detectedAppendCount > 0 ? detectedAppendCount : ''} Kie.ai Keys`}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+
+        {/* TAB 2: REMOVE KEYS INTERFACE */}
+        {kieMode === 'remove' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {/* Visual Active Keys Explorer */}
+            <div style={{
+              padding: '16px',
+              borderRadius: '12px',
+              background: 'var(--admin-bg-elevated)',
+              border: '1px solid var(--admin-border-glass)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h3 style={{ fontSize: '14px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                    Active Keys in {kieTarget === 'all' ? 'All 4 Workflows (Master Pool)' : (workflows.find(w => w.id === kieTarget)?.name || 'Selected Workflow')}
+                  </h3>
+                  <p style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', margin: '3px 0 0 0' }}>
+                    Click <strong>Remove</strong> next to any key to delete it from the rotation.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(6, 182, 212, 0.15)',
+                    color: 'var(--admin-accent-cyan)',
+                    fontSize: '11.5px',
+                    fontWeight: 700
+                  }}>
+                    {activeDisplayKeys.length} Total Keys
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => fetchWorkflows(true)}
+                    disabled={syncingCloud}
+                    className="admin-btn admin-btn-secondary"
+                    style={{ padding: '4px 10px', fontSize: '11px' }}
+                  >
+                    {syncingCloud ? 'Syncing...' : '🔄 Refresh Keys'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Search Filter Input */}
+              <div style={{ marginBottom: '12px' }}>
+                <input
+                  type="text"
+                  value={keySearchTerm}
+                  onChange={(e) => setKeySearchTerm(e.target.value)}
+                  placeholder="🔍 Search / Filter active keys by character sequence..."
+                  className="admin-input"
+                  style={{ fontSize: '12px', padding: '8px 12px' }}
+                />
+              </div>
+
+              {/* Keys List (Scrollable) */}
+              <div style={{
+                maxHeight: '260px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                paddingRight: '4px'
+              }}>
+                {filteredActiveKeys.length === 0 ? (
+                  <div style={{
+                    padding: '24px',
+                    textAlign: 'center',
+                    color: 'var(--admin-text-sub)',
+                    fontSize: '12.5px',
+                    border: '1px dashed var(--admin-border-glass)',
+                    borderRadius: '8px'
+                  }}>
+                    {activeDisplayKeys.length === 0
+                      ? 'No active Kie.ai keys found for this target. Click "🔄 Refresh Keys" or "Sync Cloud State" above.'
+                      : `No keys matched search "${keySearchTerm}".`}
+                  </div>
+                ) : (
+                  filteredActiveKeys.map((key, idx) => {
+                    const isCopied = copiedKey === key;
+                    return (
+                      <div
+                        key={key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          background: 'var(--admin-bg-surface)',
+                          border: '1px solid var(--admin-border-glass)',
+                          fontSize: '12px',
+                          gap: '10px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                          <span style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            color: 'var(--admin-text-sub)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            flexShrink: 0
+                          }}>
+                            {idx + 1}
+                          </span>
+                          <code style={{
+                            fontFamily: 'var(--admin-font-mono)',
+                            fontSize: '11.5px',
+                            color: 'var(--admin-text-main)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {key}
+                          </code>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyKey(key)}
+                            style={{
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              background: 'transparent',
+                              border: '1px solid var(--admin-border-glass)',
+                              color: isCopied ? '#10b981' : 'var(--admin-text-sub)',
+                              fontSize: '11px',
+                              cursor: 'pointer'
+                            }}
+                            title="Copy key to clipboard"
+                          >
+                            {isCopied ? '✓ Copied' : '📋 Copy'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveKeys([key], 'individual')}
+                            disabled={removingKie}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              border: '1px solid rgba(239, 68, 68, 0.35)',
+                              color: '#ef4444',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🗑️ Remove
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
-            {/* Keys Textarea */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
-                  Enter New Kie.ai API Keys:
+            {/* Bulk Removal Input (Alternative to Individual Clicks) */}
+            <div style={{
+              padding: '16px',
+              borderRadius: '12px',
+              background: 'rgba(239, 68, 68, 0.03)',
+              border: '1px solid rgba(239, 68, 68, 0.2)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#ef4444' }}>
+                  Or Bulk Remove Multiple Keys (Paste Keys Below):
                 </label>
-                <span style={{ fontSize: '11.5px', color: detectedKeysCount > 0 ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)', fontWeight: 600 }}>
-                  {detectedKeysCount} new valid key{detectedKeysCount === 1 ? '' : 's'} detected
+                <span style={{ fontSize: '11.5px', color: detectedRemoveCount > 0 ? '#ef4444' : 'var(--admin-text-sub)', fontWeight: 600 }}>
+                  {detectedRemoveCount} key{detectedRemoveCount === 1 ? '' : 's'} to remove
                 </span>
               </div>
               <textarea
-                value={kieKeysInput}
-                onChange={(e) => setKieKeysInput(e.target.value)}
-                rows={4}
+                value={removeKeysInput}
+                onChange={(e) => setRemoveKeysInput(e.target.value)}
+                rows={3}
                 className="admin-textarea"
-                placeholder="Paste Kie.ai API keys here (one key per line, or separated by commas/spaces)...&#10;e.g.&#10;ad82c01b9b51720280eab511077d4242&#10;c60c4e8391441ef89abdd2dcbb9936fa"
-                style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '12.5px' }}
+                placeholder="Paste keys to remove here (one per line, or separated by commas)..."
+                style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '12px' }}
               />
-            </div>
 
-            {/* Action Row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '4px' }}>
-              <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
-                🛡️ Safe Merge: Automatically filters duplicates and creates a master backup in MongoDB Atlas.
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '10px' }}>
+                <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
+                  ⚠️ Only specified keys will be deleted. All other keys will remain untouched.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveKeys(removeKeysInput, 'bulk')}
+                  disabled={removingKie || detectedRemoveCount === 0}
+                  className="admin-btn"
+                  style={{
+                    background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 18px',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    fontSize: '12.5px',
+                    cursor: (removingKie || detectedRemoveCount === 0) ? 'not-allowed' : 'pointer',
+                    opacity: (removingKie || detectedRemoveCount === 0) ? 0.6 : 1
+                  }}
+                >
+                  {removingKie ? '🗑️ Removing from Cloud...' : `🗑️ Remove Pasted Keys (${detectedRemoveCount})`}
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={appendingKie || detectedKeysCount === 0}
-                className="admin-btn admin-btn-primary"
-                style={{
-                  minWidth: '220px',
-                  opacity: (appendingKie || detectedKeysCount === 0) ? 0.6 : 1
-                }}
-              >
-                {appendingKie ? '🚀 Pushing Keys to n8n Cloud...' : `🚀 Append ${detectedKeysCount > 0 ? detectedKeysCount : ''} Kie.ai Keys`}
-              </button>
             </div>
           </div>
-        </form>
+        )}
 
         {/* Live Execution Console Logs */}
         {kieLogs.length > 0 && (
@@ -522,178 +855,6 @@ export default function WorkflowManagerView() {
             ))}
           </div>
         )}
-      </div>
-
-      {/* Secondary Workflows Bar */}
-      <div className="admin-card" style={{ padding: '14px 20px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--admin-text-main)' }}>Additional Pipelines:</span>
-            {workflows.slice(4).map((wf) => {
-              const isSelected = selectedWf?.id === wf.id;
-              return (
-                <button
-                  key={wf.id}
-                  type="button"
-                  onClick={() => handleSelectWorkflow(wf)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '8px',
-                    border: isSelected ? '1px solid var(--admin-accent-purple)' : '1px solid var(--admin-border-glass)',
-                    background: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'var(--admin-bg-elevated)',
-                    color: isSelected ? 'var(--admin-accent-purple)' : 'var(--admin-text-main)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {wf.name}
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
-            Selected: <strong style={{ color: 'var(--admin-accent-cyan)' }}>{selectedWf?.name || 'None'}</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* Two Column Layout: Node Chain Visualizer + Node Parameter Inspector */}
-      <div className="admin-grid admin-grid-2">
-        {/* Left: Node Pipeline Chain */}
-        <div className="admin-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>
-              Execution Chain ({DEFAULT_NODES.length} Core Nodes)
-            </h3>
-            <span className="admin-badge admin-badge-cyan">Real Pipeline</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {DEFAULT_NODES.map((node, idx) => {
-              const isSelected = selectedNode?.id === node.id;
-              return (
-                <div
-                  key={node.id}
-                  onClick={() => setSelectedNode(node)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    borderRadius: '10px',
-                    background: isSelected ? 'var(--admin-card-hover)' : 'var(--admin-bg-elevated)',
-                    border: isSelected ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: '26px',
-                      height: '26px',
-                      borderRadius: '50%',
-                      background: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-border-glass)',
-                      color: isSelected ? '#000' : 'var(--admin-text-main)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '11px',
-                      fontWeight: 800
-                    }}>
-                      {idx + 1}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
-                        {node.name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
-                        {node.type}
-                      </div>
-                    </div>
-                  </div>
-                  <span className="admin-badge admin-badge-success">
-                    {node.status}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right: Node Parameter Inspector & Live Config */}
-        <div className="admin-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>
-              Node Parameter Inspector
-            </h3>
-            <span className="admin-badge admin-badge-purple">Direct Key Injection</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--admin-bg-elevated)', border: '1px solid var(--admin-border-glass)' }}>
-              <div style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>Active Inspect Target</div>
-              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--admin-accent-cyan)', marginTop: '2px' }}>
-                {selectedNode.name}
-              </div>
-              <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', marginTop: '4px' }}>
-                {selectedNode.desc}
-              </div>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
-                LLM Backbone Engine
-              </label>
-              <select
-                value={modelName}
-                onChange={(e) => setModelName(e.target.value)}
-                className="admin-select"
-              >
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Ultra Fast & 1M Token Context)</option>
-                <option value="gpt-5-preview">OpenAI GPT-5 / GPT-4o (Elite Reasoning)</option>
-                <option value="groq-llama-3.3-70b-versatile">Groq LLaMA 3.3 70B (High-Speed Engine)</option>
-                <option value="claude-3-7-sonnet">Claude 3.7 Sonnet (Master Storyteller)</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
-                Node Prompt Strategy & System Directives
-              </label>
-              <textarea
-                value={promptOverride}
-                onChange={(e) => setPromptOverride(e.target.value)}
-                rows={5}
-                className="admin-textarea"
-                placeholder="Custom instruction prompt for this node..."
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
-                Node Dedicated API Key (Optional Override)
-              </label>
-              <input
-                type="text"
-                value={apiKeyOverride}
-                onChange={(e) => setApiKeyOverride(e.target.value)}
-                placeholder="Leave blank to use Key Vault failover pool..."
-                className="admin-input"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSaveNode}
-              disabled={saving}
-              className="admin-btn admin-btn-primary"
-              style={{ width: '100%', marginTop: '6px' }}
-            >
-              {saving ? 'Deploying to MongoDB Atlas...' : '💾 Save & Deploy Node Parameters'}
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
