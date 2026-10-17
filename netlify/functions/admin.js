@@ -442,22 +442,31 @@ export async function handler(event) {
           console.warn('[migrate-n8n] Warning fetching dest workflows:', listErr.message);
         }
 
-        let transferredCount = 0;
-        const flagshipMap = {};
-
-        // Check if flagship workflows already exist on destination
-        for (const wf of destWorkflows) {
-          const name = wf.name || '';
-          if (/viral\s*all-in-one/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !flagshipMap.viralShorts) {
-            flagshipMap.viralShorts = wf.id;
-          } else if (/world\s*mysteries/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !flagshipMap.worldMysteries) {
-            flagshipMap.worldMysteries = wf.id;
-          } else if (/last\s*24\s*hours/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !flagshipMap.last24Hours) {
-            flagshipMap.last24Hours = wf.id;
-          } else if (/3-?\s*am\s*horror/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !flagshipMap.horror3am) {
-            flagshipMap.horror3am = wf.id;
+        function extractFlagshipWorkflows(workflows) {
+          const map = { viralShorts: null, worldMysteries: null, last24Hours: null, horror3am: null };
+          // Tier 1: Look specifically for 'Webhook Based' (exact production flagship pipelines)
+          for (const wf of workflows) {
+            const name = wf.name || '';
+            if (/copy|before|draft|backup|test|old|base-ready/i.test(name)) continue;
+            if (/viral\s*all-in-one/i.test(name) && /webhook\s*based/i.test(name)) map.viralShorts = wf.id;
+            else if (/world\s*mysteries/i.test(name) && /webhook\s*based/i.test(name)) map.worldMysteries = wf.id;
+            else if (/last\s*24\s*hours/i.test(name) && /webhook\s*based/i.test(name)) map.last24Hours = wf.id;
+            else if (/3-?\s*am\s*horror/i.test(name) && /webhook\s*based/i.test(name)) map.horror3am = wf.id;
           }
+          // Tier 2: Fallback if no Webhook Based match found
+          for (const wf of workflows) {
+            const name = wf.name || '';
+            if (/copy|before|draft|backup|test|old|base-ready/i.test(name)) continue;
+            if (!map.viralShorts && /viral\s*all-in-one/i.test(name)) map.viralShorts = wf.id;
+            if (!map.worldMysteries && /world\s*mysteries/i.test(name)) map.worldMysteries = wf.id;
+            if (!map.last24Hours && /last\s*24\s*hours/i.test(name)) map.last24Hours = wf.id;
+            if (!map.horror3am && /3-?\s*am\s*horror/i.test(name)) map.horror3am = wf.id;
+          }
+          return map;
         }
+
+        let transferredCount = 0;
+        let flagshipMap = extractFlagshipWorkflows(destWorkflows);
 
         // If destination does not have the flagship workflows yet, transfer them!
         if (!flagshipMap.viralShorts || destWorkflows.length === 0) {
@@ -494,12 +503,12 @@ export async function handler(event) {
                 });
 
                 const migrationStartTime = Date.now();
-                const BATCH_SIZE = 5;
+                const BATCH_SIZE = 12;
 
                 for (let i = 0; i < srcWorkflows.length; i += BATCH_SIZE) {
-                  // Guard against Netlify execution timeout (ensure we finish well under 8s)
-                  if (Date.now() - migrationStartTime > 7500 && flagshipMap.viralShorts && flagshipMap.worldMysteries && flagshipMap.last24Hours && flagshipMap.horror3am) {
-                    console.log(`[migrate-n8n] Reached safe execution budget (7.5s). All 4 flagship workflows secured. Transferred ${transferredCount} workflows.`);
+                  // Guard against Netlify execution timeout (ensure we finish well under 22s)
+                  if (Date.now() - migrationStartTime > 21000 && flagshipMap.viralShorts && flagshipMap.worldMysteries && flagshipMap.last24Hours && flagshipMap.horror3am) {
+                    console.log(`[migrate-n8n] Reached safe execution budget (21s). All 4 flagship workflows secured. Transferred ${transferredCount} workflows.`);
                     break;
                   }
 
@@ -645,12 +654,30 @@ export async function handler(event) {
           };
         }
 
+        // Re-scan destination workflows to guarantee the exact "Webhook Based" production IDs are mapped
+        try {
+          const finalDestRes = await fetch(`https://${cleanDestHost}/rest/workflows`, {
+            headers: { 'Cookie': destCookie }
+          });
+          if (finalDestRes.ok) {
+            const finalData = await finalDestRes.json();
+            const allDestWfs = finalData.data || finalData || [];
+            const preciseMap = extractFlagshipWorkflows(allDestWfs);
+            if (preciseMap.viralShorts) flagshipMap.viralShorts = preciseMap.viralShorts;
+            if (preciseMap.worldMysteries) flagshipMap.worldMysteries = preciseMap.worldMysteries;
+            if (preciseMap.last24Hours) flagshipMap.last24Hours = preciseMap.last24Hours;
+            if (preciseMap.horror3am) flagshipMap.horror3am = preciseMap.horror3am;
+          }
+        } catch (rescanErr) {
+          console.warn('[migrate-n8n] Error during final flagship scan:', rescanErr.message);
+        }
+
         // Final mapped flagship IDs
         const newProductionWorkflows = {
-          viralShorts: flagshipMap.viralShorts || currentDoc?.productionWorkflows?.viralShorts || 'xTS6yv1JN162f8lo',
-          worldMysteries: flagshipMap.worldMysteries || currentDoc?.productionWorkflows?.worldMysteries || 'llwcAag8VqEm1U8T',
-          last24Hours: flagshipMap.last24Hours || currentDoc?.productionWorkflows?.last24Hours || 'deyTtuLvUmFhGhhx',
-          horror3am: flagshipMap.horror3am || currentDoc?.productionWorkflows?.horror3am || 'sKyl4j8AOitPJTIS'
+          viralShorts: flagshipMap.viralShorts || currentDoc?.productionWorkflows?.viralShorts || 'ptSzLbQe2bNC60yj',
+          worldMysteries: flagshipMap.worldMysteries || currentDoc?.productionWorkflows?.worldMysteries || 'zVBy4s3xp0AaCAep',
+          last24Hours: flagshipMap.last24Hours || currentDoc?.productionWorkflows?.last24Hours || '7ybMrstKZczRXbb0',
+          horror3am: flagshipMap.horror3am || currentDoc?.productionWorkflows?.horror3am || 'SdWBsjQaN8hhxS03'
         };
 
         // Dual format webhooks: snake_case for generators, camelCase for UI tables
