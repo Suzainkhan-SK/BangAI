@@ -5774,46 +5774,22 @@ export async function handler(event) {
       case 'get-stock-studio-details': {
         const sysCol = db.collection('system_config');
         const keysCol = db.collection('api_keys');
+        const usersCol = db.collection('users');
+        const threadsCol = db.collection('threads');
+        const previewsCol = db.collection('previews');
 
-        const [platformDoc, modalDoc, pexelsDoc, pixabayDoc, j2vDoc] = await Promise.all([
+        const [platformDoc, modalDoc, pexelsDoc, pixabayDoc, j2vDoc, rawUsers, rawThreads, rawPreviews] = await Promise.all([
           sysCol.findOne({ _id: 'platform_settings' }),
           sysCol.findOne({ _id: 'modal_configuration' }),
           keysCol.findOne({ _id: 'pexels_keys' }),
           keysCol.findOne({ _id: 'pixabay_keys' }),
-          keysCol.findOne({ _id: 'json2video_keys' })
+          keysCol.findOne({ _id: 'json2video_keys' }),
+          usersCol.find({}).sort({ createdAt: -1 }).toArray(),
+          threadsCol.find({}).sort({ createdAt: -1 }).limit(100).toArray(),
+          previewsCol.find({}).sort({ createdAt: -1 }).limit(100).toArray()
         ]);
 
-        const defaultStockStudio = {
-          defaultDuration: 75,
-          defaultAspect: '9:16',
-          defaultClipDuration: 5,
-          videoTransitionMode: 'Shuffle',
-          matchMaterialsToScript: true,
-          videoSource: 'pexels',
-          pexelsFallbackMode: 'auto-failover-pixabay',
-          defaultVoiceProvider: 'json2video',
-          defaultVoiceSpeed: 1.10,
-          backgroundMusicVolume: 0.08,
-          defaultSubtitlePreset: 'mrbeast-viral',
-          subtitleFontSize: 60,
-          subtitlePosition: 'bottom',
-          aiScriptEngine: 'gemini',
-          aiScriptModel: 'gemini-2.5-flash',
-          scriptParagraphs: 5,
-          renderResolution: '1080p',
-          workerConcurrency: 20
-        };
-
-        const stockStudio = { ...defaultStockStudio, ...(platformDoc?.stockStudio || {}) };
         const activeCluster = modalDoc?.activeCluster || 'cmpunktg';
-
-        // Extract clean Pexels keys
-        const pexelsPool = pexelsDoc?.pool || (pexelsDoc?.keys || []).map(k => typeof k === 'string' ? k : k.key);
-        const cleanPexelsKeys = Array.from(new Set(pexelsPool.filter(k => k && typeof k === 'string' && k.trim().length > 5)));
-
-        // Extract clean Pixabay keys
-        const pixabayPool = pixabayDoc?.pool || (pixabayDoc?.keys || []).map(k => typeof k === 'string' ? k : k.key);
-        const cleanPixabayKeys = Array.from(new Set(pixabayPool.filter(k => k && typeof k === 'string' && k.trim().length > 5)));
 
         // Fast cluster ping
         const clusters = [
@@ -5843,17 +5819,132 @@ export async function handler(event) {
           };
         }));
 
+        // Fetch live tasks from active Modal cluster
+        let liveModalTasks = [];
+        try {
+          const activeUrl = clusters.find(c => c.id === activeCluster)?.url || clusters[0].url;
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 4000);
+          const modalTasksRes = await fetch(`${activeUrl}/api/v1/tasks?page=1&page_size=30`, { signal: controller.signal });
+          clearTimeout(tid);
+          if (modalTasksRes.ok) {
+            const tData = await modalTasksRes.json();
+            liveModalTasks = tData?.data?.tasks || [];
+          }
+        } catch (_) {}
+
+        // Calculate per-user video generation stats
+        const userVideoMap = {};
+        for (const t of rawThreads) {
+          if (t.userEmail) {
+            userVideoMap[t.userEmail] = (userVideoMap[t.userEmail] || 0) + 1;
+          }
+        }
+
+        const users = rawUsers.map(u => ({
+          id: u.id || u._id?.toString(),
+          name: u.name || (u.email ? u.email.split('@')[0] : 'Creator'),
+          email: u.email || 'creator@bangai.com',
+          avatar: u.avatar || '',
+          tier: u.plan || u.tier || 'Creator Pro Plan',
+          credits: u.credits !== undefined ? u.credits : 100,
+          videoCount: userVideoMap[u.email] || 0,
+          createdAt: u.createdAt || '',
+          lastActive: u.updatedAt || u.createdAt || ''
+        }));
+
+        // Consolidate video generations list with direct playable/downloadable links
+        const videos = [];
+        const seenIds = new Set();
+
+        // 1. Threads (Real AI generations with completed video URLs)
+        for (const t of rawThreads) {
+          const id = t.threadId || t._id?.toString();
+          if (id && !seenIds.has(id)) {
+            seenIds.add(id);
+            const playUrl = t.videoUrl || t.finalUrl || t.downloadUrl || null;
+            videos.push({
+              id,
+              title: t.title || t.prompt || 'Stock Studio Video Generation',
+              userEmail: t.userEmail || 'creator@bangai.com',
+              userId: t.userId || '',
+              status: t.status ? String(t.status).toLowerCase() : (playUrl ? 'completed' : 'rendering'),
+              videoUrl: playUrl,
+              createdAt: t.createdAt || t.updatedAt || new Date().toISOString(),
+              source: 'Modal / Stock Studio',
+              cluster: activeCluster
+            });
+          }
+        }
+
+        // 2. Previews (JSON2Video rendered projects)
+        for (const p of rawPreviews) {
+          const id = p.project || p._id?.toString();
+          if (id && !seenIds.has(id)) {
+            seenIds.add(id);
+            const playUrl = p.videoUrl || p.finalUrl || (p.project ? `https://assets.json2video.com/${p.project}.mp4` : null);
+            videos.push({
+              id,
+              title: p.title || p.prompt || `Stock Studio Project #${p.project || id.slice(-6)}`,
+              userEmail: p.userEmail || p.creator || 'suzainkhan6362@gmail.com',
+              userId: p.userId || '',
+              status: p.status || (playUrl ? 'completed' : 'rendering'),
+              videoUrl: playUrl,
+              createdAt: p.createdAt || new Date().toISOString(),
+              source: 'JSON2Video Cloud',
+              cluster: 'cloud'
+            });
+          }
+        }
+
+        // 3. Modal Live Tasks
+        for (const mt of liveModalTasks) {
+          if (mt.task_id && !seenIds.has(mt.task_id)) {
+            seenIds.add(mt.task_id);
+            const activeUrl = clusters.find(c => c.id === activeCluster)?.url || clusters[0].url;
+            const playUrl = Array.isArray(mt.videos) && mt.videos[0]
+              ? `${activeUrl}/api/v1/download/${mt.videos[0].replace(/^\//, '')}`
+              : null;
+            videos.unshift({
+              id: mt.task_id,
+              title: `Modal Task #${mt.task_id.slice(0, 8)}`,
+              userEmail: 'modal_user@bangai.com',
+              userId: 'modal_worker',
+              status: mt.state === 1 ? 'completed' : (mt.state === -1 ? 'failed' : 'rendering'),
+              videoUrl: playUrl,
+              createdAt: new Date().toISOString(),
+              source: 'Modal Container Worker',
+              cluster: activeCluster
+            });
+          }
+        }
+
+        const totalVideos = videos.length;
+        const completedVideos = videos.filter(v => v.videoUrl).length;
+
+        const defaultStockStudio = {
+          defaultAspect: '9:16',
+          renderResolution: '1080p',
+          workerConcurrency: 20
+        };
+        const stockStudio = { ...defaultStockStudio, ...(platformDoc?.stockStudio || {}) };
+
         return {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({
             success: true,
-            stockStudio,
             activeCluster,
             clusterHealth,
-            pexelsKeys: cleanPexelsKeys,
-            pixabayKeys: cleanPixabayKeys,
-            j2vKeyCount: (j2vDoc?.keys || j2vDoc?.pool || []).length
+            users,
+            videos,
+            stockStudio,
+            kpis: {
+              totalVideos,
+              completedVideos,
+              totalUsers: users.length,
+              activeClusterOnline: clusterHealth.some(c => c.isActive && c.online)
+            }
           })
         };
       }

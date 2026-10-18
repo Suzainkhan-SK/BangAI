@@ -20,65 +20,156 @@ const getProviderDefaults = (prov) => {
   }
 };
 
-const CATEGORIES = [
+// MASTER DOMAINS: Clear separation between Stock Studio (Bang API Credits Engine) and Chat Mode
+const MASTER_DOMAINS = [
   {
-    id: 'json2video',
-    name: 'JSON2Video Cloud Render',
-    icon: '⚡',
-    providers: ['json2video']
-  },
-  {
-    id: 'modal',
-    name: 'Modal Cloud Compute',
-    icon: '☁️',
-    providers: ['modal']
-  },
-  {
-    id: 'llm',
-    name: 'AI LLM Engines',
-    icon: '🧠',
-    providers: ['gemini', 'openai', 'deepseek', 'groq']
-  },
-  {
-    id: 'stock_footage',
-    name: 'Stock Footage Library',
+    id: 'stock_studio',
+    name: 'Stock Studio API Services',
+    badge: 'BANG API CREDITS ENGINE',
     icon: '🎬',
-    providers: ['pexels', 'pixabay']
+    description: 'Controls the system-managed API pools for Bang AI Stock Studio (MoneyPrinterTurbo on Modal GPU clusters). When users toggle "Bang API Credits", their personal BYOK keys are bypassed and these system pools run the automation.',
+    categories: [
+      {
+        id: 'compute',
+        name: 'Cloud Compute & Render',
+        icon: '⚡',
+        providers: ['modal', 'json2video']
+      },
+      {
+        id: 'footage',
+        name: 'Stock Footage Media',
+        icon: '🎥',
+        providers: ['pexels', 'pixabay']
+      },
+      {
+        id: 'llm',
+        name: 'Scriptwriting LLMs',
+        icon: '🧠',
+        providers: ['gemini', 'openai', 'deepseek', 'groq']
+      },
+      {
+        id: 'voice',
+        name: 'Voiceover & TTS APIs',
+        icon: '🎙️',
+        providers: ['elevenlabs', 'azure_speech', 'siliconflow']
+      },
+      {
+        id: 'thumbnail',
+        name: 'Thumbnail Studio',
+        icon: '🖼️',
+        providers: ['thumbnail']
+      }
+    ]
   },
   {
-    id: 'voice_tts',
-    name: 'Voice & TTS APIs',
-    icon: '🎙️',
-    providers: ['azure_speech', 'elevenlabs', 'siliconflow']
-  },
-  {
-    id: 'thumbnail',
-    name: 'Thumbnail Studio',
-    icon: '🖼️',
-    providers: ['thumbnail']
-  },
-  {
-    id: 'xkiro',
-    name: 'Strategy Brain',
-    icon: '🔮',
-    providers: ['xkiro']
+    id: 'chat_mode',
+    name: 'BangAI Chat Mode API Services',
+    badge: 'STRATEGY BRAIN & AGENT',
+    icon: '💬',
+    description: 'Powers Bang AI Web Chat, Agent Strategy, and Multi-Model conversational intelligence.',
+    categories: [
+      {
+        id: 'strategy_brain',
+        name: 'Strategy Brain & Chat Engine',
+        icon: '🔮',
+        providers: ['xkiro']
+      }
+    ]
   }
 ];
 
-const PROVIDER_NAMES = {
-  json2video: 'JSON2Video Cloud Render (ElevenLabs Voices)',
-  modal: 'Modal Cloud Compute Cluster (Dual Profile Failover)',
-  gemini: 'Google Gemini 2.5 Flash / Pro API',
-  openai: 'OpenAI GPT-4o / GPT-4o-Mini API',
-  deepseek: 'DeepSeek V3 / R1 Chat Engine',
-  groq: 'Groq LPU Ultra-Fast LLM API',
-  pexels: 'Pexels HD Vertical Video API',
-  pixabay: 'Pixabay Stock Media API',
-  azure_speech: 'Azure Cognitive Speech S0 (Neural Voices)',
-  elevenlabs: 'ElevenLabs Studio Ultra-Realistic Voice API',
-  siliconflow: 'SiliconFlow Cloud Audio / LLM API',
-  thumbnail: 'Kie.ai Image & Thumbnail Studio',
-  xkiro: 'xKiro AI Strategy Brain'
+const PROVIDER_METADATA = {
+  modal: {
+    name: 'Modal Cloud Compute Cluster',
+    role: 'Serverless GPU rendering engine (20 parallel workers, dual workspace failover)',
+    domain: 'stock_studio',
+    category: 'compute',
+    icon: '☁️'
+  },
+  json2video: {
+    name: 'JSON2Video Cloud Render',
+    role: 'Video rendering & ElevenLabs voiceover pipeline (>60s audio splitting)',
+    domain: 'stock_studio',
+    category: 'compute',
+    icon: '⚡'
+  },
+  pexels: {
+    name: 'Pexels HD Vertical Video API',
+    role: 'HD vertical stock video clips matching script keywords',
+    domain: 'stock_studio',
+    category: 'footage',
+    icon: '📹'
+  },
+  pixabay: {
+    name: 'Pixabay Stock Media API',
+    role: 'Secondary stock footage and sound effect library',
+    domain: 'stock_studio',
+    category: 'footage',
+    icon: '🎞️'
+  },
+  gemini: {
+    name: 'Google Gemini 2.5 Flash / Pro',
+    role: 'Primary viral script generation & video storyboard reasoning',
+    domain: 'stock_studio',
+    category: 'llm',
+    icon: '✨'
+  },
+  openai: {
+    name: 'OpenAI GPT-4o / GPT-4o-Mini',
+    role: 'Fallback high-precision video scripting engine',
+    domain: 'stock_studio',
+    category: 'llm',
+    icon: '🟢'
+  },
+  deepseek: {
+    name: 'DeepSeek V3 / R1 Reasoner',
+    role: 'Deep-logic viral hook creation & scenario generation',
+    domain: 'stock_studio',
+    category: 'llm',
+    icon: '🐋'
+  },
+  groq: {
+    name: 'Groq LPU Ultra-Fast LLM API',
+    role: 'Sub-second real-time scriptwriting via LPU hardware',
+    domain: 'stock_studio',
+    category: 'llm',
+    icon: '⚡'
+  },
+  elevenlabs: {
+    name: 'ElevenLabs Studio Voice API',
+    role: 'Ultra-realistic AI voice synthesis with 9,600+ voices',
+    domain: 'stock_studio',
+    category: 'voice',
+    icon: '🎙️'
+  },
+  azure_speech: {
+    name: 'Azure Cognitive Speech S0',
+    role: 'Neural multilingual text-to-speech engine',
+    domain: 'stock_studio',
+    category: 'voice',
+    icon: '🔊'
+  },
+  siliconflow: {
+    name: 'SiliconFlow Cloud Audio & Speech',
+    role: 'High-throughput open audio model synthesis',
+    domain: 'stock_studio',
+    category: 'voice',
+    icon: '🌊'
+  },
+  thumbnail: {
+    name: 'Kie.ai Image & Thumbnail Studio',
+    role: 'High-CTR YouTube Shorts / Reels cover thumbnail engine',
+    domain: 'stock_studio',
+    category: 'thumbnail',
+    icon: '🖼️'
+  },
+  xkiro: {
+    name: 'xKiro AI Strategy Brain',
+    role: 'Powers BangAI Web Chat Mode, conversational reasoning & knowledge retrieval',
+    domain: 'chat_mode',
+    category: 'strategy_brain',
+    icon: '🔮'
+  }
 };
 
 const LLM_MODEL_OPTIONS = {
@@ -87,20 +178,17 @@ const LLM_MODEL_OPTIONS = {
     { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Deep Reasoning & Complex Storyboards)' },
     { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Fast Multimodal)' },
     { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (Standard Production Flash)' },
-    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (1M Long Context)' },
-    { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview (Experimental)' }
+    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (1M Long Context)' }
   ],
   openai: [
     { value: 'gpt-4o', label: 'GPT-4o (Recommended: Omni Model)' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Ultra Fast & Efficient)' },
-    { value: 'gpt-4.1', label: 'GPT-4.1 (Latest Flagship)' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Ultra Fast & Low Latency)' },
     { value: 'o1-mini', label: 'o1-mini (Reasoning Engine)' },
     { value: 'o3-mini', label: 'o3-mini (Advanced Reasoning)' }
   ],
   deepseek: [
     { value: 'deepseek-chat', label: 'DeepSeek-V3 Chat (Recommended: High-Speed)' },
-    { value: 'deepseek-reasoner', label: 'DeepSeek-R1 Reasoner (Deep Logic)' },
-    { value: 'deepseek-v4-pro', label: 'DeepSeek-V4 Pro (Preview)' }
+    { value: 'deepseek-reasoner', label: 'DeepSeek-R1 Reasoner (Deep Logic)' }
   ],
   groq: [
     { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile (Recommended: LPU Ultra-Fast)' },
@@ -122,11 +210,16 @@ function formatTimeAgo(isoStr) {
 }
 
 export default function KeyVaultView() {
-  const [activeCategory, setActiveCategory] = useState('json2video');
-  const [provider, setProvider] = useState('json2video');
+  // Master Domain: 'stock_studio' | 'chat_mode'
+  const [activeDomain, setActiveDomain] = useState('stock_studio');
+  // Category within active domain: 'all' or category ID
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState('all');
+  // Currently selected provider
+  const [provider, setProvider] = useState('modal');
+
   const [keysData, setKeysData] = useState({
-    json2video: [],
     modal: [],
+    json2video: [],
     gemini: [],
     openai: [],
     deepseek: [],
@@ -146,6 +239,7 @@ export default function KeyVaultView() {
     deepseek: 'deepseek-chat',
     groq: 'llama-3.3-70b-versatile'
   });
+
   const [savingModel, setSavingModel] = useState(false);
   const [customModelInput, setCustomModelInput] = useState('');
   const [isCustomModel, setIsCustomModel] = useState(false);
@@ -173,7 +267,7 @@ export default function KeyVaultView() {
     setLoading(true);
     try {
       const res = await adminService.getKeys();
-      if (res.success) {
+      if (res && res.success) {
         if (res.data) {
           setKeysData(prev => ({
             ...prev,
@@ -195,13 +289,14 @@ export default function KeyVaultView() {
     fetchKeys();
   }, []);
 
-  const handleSelectCategory = (catId) => {
-    setActiveCategory(catId);
-    const cat = CATEGORIES.find(c => c.id === catId);
-    if (cat && cat.providers.length > 0) {
-      if (!cat.providers.includes(provider)) {
-        setProvider(cat.providers[0]);
-      }
+  // When changing domain, adjust default provider
+  const handleDomainChange = (domainId) => {
+    setActiveDomain(domainId);
+    setActiveCategoryFilter('all');
+    if (domainId === 'stock_studio') {
+      setProvider('modal');
+    } else {
+      setProvider('xkiro');
     }
     setSearchQuery('');
   };
@@ -232,7 +327,6 @@ export default function KeyVaultView() {
       await adminService.saveKeys(provider, updated);
       setToastMsg(`✅ Key added to ${provider.toUpperCase()} vault & synchronized to MongoDB Atlas!`);
       setTimeout(() => setToastMsg(''), 4000);
-      // Auto probe the newly added key live
       handleProbeSingleKey(0, item.key);
     } catch (e) {
       setToastMsg(`Key saved locally (${e.message})`);
@@ -322,7 +416,7 @@ export default function KeyVaultView() {
     setProbingKeyIndex(idx);
     try {
       const res = await adminService.probeKeyBalance(provider, keyString, false);
-      if (res.success && res.keyData) {
+      if (res && res.success && res.keyData) {
         const probed = res.keyData;
         setKeysData(prev => {
           const list = [...(prev[provider] || [])];
@@ -342,7 +436,7 @@ export default function KeyVaultView() {
         });
         setToastMsg(`🔍 Real-time balance updated for ${provider.toUpperCase()} key #${idx + 1}!`);
       } else {
-        setToastMsg(`⚠️ Probe notice: ${res.error || 'Check failed'}`);
+        setToastMsg(`⚠️ Probe notice: ${res?.error || 'Check failed'}`);
       }
     } catch (e) {
       setToastMsg(`Probe error: ${e.message}`);
@@ -358,17 +452,17 @@ export default function KeyVaultView() {
     setToastMsg(`⚡ Querying real-time provider APIs for all ${provider.toUpperCase()} keys in parallel...`);
     try {
       const res = await adminService.probeKeyBalance(provider, null, true);
-      if (res.success && res.keys) {
+      if (res && res.success && res.keys) {
         setKeysData(prev => ({
           ...prev,
           [provider]: res.keys
         }));
         setToastMsg(`✅ All ${res.keys.length} ${provider.toUpperCase()} keys live probed & balances updated in Atlas!`);
       } else {
-        setToastMsg(`Probe complete.`);
+        setToastMsg(`Probe completed.`);
       }
     } catch (e) {
-      setToastMsg(`Probe completed (${e.message})`);
+      setToastMsg(`Probe error (${e.message})`);
     } finally {
       setProbingAll(false);
       setTimeout(() => setToastMsg(''), 5000);
@@ -380,10 +474,10 @@ export default function KeyVaultView() {
     setToastMsg('Synchronizing all system API key pools to Modal Cloud Clusters (cmpunktg & cmpunktg1)...');
     try {
       const res = await adminService.syncKeysToModal();
-      if (res.success) {
-        setToastMsg('✅ All system API keys successfully pushed to Modal Cloud & persistent storage volume!');
+      if (res && res.success) {
+        setToastMsg('✅ All system API keys successfully pushed to Modal Cloud & persistent storage volume (/root/storage/system_api_keys.json)!');
       } else {
-        setToastMsg(`⚠️ Notice: ${res.message || res.error}`);
+        setToastMsg(`⚠️ Notice: ${res?.message || res?.error || 'Failed'}`);
       }
     } catch (e) {
       setToastMsg(`⚠️ Modal Sync Error: ${e.message}`);
@@ -398,10 +492,10 @@ export default function KeyVaultView() {
     setToastMsg('Synchronizing primary keys to Netlify environment variables via REST API...');
     try {
       const res = await adminService.syncKeysNetlify();
-      if (res.success) {
+      if (res && res.success) {
         setToastMsg('✅ Primary API keys successfully synchronized with Netlify production runtime!');
       } else {
-        setToastMsg(`⚠️ Notice: ${res.message}`);
+        setToastMsg(`⚠️ Notice: ${res?.message || 'Sync complete'}`);
       }
     } catch (e) {
       setToastMsg(`⚠️ Sync Error: ${e.message}`);
@@ -417,11 +511,11 @@ export default function KeyVaultView() {
     setSavingModel(true);
     try {
       const res = await adminService.saveLlmModel(provider, modelToSave);
-      if (res.success) {
+      if (res && res.success) {
         setLlmModels(prev => ({ ...prev, [provider]: modelToSave }));
         setToastMsg(`✅ ${provider.toUpperCase()} active model set to '${modelToSave}' & synced to Modal clusters!`);
       } else {
-        setToastMsg(`❌ Failed to save model: ${res.error || 'Unknown error'}`);
+        setToastMsg(`❌ Failed to save model: ${res?.error || 'Unknown error'}`);
       }
     } catch (err) {
       setToastMsg(`❌ Error: ${err.message}`);
@@ -442,12 +536,28 @@ export default function KeyVaultView() {
 
   const handleCopyKey = (idx, rawKey) => {
     if (!rawKey) return;
-    navigator.clipboard.writeText(rawKey);
+    navigator.clipboard?.writeText(rawKey);
     setCopiedKeyIndex(idx);
     setTimeout(() => setCopiedKeyIndex(null), 2000);
   };
 
-  const activeCategoryObj = CATEGORIES.find(c => c.id === activeCategory) || CATEGORIES[0];
+  const currentDomainObj = MASTER_DOMAINS.find(d => d.id === activeDomain) || MASTER_DOMAINS[0];
+
+  // Available providers for current active domain & category filter
+  const availableProviders = useMemo(() => {
+    if (activeCategoryFilter === 'all') {
+      const list = [];
+      currentDomainObj.categories.forEach(cat => {
+        cat.providers.forEach(p => {
+          if (!list.includes(p)) list.push(p);
+        });
+      });
+      return list;
+    }
+    const cat = currentDomainObj.categories.find(c => c.id === activeCategoryFilter);
+    return cat ? cat.providers : [];
+  }, [currentDomainObj, activeCategoryFilter]);
+
   const currentKeys = keysData[provider] || [];
 
   // Filtered keys
@@ -466,30 +576,28 @@ export default function KeyVaultView() {
     });
   }, [currentKeys, filterStatus, searchQuery]);
 
-  // Global counts
-  const totalVaultKeys = useMemo(() => {
-    return Object.values(keysData).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+  // Aggregate Key Statistics
+  const stockStudioTotalKeys = useMemo(() => {
+    const stockStudioProviders = ['modal', 'json2video', 'gemini', 'openai', 'deepseek', 'groq', 'pexels', 'pixabay', 'elevenlabs', 'azure_speech', 'siliconflow', 'thumbnail'];
+    return stockStudioProviders.reduce((sum, p) => sum + (keysData[p]?.length || 0), 0);
   }, [keysData]);
 
-  const healthyVaultKeys = useMemo(() => {
-    let count = 0;
-    Object.values(keysData).forEach(arr => {
-      (arr || []).forEach(k => {
-        const st = typeof k === 'object' ? k.status : 'active';
-        if (st === 'active') count++;
-      });
-    });
-    return count;
+  const chatModeTotalKeys = useMemo(() => {
+    return keysData.xkiro?.length || 0;
   }, [keysData]);
 
-  const getCategoryTotalCount = (cat) => {
-    return cat.providers.reduce((sum, p) => sum + (keysData[p]?.length || 0), 0);
+  const currentMeta = PROVIDER_METADATA[provider] || {
+    name: provider.toUpperCase(),
+    role: 'API Provider',
+    icon: '🔑'
   };
+
+  const isLlmProvider = ['gemini', 'openai', 'deepseek', 'groq'].includes(provider);
 
   return (
     <div className="admin-view-container" style={{ maxWidth: '1440px', margin: '0 auto' }}>
       {/* View Header */}
-      <div className="admin-view-header" style={{ marginBottom: '20px' }}>
+      <div className="admin-view-header" style={{ marginBottom: '18px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '26px' }}>🔐</span>
@@ -501,9 +609,11 @@ export default function KeyVaultView() {
             </span>
           </div>
           <p className="admin-view-desc" style={{ marginTop: '6px' }}>
-            Zero-downtime key rotation, live quota monitoring, automated failover, unlimited keys per service, and real-time synchronization between MongoDB Atlas and Modal Cloud clusters for <strong>Bang API Credits</strong>.
+            Centralized credential vault for Bang AI's public web applications. Powers zero-downtime key rotation, automated failover, live balance probing, and powers the <strong>Bang API Credits Engine</strong> (bypassing user BYOK keys in Stock Studio).
           </p>
         </div>
+
+        {/* Global Toolbar Actions */}
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             type="button"
@@ -560,63 +670,75 @@ export default function KeyVaultView() {
         </div>
       </div>
 
-      {/* Global Real-Time Quota & System Health Banner */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '14px',
-        marginBottom: '20px'
+      {/* MASTER ARCHITECTURAL BANNER: Bang API Credits Explanation */}
+      <div className="admin-card" style={{
+        marginBottom: '20px',
+        padding: '16px 20px',
+        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%)',
+        border: '1.5px solid var(--admin-accent-cyan)',
+        borderRadius: '12px'
       }}>
-        <div className="admin-card" style={{ padding: '16px 20px', background: 'rgba(6, 182, 212, 0.06)', borderColor: 'rgba(6, 182, 212, 0.3)' }}>
-          <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Total Vault Keys
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
+          <div style={{ flex: 1, minWidth: '280px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '18px' }}>⚡</span>
+              <strong style={{ fontSize: '14px', color: 'var(--admin-text-main)', letterSpacing: '0.3px' }}>
+                Bang API Credits Engine & BYOK Management
+              </strong>
+              <span className="admin-badge admin-badge-cyan" style={{ fontSize: '10px' }}>
+                ACTIVE IN PRODUCTION
+              </span>
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: 0, lineHeight: 1.5 }}>
+              In <strong>Bang AI Stock Studio</strong>, users can choose between <em>Bring Your Own Key (BYOK)</em> or <em>Bang API Credits</em>.
+              When <strong>Bang API Credits</strong> is enabled, the system automatically bypasses the user's personal keys and executes video rendering, scriptwriting, voiceover, and stock footage retrieval using this centralized vault pool.
+            </p>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--admin-text-main)', marginTop: '4px' }}>
-            {totalVaultKeys} <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--admin-accent-cyan)' }}>Keys Across 12 Services</span>
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--admin-accent-green)', marginTop: '4px', fontWeight: 700 }}>
-            ● {healthyVaultKeys} Operational in Pool
-          </div>
-        </div>
 
-        <div className="admin-card" style={{ padding: '16px 20px', background: 'rgba(16, 185, 129, 0.06)', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-          <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Active Service Pool
-          </div>
-          <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--admin-text-main)', marginTop: '4px' }}>
-            {currentKeys.length} <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--admin-accent-green)' }}>{provider.toUpperCase()} Keys</span>
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginTop: '4px' }}>
-            Primary + {Math.max(0, currentKeys.length - 1)} Failover Fallbacks
-          </div>
-        </div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{
+              padding: '8px 14px',
+              borderRadius: '8px',
+              background: 'var(--admin-bg-surface)',
+              border: '1px solid var(--admin-border-glass)',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Stock Studio Pool</div>
+              <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--admin-accent-cyan)' }}>
+                {stockStudioTotalKeys} Keys Active
+              </div>
+            </div>
 
-        <div className="admin-card" style={{ padding: '16px 20px', background: 'rgba(59, 130, 246, 0.06)', borderColor: 'rgba(59, 130, 246, 0.3)' }}>
-          <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Modal Cloud Dual Cluster
-          </div>
-          <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--admin-text-main)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 10px #10b981' }} />
-            cmpunktg & cmpunktg1
-          </div>
-          <div style={{ fontSize: '11px', color: '#60a5fa', marginTop: '4px', fontWeight: 600 }}>
-            Volume: /root/storage/system_api_keys.json
-          </div>
-        </div>
+            <div style={{
+              padding: '8px 14px',
+              borderRadius: '8px',
+              background: 'var(--admin-bg-surface)',
+              border: '1px solid var(--admin-border-glass)',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Chat Mode Pool</div>
+              <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--admin-accent-purple)' }}>
+                {chatModeTotalKeys} Keys Active
+              </div>
+            </div>
 
-        <div className="admin-card" style={{ padding: '16px 20px', background: 'rgba(139, 92, 246, 0.06)', borderColor: 'rgba(139, 92, 246, 0.3)' }}>
-          <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Bang API Credits Mode
-          </div>
-          <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--admin-accent-purple)', marginTop: '8px' }}>
-            Zero-Downtime Active
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginTop: '4px' }}>
-            BYOK Default + Managed Cloud Pool
+            <div style={{
+              padding: '8px 14px',
+              borderRadius: '8px',
+              background: 'var(--admin-bg-surface)',
+              border: '1px solid var(--admin-border-glass)',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Modal Storage File</div>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-green)', fontFamily: 'var(--admin-font-mono)' }}>
+                system_api_keys.json
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Toast Feedback */}
       {toastMsg && (
         <div style={{
           padding: '12px 18px',
@@ -679,114 +801,228 @@ export default function KeyVaultView() {
         </div>
       )}
 
-      {/* Primary Category Selector Tabs */}
+      {/* TOP-LEVEL MASTER DOMAIN SELECTOR: Clear Categorization between Stock Studio and Chat Mode */}
       <div style={{
-        display: 'flex',
-        gap: '8px',
-        flexWrap: 'wrap',
-        borderBottom: '1px solid var(--admin-border-glass)',
-        paddingBottom: '14px',
-        marginBottom: '16px'
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: '14px',
+        marginBottom: '20px'
       }}>
-        {CATEGORIES.map((cat) => {
-          const isSelected = activeCategory === cat.id;
-          const count = getCategoryTotalCount(cat);
+        {MASTER_DOMAINS.map(domain => {
+          const isSelected = activeDomain === domain.id;
+          const count = domain.id === 'stock_studio' ? stockStudioTotalKeys : chatModeTotalKeys;
           return (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => handleSelectCategory(cat.id)}
+            <div
+              key={domain.id}
+              onClick={() => handleDomainChange(domain.id)}
               style={{
-                padding: '10px 16px',
-                borderRadius: '10px',
-                border: isSelected ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
-                background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'var(--admin-bg-surface)',
-                color: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
-                fontSize: '13px',
-                fontWeight: 700,
                 cursor: 'pointer',
+                padding: '16px 20px',
+                borderRadius: '12px',
+                border: isSelected ? '2px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
+                background: isSelected ? 'rgba(6, 182, 212, 0.12)' : 'var(--admin-bg-surface)',
+                boxShadow: isSelected ? '0 4px 20px rgba(6, 182, 212, 0.2)' : 'none',
+                transition: 'all 0.2s ease',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.2s ease',
-                boxShadow: isSelected ? '0 4px 15px rgba(6, 182, 212, 0.2)' : 'none'
+                justifyContent: 'space-between',
+                gap: '16px'
               }}
             >
-              <span>{cat.icon}</span>
-              <span>{cat.name}</span>
-              <span style={{
-                padding: '2px 8px',
-                borderRadius: '12px',
-                background: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-bg-elevated)',
-                color: isSelected ? '#000' : 'var(--admin-text-sub)',
-                fontSize: '11px',
-                fontWeight: 800
-              }}>
-                {count}
-              </span>
-            </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '10px',
+                  background: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-bg-elevated)',
+                  color: isSelected ? '#000' : 'var(--admin-text-main)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  flexShrink: 0
+                }}>
+                  {domain.icon}
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: 900, color: 'var(--admin-text-main)', margin: 0 }}>
+                      {domain.name}
+                    </h3>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)' }}>
+                    {domain.badge}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '20px', fontWeight: 900, color: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)' }}>
+                  {count}
+                </div>
+                <div style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}>
+                  Active Keys
+                </div>
+              </div>
+            </div>
           );
         })}
       </div>
 
-      {/* Sub-Provider Selector */}
-      {activeCategoryObj.providers.length > 1 && (
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          flexWrap: 'wrap',
-          marginBottom: '16px',
-          alignItems: 'center',
-          background: 'var(--admin-bg-surface)',
-          padding: '10px 16px',
-          borderRadius: '10px',
-          border: '1px solid var(--admin-border-glass)'
-        }}>
-          <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 600, marginRight: '6px' }}>
-            Select Provider Engine:
+      {/* CATEGORY & SUB-PROVIDER NAVIGATION FOR SELECTED MASTER DOMAIN */}
+      <div className="admin-card" style={{ padding: '16px 20px', marginBottom: '20px' }}>
+        {/* Category Filter Pills (when multiple categories exist in domain) */}
+        {currentDomainObj.categories.length > 1 && (
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            flexWrap: 'wrap',
+            paddingBottom: '14px',
+            marginBottom: '14px',
+            borderBottom: '1px solid var(--admin-border-glass)'
+          }}>
+            <button
+              type="button"
+              onClick={() => setActiveCategoryFilter('all')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: activeCategoryFilter === 'all' ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
+                background: activeCategoryFilter === 'all' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                color: activeCategoryFilter === 'all' ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              All Services
+            </button>
+            {currentDomainObj.categories.map(cat => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => {
+                  setActiveCategoryFilter(cat.id);
+                  if (cat.providers.length > 0 && !cat.providers.includes(provider)) {
+                    setProvider(cat.providers[0]);
+                  }
+                }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  border: activeCategoryFilter === cat.id ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
+                  background: activeCategoryFilter === cat.id ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                  color: activeCategoryFilter === cat.id ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Individual Provider Buttons */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 700, marginRight: '4px' }}>
+            Provider:
           </span>
-          {activeCategoryObj.providers.map((p) => {
-            const isSubSelected = provider === p;
-            const subCount = keysData[p]?.length || 0;
+          {availableProviders.map(p => {
+            const isSelected = provider === p;
+            const meta = PROVIDER_METADATA[p] || {};
+            const keyCount = keysData[p]?.length || 0;
             return (
               <button
                 key={p}
                 type="button"
                 onClick={() => setProvider(p)}
                 style={{
-                  padding: '6px 14px',
+                  padding: '8px 14px',
                   borderRadius: '8px',
-                  border: isSubSelected ? '1px solid #3b82f6' : '1px solid var(--admin-border-glass)',
-                  background: isSubSelected ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
-                  color: isSubSelected ? '#60a5fa' : 'var(--admin-text-sub)',
+                  border: isSelected ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
+                  background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'var(--admin-bg-surface)',
+                  color: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
                   fontSize: '12px',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '8px',
                   transition: 'all 0.15s ease'
                 }}
               >
+                <span>{meta.icon || '⚡'}</span>
                 <span>{p.toUpperCase()}</span>
                 <span style={{
                   padding: '1px 6px',
                   borderRadius: '10px',
-                  background: isSubSelected ? '#3b82f6' : 'var(--admin-bg-elevated)',
-                  color: isSubSelected ? '#fff' : 'var(--admin-text-sub)',
-                  fontSize: '10.5px',
+                  background: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-bg-elevated)',
+                  color: isSelected ? '#000' : 'var(--admin-text-sub)',
+                  fontSize: '11px',
                   fontWeight: 800
                 }}>
-                  {subCount}
+                  {keyCount}
                 </span>
               </button>
             );
           })}
         </div>
-      )}
+      </div>
 
-      {/* Active AI Model Selection Card for LLM Engines */}
-      {activeCategory === 'llm' && (
+      {/* ACTIVE SERVICE HEADER CARD: Details & Role */}
+      <div className="admin-card" style={{ padding: '16px 20px', marginBottom: '18px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '20px' }}>{currentMeta.icon}</span>
+              <h2 style={{ fontSize: '16px', fontWeight: 900, color: 'var(--admin-text-main)', margin: 0 }}>
+                {currentMeta.name}
+              </h2>
+              <span className="admin-badge admin-badge-cyan" style={{ fontSize: '10.5px' }}>
+                {provider.toUpperCase()}
+              </span>
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+              {currentMeta.role}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>
+              Pool Status:
+            </span>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '3px 10px',
+              borderRadius: '12px',
+              fontSize: '11px',
+              fontWeight: 800,
+              background: currentKeys.length > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+              color: currentKeys.length > 0 ? '#10b981' : '#ef4444',
+              border: `1px solid ${currentKeys.length > 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+            }}>
+              <span style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: currentKeys.length > 0 ? '#10b981' : '#ef4444'
+              }} />
+              {currentKeys.length > 0 ? `${currentKeys.length} ACTIVE POOL KEYS` : 'NO KEYS REGISTERED'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ACTIVE AI MODEL SELECTION CARD (Only for Scriptwriting LLMs: Gemini, OpenAI, DeepSeek, Groq) */}
+      {isLlmProvider && (
         <div className="admin-card" style={{
           padding: '18px 22px',
           marginBottom: '18px',
@@ -797,10 +1033,10 @@ export default function KeyVaultView() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--admin-text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🤖</span> Active AI Model Configuration for <span style={{ color: 'var(--admin-accent-cyan)' }}>{provider.toUpperCase()}</span>
+                <span>🤖</span> Active Scriptwriting Model for <span style={{ color: 'var(--admin-accent-cyan)' }}>{provider.toUpperCase()}</span>
               </div>
               <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>
-                Selected model is dynamically dispatched to Stock Studio when users toggle Bang API Credits.
+                This model is dynamically dispatched to MoneyPrinterTurbo when Stock Studio users generate scripts with Bang API Credits.
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -821,7 +1057,7 @@ export default function KeyVaultView() {
           <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div style={{ flex: 2, minWidth: '280px' }}>
               <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '5px' }}>
-                Choose Pre-Configured Model or Custom Identifier
+                Select AI Model Identifier
               </label>
               <select
                 value={
@@ -889,20 +1125,20 @@ export default function KeyVaultView() {
         </div>
       )}
 
-      {/* Add New Key Form Card */}
+      {/* ADD NEW KEY FORM CARD */}
       <div className="admin-card" style={{ padding: '18px 22px', marginBottom: '18px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--admin-text-main)' }}>
-            Target Service: <span style={{ color: 'var(--admin-accent-cyan)' }}>{PROVIDER_NAMES[provider] || provider.toUpperCase()}</span>
+            Add Key to Target Service: <span style={{ color: 'var(--admin-accent-cyan)' }}>{currentMeta.name}</span>
           </div>
           <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
-            Instant failover triggers automatically upon HTTP 429 / quota limit
+            Failover order triggers automatically upon HTTP 429 quota exhaustion
           </span>
         </div>
         <form onSubmit={handleAddKey} style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ flex: 2, minWidth: '260px' }}>
             <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '5px' }}>
-              Raw {provider.toUpperCase()} API Key / Secret
+              Raw {provider.toUpperCase()} API Key / Secret Token
             </label>
             <input
               type="text"
@@ -916,13 +1152,13 @@ export default function KeyVaultView() {
           </div>
           <div style={{ flex: 1, minWidth: '200px' }}>
             <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--admin-text-sub)', marginBottom: '5px' }}>
-              Friendly Name / Account Tier
+              Friendly Name / Cluster Identifier
             </label>
             <input
               type="text"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="e.g. Production Cluster #1"
+              placeholder="e.g. Production Pool #1"
               className="admin-input"
               style={{ fontSize: '12.5px' }}
             />
@@ -943,7 +1179,7 @@ export default function KeyVaultView() {
         </form>
       </div>
 
-      {/* Keys Control Toolbar: Search & Filter */}
+      {/* KEYS CONTROL TOOLBAR: Search & Status Filter */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -988,7 +1224,7 @@ export default function KeyVaultView() {
         </div>
       </div>
 
-      {/* Keys Pool List / Cards */}
+      {/* KEYS POOL LIST CARDS */}
       <div className="admin-card" style={{ padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div>
@@ -996,7 +1232,7 @@ export default function KeyVaultView() {
               {provider.toUpperCase()} Multi-Key Rotation Pool
             </h3>
             <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
-              Showing {filteredKeys.length} of {currentKeys.length} keys in active failover priority
+              Showing {filteredKeys.length} of {currentKeys.length} keys in failover priority order
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1036,7 +1272,7 @@ export default function KeyVaultView() {
               const isCopied = copiedKeyIndex === idx;
               const isProbingThis = probingKeyIndex === idx;
 
-              // Display masked vs unmasked
+              // Masked vs Unmasked
               const displayKey = isVisible
                 ? rawKey
                 : (rawKey.length > 14 ? `${rawKey.slice(0, 6)}••••••••${rawKey.slice(-4)}` : rawKey);
@@ -1053,9 +1289,7 @@ export default function KeyVaultView() {
               const pct = max > 0 ? Math.min(100, Math.max(3, (balance / max) * 100)) : 100;
               const isHealthy = status === 'active' && pct > 20;
               const isWarning = status === 'rate_limited' || (status === 'active' && pct <= 20);
-              const isExhausted = status === 'exhausted' || status === 'invalid' || status === 'error';
 
-              // Meter gradient colors
               const meterColor = isHealthy
                 ? 'linear-gradient(90deg, #06b6d4, #10b981)'
                 : isWarning
@@ -1137,8 +1371,7 @@ export default function KeyVaultView() {
                               width: '6px',
                               height: '6px',
                               borderRadius: '50%',
-                              background: isHealthy ? '#10b981' : isWarning ? '#f59e0b' : '#ef4444',
-                              boxShadow: `0 0 6px ${isHealthy ? '#10b981' : isWarning ? '#f59e0b' : '#ef4444'}`
+                              background: isHealthy ? '#10b981' : isWarning ? '#f59e0b' : '#ef4444'
                             }} />
                             {status.toUpperCase()}
                           </span>
