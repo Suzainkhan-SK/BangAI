@@ -396,7 +396,7 @@ export default function DashboardApp({
           return;
         }
 
-        if (!data.hasStory && !['COMPLETED', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC', 'WORKFLOW_INACTIVE', 'EXECUTION_TIMEOUT'].includes(status)) return;
+        if (!data.hasStory && !['COMPLETED', 'RENDER_FAILED', 'FAILED', 'CANCELLED', 'DUPLICATE_TOPIC', 'WORKFLOW_INACTIVE', 'EXECUTION_TIMEOUT'].includes(status)) return;
 
         // ── DUPLICATE TOPIC ─────────────────────────────────────────
         if (status === 'DUPLICATE_TOPIC') {
@@ -458,23 +458,33 @@ export default function DashboardApp({
               errorMessage: data.errorMessage || (status === 'EXECUTION_TIMEOUT'
                 ? 'Workflow execution timed out or stalled. Please retry.'
                 : 'n8n workflow execution was cancelled or timed out. Please check your n8n Cloud settings and retry.'),
+              canRetryAt: data.canRetryAt || null,
               messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
             };
           }));
           return;
         }
 
-        // ── RENDER FAILED ───────────────────────────────────────────
-        if (status === 'RENDER_FAILED') {
-          if (isStatusTransition) audioEngine.playSfx('click');
+        // ── RENDER FAILED / FAILED ──────────────────────────────────
+        if (status === 'RENDER_FAILED' || status === 'FAILED') {
+          if (isStatusTransition) audioEngine.playSfx('warning');
           setIsGenerating(false);
+          setGenerationStage('');
+          lastStoryApprovalTimeRef.current = 0;
+          lastScenesApprovalTimeRef.current = 0;
+          refiningStartTimeRef.current = 0;
+          generationStartTimeRef.current = 0;
           setPastShorts(prev => prev.map(t => {
             if (t.threadId !== activeThreadId && t.id !== activeThreadId) return t;
             const existing = t.messages || [];
-            const msgText = `❌ Video rendering error: ${data.errorMessage || 'Render failed'}` ;
+            const msgText = `❌ ${data.errorMessage || 'Video generation encountered an error. Your credit has been preserved.'}`;
             return {
-              ...t, status: 'RENDER_FAILED',
-              errorMessage: data.errorMessage,
+              ...t, status: 'FAILED',
+              errorMessage: data.errorMessage || 'Generation failed. Your credit has been preserved.',
+              detailedError: data.detailedError || null,
+              failedNode: data.failedNode || null,
+              canRetryAt: data.canRetryAt || null,
+              retryCooldownSeconds: data.retryCooldownSeconds || 300,
               messages: existing.some(m => m.content === msgText) ? existing : [...existing, { role: 'assistant', content: msgText }]
             };
           }));

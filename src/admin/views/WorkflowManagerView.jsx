@@ -41,8 +41,106 @@ export default function WorkflowManagerView() {
   const isZvid = managerCategory === 'zvid';
   const isVideo = managerCategory === 'video';
   const isBackup = videoProvider === 'backup';
+  const isErrorRecovery = managerCategory === 'error_recovery';
+
+  // Error & Recovery Center State
+  const [errorSettings, setErrorSettings] = useState({
+    enabled: true,
+    directN8nStatusCheck: true,
+    retryCooldownMinutes: 5,
+    stallTimeoutMinutes: 15,
+    autoRefundCredits: true,
+    friendlyErrorMessage: "Our AI rendering engine encountered an unexpected hiccup while processing your video. Don't worry — your credit has been 100% preserved and you can retry in 5 minutes."
+  });
+  const [loadingErrorSettings, setLoadingErrorSettings] = useState(false);
+  const [savingErrorSettings, setSavingErrorSettings] = useState(false);
+  const [failedExecutions, setFailedExecutions] = useState([]);
+  const [loadingFailures, setLoadingFailures] = useState(false);
+  const [retryingThreadId, setRetryingThreadId] = useState(null);
+  const [refundingUser, setRefundingUser] = useState(null);
+
+  const fetchErrorSettings = async () => {
+    setLoadingErrorSettings(true);
+    try {
+      const res = await adminService.getErrorRecoverySettings();
+      if (res && res.success && res.settings) {
+        setErrorSettings(res.settings);
+      }
+    } catch (e) {
+      console.warn('Error fetching recovery settings:', e.message);
+    } finally {
+      setLoadingErrorSettings(false);
+    }
+  };
+
+  const fetchFailedExecutions = async () => {
+    setLoadingFailures(true);
+    try {
+      const res = await adminService.getFailedExecutions(30);
+      if (res && res.success && res.failures) {
+        setFailedExecutions(res.failures);
+      }
+    } catch (e) {
+      console.warn('Error fetching failed executions:', e.message);
+    } finally {
+      setLoadingFailures(false);
+    }
+  };
+
+  const handleSaveErrorSettings = async () => {
+    setSavingErrorSettings(true);
+    try {
+      const res = await adminService.updateErrorRecoverySettings(errorSettings);
+      if (res && res.success) {
+        setToastMsg('✅ Error & Recovery settings saved successfully!');
+      } else {
+        setToastMsg(`⚠️ Error: ${res?.error || 'Failed to save settings'}`);
+      }
+    } catch (e) {
+      setToastMsg(`⚠️ Error: ${e.message}`);
+    } finally {
+      setSavingErrorSettings(false);
+    }
+  };
+
+  const handleAdminForceRetry = async (threadId) => {
+    if (!window.confirm(`Force immediate retry for thread ${threadId}? This will reset failure state and daily quota.`)) return;
+    setRetryingThreadId(threadId);
+    try {
+      const res = await adminService.adminForceRetry(threadId);
+      if (res && res.success) {
+        setToastMsg(`✅ Thread ${threadId} reset for immediate execution!`);
+        fetchFailedExecutions();
+      } else {
+        setToastMsg(`⚠️ Retry failed: ${res?.error}`);
+      }
+    } catch (e) {
+      setToastMsg(`⚠️ Retry failed: ${e.message}`);
+    } finally {
+      setRetryingThreadId(null);
+    }
+  };
+
+  const handleAdminRefundQuota = async (userId, userEmail) => {
+    if (!window.confirm(`Refund daily quota for user ${userEmail || userId}?`)) return;
+    setRefundingUser(userEmail || userId);
+    try {
+      const res = await adminService.adminRefundQuota(userId, userEmail);
+      if (res && res.success) {
+        setToastMsg(`✅ ${res.message || 'User quota refunded successfully!'}`);
+        fetchFailedExecutions();
+      } else {
+        setToastMsg(`⚠️ Refund failed: ${res?.error}`);
+      }
+    } catch (e) {
+      setToastMsg(`⚠️ Refund failed: ${e.message}`);
+    } finally {
+      setRefundingUser(null);
+    }
+  };
 
   const providerLabel = useMemo(() => {
+    if (managerCategory === 'error_recovery') return 'Error & Recovery Center';
     if (managerCategory === 'video') {
       return isBackup ? 'Backup Video' : 'Kie.ai Primary Video';
     }
@@ -60,6 +158,7 @@ export default function WorkflowManagerView() {
   }, [managerCategory, isBackup, llmTarget]);
 
   const providerAccent = useMemo(() => {
+    if (managerCategory === 'error_recovery') return '#ef4444';
     if (managerCategory === 'video') {
       return isBackup ? 'var(--admin-accent-purple, #8b5cf6)' : 'var(--admin-accent-cyan, #06b6d4)';
     }
@@ -1542,6 +1641,46 @@ export default function WorkflowManagerView() {
               {totalZvidKeys}
             </span>
           </button>
+
+          {/* 6. Universal Error & Recovery Center */}
+          <button
+            type="button"
+            onClick={() => {
+              setManagerCategory('error_recovery');
+              fetchErrorSettings();
+              fetchFailedExecutions();
+            }}
+            style={{
+              flex: '1 1 200px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: isErrorRecovery ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid transparent',
+              background: isErrorRecovery
+                ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(245, 158, 11, 0.18) 100%)'
+                : 'transparent',
+              color: isErrorRecovery ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '7px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '15px' }}>🛡️</span>
+            <span>Error & Recovery</span>
+            <span style={{
+              fontSize: '10.5px',
+              padding: '1px 6px',
+              borderRadius: '9999px',
+              background: isErrorRecovery ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              color: isErrorRecovery ? '#ef4444' : 'var(--admin-text-sub)'
+            }}>
+              Active Shield
+            </span>
+          </button>
         </div>
 
         {/* Dispatcher Sub-Header & Controls */}
@@ -1874,15 +2013,390 @@ export default function WorkflowManagerView() {
           </div>
         )}
 
+        {isErrorRecovery && (
+          <div style={{ marginTop: '10px' }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '14px',
+              paddingBottom: '16px',
+              borderBottom: '1px solid var(--admin-border-glass)',
+              marginBottom: '20px'
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px' }}>🛡️</span>
+                  <h2 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                    Universal Error Detection & User Recovery Center
+                  </h2>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.35)'
+                  }}>
+                    Anti-Scam & Credit Shield Active
+                  </span>
+                </div>
+                <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                  Live execution health probe, automatic credit refunding on failed runs, and user 5-minute cooldown timer governance.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    fetchErrorSettings();
+                    fetchFailedExecutions();
+                    setToastMsg('🔄 Telemetry & failure logs refreshed!');
+                  }}
+                  disabled={loadingFailures || loadingErrorSettings}
+                  className="admin-btn"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    borderRadius: '8px',
+                    background: 'var(--admin-bg-elevated)',
+                    border: '1px solid var(--admin-border-glass)',
+                    color: 'var(--admin-text-main)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {loadingFailures ? 'Refreshing...' : '🔄 Refresh Failures'}
+                </button>
+              </div>
+            </div>
+
+            {/* Two-Column Grid: Left Policy Settings | Right Live Failed Executions */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+              
+              {/* Column 1: Policy Governance & Settings */}
+              <div style={{
+                background: 'var(--admin-bg-elevated)',
+                borderRadius: '14px',
+                border: '1px solid var(--admin-border-glass)',
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--admin-border-glass)', paddingBottom: '10px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--admin-text-main)' }}>
+                    ⚙️ Auto-Recovery & Shield Policies
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>Active in Real-Time</span>
+                </div>
+
+                {/* Toggle 1: Master Error Detection */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                      Universal Error Detection Engine
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                      Detect unhandled node errors across all 4 workflows
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={errorSettings.enabled !== false}
+                    onChange={(e) => setErrorSettings({ ...errorSettings, enabled: e.target.checked })}
+                    style={{ width: '18px', height: '18px', accentColor: '#ef4444', cursor: 'pointer' }}
+                  />
+                </div>
+
+                {/* Toggle 2: Direct n8n Status Probe */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                      Direct n8n Execution Status Probe
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                      Active REST query checking running/error execution state
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={errorSettings.directN8nStatusCheck !== false}
+                    onChange={(e) => setErrorSettings({ ...errorSettings, directN8nStatusCheck: e.target.checked })}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--admin-accent-cyan)', cursor: 'pointer' }}
+                  />
+                </div>
+
+                {/* Toggle 3: Auto-Refund Credits */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                      Auto-Refund Daily Credits on Failure
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                      Failed jobs never count against daily 24h quota
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={errorSettings.autoRefundCredits !== false}
+                    onChange={(e) => setErrorSettings({ ...errorSettings, autoRefundCredits: e.target.checked })}
+                    style={{ width: '18px', height: '18px', accentColor: '#10b981', cursor: 'pointer' }}
+                  />
+                </div>
+
+                {/* Slider 1: Retry Cooldown (Minutes) */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                      User Retry Cooldown Timer
+                    </span>
+                    <span style={{
+                      fontSize: '11.5px', fontWeight: 800, color: 'var(--admin-accent-cyan)',
+                      background: 'rgba(6, 182, 212, 0.12)', padding: '2px 8px', borderRadius: '6px'
+                    }}>
+                      {errorSettings.retryCooldownMinutes || 5} Minutes
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="30"
+                    step="1"
+                    value={errorSettings.retryCooldownMinutes || 5}
+                    onChange={(e) => setErrorSettings({ ...errorSettings, retryCooldownMinutes: parseInt(e.target.value) || 5 })}
+                    style={{ width: '100%', accentColor: 'var(--admin-accent-cyan)', cursor: 'pointer' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--admin-text-sub)' }}>
+                    <span>1 min (Rapid)</span>
+                    <span>5 mins (Default)</span>
+                    <span>30 mins (Max)</span>
+                  </div>
+                </div>
+
+                {/* Slider 2: Stall Timeout Guard */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                      Execution Stall Timeout Threshold
+                    </span>
+                    <span style={{
+                      fontSize: '11.5px', fontWeight: 800, color: '#f59e0b',
+                      background: 'rgba(245, 158, 11, 0.12)', padding: '2px 8px', borderRadius: '6px'
+                    }}>
+                      {errorSettings.stallTimeoutMinutes || 15} Minutes
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5"
+                    max="60"
+                    step="1"
+                    value={errorSettings.stallTimeoutMinutes || 15}
+                    onChange={(e) => setErrorSettings({ ...errorSettings, stallTimeoutMinutes: parseInt(e.target.value) || 15 })}
+                    style={{ width: '100%', accentColor: '#f59e0b', cursor: 'pointer' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--admin-text-sub)' }}>
+                    <span>5 mins (Fast Fail)</span>
+                    <span>15 mins (Recommended)</span>
+                    <span>60 mins</span>
+                  </div>
+                </div>
+
+                {/* Friendly User Error Message */}
+                <div>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', display: 'block', marginBottom: '6px' }}>
+                    Friendly End-User Message:
+                  </span>
+                  <textarea
+                    rows={3}
+                    value={errorSettings.friendlyErrorMessage || ''}
+                    onChange={(e) => setErrorSettings({ ...errorSettings, friendlyErrorMessage: e.target.value })}
+                    style={{
+                      width: '100%',
+                      background: 'var(--admin-bg-surface)',
+                      border: '1px solid var(--admin-border-glass)',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      color: 'var(--admin-text-main)',
+                      fontSize: '11.5px',
+                      lineHeight: '1.5',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveErrorSettings}
+                  disabled={savingErrorSettings}
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '9px',
+                    background: 'linear-gradient(135deg, #ef4444 0%, #f59e0b 100%)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontSize: '12.5px',
+                    fontWeight: 800,
+                    cursor: savingErrorSettings ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 16px rgba(239, 68, 68, 0.35)'
+                  }}
+                >
+                  {savingErrorSettings ? 'Saving Policies...' : '💾 Save Recovery Configuration'}
+                </button>
+              </div>
+
+              {/* Column 2: Live Failed Executions Monitor */}
+              <div style={{
+                background: 'var(--admin-bg-elevated)',
+                borderRadius: '14px',
+                border: '1px solid var(--admin-border-glass)',
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--admin-border-glass)', paddingBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--admin-text-main)' }}>
+                      🚨 Recent Failed Executions
+                    </span>
+                    <span style={{
+                      fontSize: '10.5px', fontWeight: 700, padding: '2px 7px', borderRadius: '9999px',
+                      background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444'
+                    }}>
+                      {failedExecutions.length} Recorded
+                    </span>
+                  </div>
+                </div>
+
+                {loadingFailures ? (
+                  <div style={{ padding: '36px', textAlign: 'center', color: 'var(--admin-text-sub)', fontSize: '12px' }}>
+                    Loading failed execution records...
+                  </div>
+                ) : failedExecutions.length === 0 ? (
+                  <div style={{ padding: '36px 16px', textAlign: 'center', background: 'var(--admin-bg-surface)', borderRadius: '10px', border: '1px dashed var(--admin-border-glass)' }}>
+                    <span style={{ fontSize: '24px', display: 'block', marginBottom: '8px' }}>✨</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#10b981' }}>All Executions Operational</span>
+                    <p style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                      No failed or stalled runs found in the system log.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto' }}>
+                    {failedExecutions.map((item, idx) => {
+                      const isRetrying = retryingThreadId === item.threadId;
+                      const isRefunding = refundingUser === (item.userEmail || item.userId);
+                      const timeStr = item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Unknown';
+
+                      return (
+                        <div
+                          key={item._id || item.threadId || idx}
+                          style={{
+                            padding: '12px 14px',
+                            borderRadius: '10px',
+                            background: 'var(--admin-bg-surface)',
+                            border: '1px solid var(--admin-border-glass)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                              {item.templateTitle || item.templateId || 'Video Pipeline'}
+                            </span>
+                            <span style={{
+                              fontSize: '10.5px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
+                              background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444'
+                            }}>
+                              {item.threadStatus || item.status || 'FAILED'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>User: <strong style={{ color: 'var(--admin-text-main)' }}>{item.userEmail || item.userId || 'Anonymous'}</strong></span>
+                            <span>{timeStr}</span>
+                          </div>
+
+                          {(item.detailedError || item.errorMessage) && (
+                            <div style={{
+                              fontSize: '11px', color: '#f87171', background: 'rgba(239, 68, 68, 0.08)',
+                              padding: '6px 8px', borderRadius: '6px', fontFamily: 'var(--admin-font-mono)'
+                            }}>
+                              {item.failedNode ? `[${item.failedNode}] ` : ''}{item.detailedError || item.errorMessage}
+                            </div>
+                          )}
+
+                          {/* Admin Action Buttons */}
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleAdminForceRetry(item.threadId)}
+                              disabled={isRetrying}
+                              style={{
+                                flex: 1, padding: '5px 8px', borderRadius: '6px',
+                                background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.3)',
+                                color: 'var(--admin-accent-cyan)', fontSize: '11px', fontWeight: 700, cursor: 'pointer'
+                              }}
+                            >
+                              {isRetrying ? 'Resetting...' : '🔄 Force Retry for User'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAdminRefundQuota(item.userId, item.userEmail)}
+                              disabled={isRefunding}
+                              style={{
+                                flex: 1, padding: '5px 8px', borderRadius: '6px',
+                                background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)',
+                                color: '#10b981', fontSize: '11px', fontWeight: 700, cursor: 'pointer'
+                              }}
+                            >
+                              {isRefunding ? 'Refunding...' : '💰 Refund Quota'}
+                            </button>
+
+                            {item.executionId && (
+                              <a
+                                href={`${activeHost}/workflow/${item.workflowId || 'PQKEFVjhD3P2yfnZ'}/executions/${item.executionId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  padding: '5px 8px', borderRadius: '6px',
+                                  background: 'transparent', border: '1px solid var(--admin-border-glass)',
+                                  color: 'var(--admin-text-sub)', fontSize: '11px', fontWeight: 600,
+                                  textDecoration: 'none', display: 'flex', alignItems: 'center'
+                                }}
+                              >
+                                ↗ n8n
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        )}
+
         {/* Action Controls Bar: Target Selector & Append vs Manage Tabs */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px',
-          margin: '18px 0 12px 0'
-        }}>
+        {!isErrorRecovery && (
+          <div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+              margin: '18px 0 12px 0'
+            }}>
           {/* Target Pipeline Select */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '260px' }}>
             <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
@@ -2469,6 +2983,8 @@ export default function WorkflowManagerView() {
             </div>
           </div>
         )}
+        </div>
+      )}
 
         {/* 5. Sleek Live MCP Execution Terminal */}
         {logs.length > 0 && (

@@ -165,7 +165,24 @@ export default function TemplatesPage({
   const [generatingTemplateId, setGeneratingTemplateId] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelNotice, setCancelNotice] = useState(null);
+  const [failedExecutionInfo, setFailedExecutionInfo] = useState(null);
+  const [retryCooldownSeconds, setRetryCooldownSeconds] = useState(0);
   const abortControllerRef = useRef(null);
+
+  // 5-minute cooldown ticker for failed executions
+  useEffect(() => {
+    if (!failedExecutionInfo?.canRetryAt) {
+      setRetryCooldownSeconds(0);
+      return;
+    }
+    const updateCountdown = () => {
+      const diff = Math.max(0, Math.floor((new Date(failedExecutionInfo.canRetryAt).getTime() - Date.now()) / 1000));
+      setRetryCooldownSeconds(diff);
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [failedExecutionInfo]);
 
   // Fetch current user quota from backend
   const fetchQuotaStatus = async () => {
@@ -575,6 +592,28 @@ export default function TemplatesPage({
             setCancelNotice('Generation cancelled.');
             return;
           }
+          if (data.status === 'FAILED' || data.status === 'RENDER_FAILED' || data.status === 'EXECUTION_TIMEOUT') {
+            setIsGenerating(false);
+            setLaunchingId(null);
+            audioEngine.playSfx('warning');
+
+            const canRetryAt = data.canRetryAt || new Date(Date.now() + (data.retryCooldownSeconds || 300) * 1000).toISOString();
+            setFailedExecutionInfo({
+              threadId: generatingThreadId,
+              templateId: generatingTemplateId,
+              errorMessage: data.errorMessage || 'Our AI rendering engine encountered an unexpected hiccup. Your credit has been preserved.',
+              detailedError: data.detailedError || null,
+              failedNode: data.failedNode || null,
+              canRetryAt,
+              retryCooldownSeconds: data.retryCooldownSeconds || 300,
+              topic: (customTopics[generatingTemplateId] || '').trim()
+            });
+
+            // Immediately re-fetch user quota so refunded credit is reflected in UI
+            fetchAutomationConfig();
+            fetchQuotaStatus();
+            return;
+          }
           if (data.status === 'COMPLETED' || data.videoUrl || data.story?.videoUrl) {
             setIsGenerating(false);
             setLaunchingId(null);
@@ -640,9 +679,11 @@ export default function TemplatesPage({
   }, [isGenerating, generatingThreadId, generatingTemplateId, customTopics]);
 
   // ── Launch handler ──
-  const handleLaunchTemplate = async (templateId) => {
+  const handleLaunchTemplate = async (templateId, options = {}) => {
     audioEngine.playSfx('click');
     if (!user) { if (typeof onNavigate === 'function') onNavigate('login'); return; }
+
+    const isRetry = !!options.isRetry;
 
     if (quotaStatus?.maintenanceMode) {
       audioEngine.playSfx('warning');
@@ -650,7 +691,7 @@ export default function TemplatesPage({
       return;
     }
 
-    if (quotaStatus?.isLimitReached) {
+    if (!isRetry && quotaStatus?.isLimitReached) {
       audioEngine.playSfx('warning');
       setShowLimitModal(true);
       return;
@@ -673,6 +714,8 @@ export default function TemplatesPage({
     setGeneratingTemplateId(templateId);
     setIsCancelling(false);
     setCancelNotice(null);
+    setFailedExecutionInfo(null);
+    setRetryCooldownSeconds(0);
     setErrorMsg(null);
     setSuccessInfo(null);
 
@@ -728,7 +771,8 @@ export default function TemplatesPage({
           subtitleStyle: videoSettings?.subtitleStyle || 'hormozi',
           musicId: videoSettings?.musicId || 'mystery2',
           musicTrackUrl: videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
-          musicVolume: videoSettings?.musicVolume ?? 0.08
+          musicVolume: videoSettings?.musicVolume ?? 0.08,
+          isRetry
         })
       });
 
@@ -1565,6 +1609,115 @@ export default function TemplatesPage({
                   </button>
                 }
               />
+            </div>
+          )}
+
+          {/* ═══ FRIENDLY ERROR & 5-MINUTE RECOVERY BANNER ═══ */}
+          {!isGenerating && failedExecutionInfo && (
+            <div style={{
+              marginBottom: '36px',
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(245, 158, 11, 0.06) 100%)',
+              border: '1.5px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '20px',
+              padding: '24px 28px',
+              backdropFilter: 'blur(16px)',
+              boxShadow: '0 12px 36px rgba(239, 68, 68, 0.12)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1, minWidth: '280px' }}>
+                  <div style={{
+                    width: '44px', height: '44px', borderRadius: '12px',
+                    background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#ef4444', flexShrink: 0
+                  }}>
+                    <AlertTriangle size={24} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                      <h4 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                        Generation Encountered an Issue
+                      </h4>
+                      <span style={{
+                        background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.35)',
+                        color: '#22c55e', fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '99px',
+                        display: 'inline-flex', alignItems: 'center', gap: '4px'
+                      }}>
+                        <span>🛡️</span>
+                        <span>Credit 100% Preserved</span>
+                      </span>
+                    </div>
+                    <p style={{ margin: '0 0 10px 0', fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                      {failedExecutionInfo.errorMessage || "Our AI rendering engine encountered an unexpected hiccup while processing your video. Don't worry — your credit has been 100% preserved and restored to your account."}
+                    </p>
+                    {failedExecutionInfo.topic && (
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                        <strong>Topic:</strong> "{failedExecutionInfo.topic}"
+                      </div>
+                    )}
+                    {failedExecutionInfo.failedNode && (
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', opacity: 0.8 }}>
+                        Halted at step: <code style={{ background: 'rgba(0,0,0,0.2)', padding: '2px 6px', borderRadius: '4px' }}>{failedExecutionInfo.failedNode}</code>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action / Countdown Controls */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', minWidth: '180px' }}>
+                  {retryCooldownSeconds > 0 ? (
+                    <button
+                      type="button"
+                      disabled
+                      style={{
+                        padding: '10px 18px', borderRadius: '12px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700,
+                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', gap: '8px'
+                      }}
+                    >
+                      <Clock size={15} />
+                      <span>Retry in {Math.floor(retryCooldownSeconds / 60)}:{String(retryCooldownSeconds % 60).padStart(2, '0')}</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        audioEngine.playSfx('shimmer');
+                        const tplId = failedExecutionInfo.templateId;
+                        handleLaunchTemplate(tplId, { isRetry: true });
+                      }}
+                      style={{
+                        padding: '10px 20px', borderRadius: '12px',
+                        background: 'linear-gradient(135deg, #ff4f00 0%, #ff8700 100%)',
+                        border: 'none', color: '#ffffff', fontSize: '13px', fontWeight: 800,
+                        cursor: 'pointer', boxShadow: '0 4px 18px rgba(255, 79, 0, 0.4)',
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        transition: 'transform 0.15s ease'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.03)'}
+                      onMouseLeave={e => e.currentTarget.style.transform = 'scale(1.0)'}
+                    >
+                      <RefreshCw size={15} />
+                      <span>Retry Video Generation</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setFailedExecutionInfo(null)}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--text-muted)',
+                      fontSize: '11.5px', cursor: 'pointer', padding: '4px 6px',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    Dismiss notice
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

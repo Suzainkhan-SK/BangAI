@@ -223,5 +223,12 @@ export const adminService = {
   // 14. Security Audit Logs & Password
   getAuditLogs: async () => adminFetch('get-audit-logs', 'GET'),
   changePassword: async (currentPassword, newPassword) =>
-    adminFetch('change-password', 'POST', { currentPassword, newPassword })
+    adminFetch('change-password', 'POST', { currentPassword, newPassword }),
+
+  // 15. Universal Error Detection & Recovery Management
+  getErrorRecoverySettings: async () => adminFetch('get-error-recovery-settings', 'GET'),
+  updateErrorRecoverySettings: async (settings) => adminFetch('update-error-recovery-settings', 'POST', settings),
+  getFailedExecutions: async (limit = 30) => adminFetch('get-failed-executions', 'POST', { limit }),
+  adminForceRetry: async (threadId) => adminFetch('admin-force-retry', 'POST', { threadId }),
+  adminRefundQuota: async (userId, userEmail) => adminFetch('admin-refund-quota', 'POST', { userId, userEmail })
 };

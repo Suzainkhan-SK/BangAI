@@ -125,7 +125,9 @@ async function getUserTemplateQuota(db, user) {
       { userEmail }
     ],
     createdAt: { $gte: effectiveStart },
-    resetByAdmin: { $ne: true }
+    resetByAdmin: { $ne: true },
+    status: { $nin: ['failed', 'FAILED', 'RENDER_FAILED', 'EXECUTION_TIMEOUT'] },
+    refunded: { $ne: true }
   };
 
   const usedToday = await db.collection('template_generations').countDocuments(query);
@@ -379,6 +381,14 @@ export const handler = async (event) => {
 
     const meta = TEMPLATE_META[templateId] || TEMPLATE_META['world-mysteries'];
 
+    const WORKFLOW_ID_MAP = {
+      'world-mysteries': n8nCfg.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY',
+      'last-24-hours':   n8nCfg.productionWorkflows?.last24Hours   || 'PQKEFVjhD3P2yfnZ',
+      '3am-horror':      n8nCfg.productionWorkflows?.horror3am     || '94IjipHAsUQWjkun',
+      'viral-shorts':    n8nCfg.productionWorkflows?.viralShorts   || 'UKWYwnlKuCqTazIG'
+    };
+    const workflowId = WORKFLOW_ID_MAP[templateId] || null;
+
     // 3. Atomically record the generation in MongoDB
     if (db && userId) {
       try {
@@ -391,7 +401,9 @@ export const handler = async (event) => {
               userEmail: userEmail.toLowerCase(),
               title: meta.title,
               templateId,
+              workflowId,
               status: 'started',
+              isRetry: !!payload.isRetry,
               updatedAt: new Date()
             },
             $setOnInsert: {
@@ -399,7 +411,7 @@ export const handler = async (event) => {
               messages: [
                 {
                   role: 'system',
-                  content: `1-Click Autonomous Generation started for template: ${meta.title}.${(payload.prompt || '').trim() ? ` Custom topic: "${payload.prompt.trim()}".` : ' Auto-selecting topic.'} Auto-uploading to YouTube channel: ${userYouTubeChannelTitle || 'Default'}.`,
+                  content: `${payload.isRetry ? '🔄 Retrying' : '1-Click Autonomous Generation started for'} template: ${meta.title}.${(payload.prompt || '').trim() ? ` Custom topic: "${payload.prompt.trim()}".` : ' Auto-selecting topic.'} Auto-uploading to YouTube channel: ${userYouTubeChannelTitle || 'Default'}.`,
                   timestamp: new Date().toISOString()
                 }
               ]
@@ -415,6 +427,8 @@ export const handler = async (event) => {
           templateId,
           templateTitle: meta.title,
           threadId,
+          workflowId,
+          isRetry: !!payload.isRetry,
           prompt: (payload.prompt || '').trim(),
           channelTitle: userYouTubeChannelTitle || null,
           channelId: userYouTubeChannelId || null,

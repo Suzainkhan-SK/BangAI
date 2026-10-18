@@ -5615,6 +5615,159 @@ export async function handler(event) {
         };
       }
 
+      // ----------------------------------------------------
+      // [19] ERROR & RECOVERY MANAGEMENT CONTROLS
+      // ----------------------------------------------------
+      case 'get-error-recovery-settings': {
+        const doc = await db.collection('system_config').findOne({ _id: 'error_recovery_settings' });
+        const defaults = {
+          _id: 'error_recovery_settings',
+          enabled: true,
+          directN8nStatusCheck: true,
+          retryCooldownMinutes: 5,
+          stallTimeoutMinutes: 15,
+          autoRefundCredits: true,
+          friendlyErrorMessage: "Our AI rendering engine encountered an unexpected hiccup while processing your video. Don't worry — your credit has been 100% preserved and you can retry in 5 minutes."
+        };
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, settings: doc ? { ...defaults, ...doc } : defaults })
+        };
+      }
+
+      case 'update-error-recovery-settings': {
+        const updateData = {
+          enabled: body.enabled !== false,
+          directN8nStatusCheck: body.directN8nStatusCheck !== false,
+          retryCooldownMinutes: Math.max(1, Math.min(60, Number(body.retryCooldownMinutes) || 5)),
+          stallTimeoutMinutes: Math.max(3, Math.min(120, Number(body.stallTimeoutMinutes) || 15)),
+          autoRefundCredits: body.autoRefundCredits !== false,
+          friendlyErrorMessage: body.friendlyErrorMessage || "Our AI rendering engine encountered an unexpected hiccup while processing your video. Don't worry — your credit has been 100% preserved and you can retry in 5 minutes.",
+          updatedAt: new Date().toISOString(),
+          updatedBy: MASTER_ADMIN_USERNAME
+        };
+        await db.collection('system_config').updateOne(
+          { _id: 'error_recovery_settings' },
+          { $set: updateData },
+          { upsert: true }
+        );
+        await logAdminAction(db, 'UPDATE_ERROR_RECOVERY_SETTINGS', updateData, clientIp);
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: 'Error recovery settings saved successfully.', settings: updateData })
+        };
+      }
+
+      case 'get-failed-executions': {
+        const limit = Math.max(1, Math.min(100, Number(body.limit) || 30));
+        const failedDocs = await db.collection('template_generations')
+          .find({
+            $or: [
+              { status: { $in: ['failed', 'FAILED', 'RENDER_FAILED', 'EXECUTION_TIMEOUT', 'error'] } },
+              { refunded: true }
+            ]
+          })
+          .sort({ createdAt: -1 })
+          .limit(limit)
+          .toArray();
+
+        // Also fetch thread details for rich metadata (detailed error, failed node, executionId)
+        const threadIds = failedDocs.map(d => d.threadId).filter(Boolean);
+        let threadMap = {};
+        if (threadIds.length > 0) {
+          const threads = await db.collection('threads').find({ threadId: { $in: threadIds } }).toArray();
+          threads.forEach(t => { threadMap[t.threadId] = t; });
+        }
+
+        const enriched = failedDocs.map(d => {
+          const t = threadMap[d.threadId] || {};
+          return {
+            ...d,
+            detailedError: t.detailedError || d.errorMessage || null,
+            failedNode: t.failedNode || null,
+            executionId: t.executionId || d.executionId || null,
+            canRetryAt: t.canRetryAt || null,
+            threadStatus: t.status || d.status
+          };
+        });
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, failures: enriched })
+        };
+      }
+
+      case 'admin-force-retry': {
+        const { threadId } = body;
+        if (!threadId) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'threadId is required' }) };
+        }
+
+        // Reset the thread so user or pipeline can retry immediately
+        await db.collection('threads').updateOne(
+          { threadId },
+          {
+            $set: {
+              status: 'started',
+              errorMessage: null,
+              detailedError: null,
+              failedNode: null,
+              canRetryAt: new Date().toISOString(),
+              forcedRetryByAdmin: true,
+              updatedAt: new Date()
+            }
+          }
+        );
+
+        // Mark the previous failed generation record as resetByAdmin: true and refunded: true
+        await db.collection('template_generations').updateMany(
+          { threadId },
+          { $set: { resetByAdmin: true, refunded: true, updatedAt: new Date() } }
+        );
+
+        await logAdminAction(db, 'ADMIN_FORCE_RETRY', { threadId }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: `Thread ${threadId} reset for immediate execution.` })
+        };
+      }
+
+      case 'admin-refund-quota': {
+        const { userId, userEmail } = body;
+        if (!userId && !userEmail) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'userId or userEmail required' }) };
+        }
+
+        const query = {
+          $or: [
+            ...(userId ? [{ userId }] : []),
+            ...(userEmail ? [{ userEmail: userEmail.toLowerCase() }] : [])
+          ]
+        };
+
+        const res = await db.collection('template_generations').updateMany(
+          query,
+          { $set: { resetByAdmin: true, refunded: true, updatedAt: new Date() } }
+        );
+
+        await logAdminAction(db, 'ADMIN_REFUND_QUOTA', { userId, userEmail, modifiedCount: res.modifiedCount }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            message: `Successfully refunded user quota. ${res.modifiedCount} generation record(s) reset.`,
+            modifiedCount: res.modifiedCount
+          })
+        };
+      }
+
       default:
         return {
           statusCode: 400,

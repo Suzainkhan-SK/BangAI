@@ -6,12 +6,13 @@
 import { getDb } from './db.js';
 import { verifyToken } from './google-oauth.js';
 import { getN8nConfig } from './n8n-config.js';
+import { getDirectExecutionStatus, getLatestWorkflowExecutions } from './n8n-checker.js';
 
 const N8N_API_URL = 'https://cmpunktg29.app.n8n.cloud/api/v1';
 const N8N_API_KEY = process.env.N8N_API_KEY || 'n8n_api_d07ac84c49c0e4b37d0025c7d8cb5c6d773a14f0';
 const WORKFLOW_ID = 'YKl6hhWT4kEs9Ytc';
 
-const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'UPLOADING_YOUTUBE', 'RENDER_FAILED', 'CANCELLED', 'DUPLICATE_TOPIC'];
+const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'UPLOADING_YOUTUBE', 'RENDER_FAILED', 'FAILED', 'CANCELLED', 'DUPLICATE_TOPIC', 'EXECUTION_TIMEOUT'];
 
 // Fallback: query n8n execution API to find if this thread got a story callback
 async function checkN8nExecutionForThread(threadId) {
@@ -158,35 +159,109 @@ export const handler = async (event, context) => {
       };
 
       if (latest && ACTIVE_GEN_STATUSES.includes(latest.status)) {
-        const lastUpdate = latest.updatedAt ? new Date(latest.updatedAt).getTime() : 0;
+        const lastUpdate = latest.updatedAt ? new Date(latest.updatedAt).getTime() : (latest.createdAt ? new Date(latest.createdAt).getTime() : 0);
         const timeSinceUpdate = Date.now() - lastUpdate;
-        const stallTimeout = STALL_TIMEOUTS_MS[latest.status] || (60 * 60 * 1000);
 
-        if (lastUpdate > 0 && timeSinceUpdate > stallTimeout) {
-          // Mark as execution timeout
-          const stallDoc = {
-            status: 'EXECUTION_TIMEOUT',
-            errorMessage: `n8n workflow execution timed out or was cancelled after ${Math.round(timeSinceUpdate / 60000)} minutes in state ${latest.status}. Please retry.`,
-            updatedAt: new Date()
-          };
-          await threadsCol.updateOne({ threadId }, { $set: stallDoc });
-          latest = { ...latest, ...stallDoc };
-          console.log(`[story-approval] Detected stalled execution for thread ${threadId} (${latest.status}) — ${Math.round(timeSinceUpdate / 60000)} minutes with no update`);
-        } else {
-          // Actively generating/rendering — return current active status to keep website animation running
-          return {
-            statusCode: 200,
-            headers: CORS,
-            body: JSON.stringify({
-              hasStory: false,
-              status: latest.status,
-              threadId: latest.threadId
-            })
-          };
+        // Fetch dynamic error & recovery settings from MongoDB Atlas
+        let recoverySettings = {};
+        try {
+          recoverySettings = await db.collection('system_config').findOne({ _id: 'error_recovery_settings' }) || {};
+        } catch (_) {}
+
+        const detectionEnabled = recoverySettings.enabled !== false;
+        const directN8nCheck = recoverySettings.directN8nStatusCheck !== false;
+        const cooldownMinutes = Number(recoverySettings.retryCooldownMinutes) > 0 ? Number(recoverySettings.retryCooldownMinutes) : 5;
+        const stallMinutes = Number(recoverySettings.stallTimeoutMinutes) > 0 ? Number(recoverySettings.stallTimeoutMinutes) : 15;
+        const stallTimeout = stallMinutes * 60 * 1000;
+        const autoRefund = recoverySettings.autoRefundCredits !== false;
+        const friendlyMsg = recoverySettings.friendlyErrorMessage ||
+          'Our AI rendering engine encountered an unexpected hiccup while processing your video. Don\'t worry — your credit has been 100% preserved and you can retry in 5 minutes.';
+
+        // 1. Direct n8n Execution Status Checking (Active Universal Probe)
+        if (detectionEnabled && directN8nCheck && timeSinceUpdate > 3000) {
+          let execInfo = null;
+          if (latest.executionId) {
+            execInfo = await getDirectExecutionStatus(latest.executionId);
+          } else if (latest.workflowId) {
+            const recent = await getLatestWorkflowExecutions(latest.workflowId, 3);
+            if (recent && recent.length > 0) {
+              const matched = recent.find(r => {
+                const startMs = new Date(r.startedAt).getTime();
+                return Math.abs(startMs - lastUpdate) < 300000; // within 5 minutes
+              }) || recent[0];
+              if (matched) {
+                execInfo = await getDirectExecutionStatus(matched.id);
+                if (matched.id && !latest.executionId) {
+                  await threadsCol.updateOne({ threadId }, { $set: { executionId: matched.id } });
+                  latest.executionId = matched.id;
+                }
+              }
+            }
+          }
+
+          if (execInfo && (execInfo.status === 'error' || execInfo.status === 'crashed' || execInfo.status === 'canceled')) {
+            const canRetryAt = new Date(Date.now() + cooldownMinutes * 60 * 1000);
+            const failDoc = {
+              status: 'FAILED',
+              errorMessage: friendlyMsg,
+              detailedError: execInfo.error?.message || `n8n execution status: ${execInfo.status}`,
+              failedNode: execInfo.lastNodeExecuted || null,
+              executionId: execInfo.id || latest.executionId || null,
+              canRetryAt: canRetryAt.toISOString(),
+              retryCooldownSeconds: cooldownMinutes * 60,
+              updatedAt: new Date()
+            };
+            await threadsCol.updateOne({ threadId }, { $set: failDoc });
+            latest = { ...latest, ...failDoc };
+
+            if (autoRefund) {
+              await db.collection('template_generations').updateMany(
+                { threadId },
+                { $set: { status: 'failed', refunded: true, updatedAt: new Date() } }
+              );
+            }
+            console.log(`[story-approval] Universal probe detected execution ${execInfo.id} failure (${execInfo.status}) for thread ${threadId}`);
+          }
+        }
+
+        // 2. Intelligent Stall Guard
+        if (latest.status !== 'FAILED') {
+          if (lastUpdate > 0 && timeSinceUpdate > stallTimeout) {
+            const canRetryAt = new Date(Date.now() + cooldownMinutes * 60 * 1000);
+            const stallDoc = {
+              status: 'EXECUTION_TIMEOUT',
+              errorMessage: friendlyMsg,
+              detailedError: `Execution timed out after ${Math.round(timeSinceUpdate / 60000)} minutes in state ${latest.status}`,
+              canRetryAt: canRetryAt.toISOString(),
+              retryCooldownSeconds: cooldownMinutes * 60,
+              updatedAt: new Date()
+            };
+            await threadsCol.updateOne({ threadId }, { $set: stallDoc });
+            latest = { ...latest, ...stallDoc };
+
+            if (autoRefund) {
+              await db.collection('template_generations').updateMany(
+                { threadId },
+                { $set: { status: 'failed', refunded: true, updatedAt: new Date() } }
+              );
+            }
+            console.log(`[story-approval] Detected stalled execution for thread ${threadId} (${latest.status}) — ${Math.round(timeSinceUpdate / 60000)}m with no update`);
+          } else {
+            // Still actively running
+            return {
+              statusCode: 200,
+              headers: CORS,
+              body: JSON.stringify({
+                hasStory: false,
+                status: latest.status,
+                threadId: latest.threadId
+              })
+            };
+          }
         }
       }
 
-      if (latest && (READY_STATES.includes(latest.status) || latest.status === 'EXECUTION_TIMEOUT')) {
+      if (latest && (READY_STATES.includes(latest.status) || latest.status === 'EXECUTION_TIMEOUT' || latest.status === 'FAILED')) {
         return {
           statusCode: 200,
           headers: CORS,
@@ -214,6 +289,11 @@ export const handler = async (event, context) => {
             criticVerdict: latest.criticVerdict || latest.story?.criticVerdict || null,
             criticScore: latest.criticScore ?? null,
             errorMessage: latest.errorMessage || null,
+            detailedError: latest.detailedError || null,
+            failedNode: latest.failedNode || null,
+            canRetryAt: latest.canRetryAt || null,
+            retryCooldownSeconds: latest.retryCooldownSeconds || 300,
+            isRetry: !!latest.isRetry,
             refined: !!(latest.story?.refined || latest.refined),
             refineTimestamp: latest.story?.refineTimestamp || latest.refineTimestamp || null,
             changedFields: latest.changedFields || latest.story?.changedFields || null,
@@ -263,8 +343,43 @@ export const handler = async (event, context) => {
       console.log('[story-approval] POST from n8n:', data.status, '| Thread:', data.threadId, '| Title:', data.suggestedTitle || data.title);
 
       const now = new Date();
-      const threadId = data.threadId || `thread-${Date.now()}`;
-      const existing = await threadsCol.findOne({ threadId });
+      const rawExecId = data.executionId || data.execution?.id;
+      const rawWfId = data.workflowId || data.workflow?.id;
+      let threadId = data.threadId;
+      let existing = null;
+
+      if (threadId) {
+        existing = await threadsCol.findOne({ threadId });
+      } else if (rawExecId) {
+        existing = await threadsCol.findOne({ executionId: String(rawExecId) });
+        if (existing) threadId = existing.threadId;
+      }
+      
+      if (!existing && rawWfId) {
+        existing = await threadsCol.findOne(
+          { workflowId: String(rawWfId), status: { $in: ACTIVE_GEN_STATUSES } },
+          { sort: { updatedAt: -1 } }
+        );
+        if (existing) threadId = existing.threadId;
+      }
+
+      if (!threadId) {
+        threadId = `thread-${Date.now()}`;
+      }
+
+      // Normalize error trigger payload if received directly from n8n error handler
+      if (data.execution?.error || data.status === 'ERROR' || data.status === 'FAILED' || data.status === 'RENDER_FAILED') {
+        data.status = 'FAILED';
+        if (!data.errorMessage && data.execution?.error?.message) {
+          data.errorMessage = data.execution.error.message;
+        }
+        if (!data.failedNode && data.execution?.lastNodeExecuted) {
+          data.failedNode = data.execution.lastNodeExecuted;
+        }
+        if (!data.executionId && rawExecId) {
+          data.executionId = String(rawExecId);
+        }
+      }
 
       let status = 'READY_FOR_APPROVAL';
       let messageContent = (data.suggestedTitle || data.title)
@@ -296,8 +411,8 @@ export const handler = async (event, context) => {
         status = 'COMPLETED';
         messageContent = `⚠️ YouTube Upload: ${data.errorMessage || 'Upload failed — retry available.'}`;
       } else if (data.status === 'RENDER_FAILED' || data.status === 'ERROR' || data.status === 'FAILED') {
-        status = 'RENDER_FAILED';
-        messageContent = `❌ Video rendering error: ${data.errorMessage || 'Failed in media engine'}`;
+        status = 'FAILED';
+        messageContent = `❌ Video generation error: ${data.errorMessage || 'Failed in media pipeline'}`;
       } else if (['generating_story', 'GENERATING', 'started'].includes(data.status)) {
         status = 'GENERATING';
         messageContent = data.message || 'Autonomous video pipeline started on n8n Cloud...';
@@ -308,6 +423,21 @@ export const handler = async (event, context) => {
         status,
         updatedAt: now
       };
+
+      if (status === 'FAILED') {
+        const canRetryAt = new Date(Date.now() + 5 * 60 * 1000);
+        updateDoc.canRetryAt = canRetryAt.toISOString();
+        updateDoc.retryCooldownSeconds = 300;
+        updateDoc.errorMessage = data.errorMessage || 'Our AI rendering engine encountered an unexpected error while processing your video. Your credit has been preserved.';
+        updateDoc.detailedError = data.detailedError || data.errorMessage || null;
+        updateDoc.failedNode = data.failedNode || null;
+        try {
+          await db.collection('template_generations').updateMany(
+            { threadId },
+            { $set: { status: 'failed', refunded: true, updatedAt: now } }
+          );
+        } catch (_) {}
+      }
 
       // Preserve or inherit multi-tenant user ownership
       if (existing?.userId) updateDoc.userId = existing.userId;
