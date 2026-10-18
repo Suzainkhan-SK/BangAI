@@ -149,6 +149,32 @@ async function callN8nMcp(hostUrl, token, toolName, args = {}) {
   return json.result || json;
 }
 
+// Canonical Stock Studio & Bang API Credit Providers
+// Strictly isolates Stock Studio system credit keys from n8n workflow keys (kie_video_keys, backup_video_keys, primary_llm_keys, etc.)
+export const BANGAI_CREDIT_PROVIDERS = [
+  'modal', 'json2video', 'gemini', 'openai', 'deepseek', 'groq',
+  'pexels', 'pixabay', 'elevenlabs', 'azure_speech', 'siliconflow',
+  'thumbnail', 'xkiro'
+];
+
+export function buildBangAiSystemKeyMap(allDocs) {
+  const fullKeyMap = {};
+  for (const prov of BANGAI_CREDIT_PROVIDERS) {
+    const doc = allDocs.find(d => d._id === `${prov}_keys`);
+    if (doc) {
+      const rawPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
+      fullKeyMap[prov] = Array.isArray(rawPool) ? rawPool : [];
+    } else {
+      fullKeyMap[prov] = [];
+    }
+  }
+  // Backward compatibility alias: thumbnail -> kie.ai
+  if (fullKeyMap['thumbnail'] && (!fullKeyMap['kie.ai'] || fullKeyMap['kie.ai'].length === 0)) {
+    fullKeyMap['kie.ai'] = fullKeyMap['thumbnail'];
+  }
+  return fullKeyMap;
+}
+
 // Main Serverless Handler
 export async function handler(event) {
   const origin = event.headers.origin || '*';
@@ -229,13 +255,8 @@ export async function handler(event) {
       const db = await getDb();
       const keysCol = db.collection('api_keys');
       const allDocs = await keysCol.find({}).toArray();
-      const fullKeyMap = {};
-      for (const doc of allDocs) {
-        if (doc._id === 'system_llm_models') continue;
-        const provId = doc.provider || doc._id.replace('_keys', '');
-        const rawPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
-        fullKeyMap[provId] = rawPool;
-      }
+      const fullKeyMap = buildBangAiSystemKeyMap(allDocs);
+
       const modelsDoc = await keysCol.findOne({ _id: 'system_llm_models' });
       const defaultModels = {
         gemini: 'gemini-2.5-flash',
@@ -932,9 +953,15 @@ export async function handler(event) {
         const keysCol = db.collection('api_keys');
         const allDocs = await keysCol.find({}).toArray();
         const docMap = {};
-        for (const doc of allDocs) {
-          const provId = doc.provider || doc._id.replace('_keys', '');
-          docMap[provId] = doc;
+        const knownProviders = [
+          'json2video', 'modal', 'gemini', 'openai', 'deepseek', 'groq',
+          'pexels', 'pixabay', 'azure_speech', 'elevenlabs',
+          'siliconflow', 'thumbnail', 'xkiro'
+        ];
+
+        for (const p of knownProviders) {
+          const doc = allDocs.find(d => d._id === `${p}_keys`);
+          if (doc) docMap[p] = doc;
         }
 
         const mapKeyPool = (doc, provider) => {
@@ -992,20 +1019,9 @@ export async function handler(event) {
           });
         };
 
-        const knownProviders = [
-          'json2video', 'modal', 'gemini', 'openai', 'deepseek', 'groq',
-          'pexels', 'pixabay', 'azure_speech', 'elevenlabs',
-          'siliconflow', 'thumbnail', 'xkiro'
-        ];
-
         const responseData = {};
         for (const p of knownProviders) {
           responseData[p] = mapKeyPool(docMap[p], p);
-        }
-        for (const [p, doc] of Object.entries(docMap)) {
-          if (!responseData[p]) {
-            responseData[p] = mapKeyPool(doc, p);
-          }
         }
 
         if (!responseData['modal'] || responseData['modal'].length === 0) {
@@ -1058,13 +1074,7 @@ export async function handler(event) {
       case 'sync-keys-to-modal': {
         const keysCol = db.collection('api_keys');
         const allDocs = await keysCol.find({}).toArray();
-        const fullKeyMap = {};
-        for (const doc of allDocs) {
-          if (doc._id === 'system_llm_models') continue;
-          const provId = doc.provider || doc._id.replace('_keys', '');
-          const rawPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
-          fullKeyMap[provId] = rawPool;
-        }
+        const fullKeyMap = buildBangAiSystemKeyMap(allDocs);
 
         const modelsDoc = await keysCol.findOne({ _id: 'system_llm_models' });
         const defaultModels = {
@@ -1134,13 +1144,7 @@ export async function handler(event) {
         // Auto-sync updated key pools and active models to Modal Cloud Clusters in background
         try {
           const allDocs = await keysCol.find({}).toArray();
-          const fullKeyMap = {};
-          for (const doc of allDocs) {
-            if (doc._id === 'system_llm_models') continue;
-            const provId = doc.provider || doc._id.replace('_keys', '');
-            const pPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
-            fullKeyMap[provId] = pPool;
-          }
+          const fullKeyMap = buildBangAiSystemKeyMap(allDocs);
           const modelsDoc = await keysCol.findOne({ _id: 'system_llm_models' });
           const activeModels = modelsDoc?.models || {
             gemini: 'gemini-2.5-flash',
@@ -1203,13 +1207,7 @@ export async function handler(event) {
         // Auto-sync updated models & keys to Modal Cloud clusters
         try {
           const allDocs = await keysCol.find({}).toArray();
-          const fullKeyMap = {};
-          for (const doc of allDocs) {
-            if (doc._id === 'system_llm_models') continue;
-            const provId = doc.provider || doc._id.replace('_keys', '');
-            const pPool = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
-            fullKeyMap[provId] = pPool;
-          }
+          const fullKeyMap = buildBangAiSystemKeyMap(allDocs);
           const modalEndpoints = [
             'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
             'https://cmpunktg1--bangai-stock-studio-serve.modal.run/api/bangai/system-keys'
@@ -1696,12 +1694,7 @@ export async function handler(event) {
 
                 // Push to Modal clusters in background
                 const allDocs = await keysCol.find({}).toArray();
-                const fullKeyMap = {};
-                for (const doc of allDocs) {
-                  if (doc._id === 'system_llm_models') continue;
-                  const provId = doc.provider || doc._id.replace('_keys', '');
-                  fullKeyMap[provId] = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
-                }
+                const fullKeyMap = buildBangAiSystemKeyMap(allDocs);
                 const modalEndpoints = [
                   'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
                   'https://cmpunktg1--bangai-stock-studio-serve.modal.run/api/bangai/system-keys'
@@ -3210,8 +3203,8 @@ export async function handler(event) {
             { _id: 'primary_llm_keys' },
             {
               $set: {
-                provider: 'gemini',
-                name: 'Primary LLM Keys (Gemini 2.5 Flash)',
+                provider: 'workflow_llm',
+                name: 'Workflow LLM Master Backup Keys',
                 keys: masterPrimaryKeys,
                 pool: masterPrimaryKeys.map((k, idx) => ({ key: k, label: `Primary LLM #${idx + 1}`, status: 'active', balance: 1000, max: 1000, unit: 'units' })),
                 updatedAt: new Date().toISOString()
@@ -6005,12 +5998,7 @@ export async function handler(event) {
         // Auto-push all keys to Modal clusters in background
         try {
           const allDocs = await keysCol.find({}).toArray();
-          const fullKeyMap = {};
-          for (const doc of allDocs) {
-            if (doc._id === 'system_llm_models') continue;
-            const provId = doc.provider || doc._id.replace('_keys', '');
-            fullKeyMap[provId] = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
-          }
+          const fullKeyMap = buildBangAiSystemKeyMap(allDocs);
           const modalEndpoints = [
             'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
             'https://cmpunktg1--bangai-stock-studio-serve.modal.run/api/bangai/system-keys'
@@ -6036,12 +6024,7 @@ export async function handler(event) {
       case 'sync-modal-cluster-keys': {
         const keysCol = db.collection('api_keys');
         const allDocs = await keysCol.find({}).toArray();
-        const fullKeyMap = {};
-        for (const doc of allDocs) {
-          if (doc._id === 'system_llm_models') continue;
-          const provId = doc.provider || doc._id.replace('_keys', '');
-          fullKeyMap[provId] = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
-        }
+        const fullKeyMap = buildBangAiSystemKeyMap(allDocs);
 
         const modelsDoc = await keysCol.findOne({ _id: 'system_llm_models' });
         const payload = {
