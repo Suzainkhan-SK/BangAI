@@ -230,5 +230,12 @@ export const adminService = {
   updateErrorRecoverySettings: async (settings) => adminFetch('update-error-recovery-settings', 'POST', settings),
   getFailedExecutions: async (limit = 30) => adminFetch('get-failed-executions', 'POST', { limit }),
   adminForceRetry: async (threadId) => adminFetch('admin-force-retry', 'POST', { threadId }),
-  adminRefundQuota: async (userId, userEmail) => adminFetch('admin-refund-quota', 'POST', { userId, userEmail })
+  adminRefundQuota: async (userId, userEmail) => adminFetch('admin-refund-quota', 'POST', { userId, userEmail }),
+  getProtectedWorkflows: async () => adminFetch('get-protected-workflows', 'GET'),
+  toggleWorkflowProtection: async (workflowId, protect) => adminFetch('toggle-workflow-protection', 'POST', { workflowId, protect }),
+
+  // 16. Real Stock Studio Management & Modal Cloud Synchronization
+  getStockStudioDetails: async () => adminFetch('get-stock-studio-details', 'GET'),
+  saveStockStudioDetails: async (settings) => adminFetch('save-stock-studio-details', 'POST', settings),
+  syncModalClusterKeys: async () => adminFetch('sync-modal-cluster-keys', 'POST')
 };

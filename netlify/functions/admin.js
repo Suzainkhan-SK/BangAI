@@ -5768,6 +5768,354 @@ export async function handler(event) {
         };
       }
 
+      // ----------------------------------------------------
+      // [16] STOCK STUDIO ARCHITECTURE & MODAL SYNC
+      // ----------------------------------------------------
+      case 'get-stock-studio-details': {
+        const sysCol = db.collection('system_config');
+        const keysCol = db.collection('api_keys');
+
+        const [platformDoc, modalDoc, pexelsDoc, pixabayDoc, j2vDoc] = await Promise.all([
+          sysCol.findOne({ _id: 'platform_settings' }),
+          sysCol.findOne({ _id: 'modal_configuration' }),
+          keysCol.findOne({ _id: 'pexels_keys' }),
+          keysCol.findOne({ _id: 'pixabay_keys' }),
+          keysCol.findOne({ _id: 'json2video_keys' })
+        ]);
+
+        const defaultStockStudio = {
+          defaultDuration: 75,
+          defaultAspect: '9:16',
+          defaultClipDuration: 5,
+          videoTransitionMode: 'Shuffle',
+          matchMaterialsToScript: true,
+          videoSource: 'pexels',
+          pexelsFallbackMode: 'auto-failover-pixabay',
+          defaultVoiceProvider: 'json2video',
+          defaultVoiceSpeed: 1.10,
+          backgroundMusicVolume: 0.08,
+          defaultSubtitlePreset: 'mrbeast-viral',
+          subtitleFontSize: 60,
+          subtitlePosition: 'bottom',
+          aiScriptEngine: 'gemini',
+          aiScriptModel: 'gemini-2.5-flash',
+          scriptParagraphs: 5,
+          renderResolution: '1080p',
+          workerConcurrency: 20
+        };
+
+        const stockStudio = { ...defaultStockStudio, ...(platformDoc?.stockStudio || {}) };
+        const activeCluster = modalDoc?.activeCluster || 'cmpunktg';
+
+        // Extract clean Pexels keys
+        const pexelsPool = pexelsDoc?.pool || (pexelsDoc?.keys || []).map(k => typeof k === 'string' ? k : k.key);
+        const cleanPexelsKeys = Array.from(new Set(pexelsPool.filter(k => k && typeof k === 'string' && k.trim().length > 5)));
+
+        // Extract clean Pixabay keys
+        const pixabayPool = pixabayDoc?.pool || (pixabayDoc?.keys || []).map(k => typeof k === 'string' ? k : k.key);
+        const cleanPixabayKeys = Array.from(new Set(pixabayPool.filter(k => k && typeof k === 'string' && k.trim().length > 5)));
+
+        // Fast cluster ping
+        const clusters = [
+          { id: 'cmpunktg', name: 'Primary Cluster (cmpunktg)', url: 'https://cmpunktg--bangai-stock-studio-serve.modal.run', uiUrl: 'https://cmpunktg--bangai-stock-studio-ui.modal.run' },
+          { id: 'cmpunktg1', name: 'Backup Cluster (cmpunktg1)', url: 'https://cmpunktg1--bangai-stock-studio-serve.modal.run', uiUrl: 'https://cmpunktg1--bangai-stock-studio-ui.modal.run' }
+        ];
+
+        const clusterHealth = await Promise.all(clusters.map(async (c) => {
+          const t0 = Date.now();
+          let online = false;
+          let latencyMs = 0;
+          try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 6500);
+            const res = await fetch(`${c.url}/ping`, { signal: controller.signal });
+            clearTimeout(tid);
+            latencyMs = Date.now() - t0;
+            online = res.ok;
+          } catch (_) {
+            online = false;
+          }
+          return {
+            ...c,
+            online,
+            latencyMs,
+            isActive: c.id === activeCluster
+          };
+        }));
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            stockStudio,
+            activeCluster,
+            clusterHealth,
+            pexelsKeys: cleanPexelsKeys,
+            pixabayKeys: cleanPixabayKeys,
+            j2vKeyCount: (j2vDoc?.keys || j2vDoc?.pool || []).length
+          })
+        };
+      }
+
+      case 'save-stock-studio-details': {
+        const { stockStudio, pexelsKeys, pixabayKeys, activeCluster } = body;
+        const sysCol = db.collection('system_config');
+        const keysCol = db.collection('api_keys');
+
+        if (stockStudio) {
+          await sysCol.updateOne(
+            { _id: 'platform_settings' },
+            { $set: { stockStudio, updatedAt: new Date().toISOString() } },
+            { upsert: true }
+          );
+        }
+
+        if (activeCluster) {
+          await sysCol.updateOne(
+            { _id: 'modal_configuration' },
+            { $set: { activeCluster, updatedAt: new Date().toISOString() } },
+            { upsert: true }
+          );
+        }
+
+        if (Array.isArray(pexelsKeys)) {
+          const cleanP = Array.from(new Set(pexelsKeys.map(k => String(k).trim()).filter(k => k.length > 5)));
+          await keysCol.updateOne(
+            { _id: 'pexels_keys' },
+            {
+              $set: {
+                pool: cleanP,
+                keys: cleanP.map((k, idx) => ({ key: k, label: `Pexels Key #${idx + 1}`, status: 'active', balance: 200, unit: 'req/hr' })),
+                provider: 'pexels',
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        }
+
+        if (Array.isArray(pixabayKeys)) {
+          const cleanPix = Array.from(new Set(pixabayKeys.map(k => String(k).trim()).filter(k => k.length > 5)));
+          await keysCol.updateOne(
+            { _id: 'pixabay_keys' },
+            {
+              $set: {
+                pool: cleanPix,
+                keys: cleanPix.map((k, idx) => ({ key: k, label: `Pixabay Key #${idx + 1}`, status: 'active', balance: 5000, unit: 'req/hr' })),
+                provider: 'pixabay',
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        }
+
+        // Auto-push all keys to Modal clusters in background
+        try {
+          const allDocs = await keysCol.find({}).toArray();
+          const fullKeyMap = {};
+          for (const doc of allDocs) {
+            if (doc._id === 'system_llm_models') continue;
+            const provId = doc.provider || doc._id.replace('_keys', '');
+            fullKeyMap[provId] = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
+          }
+          const modalEndpoints = [
+            'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
+            'https://cmpunktg1--bangai-stock-studio-serve.modal.run/api/bangai/system-keys'
+          ];
+          for (const ep of modalEndpoints) {
+            fetch(ep, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ keys: fullKeyMap })
+            }).catch(() => {});
+          }
+        } catch (_) {}
+
+        await logAdminAction(db, 'UPDATE_STOCK_STUDIO_SETTINGS', { stockStudio, activeCluster }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: 'Stock Studio settings & keys updated and synced to Modal clusters.' })
+        };
+      }
+
+      case 'sync-modal-cluster-keys': {
+        const keysCol = db.collection('api_keys');
+        const allDocs = await keysCol.find({}).toArray();
+        const fullKeyMap = {};
+        for (const doc of allDocs) {
+          if (doc._id === 'system_llm_models') continue;
+          const provId = doc.provider || doc._id.replace('_keys', '');
+          fullKeyMap[provId] = doc.pool || (doc.keys || []).map(k => typeof k === 'string' ? k : k.key);
+        }
+
+        const modelsDoc = await keysCol.findOne({ _id: 'system_llm_models' });
+        const payload = {
+          keys: fullKeyMap,
+          models: modelsDoc?.models || {},
+          default_provider: modelsDoc?.defaultProvider || 'gemini'
+        };
+
+        const modalEndpoints = [
+          'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/system-keys',
+          'https://cmpunktg1--bangai-stock-studio-serve.modal.run/api/bangai/system-keys'
+        ];
+
+        const syncResults = await Promise.all(modalEndpoints.map(async (ep) => {
+          try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 12000);
+            const res = await fetch(ep, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              signal: controller.signal
+            });
+            clearTimeout(tid);
+            return { endpoint: ep, success: res.ok, status: res.status };
+          } catch (e) {
+            return { endpoint: ep, success: false, error: e.message };
+          }
+        }));
+
+        await logAdminAction(db, 'SYNC_MODAL_CLUSTER_KEYS', { syncResults }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: 'Keys synced to Modal clusters', syncResults })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [17] DYNAMIC WORKFLOW ERROR SHIELD GOVERNANCE
+      // ----------------------------------------------------
+      case 'get-protected-workflows': {
+        const ERROR_WORKFLOW_ID = '3lOkQxK3vL3Gb2sp';
+        const n8nCfg = await getN8nConfig();
+        const activeHost = (n8nCfg.activeInstance || 'https://cmpunktg33.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const adminEmail = n8nCfg.adminCredentials?.email || 'cmpunktg33@gmail.com';
+        const adminPassword = n8nCfg.adminCredentials?.password || '@Suzainkhan6361';
+
+        const loginRes = await fetch(`https://${activeHost}/rest/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emailOrLdapLoginId: adminEmail, password: adminPassword })
+        });
+        if (!loginRes.ok) {
+          const errText = await loginRes.text().catch(() => '');
+          return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ success: false, error: `n8n Cloud login failed (${loginRes.status}): ${errText.slice(0, 150)}` }) };
+        }
+        const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] || '';
+
+        const wfRes = await fetch(`https://${activeHost}/rest/workflows`, {
+          headers: { 'Cookie': cookie }
+        });
+        if (!wfRes.ok) {
+          const errText = await wfRes.text().catch(() => '');
+          return { statusCode: 502, headers: corsHeaders, body: JSON.stringify({ success: false, error: `Failed to fetch workflows from n8n Cloud (${wfRes.status}): ${errText.slice(0, 150)}` }) };
+        }
+        const wfData = await wfRes.json();
+        const rawList = Array.isArray(wfData.data) ? wfData.data : (Array.isArray(wfData) ? wfData : []);
+
+        const workflows = rawList.map(w => ({
+          id: w.id,
+          name: w.name,
+          active: !!w.active,
+          errorWorkflow: w.settings?.errorWorkflow || null,
+          isProtected: (w.settings?.errorWorkflow === ERROR_WORKFLOW_ID),
+          updatedAt: w.updatedAt
+        }));
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            errorWorkflowId: ERROR_WORKFLOW_ID,
+            protectedCount: workflows.filter(w => w.isProtected).length,
+            totalCount: workflows.length,
+            workflows
+          })
+        };
+      }
+
+      case 'toggle-workflow-protection': {
+        const ERROR_WORKFLOW_ID = '3lOkQxK3vL3Gb2sp';
+        const { workflowId, protect } = body;
+        if (!workflowId) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'workflowId is required' }) };
+        }
+
+        const n8nCfg = await getN8nConfig();
+        const activeHost = (n8nCfg.activeInstance || 'https://cmpunktg33.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const adminEmail = n8nCfg.adminCredentials?.email || 'cmpunktg33@gmail.com';
+        const adminPassword = n8nCfg.adminCredentials?.password || '@Suzainkhan6361';
+        const mcpToken = n8nCfg.mcpToken;
+
+        const loginRes = await fetch(`https://${activeHost}/rest/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emailOrLdapLoginId: adminEmail, password: adminPassword })
+        });
+        if (!loginRes.ok) {
+          const errText = await loginRes.text().catch(() => '');
+          return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ success: false, error: `n8n Cloud login failed (${loginRes.status}): ${errText.slice(0, 150)}` }) };
+        }
+        const cookie = loginRes.headers.get('set-cookie')?.split(';')[0] || '';
+
+        const getRes = await fetch(`https://${activeHost}/rest/workflows/${workflowId}`, {
+          headers: { 'Cookie': cookie }
+        });
+        if (!getRes.ok) {
+          return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, error: `Workflow "${workflowId}" was not found on n8n Cloud.` }) };
+        }
+        const getJson = await getRes.json();
+        const currentWf = getJson.data || getJson;
+        const currentSettings = currentWf?.settings || {};
+
+        const newSettings = {
+          ...currentSettings,
+          errorWorkflow: protect ? ERROR_WORKFLOW_ID : null
+        };
+
+        const patchRes = await fetch(`https://${activeHost}/rest/workflows/${workflowId}`, {
+          method: 'PATCH',
+          headers: { 'Cookie': cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings: newSettings })
+        });
+        if (!patchRes.ok) {
+          const errText = await patchRes.text();
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: `Failed to patch workflow on n8n Cloud: ${errText.slice(0, 200)}` }) };
+        }
+
+        try {
+          if (mcpToken) {
+            await callN8nMcp(activeHost, mcpToken, 'publish_workflow', { workflowId });
+          }
+        } catch (_) {}
+
+        await logAdminAction(db, 'TOGGLE_WORKFLOW_ERROR_PROTECTION', { workflowId, protect, errorWorkflow: protect ? ERROR_WORKFLOW_ID : null }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            workflowId,
+            workflowName: currentWf.name,
+            isProtected: !!protect,
+            errorWorkflowId: protect ? ERROR_WORKFLOW_ID : null,
+            message: protect
+              ? `Workflow "${currentWf.name}" (${workflowId}) is now actively protected by the Universal Error Shield.`
+              : `Universal Error Shield detached from "${currentWf.name}" (${workflowId}).`
+          })
+        };
+      }
+
       default:
         return {
           statusCode: 400,

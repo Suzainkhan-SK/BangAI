@@ -139,6 +139,67 @@ export default function WorkflowManagerView() {
     }
   };
 
+  // Protected Workflows State & Handlers
+  const [protectedWorkflows, setProtectedWorkflows] = useState([]);
+  const [loadingProtectedWorkflows, setLoadingProtectedWorkflows] = useState(false);
+  const [customWfIdInput, setCustomWfIdInput] = useState('');
+  const [protectingWfId, setProtectingWfId] = useState(null);
+  const [workflowSearchTerm, setWorkflowSearchTerm] = useState('');
+
+  const fetchProtectedWorkflows = async () => {
+    setLoadingProtectedWorkflows(true);
+    try {
+      const res = await adminService.getProtectedWorkflows();
+      if (res && res.success && res.workflows) {
+        setProtectedWorkflows(res.workflows);
+      }
+    } catch (e) {
+      console.warn('Error fetching protected workflows:', e.message);
+    } finally {
+      setLoadingProtectedWorkflows(false);
+    }
+  };
+
+  const handleToggleProtection = async (workflowId, currentProtected, workflowName) => {
+    const actionName = currentProtected ? 'Detach Universal Error Shield from' : 'Attach Universal Error Shield to';
+    if (!window.confirm(`${actionName} "${workflowName || workflowId}"?`)) return;
+    setProtectingWfId(workflowId);
+    try {
+      const res = await adminService.toggleWorkflowProtection(workflowId, !currentProtected);
+      if (res && res.success) {
+        setToastMsg(`✅ ${res.message}`);
+        fetchProtectedWorkflows();
+      } else {
+        setToastMsg(`⚠️ Error: ${res?.error || 'Failed to update workflow'}`);
+      }
+    } catch (e) {
+      setToastMsg(`⚠️ Error: ${e.message}`);
+    } finally {
+      setProtectingWfId(null);
+    }
+  };
+
+  const handleAddCustomWorkflow = async (e) => {
+    e?.preventDefault();
+    const wfId = customWfIdInput.trim();
+    if (!wfId) return;
+    setProtectingWfId(wfId);
+    try {
+      const res = await adminService.toggleWorkflowProtection(wfId, true);
+      if (res && res.success) {
+        setToastMsg(`✅ ${res.message}`);
+        setCustomWfIdInput('');
+        fetchProtectedWorkflows();
+      } else {
+        setToastMsg(`⚠️ Error: ${res?.error || 'Failed to protect workflow'}`);
+      }
+    } catch (e) {
+      setToastMsg(`⚠️ Error: ${e.message}`);
+    } finally {
+      setProtectingWfId(null);
+    }
+  };
+
   const providerLabel = useMemo(() => {
     if (managerCategory === 'error_recovery') return 'Error & Recovery Center';
     if (managerCategory === 'video') {
@@ -1649,6 +1710,7 @@ export default function WorkflowManagerView() {
               setManagerCategory('error_recovery');
               fetchErrorSettings();
               fetchFailedExecutions();
+              fetchProtectedWorkflows();
             }}
             style={{
               flex: '1 1 200px',
@@ -2054,7 +2116,8 @@ export default function WorkflowManagerView() {
                   onClick={() => {
                     fetchErrorSettings();
                     fetchFailedExecutions();
-                    setToastMsg('🔄 Telemetry & failure logs refreshed!');
+                    fetchProtectedWorkflows();
+                    setToastMsg('🔄 Telemetry, protected workflows & failure logs refreshed!');
                   }}
                   disabled={loadingFailures || loadingErrorSettings}
                   className="admin-btn"
@@ -2378,6 +2441,203 @@ export default function WorkflowManagerView() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+
+              {/* Full-Width Section: Workflows Under Active Error Shield Protection */}
+              <div style={{
+                gridColumn: '1 / -1',
+                marginTop: '10px',
+                background: 'var(--admin-bg-elevated)',
+                borderRadius: '14px',
+                border: '1px solid var(--admin-border-glass)',
+                padding: '20px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid var(--admin-border-glass)', paddingBottom: '14px', marginBottom: '16px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '18px' }}>🛡️</span>
+                      <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                        Workflows Under Active Error Shield Protection
+                      </h3>
+                      <span style={{
+                        fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px',
+                        background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)'
+                      }}>
+                        {protectedWorkflows.filter(w => w.isProtected).length} Protected
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                      Workflows linked to <code>3lOkQxK3vL3Gb2sp</code> automatically push execution failures to BangAI, preserve user credits, and start the 5-minute retry cooldown.
+                    </p>
+                  </div>
+
+                  {/* Refresh Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      fetchProtectedWorkflows();
+                      setToastMsg('🔄 Protection list refreshed!');
+                    }}
+                    disabled={loadingProtectedWorkflows}
+                    className="admin-btn"
+                    style={{
+                      padding: '6px 12px', fontSize: '11.5px', fontWeight: 700, borderRadius: '8px',
+                      background: 'var(--admin-bg-surface)', border: '1px solid var(--admin-border-glass)',
+                      color: 'var(--admin-text-main)', cursor: 'pointer'
+                    }}
+                  >
+                    {loadingProtectedWorkflows ? 'Refreshing...' : '🔄 Refresh Workflows'}
+                  </button>
+                </div>
+
+                {/* 1-Click Protect Custom / New Workflow Bar */}
+                <form
+                  onSubmit={handleAddCustomWorkflow}
+                  style={{
+                    display: 'flex',
+                    gap: '10px',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: 'var(--admin-bg-surface)',
+                    border: '1px dashed var(--admin-border-glass)',
+                    marginBottom: '16px'
+                  }}
+                >
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
+                    ➕ Protect New / Future Workflow:
+                  </span>
+                  <input
+                    type="text"
+                    value={customWfIdInput}
+                    onChange={(e) => setCustomWfIdInput(e.target.value)}
+                    placeholder="Enter n8n Workflow ID (e.g. PQKEFVjhD3P2yfnZ or custom template ID)..."
+                    className="admin-input"
+                    style={{ flex: '1 1 300px', fontSize: '12px', fontFamily: 'var(--admin-font-mono)' }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!customWfIdInput.trim() || protectingWfId === customWfIdInput.trim()}
+                    className="admin-btn"
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px',
+                      fontWeight: 700, fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {protectingWfId === customWfIdInput.trim() ? 'Attaching Shield...' : '🛡️ Attach Universal Error Shield'}
+                  </button>
+                </form>
+
+                {/* Search Bar for Workflows */}
+                <div style={{ marginBottom: '14px' }}>
+                  <input
+                    type="text"
+                    value={workflowSearchTerm}
+                    onChange={(e) => setWorkflowSearchTerm(e.target.value)}
+                    placeholder="Search workflows by name or ID..."
+                    className="admin-input"
+                    style={{ width: '100%', fontSize: '12px' }}
+                  />
+                </div>
+
+                {/* Protected Workflows Table / List */}
+                {loadingProtectedWorkflows ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: 'var(--admin-text-sub)', fontSize: '12px' }}>
+                    Loading workflows from n8n Cloud...
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '380px', overflowY: 'auto' }}>
+                    {protectedWorkflows
+                      .filter(w => {
+                        if (!workflowSearchTerm.trim()) return true;
+                        const term = workflowSearchTerm.toLowerCase();
+                        return (w.name || '').toLowerCase().includes(term) || (w.id || '').toLowerCase().includes(term);
+                      })
+                      .sort((a, b) => (b.isProtected ? 1 : 0) - (a.isProtected ? 1 : 0))
+                      .map((w) => {
+                        const isWorking = protectingWfId === w.id;
+                        return (
+                          <div
+                            key={w.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '10px 14px',
+                              borderRadius: '9px',
+                              background: w.isProtected ? 'rgba(16, 185, 129, 0.04)' : 'var(--admin-bg-surface)',
+                              border: w.isProtected ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--admin-border-glass)',
+                              flexWrap: 'wrap',
+                              gap: '10px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 320px' }}>
+                              <span style={{ fontSize: '16px' }}>{w.isProtected ? '🛡️' : '⚪'}</span>
+                              <div>
+                                <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                                  {w.name}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                  <code>{w.id}</code>
+                                  {w.active ? (
+                                    <span style={{ color: '#10b981', fontWeight: 600 }}>● Active</span>
+                                  ) : (
+                                    <span style={{ color: 'var(--admin-text-sub)' }}>○ Inactive</span>
+                                  )}
+                                  {w.isProtected && (
+                                    <span style={{ color: '#10b981', fontWeight: 600 }}>Linked to 3lOkQxK3vL3Gb2sp</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleProtection(w.id, w.isProtected, w.name)}
+                                disabled={isWorking}
+                                className="admin-btn"
+                                style={{
+                                  padding: '5px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  border: w.isProtected ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+                                  background: w.isProtected ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.15)',
+                                  color: w.isProtected ? '#ef4444' : '#10b981'
+                                }}
+                              >
+                                {isWorking
+                                  ? (w.isProtected ? 'Detaching...' : 'Attaching...')
+                                  : (w.isProtected ? '🔓 Detach Shield' : '🛡️ Attach Shield')}
+                              </button>
+
+                              <a
+                                href={`${activeHost}/workflow/${w.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  padding: '5px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  color: 'var(--admin-text-sub)',
+                                  textDecoration: 'none',
+                                  border: '1px solid var(--admin-border-glass)',
+                                  background: 'transparent'
+                                }}
+                              >
+                                ↗ Open n8n
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
                 )}
               </div>
