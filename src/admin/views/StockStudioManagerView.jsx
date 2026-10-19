@@ -436,7 +436,7 @@ export default function StockStudioManagerView() {
       </div>
 
       {/* KPI Overview Grid */}
-      <div className="admin-grid admin-grid-5" style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+      <div className="admin-grid admin-grid-6" style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
         <div className="admin-card" style={{ padding: '16px' }}>
           <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Total Stock Studio Videos
@@ -487,13 +487,25 @@ export default function StockStudioManagerView() {
 
         <div className="admin-card" style={{ padding: '16px' }}>
           <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            YouTube Channels Connected
+          </div>
+          <div style={{ fontSize: '26px', fontWeight: 900, color: '#ef4444', marginTop: '6px' }}>
+            {data.users.reduce((sum, u) => sum + (u.channelCount || (u.youtubeChannels ? u.youtubeChannels.length : 0)), 0) || (automations.filter(a => a.hasChannel).length)}
+          </div>
+          <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', marginTop: '4px' }}>
+            Studio YouTube Cloud accounts
+          </div>
+        </div>
+
+        <div className="admin-card" style={{ padding: '16px' }}>
+          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Stock Studio Creators
           </div>
           <div style={{ fontSize: '26px', fontWeight: 900, color: '#f59e0b', marginTop: '6px' }}>
             {data.kpis.totalUsers}
           </div>
           <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', marginTop: '4px' }}>
-            Users with generation records
+            Users with studio activity
           </div>
         </div>
       </div>
@@ -801,6 +813,42 @@ export default function StockStudioManagerView() {
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          {/* Language Badge */}
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            padding: '3px 9px',
+                            borderRadius: '12px',
+                            background: 'rgba(99, 102, 241, 0.12)',
+                            color: '#818cf8',
+                            border: '1px solid rgba(99, 102, 241, 0.35)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <span>🌐</span>
+                            <span>{video.video_language === 'hi-IN' || video.video_language === 'hi' || video.video_language === 'Hindi' ? 'Hindi (हिन्दी)' : (video.video_language || 'Hindi (हिन्दी)')}</span>
+                          </span>
+
+                          {/* Connected YouTube Channel Badge */}
+                          {video.youtube_channel_title && (
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              padding: '3px 9px',
+                              borderRadius: '12px',
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.35)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              <span>📺</span>
+                              <span>{video.youtube_channel_title}</span>
+                            </span>
+                          )}
+
                           <span style={{
                             fontSize: '11px',
                             fontWeight: 800,
@@ -897,6 +945,47 @@ export default function StockStudioManagerView() {
                               >
                                 ↗ Open
                               </a>
+                            </>
+                          ) : null}
+
+                          {/* Direct YouTube Link and Actions */}
+                          {video.youtube_url ? (
+                            <>
+                              <a
+                                href={video.youtube_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="admin-btn"
+                                style={{
+                                  padding: '5px 12px',
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  textDecoration: 'none',
+                                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
+                                }}
+                                title="Watch uploaded video directly on YouTube"
+                              >
+                                <span>🎬 View on YouTube</span>
+                                <span>↗</span>
+                              </a>
+
+                              <button
+                                type="button"
+                                onClick={() => handleCopyLink(video.youtube_url, `yt_${video.id}`)}
+                                className="admin-btn admin-btn-secondary"
+                                style={{ fontSize: '11px', padding: '5px 8px', borderColor: 'rgba(239, 68, 68, 0.35)', color: '#ef4444' }}
+                                title="Copy YouTube Video URL"
+                              >
+                                {copiedId === `yt_${video.id}` ? '✓ Copied YT Link' : '📋 Copy YouTube Link'}
+                              </button>
                             </>
                           ) : null}
                         </div>
@@ -1061,22 +1150,59 @@ export default function StockStudioManagerView() {
                             {isBangCredits ? '⚡ Bang API Credits' : '🔑 BYOK Keys'}
                           </span>
 
-                          {/* YouTube Auto-Upload Status */}
+                          {/* Language Setting Badge */}
                           <span style={{
                             fontSize: '11px',
-                            fontWeight: 700,
+                            fontWeight: 800,
                             padding: '3px 9px',
                             borderRadius: '12px',
-                            background: item.hasChannel ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.06)',
-                            color: item.hasChannel ? '#ef4444' : 'var(--admin-text-sub)',
-                            border: item.hasChannel ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--admin-border-glass)',
+                            background: 'rgba(99, 102, 241, 0.12)',
+                            color: '#818cf8',
+                            border: '1px solid rgba(99, 102, 241, 0.35)',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px'
                           }}>
-                            <span>📺</span>
-                            <span>{item.hasChannel ? item.channelTitle : 'No Channel Connected'}</span>
+                            <span>🌐</span>
+                            <span>{item.settings?.video_language === 'hi-IN' || item.settings?.video_language === 'Hindi' ? 'Hindi (हिन्दी)' : (item.settings?.video_language || 'Hindi (हिन्दी)')}</span>
                           </span>
+
+                          {/* YouTube Connected Channels Status */}
+                          {item.channels && item.channels.length > 0 ? (
+                            item.channels.map((ch, chIdx) => (
+                              <span key={chIdx} style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                padding: '3px 9px',
+                                borderRadius: '12px',
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                color: '#ef4444',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                <span>📺</span>
+                                <span>{ch.channelTitle}</span>
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '3px 9px',
+                              borderRadius: '12px',
+                              background: item.hasChannel ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.06)',
+                              color: item.hasChannel ? '#ef4444' : 'var(--admin-text-sub)',
+                              border: item.hasChannel ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--admin-border-glass)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              <span>📺</span>
+                              <span>{item.hasChannel ? item.channelTitle : 'No Channel Connected'}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -1098,7 +1224,7 @@ export default function StockStudioManagerView() {
 
                         {topics.length > 0 ? (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                            {topics.slice(0, 4).map((t, idx) => (
+                            {topics.slice(0, 5).map((t, idx) => (
                               <span
                                 key={idx}
                                 style={{
@@ -1113,9 +1239,9 @@ export default function StockStudioManagerView() {
                                 {idx === 0 ? '▶ Next: ' : `${idx + 1}. `}{t}
                               </span>
                             ))}
-                            {topics.length > 4 && (
+                            {topics.length > 5 && (
                               <span style={{ fontSize: '11px', padding: '3px 8px', color: 'var(--admin-text-sub)', fontStyle: 'italic' }}>
-                                +{topics.length - 4} more topics
+                                +{topics.length - 5} more topics
                               </span>
                             )}
                           </div>
@@ -1123,6 +1249,47 @@ export default function StockStudioManagerView() {
                           <span style={{ fontSize: '11.5px', color: '#f59e0b', fontStyle: 'italic' }}>
                             ⚠️ No upcoming topics queued. Autopilot will use default daily topics.
                           </span>
+                        )}
+
+                        {/* Last Run Topic & Uploaded YouTube Video link */}
+                        {(item.lastTopic || item.lastYoutubeUrl) && (
+                          <div style={{
+                            marginTop: '10px',
+                            paddingTop: '8px',
+                            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '8px'
+                          }}>
+                            <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
+                              🎬 Last Run Topic: <strong style={{ color: 'var(--admin-text-main)' }}>{item.lastTopic || 'Completed Run'}</strong>
+                            </span>
+                            {item.lastYoutubeUrl ? (
+                              <a
+                                href={item.lastYoutubeUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="admin-btn"
+                                style={{
+                                  fontSize: '11px',
+                                  padding: '3px 10px',
+                                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                  color: '#fff',
+                                  textDecoration: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  borderRadius: '6px',
+                                  boxShadow: '0 2px 6px rgba(239, 68, 68, 0.3)'
+                                }}
+                              >
+                                <span>🎬 View on YouTube</span>
+                                <span>↗</span>
+                              </a>
+                            ) : null}
+                          </div>
                         )}
                       </div>
 
@@ -1218,6 +1385,7 @@ export default function StockStudioManagerView() {
                     <tr style={{ borderBottom: '1px solid var(--admin-border-glass)', color: 'var(--admin-text-sub)' }}>
                       <th style={{ padding: '10px 12px', fontWeight: 700 }}>Creator</th>
                       <th style={{ padding: '10px 12px', fontWeight: 700 }}>Plan / Tier</th>
+                      <th style={{ padding: '10px 12px', fontWeight: 700 }}>Connected YouTube Channels</th>
                       <th style={{ padding: '10px 12px', fontWeight: 700 }}>Stock Studio Generations</th>
                       <th style={{ padding: '10px 12px', fontWeight: 700 }}>Credits Balance</th>
                       <th style={{ padding: '10px 12px', fontWeight: 700 }}>Last Active</th>
@@ -1268,6 +1436,43 @@ export default function StockStudioManagerView() {
                           <span className="admin-badge admin-badge-purple">
                             {u.tier}
                           </span>
+                        </td>
+
+                        <td style={{ padding: '12px' }}>
+                          {u.youtubeChannels && u.youtubeChannels.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              {u.youtubeChannels.map((c, i) => (
+                                <span
+                                  key={i}
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    background: 'rgba(239, 68, 68, 0.12)',
+                                    color: '#ef4444',
+                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    width: 'fit-content'
+                                  }}
+                                >
+                                  <span>📺</span>
+                                  <strong style={{ color: 'var(--admin-text-main)' }}>{c.channelTitle}</strong>
+                                  {c.channelId && (
+                                    <span style={{ fontSize: '10px', opacity: 0.7, fontFamily: 'var(--admin-font-mono)' }}>
+                                      ({c.channelId.slice(0, 10)}...)
+                                    </span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
+                              No channel connected
+                            </span>
+                          )}
                         </td>
 
                         <td style={{ padding: '12px' }}>
@@ -1614,6 +1819,7 @@ export default function StockStudioManagerView() {
                   </div>
                   <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px', color: 'var(--admin-text-sub)' }}>
                     <div>Subject: <strong style={{ color: 'var(--admin-text-main)' }}>{viewingSettings.settings?.video_subject || viewingSettings.title}</strong></div>
+                    <div>Language: <strong style={{ color: 'var(--admin-accent-cyan)' }}>{viewingSettings.video_language === 'hi-IN' || viewingSettings.video_language === 'Hindi' ? 'Hindi (हिन्दी)' : (viewingSettings.video_language || viewingSettings.settings?.video_language || 'Hindi (हिन्दी)')}</strong></div>
                     <div>LLM Engine: <strong style={{ color: 'var(--admin-text-main)' }}>{viewingSettings.settings?.script_engine || 'gemini'}</strong></div>
                     <div>Model: <strong style={{ color: 'var(--admin-text-main)' }}>{viewingSettings.settings?.script_model || 'gemini-2.5-flash'}</strong></div>
                     <div>Paragraph Count: <strong style={{ color: 'var(--admin-text-main)' }}>{viewingSettings.settings?.paragraph_number || 2}</strong></div>
@@ -1653,6 +1859,45 @@ export default function StockStudioManagerView() {
                     <div>Font Size: <strong style={{ color: 'var(--admin-text-main)' }}>{viewingSettings.settings?.font_size || 50}px</strong></div>
                     <div>Target Duration: <strong style={{ color: 'var(--admin-text-main)' }}>{viewingSettings.settings?.duration || 60} seconds</strong></div>
                     <div>Output Format: <strong style={{ color: 'var(--admin-text-main)' }}>MP4 (H.264 / AAC)</strong></div>
+                  </div>
+                </div>
+
+                {/* YouTube Publishing Card */}
+                <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--admin-bg-surface)', border: '1px solid var(--admin-border-glass)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#ef4444', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>📺 YouTube Publishing</span>
+                  </div>
+                  <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px', color: 'var(--admin-text-sub)' }}>
+                    <div>Connected Channel: <strong style={{ color: 'var(--admin-text-main)' }}>{viewingSettings.youtube_channel_title || 'Auto-Detected Channel'}</strong></div>
+                    <div>Channel ID: <strong style={{ color: 'var(--admin-text-main)', fontFamily: 'var(--admin-font-mono)', fontSize: '11px' }}>{viewingSettings.youtube_channel_id || 'System Linked'}</strong></div>
+                    <div>
+                      Upload Status:{' '}
+                      {viewingSettings.youtube_url ? (
+                        <span style={{ color: '#10b981', fontWeight: 800 }}>Uploaded to YouTube</span>
+                      ) : (
+                        <span style={{ color: 'var(--admin-text-sub)' }}>Not uploaded / Local Render</span>
+                      )}
+                    </div>
+                    {viewingSettings.youtube_url && (
+                      <div style={{ marginTop: '4px' }}>
+                        <a
+                          href={viewingSettings.youtube_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: '11px',
+                            color: '#ef4444',
+                            fontWeight: 800,
+                            textDecoration: 'underline',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <span>🎬 Watch on YouTube ↗</span>
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

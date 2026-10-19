@@ -84,18 +84,37 @@ export async function executeStockStudioAutonomousRun(db, automation, isManualTr
   const settings = automation.settings || {};
   const isBangCredits = automation.creditMode !== 'byok';
 
-  // 6. Build Stock Studio Task Payload
+  // Determine video language:
+  // 1. Explicit from settings
+  // 2. Or infer Hindi if voice name contains Hindi/🇮🇳
+  // 3. Default to Hindi ('hi-IN')
+  let videoLanguage = settings.video_language || '';
+  if (!videoLanguage && (settings.voice_name || '').toLowerCase().includes('hindi')) {
+    videoLanguage = 'hi-IN';
+  }
+  if (!videoLanguage) {
+    videoLanguage = 'hi-IN';
+  }
+
+  // 6. Build Stock Studio Task Payload strictly using user's applied settings
   const taskPayload = {
     video_subject: nextTopic,
+    video_language: videoLanguage,
     video_aspect: settings.video_aspect || '9:16',
     video_source: settings.video_source || 'pexels',
     voice_name: settings.voice_name || 'json2video:jU6FDipvScsl0aEFyDoh:Aravinda - Mysteriou - 🇮🇳 Hindi (Male)',
-    voice_speed: Number(settings.voice_speed) || 1.1,
-    llm_provider: settings.script_engine || 'gemini',
-    llm_model: settings.script_model || 'gemini-2.5-flash',
+    voice_speed: Number(settings.voice_speed || settings.voice_rate) || 1.1,
+    voice_rate: Number(settings.voice_speed || settings.voice_rate) || 1.1,
+    llm_provider: settings.llm_provider || settings.script_engine || 'gemini',
+    llm_model: settings.llm_model || settings.script_model || 'gemini-2.5-flash',
     paragraph_number: Number(settings.paragraph_number) || 2,
     subtitle_preset: settings.subtitle_preset || 'mrbeast-viral',
+    font_name: settings.font_name || '',
     font_size: Number(settings.font_size) || 50,
+    text_fore_color: settings.text_fore_color || '#FFE600',
+    stroke_color: settings.stroke_color || '#000000',
+    stroke_width: Number(settings.stroke_width) || 2.0,
+    bgm_type: settings.bgm_type || 'random',
     bgm_volume: Number(settings.bgm_volume) || 0.15,
     user_id: userDoc.id || userDoc._id?.toString() || userId,
     use_bangai_credits: isBangCredits,
@@ -473,6 +492,32 @@ export async function handler(event, context) {
 
       // ── ACTION: RUN NOW (Instant Test / Dispatch) ─────────────────────────
       if (action === 'run-now') {
+        const updates = {};
+        if (Array.isArray(reqBody.upcomingTopics) && reqBody.upcomingTopics.length > 0) {
+          updates.upcomingTopics = reqBody.upcomingTopics.map(t => String(t).trim()).filter(Boolean);
+          autoDoc.upcomingTopics = updates.upcomingTopics;
+        }
+        if (reqBody.settings && typeof reqBody.settings === 'object') {
+          updates.settings = { ...(autoDoc.settings || {}), ...reqBody.settings };
+          autoDoc.settings = updates.settings;
+        }
+        if (reqBody.creditMode) {
+          updates.creditMode = reqBody.creditMode;
+          autoDoc.creditMode = reqBody.creditMode;
+        }
+        if (reqBody.autoUploadToYouTube !== undefined) {
+          updates.autoUploadToYouTube = !!reqBody.autoUploadToYouTube;
+          autoDoc.autoUploadToYouTube = !!reqBody.autoUploadToYouTube;
+        }
+        if (reqBody.selectedChannelId !== undefined) {
+          updates.selectedChannelId = reqBody.selectedChannelId;
+          autoDoc.selectedChannelId = reqBody.selectedChannelId;
+        }
+        if (Object.keys(updates).length > 0) {
+          updates.updatedAt = new Date();
+          await autoCol.updateOne({ _id: autoDoc._id }, { $set: updates });
+        }
+
         // If user passed a specific topic in run-now, push it to front of queue
         if (reqBody.topic && String(reqBody.topic).trim()) {
           const customTopic = String(reqBody.topic).trim();

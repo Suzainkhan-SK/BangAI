@@ -5857,6 +5857,10 @@ export async function handler(event) {
             error: t.error || '',
             failedStage: t.failedStage || '',
             videoUrl: t.videoUrl || null,
+            youtube_url: t.youtube_url || t.youtubeUrl || '',
+            youtube_channel_title: t.youtube_channel_title || '',
+            youtube_channel_id: t.youtube_channel_id || '',
+            video_language: t.settings?.video_language || 'hi-IN',
             creditMode: t.creditMode || 'bang_credits', // 'bang_credits' or 'byok'
             settings: t.settings || {},
             createdAt: t.createdAt || new Date().toISOString(),
@@ -5865,17 +5869,31 @@ export async function handler(event) {
           };
         });
 
-        const users = rawUsers.map(u => ({
-          id: u.id || u._id?.toString(),
-          name: u.name || (u.email ? u.email.split('@')[0] : 'Creator'),
-          email: u.email || 'creator@bangai.com',
-          avatar: u.avatar || '',
-          tier: u.plan || u.tier || 'Creator Pro Plan',
-          credits: u.credits !== undefined ? u.credits : 100,
-          videoCount: userVideoMap[u.email] || 0,
-          createdAt: u.createdAt || '',
-          lastActive: u.updatedAt || u.createdAt || ''
-        }));
+        const users = rawUsers.map(u => {
+          const channels = u.youtubeChannels || [];
+          const primary = channels.find(c => c.isDefault) || channels[0] || null;
+          return {
+            id: u.id || u._id?.toString(),
+            name: u.name || (u.email ? u.email.split('@')[0] : 'Creator'),
+            email: u.email || 'creator@bangai.com',
+            avatar: u.avatar || '',
+            tier: u.plan || u.tier || 'Creator Pro Plan',
+            credits: u.credits !== undefined ? u.credits : 100,
+            videoCount: userVideoMap[u.email] || 0,
+            youtubeChannels: channels.map(c => ({
+              channelId: c.channelId,
+              channelTitle: c.channelTitle || c.title || 'YouTube Channel',
+              avatarUrl: c.avatarUrl || c.thumbnailUrl || '',
+              isDefault: !!c.isDefault,
+              connectedAt: c.connectedAt || ''
+            })),
+            channelCount: channels.length,
+            primaryChannelTitle: primary?.channelTitle || primary?.title || null,
+            primaryChannelId: primary?.channelId || null,
+            createdAt: u.createdAt || '',
+            lastActive: u.updatedAt || u.createdAt || ''
+          };
+        });
 
         const totalVideos = videos.length;
         const completedVideos = videos.filter(v => v.status === 'completed' && v.videoUrl).length;
@@ -6052,6 +6070,7 @@ export async function handler(event) {
           const u = userMap.get(String(a.userEmail || '').toLowerCase());
           const channels = u?.youtubeChannels || [];
           const targetChannel = (a.selectedChannelId && channels.find(c => c.channelId === a.selectedChannelId)) || channels.find(c => c.isDefault) || channels[0] || null;
+          const lastCompleted = Array.isArray(a.completedTopics) && a.completedTopics.length > 0 ? a.completedTopics[a.completedTopics.length - 1] : null;
           return {
             ...a,
             id: String(a._id),
@@ -6061,6 +6080,13 @@ export async function handler(event) {
             channelId: targetChannel?.channelId || a.selectedChannelId || null,
             channelAvatar: targetChannel?.avatarUrl || targetChannel?.thumbnailUrl || null,
             hasChannel: !!targetChannel,
+            channels: channels.map(c => ({
+              channelId: c.channelId,
+              channelTitle: c.channelTitle || c.title || 'YouTube Channel',
+              avatarUrl: c.avatarUrl || c.thumbnailUrl || ''
+            })),
+            lastTopic: a.lastTopic || lastCompleted?.topic || null,
+            lastYoutubeUrl: a.lastYoutubeUrl || lastCompleted?.youtubeUrl || null,
             tokenValid: targetChannel ? !!(targetChannel.tokens?.accessToken || targetChannel.tokens?.access_token || targetChannel.tokens?.refreshToken) && !targetChannel.tokens?.needsReconnect : false
           };
         });
