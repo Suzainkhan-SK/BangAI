@@ -178,6 +178,11 @@ function AppContent() {
     // Ensure document body scroll lock is always cleared on route change
     if (typeof document !== 'undefined') {
       document.body.classList.remove('no-scroll');
+      const isPublic = ['landing', 'login', 'register', 'pricing', 'api', 'admin', 'privacy', 'terms', 'compliance', 'about'].includes(currentRoute?.view);
+      if (isPublic) {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
     }
   }, [currentRoute]);
 
@@ -191,6 +196,7 @@ function AppContent() {
         if (matched.private && (!user || !hasToken)) {
           setCurrentRoute(matchRoute('login'));
           window.location.hash = '#/login';
+          window.scrollTo({ top: 0, behavior: 'instant' });
           return;
         }
         setCurrentRoute(matched);
@@ -198,6 +204,7 @@ function AppContent() {
         const fallback = (user && hasToken) ? matchRoute('dashboard') : matchRoute('');
         setCurrentRoute(fallback);
       }
+      window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
     window.addEventListener('hashchange', handleHashChange);
@@ -269,7 +276,7 @@ function AppContent() {
   const { isMobile } = useBreakpoint();
   const currentView = currentRoute?.view || 'landing';
   const currentRoutePath = currentRoute?.path || '';
-  const isPublicPage = ['landing', 'login', 'register', 'pricing', 'api', 'admin'].includes(currentView);
+  const isPublicPage = ['landing', 'login', 'register', 'pricing', 'api', 'admin', 'privacy', 'terms', 'compliance', 'about'].includes(currentView);
   const lockViewport = !isPublicPage && !isMobile;
 
   return (
@@ -277,7 +284,8 @@ function AppContent() {
       height: lockViewport ? '100dvh' : 'auto',
       minHeight: '100vh',
       maxHeight: lockViewport ? '100dvh' : 'none',
-      overflow: lockViewport ? 'hidden' : 'visible',
+      overflowX: 'hidden',
+      overflowY: lockViewport ? 'hidden' : 'visible',
       display: 'flex',
       flexDirection: 'column',
       width: '100%'
@@ -305,7 +313,8 @@ function AppContent() {
         display: 'flex',
         flexDirection: 'column',
         width: '100%',
-        overflow: lockViewport ? 'hidden' : 'visible'
+        overflowX: 'hidden',
+        overflowY: lockViewport ? 'hidden' : 'visible'
       }}>
         {currentView === 'landing' && (
           <LandingPage

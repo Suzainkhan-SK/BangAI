@@ -52,7 +52,7 @@ export default function LandingPage({
   };
 
   return (
-    <main style={{ flex: 1, width: '100%' }}>
+    <div style={{ flex: 1, width: '100%', minHeight: '100%' }}>
       {/* 1. Hero Command Center with Live Preset & Adaptive Player */}
       <Hero
         onStartCreation={onStartCreation}
@@ -88,6 +88,6 @@ export default function LandingPage({
 
       {/* 11. Production-Grade Enterprise Footer */}
       <Footer onNavigate={handleNav} />
-    </main>
+    </div>
   );
 }

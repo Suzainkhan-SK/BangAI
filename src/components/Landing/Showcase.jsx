@@ -13,7 +13,8 @@ import {
   Monitor, 
   Smartphone,
   CheckCircle2,
-  Zap
+  Zap,
+  ExternalLink
 } from 'lucide-react';
 import { PRESETS } from '../../data/presets';
 import { audioEngine } from '../../audio/audioEngine';
@@ -29,28 +30,45 @@ export default function Showcase({ onSelectPreset }) {
       id: 'bermuda',
       category: 'mystery',
       title: 'Bermuda Triangle: Flight 19',
-      subtitle: 'Mystery & Thriller • 5 Acts • Multi-Language',
-      duration: '5 Scenes • Full HD',
-      aspectRatio: '9:16 & 16:9',
+      subtitle: 'World Mysteries & Paranormal • 5 Acts • 1080p',
+      duration: '75s+ • 5 Scenes',
+      aspectRatio: '9:16 Vertical',
       voiceModel: 'Adam (Deep Cinematic)',
       soundtrack: 'Deep Ocean Score (-18dB)',
       gradient: 'radial-gradient(circle at 50% 30%, #1e1b4b 0%, #0f172a 70%, #020617 100%)',
-      badge: 'Mystery & Thriller',
+      badge: 'World Mysteries',
       color: '#6366f1',
       voice: 'Adam (Deep Cinematic)',
-      icon: '🌊'
+      icon: '🛸',
+      youtubeUrl: 'https://youtube.com/shorts/r3LTM0G7BTc?si=a5xHNd5fSDyfAny9'
+    },
+    {
+      id: 'tatasteve',
+      category: 'bio',
+      title: 'Last 24 Hours [True Stories]',
+      subtitle: 'Emotional True Stories • Archival Atmosphere • 5 Acts',
+      duration: '75s+ • 5 Scenes',
+      aspectRatio: '9:16 & 16:9',
+      voiceModel: 'Marcus (Warm Storyteller)',
+      soundtrack: 'Emotional Piano & Strings',
+      gradient: 'radial-gradient(circle at 50% 30%, #1c1917 0%, #0f172a 70%, #000000 100%)',
+      badge: 'True Stories & Bio',
+      color: '#f59e0b',
+      voice: 'Marcus (Warm Storyteller)',
+      icon: '⏳',
+      youtubeUrl: 'https://youtube.com/shorts/1ySvtrgDTnE?si=pMbTnIisLg7ftrg-'
     },
     {
       id: 'dragons',
       category: 'cgi',
       title: 'Dragons: Eastern vs Western War',
-      subtitle: 'Epic Mythological CGI • Hyper-Realistic VFX',
-      duration: '5 Scenes • Cinematic 4K',
+      subtitle: 'Epic Mythological CGI • Unreal Engine 5 VFX',
+      duration: '75s+ • 5 Scenes',
       aspectRatio: '9:16 & 16:9',
       voiceModel: 'George (Epic British)',
       soundtrack: 'Orchestral Hybrid Score',
       gradient: 'radial-gradient(circle at 50% 30%, #311042 0%, #1e102f 70%, #05020a 100%)',
-      badge: 'CGI & VFX',
+      badge: 'Mythological VFX',
       color: '#8b5cf6',
       voice: 'George (Epic British)',
       icon: '🐉'
@@ -59,40 +77,25 @@ export default function Showcase({ onSelectPreset }) {
       id: 'fruits',
       category: 'comedy',
       title: 'Talking Pineapple Supermarket Escape',
-      subtitle: 'Pixar 3D Animation • Viral Comedy Fiction',
-      duration: '5 Scenes • 60 FPS',
+      subtitle: 'Pixar 3D Animation • Viral Cartoon Comedy',
+      duration: '60s+ • 60 FPS',
       aspectRatio: '9:16 Vertical',
-      voiceModel: 'Charlie (Cartoon Playful)',
+      voiceModel: 'Charlie (Playful Cartoon)',
       soundtrack: 'Playful Pizzicato Score',
       gradient: 'radial-gradient(circle at 50% 30%, #451a03 0%, #1c0a00 70%, #0c0a09 100%)',
-      badge: '3D Animation',
-      color: '#f59e0b',
-      voice: 'Charlie (Cartoon Playful)',
-      icon: '🍍'
-    },
-    {
-      id: 'tatasteve',
-      category: 'bio',
-      title: 'Ratan Tata: The Final 24 Hours',
-      subtitle: 'Emotional Biography • Archival Cinematic Story',
-      duration: '5 Scenes • Archival Grade',
-      aspectRatio: '16:9 & 9:16',
-      voiceModel: 'Marcus (Warm Storyteller)',
-      soundtrack: 'Emotional Piano & Strings',
-      gradient: 'radial-gradient(circle at 50% 30%, #1c1917 0%, #0f172a 70%, #000000 100%)',
-      badge: 'Cinematic Biography',
+      badge: '3D Pixar Animation',
       color: '#ec4899',
-      voice: 'Marcus (Warm Storyteller)',
-      icon: '💔'
+      voice: 'Charlie (Playful Cartoon)',
+      icon: '🍍'
     }
   ];
 
   const filterTabs = [
-    { id: 'all', label: 'All Formats' },
-    { id: 'mystery', label: 'Mystery & Thriller' },
-    { id: 'cgi', label: 'Epic CGI & VFX' },
-    { id: 'comedy', label: '3D Animation' },
-    { id: 'bio', label: 'Historical & Bio' }
+    { id: 'all', label: 'All Pipelines' },
+    { id: 'mystery', label: 'World Mysteries' },
+    { id: 'bio', label: 'True Stories' },
+    { id: 'cgi', label: 'Mythological VFX' },
+    { id: 'comedy', label: '3D Animation' }
   ];
 
   const filteredCards = filter === 'all' ? cards : cards.filter(c => c.category === filter);
@@ -313,26 +316,51 @@ export default function Showcase({ onSelectPreset }) {
                     </div>
                   </div>
 
-                  {/* Clone & Open CTA */}
-                  <button
-                    type="button"
-                    onClick={() => handleClonePreset(card.id)}
-                    className="btn-outline"
-                    style={{
-                      width: '100%',
-                      justifyContent: 'center',
-                      padding: '10px 14px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      borderRadius: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    <span>Use This Blueprint</span>
-                    <ArrowRight size={15} />
-                  </button>
+                  {/* Clone & Open CTA Row */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleClonePreset(card.id)}
+                      className="btn-glow"
+                      style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        padding: '10px 14px',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        borderRadius: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <span>Create with Blueprint</span>
+                      <ArrowRight size={15} />
+                    </button>
+
+                    {card.youtubeUrl && (
+                      <a
+                        href={card.youtubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-outline"
+                        title="Watch real generated sample on YouTube Shorts"
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#ef4444',
+                          border: '1px solid rgba(239, 68, 68, 0.35)',
+                          textDecoration: 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <ExternalLink size={16} />
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             );

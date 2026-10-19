@@ -33,12 +33,14 @@ export default function PrivacyPolicyPage({ onNavigateToLanding, onNavigateToDas
 
   return (
     <div style={{
-      minHeight: '100vh',
+      width: '100%',
+      minHeight: 'calc(100vh - var(--nav-h, 58px))',
       background: 'var(--bg-app)',
       color: 'var(--text-primary)',
-      paddingTop: isMobile ? '32px' : '64px',
+      paddingTop: isMobile ? '28px' : '48px',
       paddingBottom: '80px',
-      position: 'relative'
+      position: 'relative',
+      overflowY: 'visible'
     }}>
       <div className="container" style={{ maxWidth: '920px' }}>
         

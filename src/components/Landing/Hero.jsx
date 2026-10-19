@@ -41,10 +41,10 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
   const currentScene = scenes[activeSceneIdx] || scenes[0];
 
   const presetsList = [
-    { id: 'bermuda', icon: '🌊', label: 'Bermuda Mystery', category: 'Mystery & Thriller' },
-    { id: 'dragons', icon: '🐉', label: 'Dragons CGI', category: 'Mythological VFX' },
-    { id: 'fruits', icon: '🍍', label: 'Talking Fruit', category: '3D Pixar Animation' },
-    { id: 'tatasteve', icon: '💔', label: 'Ratan Tata', category: 'Cinematic Biography' }
+    { id: 'bermuda', icon: '🛸', label: 'World Mysteries', category: 'Mystery & Thriller' },
+    { id: 'dragons', icon: '🐉', label: 'Mythological VFX', category: 'Epic CGI Legends' },
+    { id: 'fruits', icon: '🍍', label: 'Talking Fruit 3D', category: 'Pixar Animation' },
+    { id: 'tatasteve', icon: '⏳', label: 'Last 24 Hours', category: 'True Stories & Bio' }
   ];
 
   const handlePresetSelect = (id) => {
@@ -100,7 +100,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
         transform: 'translateX(-50%)',
         width: '1200px',
         height: '650px',
-        background: 'radial-gradient(circle at 50% 30%, rgba(99, 102, 241, 0.22) 0%, rgba(6, 182, 212, 0.14) 35%, rgba(244, 63, 94, 0.08) 60%, transparent 75%)',
+        background: 'radial-gradient(circle at 50% 30%, rgba(255, 79, 0, 0.18) 0%, rgba(56, 189, 248, 0.12) 35%, rgba(139, 92, 246, 0.08) 60%, transparent 75%)',
         filter: 'blur(90px)',
         pointerEvents: 'none',
         zIndex: 0
@@ -112,7 +112,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
         inset: 0,
         backgroundImage: 'radial-gradient(var(--text-muted) 1px, transparent 1px)',
         backgroundSize: '32px 32px',
-        opacity: 0.12,
+        opacity: 0.1,
         maskImage: 'radial-gradient(ellipse 60% 50% at 50% 20%, #000 60%, transparent 100%)',
         WebkitMaskImage: 'radial-gradient(ellipse 60% 50% at 50% 20%, #000 60%, transparent 100%)',
         pointerEvents: 'none',
@@ -128,16 +128,16 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
             gap: '8px',
             padding: '6px 16px',
             borderRadius: '999px',
-            background: 'rgba(99, 102, 241, 0.08)',
-            border: '1px solid rgba(99, 102, 241, 0.3)',
-            boxShadow: '0 0 20px rgba(99, 102, 241, 0.15)'
+            background: 'rgba(255, 79, 0, 0.08)',
+            border: '1px solid rgba(255, 79, 0, 0.3)',
+            boxShadow: '0 0 20px rgba(255, 79, 0, 0.15)'
           }}>
             <span style={{
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              background: '#38bdf8',
-              boxShadow: '0 0 10px #38bdf8',
+              background: '#10b981',
+              boxShadow: '0 0 10px #10b981',
               display: 'inline-block'
             }} />
             <span style={{
@@ -146,49 +146,48 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
               letterSpacing: '0.02em',
               color: 'var(--text-primary)'
             }}>
-              Bang AI 3.0 • Autonomous Multi-Platform Video Engine
+              BangAI 4.0 • 20 Cloud GPU Workers Online
             </span>
             <span style={{
-              background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
+              background: 'linear-gradient(135deg, #ff4f00, #ff7733)',
               color: '#ffffff',
               fontSize: '10px',
               fontWeight: 800,
               padding: '2px 7px',
               borderRadius: '6px',
               textTransform: 'uppercase'
-            }}>New</span>
+            }}>Live</span>
           </div>
         </div>
 
         {/* Hero Headline */}
         <div style={{ textAlign: 'center', maxWidth: '920px', margin: isMobile ? '0 auto 28px auto' : '0 auto 40px auto' }}>
           <h1 className="font-display" style={{
-            fontSize: 'clamp(32px, 7vw, 60px)',
+            fontSize: 'clamp(32px, 6.5vw, 58px)',
             fontWeight: 900,
-            lineHeight: 1.08,
+            lineHeight: 1.1,
             letterSpacing: '-0.035em',
             marginBottom: '18px',
             color: 'var(--text-primary)'
           }}>
-            Turn Any Story Idea into a Viral {isMobile ? ' ' : <br />}
+            Automate Viral AI Videos {isMobile ? ' ' : <br />}
             <span style={{
-              background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%)',
+              background: 'linear-gradient(135deg, #ff4f00 0%, #ff7733 50%, #38bdf8 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               display: 'inline-block'
-            }}>Cinematic AI Video</span> for Every Platform.
+            }}>in Under 60 Seconds</span>
           </h1>
 
           <p style={{
-            fontSize: isMobile ? '15px' : '18px',
+            fontSize: isMobile ? '15px' : '17.5px',
             color: 'var(--text-secondary)',
             lineHeight: 1.6,
-            maxWidth: '720px',
+            maxWidth: '740px',
             margin: '0 auto',
             fontWeight: 400
           }}>
-            Autonomous multi-act screenwriting, hyper-realistic voiceovers in 31+ languages, 
-            adaptive cinematic scoring, and 1-click publishing across YouTube, Reels, TikTok & LinkedIn.
+            The all-in-one autonomous video creation suite. 20 parallel cloud GPU workers, 4 specialized narrative engines, studio voice acting in 31+ languages, and 1-click YouTube auto-publishing.
           </p>
         </div>
 
@@ -648,58 +647,126 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
           </div>
         </div>
 
-        {/* Global Social Proof & Brand Ecosystem Bar */}
+        {/* Global Platform Spec Proof Bar */}
         <div style={{
-          paddingTop: '20px',
-          borderTop: '1px solid var(--border-subtle)',
-          textAlign: 'center'
+          marginTop: '28px',
+          paddingTop: '24px',
+          borderTop: '1px solid var(--border-subtle)'
         }}>
-          <p style={{
-            fontSize: '12px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontWeight: 700,
-            color: 'var(--text-muted)',
-            marginBottom: '16px'
+          {/* 4 Feature Metrics */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+            gap: isMobile ? '10px' : '16px',
+            marginBottom: '24px',
+            textAlign: 'left'
           }}>
-            Cross-Platform Export & Publishing Built for Modern Creators
-          </p>
+            <div style={{
+              padding: '14px 16px',
+              background: 'var(--bg-card)',
+              borderRadius: '14px',
+              border: '1px solid var(--border-subtle)',
+              transition: 'border-color 0.2s ease'
+            }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Cloud Compute
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+                20 Parallel GPUs
+              </div>
+              <div style={{ fontSize: '11px', color: '#10b981', marginTop: '2px', fontWeight: 600 }}>
+                ⚡ Modal.com Cluster
+              </div>
+            </div>
 
+            <div style={{
+              padding: '14px 16px',
+              background: 'var(--bg-card)',
+              borderRadius: '14px',
+              border: '1px solid var(--border-subtle)',
+              transition: 'border-color 0.2s ease'
+            }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Autonomous Pipelines
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+                4 Flagship Niches
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--accent-primary)', marginTop: '2px', fontWeight: 600 }}>
+                🎯 5-Act Screenplays
+              </div>
+            </div>
+
+            <div style={{
+              padding: '14px 16px',
+              background: 'var(--bg-card)',
+              borderRadius: '14px',
+              border: '1px solid var(--border-subtle)',
+              transition: 'border-color 0.2s ease'
+            }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Voice Matrix
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+                31+ Languages
+              </div>
+              <div style={{ fontSize: '11px', color: '#38bdf8', marginTop: '2px', fontWeight: 600 }}>
+                🎙️ Native Hindi & Global
+              </div>
+            </div>
+
+            <div style={{
+              padding: '14px 16px',
+              background: 'var(--bg-card)',
+              borderRadius: '14px',
+              border: '1px solid var(--border-subtle)',
+              transition: 'border-color 0.2s ease'
+            }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Security & Auto-Publish
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+                1-Click Direct Upload
+              </div>
+              <div style={{ fontSize: '11px', color: '#10b981', marginTop: '2px', fontWeight: 600 }}>
+                🔒 Official Google OAuth
+              </div>
+            </div>
+          </div>
+
+          {/* Social Proof Channels */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexWrap: 'wrap',
-            gap: isMobile ? '14px 20px' : '28px 36px',
-            opacity: 0.85
+            gap: isMobile ? '12px 18px' : '20px 28px'
           }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Publish Anywhere:
+            </span>
             {[
-              { name: 'YouTube', type: 'Shorts & Longform', color: '#ef4444' },
-              { name: 'Instagram', type: 'Reels & Stories', color: '#ec4899' },
-              { name: 'TikTok', type: 'Viral Sounds & Trends', color: '#06b6d4' },
-              { name: 'LinkedIn', type: 'Thought Leadership', color: '#3b82f6' },
-              { name: 'X / Twitter', type: 'Video Threads', color: '#a855f7' },
-              { name: 'Ad Networks', type: 'Performance Creatives', color: '#f59e0b' }
+              { name: 'YouTube Shorts', color: '#ef4444' },
+              { name: 'Instagram Reels', color: '#ec4899' },
+              { name: 'TikTok FYP', color: '#06b6d4' },
+              { name: 'LinkedIn Video', color: '#3b82f6' }
             ].map((platform, idx) => (
               <div key={idx} style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '7px',
-                fontSize: isMobile ? '12px' : '13px',
+                gap: '6px',
+                fontSize: '12.5px',
                 fontWeight: 700,
                 color: 'var(--text-secondary)'
               }}>
                 <span style={{
-                  width: '7px',
-                  height: '7px',
+                  width: '6px',
+                  height: '6px',
                   borderRadius: '50%',
                   background: platform.color,
                   boxShadow: `0 0 8px ${platform.color}`
                 }} />
                 <span>{platform.name}</span>
-                <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  ({platform.type})
-                </span>
               </div>
             ))}
           </div>

@@ -35,37 +35,43 @@ export default function ComparisonSection() {
     {
       feature: 'Story & Screenplay Writing',
       oldWay: '45–60 minutes of manual scripting, hook research & scene planning',
-      shortsAi: 'Proprietary narrative engine auto-architects high-retention multi-act storyline in seconds',
+      bangAi: '4 Flagship narrative pipelines auto-architect 5-act high-retention screenplays in seconds',
       highlight: true
     },
     {
       feature: 'Voiceover & Actor Narration',
       oldWay: 'Hiring voice actors ($50–$150/video) or noisy amateur mic takes with endless re-records',
-      shortsAi: 'Studio voice synthesis in 31+ languages with emotional pitch and cadence calibration',
+      bangAi: 'ElevenLabs neural speech in 31+ languages with authentic Hindi/Hinglish cadence',
       highlight: true
     },
     {
       feature: 'Visual Footage & Scene Direction',
       oldWay: 'Browsing repetitive stock video sites or paying 3D VFX artists ($300+ per clip)',
-      shortsAi: 'Proprietary generative visuals in 9:16 vertical, 16:9 widescreen, or 1:1 square',
+      bangAi: 'Licensed commercial b-roll (Pexels/Pixabay) + generative VFX in 9:16 vertical & 16:9 widescreen',
       highlight: true
     },
     {
       feature: 'Captions, Subtitles & Sound Design',
       oldWay: '2 hours manually typing word-by-word keyframes and keyframing audio volume',
-      shortsAi: 'Automatic animated kinetic typography burn & -18dB dynamic speech ducking curves',
+      bangAi: 'Word-by-word kinetic typography & automated -18dB dynamic speech ducking curves',
       highlight: true
     },
     {
-      feature: 'Cross-Platform Formatting & SEO',
-      oldWay: 'Manual re-rendering for each platform, writing separate descriptions, tags & titles',
-      shortsAi: '1-Click automated publishing to YouTube, Instagram Reels, TikTok, and LinkedIn simultaneously',
+      feature: 'Thumbnails & Face-Swap Consistency',
+      oldWay: 'Hiring graphic designers ($30–$50 per thumbnail) with inconsistent face branding',
+      bangAi: 'AI Thumbnail Studio with 1-click 3D text styling and facial reference consistency',
       highlight: true
     },
     {
-      feature: 'Total Production Time',
+      feature: 'Publishing & Multi-Channel Syndication',
+      oldWay: 'Manual re-rendering, manual uploading, writing separate descriptions, tags & titles',
+      bangAi: '1-Click direct auto-upload via official Google Cloud OAuth 2.0 with scheduled topic queues',
+      highlight: true
+    },
+    {
+      feature: 'Total Cloud Production Time',
       oldWay: '⏱️ 6 to 8 Hours per video ($200+ cost)',
-      shortsAi: '⚡ Under 60 Seconds (Fully Automated Pipeline)',
+      bangAi: '⚡ Under 60 Seconds on 20-Worker GPU Cloud Cluster',
       isGrandSummary: true
     }
   ];
@@ -173,7 +179,7 @@ export default function ComparisonSection() {
                       <span style={{ color: '#38bdf8', fontWeight: 700, display: 'block', marginBottom: '3px' }}>
                         Bang AI:
                       </span>
-                      {row.shortsAi}
+                      {row.bangAi}
                     </div>
                   </div>
                 );
@@ -203,7 +209,7 @@ export default function ComparisonSection() {
 
                   <div style={{ color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Check size={16} color="#38bdf8" style={{ flexShrink: 0 }} />
-                    <span>{row.shortsAi}</span>
+                    <span>{row.bangAi}</span>
                   </div>
                 </div>
               );
