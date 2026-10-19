@@ -44,11 +44,11 @@ export default function Footer({ onNavigate }) {
             <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '14px' }}>
               Product
             </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-              <a href="#features" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>AI Storyboard Engine</a>
-              <a href="#features" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Viral Story Blueprints</a>
-              <a href="#showcase" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Cinematic AI Visuals</a>
-              <a href="#pricing" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Studio Voice Models</a>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
+              <a href="#features" style={{ color: 'var(--text-secondary)', textDecoration: 'none', transition: 'color 0.15s ease' }}>AI Storyboard Engine</a>
+              <a href="#features" style={{ color: 'var(--text-secondary)', textDecoration: 'none', transition: 'color 0.15s ease' }}>Viral Story Blueprints</a>
+              <a href="#showcase" style={{ color: 'var(--text-secondary)', textDecoration: 'none', transition: 'color 0.15s ease' }}>Cinematic AI Visuals</a>
+              <button onClick={() => onNavigate && onNavigate('pricing')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>Creator Pricing</button>
             </div>
           </div>
 
@@ -57,25 +57,50 @@ export default function Footer({ onNavigate }) {
             <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '14px' }}>
               Resources
             </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Documentation & Guides</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Cloud Studio Architecture</span>
-              <span style={{ color: 'var(--text-secondary)' }}>API Status: Operational</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Creator Community</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
+              <button onClick={() => onNavigate && onNavigate('about')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>About BangAI</button>
+              <button onClick={() => onNavigate && onNavigate('api')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>API Documentation</button>
+              <span style={{ color: 'var(--text-muted)' }}>Status: 99.98% Operational</span>
+              <a href="mailto:support@bangai.netlify.app" style={{ color: 'var(--text-secondary)', textDecoration: 'none', transition: 'color 0.15s ease' }}>Support & Contact</a>
             </div>
           </div>
 
-          {/* Col 4: Legal */}
+          {/* Col 4: Legal & Compliance */}
           <div>
             <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '14px' }}>
-              Platform
+              Legal & Compliance
             </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Privacy Policy</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Terms of Service</span>
-              <span style={{ color: 'var(--text-secondary)' }}>Commercial Rights Compliance</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
+              <button onClick={() => onNavigate && onNavigate('privacy')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>Privacy Policy</button>
+              <button onClick={() => onNavigate && onNavigate('terms')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>Terms of Service</button>
+              <button onClick={() => onNavigate && onNavigate('compliance')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>Commercial Rights Compliance</button>
+              <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '12px' }}>YouTube Terms of Service ↗</a>
             </div>
           </div>
+        </div>
+
+        {/* Mandatory YouTube API Services & Google Privacy Notice */}
+        <div style={{
+          padding: '14px 18px',
+          borderRadius: '12px',
+          background: 'rgba(255, 255, 255, 0.02)',
+          border: '1px solid var(--border-subtle)',
+          marginBottom: '24px',
+          fontSize: '12px',
+          lineHeight: 1.6,
+          color: 'var(--text-muted)'
+        }}>
+          BangAI utilizes YouTube API Services to power automated video publishing and channel analytics. By connecting a YouTube account, you agree to be bound by the{' '}
+          <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa', textDecoration: 'underline' }}>
+            YouTube Terms of Service
+          </a>{' '}
+          and acknowledge that your data is handled in accordance with the{' '}
+          <a href="http://www.google.com/policies/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa', textDecoration: 'underline' }}>
+            Google Privacy Policy
+          </a>. Users may revoke access at any time via{' '}
+          <a href="https://security.google.com/settings/security/permissions" target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa', textDecoration: 'underline' }}>
+            Google Security Settings
+          </a>.
         </div>
 
         {/* Bottom copyright */}

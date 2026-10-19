@@ -10,27 +10,27 @@ export default function FAQ() {
   const faqs = [
     {
       q: 'What video lengths, formats, and aspect ratios does Bang AI support?',
-      a: 'Bang AI is completely flexible. You can generate fast-paced 15–60s viral shorts, multi-act storytelling videos, and in-depth multi-minute explainers. We natively support 9:16 Vertical (Shorts, Reels, TikTok), 16:9 Landscape (YouTube, LinkedIn, TV & Web), and 1:1 Square (Instagram Feed & Paid Ads).'
+      a: 'Bang AI supports fast-paced 15–75s viral Shorts, 5-act narrative cinematic videos, and long-form storytelling. We natively export in 9:16 Vertical (YouTube Shorts, Instagram Reels, TikTok), 16:9 Landscape (YouTube standard, LinkedIn, TV & Web), and 1:1 Square (Feed & Paid Ads) in pristine 1080p Full HD.'
     },
     {
-      q: 'Which platforms can I publish to automatically?',
-      a: 'You can publish directly with 1-click to YouTube (Shorts & regular videos with automated SEO titles, descriptions, and pinned comments), Instagram Reels, TikTok, and LinkedIn. You can also download the raw master MP4 in full 1080p or 4K with burned-in kinetic subtitles.'
+      q: 'Are generated videos eligible for monetization on YouTube without copyright strikes?',
+      a: 'Yes, 100%. All visuals are commercially licensed via Pexels and Pixabay APIs, neural voiceovers carry full commercial broadcast rights from ElevenLabs/json2video, and kinetic subtitle fonts use the permissive SIL Open Font License. Because our 5-act narrative engine writes original de novo scripts and dynamically mixes layered audio with smart-paced subtitles, your videos satisfy YouTube Partner Program (YPP) transformative originality guidelines and avoid "Reused Content" flags.'
+    },
+    {
+      q: 'How does YouTube Auto-Publishing work and is my channel secure?',
+      a: 'Bang AI connects to your YouTube channels using official Google Cloud OAuth 2.0 protocols with encrypted token vaulting. We only request permissions to upload your rendered videos and inspect upload statuses. Your account tokens are encrypted at rest in MongoDB Atlas, never shared with third parties, and you can disconnect channels or revoke access anytime directly via Google Security Settings.'
+    },
+    {
+      q: 'What is BangAI Stock Studio and how does the 24-Hour Autopilot work?',
+      a: 'Stock Studio is our cloud-native video engine hosted on a 20-worker parallel GPU cluster on Modal.com. The 24-Hour Autopilot feature lets you queue upcoming topics; our autonomous pipeline generates the screenplay, synthesizes narration, stitches stock footage, burns subtitles, and uploads the finished video to your connected YouTube channel on a scheduled automated cadence without manual intervention.'
     },
     {
       q: 'What languages and voice models are supported?',
-      a: 'We support over 31+ languages with crystal-clear phonetic pronunciation, including Hindi, Hinglish (blend of Hindi & English), Global English (US, UK, India, Australia), Spanish, French, German, Japanese, and Portuguese. Every voice is calibrated for emotional inflection and natural pacing.'
-    },
-    {
-      q: 'Are the generated videos eligible for monetization and free of copyright strikes?',
-      a: 'Yes, 100%. All visual generations, studio voiceovers, and curated soundtrack scores come with full commercial rights. You own your content and can monetize immediately on YouTube Partner Program, TikTok Creator Rewards, and Meta Reels bonuses.'
-    },
-    {
-      q: 'How does the Bang AI autonomous video pipeline work?',
-      a: 'Bang AI unifies creative screenwriting, neural voice synthesis, dynamic scene generation, audio mastering, and automated subtitle typography into one seamless pipeline. You simply provide an initial concept, and the engine handles research, narrative structure, speech casting, and multi-format rendering automatically.'
+      a: 'We support over 31+ languages with emotional pitch and cadence inflection, including authentic Hindi (with native Devanagari typography), Hinglish, Global English (US, UK, India, Australia), Spanish, French, German, and Portuguese. Every voice is calibrated for natural sentence breaks and dramatic tension.'
     },
     {
       q: 'Can I edit the screenplay, voice, and subtitles before exporting?',
-      a: 'Absolutely. You have full creative control in the Bang AI Studio: inspect scene-by-scene script breakdowns, adjust voice pitch and pacing, preview audio in real time, swap visual prompts, and customize subtitle color themes and font animations before rendering.'
+      a: 'Absolutely. You have full creative control in the Bang AI Studio: inspect scene-by-scene script breakdowns, adjust voice pitch and pacing, preview audio in real time, customize subtitle color themes and font animations, and swap visual prompts before rendering.'
     }
   ];
 

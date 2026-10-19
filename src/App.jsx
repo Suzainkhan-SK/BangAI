@@ -14,6 +14,10 @@ import ApiDocsPage from './pages/ApiDocsPage';
 import PricingPage from './pages/PricingPage';
 import ChatPage from './pages/ChatPage';
 import AdminApp from './admin/AdminApp';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsPage from './pages/TermsPage';
+import CompliancePage from './pages/CompliancePage';
+import AboutPage from './pages/AboutPage';
 import { audioEngine } from './audio/audioEngine';
 import { getStoredUser, verifySession, logoutUser } from './utils/authClient';
 import { ROUTES, matchRoute } from './routes';
@@ -502,6 +506,35 @@ function AppContent() {
             theme={theme}
             onToggleTheme={handleToggleTheme}
             onExitToApp={() => handleNavigate('')}
+          />
+        )}
+
+        {currentView === 'privacy' && (
+          <PrivacyPolicyPage
+            onNavigateToLanding={() => handleNavigate('')}
+            onNavigateToDashboard={() => handleNavigate('dashboard')}
+          />
+        )}
+
+        {currentView === 'terms' && (
+          <TermsPage
+            onNavigateToLanding={() => handleNavigate('')}
+            onNavigateToDashboard={() => handleNavigate('dashboard')}
+          />
+        )}
+
+        {currentView === 'compliance' && (
+          <CompliancePage
+            onNavigateToLanding={() => handleNavigate('')}
+            onNavigateToDashboard={() => handleNavigate('dashboard')}
+          />
+        )}
+
+        {currentView === 'about' && (
+          <AboutPage
+            onNavigateToLanding={() => handleNavigate('')}
+            onNavigateToDashboard={() => handleNavigate('dashboard')}
+            onNavigateToRegister={() => handleNavigate('register')}
           />
         )}
       </main>

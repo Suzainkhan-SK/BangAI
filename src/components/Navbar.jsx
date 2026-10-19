@@ -90,6 +90,7 @@ export default function Navbar({
         { label: 'Features', view: 'landing', anchor: '#features' },
         { label: 'Showcase', view: 'landing', anchor: '#showcase' },
         { label: 'Pricing', view: 'pricing' },
+        { label: 'About', view: 'about' }
       ];
 
   const isLight = theme === 'light';

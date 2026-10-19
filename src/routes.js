@@ -23,7 +23,11 @@ export const ROUTES = [
   { path: 'profile',               view: 'profile',          private: true  },
   { path: 'settings',              view: 'settings',         private: true  },
   { path: 'admin',                 view: 'admin',            private: false },
-  { path: 'admin/:adminPage',      view: 'admin',            private: false, param: 'adminPage' }
+  { path: 'admin/:adminPage',      view: 'admin',            private: false, param: 'adminPage' },
+  { path: 'privacy',               view: 'privacy',          private: false },
+  { path: 'terms',                 view: 'terms',            private: false },
+  { path: 'compliance',            view: 'compliance',       private: false },
+  { path: 'about',                 view: 'about',            private: false }
 ];
 
 export function normalizeRoutePath(rawHash) {
