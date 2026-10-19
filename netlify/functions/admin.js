@@ -9,6 +9,7 @@ import { ObjectId } from 'mongodb';
 import { getDb } from './db.js';
 import { getFreshGoogleToken } from './google-oauth.js';
 import { getN8nConfig } from './n8n-config.js';
+import { executeStockStudioAutonomousRun } from './stock-studio-automation.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'bang-ai-jwt-production-secret-9a8b7c6d5e4f3a2b1c0';
 const ADMIN_TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 Hours
@@ -6029,6 +6030,202 @@ export async function handler(event) {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({ success: true, message: 'Keys synced to Modal clusters', syncResults })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [16B] STOCK STUDIO 24-HOUR AUTOPILOT GOVERNANCE
+      // ----------------------------------------------------
+      case 'get-all-stock-studio-automations': {
+        const autoCol = db.collection('stock_studio_automations');
+        const usersCol = db.collection('users');
+
+        const automations = await autoCol.find({}).sort({ updatedAt: -1, createdAt: -1 }).toArray();
+
+        // Enrich with user information & connected YouTube channel details
+        const userEmails = [...new Set(automations.map(a => a.userEmail).filter(Boolean))];
+        const userDocs = await usersCol.find({ email: { $in: userEmails } }).toArray();
+        const userMap = new Map();
+        userDocs.forEach(u => userMap.set(String(u.email).toLowerCase(), u));
+
+        const enriched = automations.map(a => {
+          const u = userMap.get(String(a.userEmail || '').toLowerCase());
+          const channels = u?.youtubeChannels || [];
+          const targetChannel = (a.selectedChannelId && channels.find(c => c.channelId === a.selectedChannelId)) || channels.find(c => c.isDefault) || channels[0] || null;
+          return {
+            ...a,
+            id: String(a._id),
+            userName: u?.name || a.userName || a.userEmail?.split('@')[0] || 'Creator',
+            userAvatar: u?.avatar || '',
+            channelTitle: targetChannel?.channelTitle || targetChannel?.title || 'No YouTube Connected',
+            channelId: targetChannel?.channelId || a.selectedChannelId || null,
+            channelAvatar: targetChannel?.avatarUrl || targetChannel?.thumbnailUrl || null,
+            hasChannel: !!targetChannel,
+            tokenValid: targetChannel ? !!(targetChannel.tokens?.accessToken || targetChannel.tokens?.access_token || targetChannel.tokens?.refreshToken) && !targetChannel.tokens?.needsReconnect : false
+          };
+        });
+
+        const activeCount = enriched.filter(a => a.status === 'ACTIVE').length;
+        const pausedCount = enriched.filter(a => a.status === 'PAUSED').length;
+        const totalQueuedTopics = enriched.reduce((sum, a) => sum + (Array.isArray(a.upcomingTopics) ? a.upcomingTopics.length : 0), 0);
+        const totalRuns = enriched.reduce((sum, a) => sum + Number(a.totalRuns || 0), 0);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            automations: enriched,
+            stats: {
+              total: enriched.length,
+              active: activeCount,
+              paused: pausedCount,
+              totalQueuedTopics,
+              totalRuns
+            }
+          })
+        };
+      }
+
+      case 'admin-toggle-stock-studio-automation': {
+        const { automationId, status } = body;
+        const autoCol = db.collection('stock_studio_automations');
+
+        let query = {};
+        try {
+          query = { _id: new ObjectId(String(automationId)) };
+        } catch (_) {
+          query = { $or: [{ _id: automationId }, { userEmail: String(automationId).toLowerCase() }] };
+        }
+
+        const current = await autoCol.findOne(query);
+        if (!current) {
+          return {
+            statusCode: 404,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Stock Studio Automation document not found.' })
+          };
+        }
+
+        const newStatus = status || (current.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE');
+        const now = new Date();
+        const nextRunAt = newStatus === 'ACTIVE' ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : null;
+
+        await autoCol.updateOne(query, {
+          $set: {
+            status: newStatus,
+            nextRunAt: newStatus === 'ACTIVE' ? nextRunAt : current.nextRunAt,
+            updatedAt: now
+          },
+          $push: {
+            executionLogs: {
+              $each: [{
+                timestamp: now,
+                status: 'admin_action',
+                message: `Master Admin toggled status to ${newStatus}.`
+              }],
+              $slice: -30
+            }
+          }
+        });
+
+        await logAdminAction(db, 'ADMIN_TOGGLE_STOCK_STUDIO_AUTOMATION', { automationId, newStatus, userEmail: current.userEmail }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            status: newStatus,
+            message: `Stock Studio Automation for ${current.userEmail} updated to ${newStatus}.`
+          })
+        };
+      }
+
+      case 'admin-run-stock-studio-automation': {
+        const { automationId } = body;
+        const autoCol = db.collection('stock_studio_automations');
+
+        let query = {};
+        try {
+          query = { _id: new ObjectId(String(automationId)) };
+        } catch (_) {
+          query = { $or: [{ _id: automationId }, { userEmail: String(automationId).toLowerCase() }] };
+        }
+
+        const current = await autoCol.findOne(query);
+        if (!current) {
+          return {
+            statusCode: 404,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Stock Studio Automation document not found.' })
+          };
+        }
+
+        try {
+          const runResult = await executeStockStudioAutonomousRun(db, current, true);
+          await logAdminAction(db, 'ADMIN_RUN_STOCK_STUDIO_AUTOMATION', { automationId, topic: runResult.topic, userEmail: current.userEmail }, clientIp);
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: true,
+              ...runResult,
+              message: `Video generation for "${runResult.topic}" (${current.userEmail}) successfully dispatched!`
+            })
+          };
+        } catch (runErr) {
+          return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: runErr.message })
+          };
+        }
+      }
+
+      case 'admin-update-stock-studio-automation': {
+        const { automationId, updates } = body;
+        const autoCol = db.collection('stock_studio_automations');
+
+        let query = {};
+        try {
+          query = { _id: new ObjectId(String(automationId)) };
+        } catch (_) {
+          query = { $or: [{ _id: automationId }, { userEmail: String(automationId).toLowerCase() }] };
+        }
+
+        const validUpdates = { ...updates, updatedAt: new Date() };
+        delete validUpdates._id;
+
+        await autoCol.updateOne(query, { $set: validUpdates });
+        await logAdminAction(db, 'ADMIN_UPDATE_STOCK_STUDIO_AUTOMATION', { automationId, updates: validUpdates }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: 'Automation updated successfully' })
+        };
+      }
+
+      case 'admin-delete-stock-studio-automation': {
+        const { automationId } = body;
+        const autoCol = db.collection('stock_studio_automations');
+
+        let query = {};
+        try {
+          query = { _id: new ObjectId(String(automationId)) };
+        } catch (_) {
+          query = { _id: automationId };
+        }
+
+        await autoCol.deleteOne(query);
+        await logAdminAction(db, 'ADMIN_DELETE_STOCK_STUDIO_AUTOMATION', { automationId }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, message: 'Stock Studio automation deleted successfully' })
         };
       }
 

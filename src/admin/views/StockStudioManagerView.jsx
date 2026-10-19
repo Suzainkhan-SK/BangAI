@@ -22,7 +22,7 @@ export default function StockStudioManagerView() {
   const [switchingCluster, setSwitchingCluster] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
 
-  // Active view tab: 'videos' (Video Generation Vault) | 'users' (Creators Analytics)
+  // Active view tab: 'videos' (Video Generation Vault) | 'automations' (24h Autopilot Automations) | 'users' (Creators Analytics)
   const [activeTab, setActiveTab] = useState('videos');
 
   // Search & Filter states
@@ -36,6 +36,20 @@ export default function StockStudioManagerView() {
   const [viewingSettings, setViewingSettings] = useState(null);
   const [showRawJson, setShowRawJson] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+
+  // ── Stock Studio 24-Hour Automations State ──
+  const [automations, setAutomations] = useState([]);
+  const [automationsStats, setAutomationsStats] = useState({
+    total: 0,
+    active: 0,
+    paused: 0,
+    totalQueuedTopics: 0,
+    totalRuns: 0
+  });
+  const [loadingAutomations, setLoadingAutomations] = useState(false);
+  const [editingAutomation, setEditingAutomation] = useState(null);
+  const [editTopicsText, setEditTopicsText] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const fetchStockStudioData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -65,8 +79,24 @@ export default function StockStudioManagerView() {
     }
   };
 
+  const fetchAutomations = async (silent = false) => {
+    if (!silent) setLoadingAutomations(true);
+    try {
+      const res = await adminService.getAllStockStudioAutomations();
+      if (res && res.success) {
+        setAutomations(res.automations || []);
+        if (res.stats) setAutomationsStats(res.stats);
+      }
+    } catch (e) {
+      console.warn('Error fetching Stock Studio automations:', e.message);
+    } finally {
+      if (!silent) setLoadingAutomations(false);
+    }
+  };
+
   useEffect(() => {
     fetchStockStudioData();
+    fetchAutomations();
   }, []);
 
   // Real-time auto-refresh interval when enabled
@@ -75,12 +105,13 @@ export default function StockStudioManagerView() {
     if (autoRefresh) {
       interval = setInterval(() => {
         fetchStockStudioData(true);
+        if (activeTab === 'automations') fetchAutomations(true);
       }, 8000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [autoRefresh]);
+  }, [autoRefresh, activeTab]);
 
   const handleSwitchCluster = async (targetId) => {
     if (!window.confirm(`Switch active Modal GPU Render cluster to [${targetId.toUpperCase()}]?\n\nTraffic from Stock Studio and MoneyPrinterTurbo will redirect to this cluster instantly.`)) {
@@ -115,14 +146,86 @@ export default function StockStudioManagerView() {
     }, 2500);
   };
 
+  // ── Admin Actions on Automations ──
+  const handleAdminToggleAutomation = async (automationId, currentStatus) => {
+    const newStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    try {
+      const res = await adminService.adminToggleStockStudioAutomation(automationId, newStatus);
+      if (res && res.success) {
+        setToastMsg(`⚡ Stock Studio Automation ${newStatus === 'ACTIVE' ? 'activated' : 'paused'} successfully!`);
+        fetchAutomations(true);
+      } else {
+        setToastMsg(`⚠️ Error: ${res?.error || 'Failed to toggle status'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    }
+  };
+
+  const handleAdminRunNow = async (automationId, userEmail) => {
+    if (!window.confirm(`⚡ Immediately trigger 24h Autopilot video generation for ${userEmail}?\n\nThis will pick the next queued topic, render on Modal GPU, and auto-upload to their connected YouTube channel.`)) {
+      return;
+    }
+    setToastMsg(`⏳ Launching Autopilot video generation for ${userEmail}...`);
+    try {
+      const res = await adminService.adminRunStockStudioAutomation(automationId);
+      if (res && res.success) {
+        setToastMsg(`✅ Video for "${res.topic}" successfully dispatched for ${userEmail}!`);
+        fetchAutomations(true);
+        fetchStockStudioData(true);
+      } else {
+        setToastMsg(`⚠️ Dispatch failed: ${res?.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    }
+  };
+
+  const handleAdminDeleteAutomation = async (automationId, userEmail) => {
+    if (!window.confirm(`Are you sure you want to delete the Stock Studio Automation for ${userEmail}? This will stop all future 24h runs.`)) {
+      return;
+    }
+    try {
+      const res = await adminService.adminDeleteStockStudioAutomation(automationId);
+      if (res && res.success) {
+        setToastMsg(`🗑️ Automation for ${userEmail} deleted.`);
+        fetchAutomations(true);
+      } else {
+        setToastMsg(`⚠️ Delete failed: ${res?.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    }
+  };
+
+  const handleSaveEditedTopics = async () => {
+    if (!editingAutomation) return;
+    setSavingEdit(true);
+    try {
+      const parsedTopics = editTopicsText.split('\n').map(t => t.trim()).filter(Boolean);
+      const res = await adminService.adminUpdateStockStudioAutomation(editingAutomation.id, {
+        upcomingTopics: parsedTopics
+      });
+      if (res && res.success) {
+        setToastMsg(`✅ Topics updated for ${editingAutomation.userEmail}! (${parsedTopics.length} topics)`);
+        setEditingAutomation(null);
+        fetchAutomations(true);
+      } else {
+        setToastMsg(`⚠️ Update failed: ${res?.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   // Filtered Videos List
   const filteredVideos = useMemo(() => {
     return (data.videos || []).filter(v => {
-      // User filter
       if (selectedUserFilter && v.userEmail !== selectedUserFilter && v.userId !== selectedUserFilter) {
         return false;
       }
-      // Status filter
       if (statusFilter === 'completed' && (!v.videoUrl || v.status !== 'completed')) {
         return false;
       }
@@ -132,14 +235,12 @@ export default function StockStudioManagerView() {
       if (statusFilter === 'failed' && v.status !== 'failed') {
         return false;
       }
-      // Credit Mode filter
       if (creditFilter === 'bang_credits' && v.creditMode !== 'bang_credits') {
         return false;
       }
       if (creditFilter === 'byok' && v.creditMode !== 'byok') {
         return false;
       }
-      // Search term
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
         const titleMatch = (v.title || '').toLowerCase().includes(term);
@@ -151,6 +252,25 @@ export default function StockStudioManagerView() {
       return true;
     });
   }, [data.videos, selectedUserFilter, statusFilter, creditFilter, searchTerm]);
+
+  // Filtered Automations List
+  const filteredAutomations = useMemo(() => {
+    return (automations || []).filter(a => {
+      if (statusFilter === 'active' && a.status !== 'ACTIVE') return false;
+      if (statusFilter === 'paused' && a.status !== 'PAUSED') return false;
+      if (creditFilter === 'bang_credits' && a.creditMode === 'byok') return false;
+      if (creditFilter === 'byok' && a.creditMode !== 'byok') return false;
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        const emailMatch = (a.userEmail || '').toLowerCase().includes(term);
+        const nameMatch = (a.userName || '').toLowerCase().includes(term);
+        const channelMatch = (a.channelTitle || '').toLowerCase().includes(term);
+        const topicsMatch = (a.upcomingTopics || []).some(t => t.toLowerCase().includes(term));
+        return emailMatch || nameMatch || channelMatch || topicsMatch;
+      }
+      return true;
+    });
+  }, [automations, statusFilter, creditFilter, searchTerm]);
 
   // Filtered Users List
   const filteredUsers = useMemo(() => {
@@ -172,7 +292,7 @@ export default function StockStudioManagerView() {
         <div>
           <h1 className="admin-view-title">Stock Studio Video Management & Analytics</h1>
           <p className="admin-view-desc">
-            Monitor real-time user video renders, inspect applied creation settings, view Bang API Credits vs BYOK usage, stream completed MP4s, and manage Modal GPU cluster failover.
+            Monitor real-time user video renders, inspect applied creation settings, view Bang API Credits vs BYOK usage, stream completed MP4s, manage 24-hour Autopilot automations, and manage Modal GPU cluster failover.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -208,8 +328,11 @@ export default function StockStudioManagerView() {
 
           <button
             type="button"
-            onClick={() => fetchStockStudioData()}
-            disabled={loading}
+            onClick={() => {
+              fetchStockStudioData();
+              fetchAutomations();
+            }}
+            disabled={loading || loadingAutomations}
             className="admin-btn admin-btn-secondary"
           >
             {loading ? 'Refreshing...' : '🔄 Refresh Data'}
@@ -307,7 +430,7 @@ export default function StockStudioManagerView() {
           </div>
 
           <div style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
-            System Video Engine: <strong style={{ color: '#10b981' }}>Isolated Stock Studio Pipeline</strong>
+            System Video Engine: <strong style={{ color: '#10b981' }}>Stock Studio Pipeline + 24h Autopilot</strong>
           </div>
         </div>
       </div>
@@ -352,13 +475,13 @@ export default function StockStudioManagerView() {
 
         <div className="admin-card" style={{ padding: '16px' }}>
           <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Failed Tasks
+            Active 24h Autopilots
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 900, color: '#ef4444', marginTop: '6px' }}>
-            {data.kpis.failedVideos || (data.videos.filter(v => v.status === 'failed').length)}
+          <div style={{ fontSize: '26px', fontWeight: 900, color: 'var(--admin-accent-purple)', marginTop: '6px' }}>
+            {automationsStats.active}
           </div>
           <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', marginTop: '4px' }}>
-            Stopped at pipeline stage
+            {automationsStats.totalQueuedTopics} topics queued in total
           </div>
         </div>
 
@@ -366,7 +489,7 @@ export default function StockStudioManagerView() {
           <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Stock Studio Creators
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 900, color: 'var(--admin-accent-purple)', marginTop: '6px' }}>
+          <div style={{ fontSize: '26px', fontWeight: 900, color: '#f59e0b', marginTop: '6px' }}>
             {data.kpis.totalUsers}
           </div>
           <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', marginTop: '4px' }}>
@@ -418,6 +541,38 @@ export default function StockStudioManagerView() {
               </span>
             </button>
 
+            {/* TAB 2: AUTONOMOUS 24H AUTOPILOT */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('automations');
+                fetchAutomations();
+              }}
+              style={{
+                padding: '7px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                background: activeTab === 'automations' ? 'var(--admin-accent-purple)' : 'transparent',
+                color: activeTab === 'automations' ? '#fff' : 'var(--admin-text-sub)',
+                fontWeight: 700,
+                fontSize: '12.5px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>🤖 24h Autopilot Automations</span>
+              <span style={{
+                fontSize: '11px',
+                padding: '1px 6px',
+                borderRadius: '10px',
+                background: activeTab === 'automations' ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.08)'
+              }}>
+                {automations.length}
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveTab('users')}
@@ -425,8 +580,8 @@ export default function StockStudioManagerView() {
                 padding: '7px 16px',
                 borderRadius: '6px',
                 border: 'none',
-                background: activeTab === 'users' ? 'var(--admin-accent-purple)' : 'transparent',
-                color: activeTab === 'users' ? '#fff' : 'var(--admin-text-sub)',
+                background: activeTab === 'users' ? '#f59e0b' : 'transparent',
+                color: activeTab === 'users' ? '#000' : 'var(--admin-text-sub)',
                 fontWeight: 700,
                 fontSize: '12.5px',
                 cursor: 'pointer',
@@ -451,7 +606,6 @@ export default function StockStudioManagerView() {
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             {activeTab === 'videos' && (
               <>
-                {/* Status Filter */}
                 <div style={{ display: 'flex', gap: '4px' }}>
                   {[
                     { id: 'all', label: 'All Status' },
@@ -479,7 +633,6 @@ export default function StockStudioManagerView() {
                   ))}
                 </div>
 
-                {/* Credit Mode Filter */}
                 <div style={{ display: 'flex', gap: '4px' }}>
                   {[
                     { id: 'all', label: 'All Modes' },
@@ -506,6 +659,34 @@ export default function StockStudioManagerView() {
                   ))}
                 </div>
               </>
+            )}
+
+            {activeTab === 'automations' && (
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {[
+                  { id: 'all', label: 'All Automations' },
+                  { id: 'active', label: '● Active (24h)' },
+                  { id: 'paused', label: 'Paused' }
+                ].map(filter => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setStatusFilter(filter.id)}
+                    style={{
+                      padding: '5px 10px',
+                      fontSize: '11.5px',
+                      borderRadius: '6px',
+                      border: statusFilter === filter.id ? '1px solid var(--admin-accent-purple)' : '1px solid var(--admin-border-glass)',
+                      background: statusFilter === filter.id ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
+                      color: statusFilter === filter.id ? 'var(--admin-accent-purple)' : 'var(--admin-text-sub)',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
             )}
 
             {selectedUserFilter && (
@@ -535,7 +716,7 @@ export default function StockStudioManagerView() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by subject, email, or task ID..."
+              placeholder="Search by subject, email, or topic..."
               className="admin-input"
               style={{ width: '240px', fontSize: '12px', padding: '6px 10px' }}
             />
@@ -580,9 +761,7 @@ export default function StockStudioManagerView() {
                         transition: 'all 0.2s ease'
                       }}
                     >
-                      {/* Top Row: Info & Badges & Actions */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                        {/* Left: Video Details */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: '1 1 360px' }}>
                           <div style={{
                             width: '46px',
@@ -621,9 +800,7 @@ export default function StockStudioManagerView() {
                           </div>
                         </div>
 
-                        {/* Right: Badges & Buttons */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          {/* Credit Mode Badge */}
                           <span style={{
                             fontSize: '11px',
                             fontWeight: 800,
@@ -640,7 +817,6 @@ export default function StockStudioManagerView() {
                             <span>{isBangCredits ? 'Bang API Credits' : 'BYOK Keys'}</span>
                           </span>
 
-                          {/* Status Badge */}
                           <span style={{
                             fontSize: '11px',
                             fontWeight: 800,
@@ -657,7 +833,6 @@ export default function StockStudioManagerView() {
                             <span>{isCompleted ? 'COMPLETED (100%)' : (isFailed ? `FAILED • ${video.failedStage || video.currentStep || 'PIPELINE'}` : `RENDERING (${video.progress}%)`)}</span>
                           </span>
 
-                          {/* Applied Settings Button */}
                           <button
                             type="button"
                             onClick={() => {
@@ -679,7 +854,6 @@ export default function StockStudioManagerView() {
                             <span>⚙️ Applied Settings & Mode</span>
                           </button>
 
-                          {/* Video Player Action */}
                           {video.videoUrl ? (
                             <>
                               <button
@@ -802,7 +976,231 @@ export default function StockStudioManagerView() {
           </div>
         )}
 
-        {/* TAB 2: CREATOR STATS & QUOTAS */}
+        {/* TAB 2: AUTONOMOUS 24H AUTOPILOT AUTOMATIONS (ADMIN GOVERNANCE) */}
+        {activeTab === 'automations' && (
+          <div>
+            {loadingAutomations ? (
+              <div style={{ padding: '50px', textAlign: 'center', color: 'var(--admin-text-sub)', fontSize: '13px' }}>
+                <div style={{ fontSize: '24px', marginBottom: '8px' }}>🤖</div>
+                Loading Stock Studio 24-hour Autopilot automations...
+              </div>
+            ) : filteredAutomations.length === 0 ? (
+              <div style={{ padding: '50px', textAlign: 'center', color: 'var(--admin-text-sub)', fontSize: '13px' }}>
+                <div style={{ fontSize: '24px', marginBottom: '8px' }}>🔍</div>
+                No Stock Studio automations found matching your search.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {filteredAutomations.map((item) => {
+                  const isActive = item.status === 'ACTIVE';
+                  const topics = item.upcomingTopics || [];
+                  const isBangCredits = item.creditMode !== 'byok';
+
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        padding: '16px 20px',
+                        borderRadius: '12px',
+                        background: 'var(--admin-bg-surface)',
+                        border: isActive ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--admin-border-glass)',
+                        boxShadow: isActive ? '0 0 16px rgba(16, 185, 129, 0.08)' : 'none',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}
+                    >
+                      {/* Top Row: User details & Status Badges */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {item.userAvatar ? (
+                            <img src={item.userAvatar} alt="" style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'linear-gradient(135deg, #a855f7 0%, #06b6d4 100%)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                              {item.userName ? item.userName.charAt(0).toUpperCase() : 'U'}
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--admin-text-main)' }}>
+                              {item.userName}
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
+                              {item.userEmail}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          {/* Status Badge */}
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            padding: '3px 10px',
+                            borderRadius: '12px',
+                            background: isActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                            color: isActive ? '#10b981' : 'var(--admin-text-sub)',
+                            border: isActive ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--admin-border-glass)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}>
+                            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: isActive ? '#10b981' : '#64748b', animation: isActive ? 'pulse 1.5s infinite' : 'none' }}>●</span>
+                            <span>{isActive ? '● ACTIVE (24h RUN)' : 'PAUSED'}</span>
+                          </span>
+
+                          {/* Credit Mode */}
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            padding: '3px 9px',
+                            borderRadius: '12px',
+                            background: isBangCredits ? 'rgba(6, 182, 212, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                            color: isBangCredits ? 'var(--admin-accent-cyan)' : 'var(--admin-accent-amber)',
+                            border: isBangCredits ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid rgba(245, 158, 11, 0.35)'
+                          }}>
+                            {isBangCredits ? '⚡ Bang API Credits' : '🔑 BYOK Keys'}
+                          </span>
+
+                          {/* YouTube Auto-Upload Status */}
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '3px 9px',
+                            borderRadius: '12px',
+                            background: item.hasChannel ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.06)',
+                            color: item.hasChannel ? '#ef4444' : 'var(--admin-text-sub)',
+                            border: item.hasChannel ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--admin-border-glass)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <span>📺</span>
+                            <span>{item.hasChannel ? item.channelTitle : 'No Channel Connected'}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Middle: Topics in Queue */}
+                      <div style={{
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        border: '1px solid var(--admin-border-glass)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>
+                            📋 Upcoming Topics Queue ({topics.length} topics)
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                            Total Runs Completed: <strong style={{ color: '#10b981' }}>{item.totalRuns || 0}</strong>
+                          </span>
+                        </div>
+
+                        {topics.length > 0 ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {topics.slice(0, 4).map((t, idx) => (
+                              <span
+                                key={idx}
+                                style={{
+                                  fontSize: '11px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  background: idx === 0 ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.06)',
+                                  border: idx === 0 ? '1px solid rgba(6, 182, 212, 0.3)' : '1px solid var(--admin-border-glass)',
+                                  color: idx === 0 ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)'
+                                }}
+                              >
+                                {idx === 0 ? '▶ Next: ' : `${idx + 1}. `}{t}
+                              </span>
+                            ))}
+                            {topics.length > 4 && (
+                              <span style={{ fontSize: '11px', padding: '3px 8px', color: 'var(--admin-text-sub)', fontStyle: 'italic' }}>
+                                +{topics.length - 4} more topics
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '11.5px', color: '#f59e0b', fontStyle: 'italic' }}>
+                            ⚠️ No upcoming topics queued. Autopilot will use default daily topics.
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Bottom Row: Next Run & Admin Controls */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
+                          <span>Last Run: {item.lastRunAt ? new Date(item.lastRunAt).toLocaleString() : 'Never'}</span>
+                          <span style={{ margin: '0 8px' }}>•</span>
+                          <span>Next Run: <strong style={{ color: isActive ? '#10b981' : 'var(--admin-text-sub)' }}>{item.nextRunAt ? new Date(item.nextRunAt).toLocaleString() : 'Paused'}</strong></span>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleAdminToggleAutomation(item.id, item.status)}
+                            className="admin-btn admin-btn-secondary"
+                            style={{ fontSize: '11px', padding: '4px 10px' }}
+                          >
+                            {isActive ? '⏸️ Pause' : '▶️ Resume'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleAdminRunNow(item.id, item.userEmail)}
+                            className="admin-btn"
+                            style={{
+                              fontSize: '11px',
+                              padding: '4px 10px',
+                              background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontWeight: 700
+                            }}
+                          >
+                            ⚡ Run Now
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingAutomation(item);
+                              setEditTopicsText((item.upcomingTopics || []).join('\n'));
+                            }}
+                            className="admin-btn admin-btn-secondary"
+                            style={{ fontSize: '11px', padding: '4px 10px' }}
+                          >
+                            ⚙️ Inspect & Edit Topics
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleAdminDeleteAutomation(item.id, item.userEmail)}
+                            style={{
+                              background: 'transparent',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              color: '#ef4444',
+                              borderRadius: '6px',
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              fontWeight: 700
+                            }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: CREATOR STATS & QUOTAS */}
         {activeTab === 'users' && (
           <div>
             {loading ? (
@@ -835,7 +1233,6 @@ export default function StockStudioManagerView() {
                           transition: 'background 0.2s ease'
                         }}
                       >
-                        {/* Creator */}
                         <td style={{ padding: '12px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             {u.avatar ? (
@@ -853,7 +1250,7 @@ export default function StockStudioManagerView() {
                                 color: '#fff',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyCenter: 'center',
+                                justifyContent: 'center',
                                 fontWeight: 800,
                                 fontSize: '13px'
                               }}>
@@ -867,14 +1264,12 @@ export default function StockStudioManagerView() {
                           </div>
                         </td>
 
-                        {/* Tier */}
                         <td style={{ padding: '12px' }}>
                           <span className="admin-badge admin-badge-purple">
                             {u.tier}
                           </span>
                         </td>
 
-                        {/* Videos Generated */}
                         <td style={{ padding: '12px' }}>
                           <span style={{
                             fontWeight: 800,
@@ -885,19 +1280,16 @@ export default function StockStudioManagerView() {
                           </span>
                         </td>
 
-                        {/* Credits Balance */}
                         <td style={{ padding: '12px' }}>
                           <span style={{ fontWeight: 800, color: '#10b981' }}>
                             {u.credits} credits
                           </span>
                         </td>
 
-                        {/* Last Active */}
                         <td style={{ padding: '12px', fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
                           {u.lastActive ? new Date(u.lastActive).toLocaleDateString() : 'Inactive'}
                         </td>
 
-                        {/* Actions */}
                         <td style={{ padding: '12px', textAlign: 'right' }}>
                           <button
                             type="button"
@@ -920,6 +1312,148 @@ export default function StockStudioManagerView() {
           </div>
         )}
       </div>
+
+      {/* ADMIN EDIT TOPICS & AUTOMATION MODAL */}
+      {editingAutomation && (
+        <div
+          onClick={() => setEditingAutomation(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '640px',
+              maxHeight: '90vh',
+              background: 'var(--admin-bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--admin-border-glass)',
+              overflowY: 'auto',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--admin-border-glass)'
+            }}>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--admin-text-main)', margin: 0 }}>
+                  ⚙️ Admin: Inspect & Edit Topics Queue
+                </h3>
+                <span style={{ fontSize: '12px', color: 'var(--admin-text-sub)' }}>
+                  Creator: {editingAutomation.userName} ({editingAutomation.userEmail})
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAutomation(null)}
+                style={{ background: 'transparent', border: 'none', fontSize: '18px', color: 'var(--admin-text-sub)', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-text-main)', display: 'block', marginBottom: '6px' }}>
+                  Upcoming Video Topics (1 Per Line):
+                </label>
+                <textarea
+                  value={editTopicsText}
+                  onChange={(e) => setEditTopicsText(e.target.value)}
+                  rows={6}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--admin-border-glass)',
+                    background: 'var(--admin-bg-surface)',
+                    color: 'var(--admin-text-main)',
+                    fontSize: '12px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              {/* Execution Logs Preview */}
+              {editingAutomation.executionLogs && editingAutomation.executionLogs.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-cyan)', marginBottom: '6px' }}>
+                    Recent Execution Logs:
+                  </div>
+                  <div style={{
+                    maxHeight: '140px',
+                    overflowY: 'auto',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid var(--admin-border-glass)',
+                    fontSize: '11px',
+                    fontFamily: 'var(--admin-font-mono)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    {editingAutomation.executionLogs.map((log, idx) => (
+                      <div key={idx} style={{ color: log.status === 'failed' ? '#ef4444' : '#94a3b8' }}>
+                        [{new Date(log.timestamp).toLocaleTimeString()}] {log.message}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '12px 20px',
+              borderTop: '1px solid var(--admin-border-glass)',
+              background: 'var(--admin-bg-surface)'
+            }}>
+              <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                Status: {editingAutomation.status}
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingAutomation(null)}
+                  className="admin-btn admin-btn-secondary"
+                  style={{ fontSize: '12px', padding: '6px 14px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEditedTopics}
+                  disabled={savingEdit}
+                  className="admin-btn admin-btn-primary"
+                  style={{ fontSize: '12px', padding: '6px 14px' }}
+                >
+                  {savingEdit ? 'Saving...' : 'Save Topics Queue'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* APPLIED SETTINGS & CREDIT MODE MODAL */}
       {viewingSettings && (
@@ -952,7 +1486,6 @@ export default function StockStudioManagerView() {
               flexDirection: 'column'
             }}
           >
-            {/* Modal Header */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -975,31 +1508,18 @@ export default function StockStudioManagerView() {
               <button
                 type="button"
                 onClick={() => setViewingSettings(null)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  fontSize: '18px',
-                  color: 'var(--admin-text-sub)',
-                  cursor: 'pointer',
-                  padding: '4px'
-                }}
+                style={{ background: 'transparent', border: 'none', fontSize: '18px', color: 'var(--admin-text-sub)', cursor: 'pointer', padding: '4px' }}
               >
                 ✕
               </button>
             </div>
 
-            {/* Modal Content */}
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Credit Mode Banner */}
               <div style={{
                 padding: '14px 18px',
                 borderRadius: '10px',
-                background: viewingSettings.creditMode === 'bang_credits'
-                  ? 'rgba(6, 182, 212, 0.12)'
-                  : 'rgba(245, 158, 11, 0.12)',
-                border: viewingSettings.creditMode === 'bang_credits'
-                  ? '1px solid rgba(6, 182, 212, 0.35)'
-                  : '1px solid rgba(245, 158, 11, 0.35)',
+                background: viewingSettings.creditMode === 'bang_credits' ? 'rgba(6, 182, 212, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                border: viewingSettings.creditMode === 'bang_credits' ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid rgba(245, 158, 11, 0.35)',
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: '12px'
@@ -1026,7 +1546,6 @@ export default function StockStudioManagerView() {
                 </div>
               </div>
 
-              {/* Execution Status Card */}
               <div style={{
                 padding: '12px 16px',
                 borderRadius: '10px',
@@ -1066,7 +1585,6 @@ export default function StockStudioManagerView() {
                 </div>
               </div>
 
-              {/* Error Detail (if failed) */}
               {viewingSettings.status === 'failed' && (
                 <div style={{
                   padding: '14px',
@@ -1089,9 +1607,7 @@ export default function StockStudioManagerView() {
                 </div>
               )}
 
-              {/* Settings Visual Breakdown Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-                {/* 1. Script & LLM */}
                 <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--admin-bg-surface)', border: '1px solid var(--admin-border-glass)' }}>
                   <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-cyan)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>📝 Script & Prompt AI</span>
@@ -1104,7 +1620,6 @@ export default function StockStudioManagerView() {
                   </div>
                 </div>
 
-                {/* 2. Neural Voice & Audio */}
                 <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--admin-bg-surface)', border: '1px solid var(--admin-border-glass)' }}>
                   <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-purple)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>🎙️ Neural Voice & Speech</span>
@@ -1117,7 +1632,6 @@ export default function StockStudioManagerView() {
                   </div>
                 </div>
 
-                {/* 3. Footage & Aspect Ratio */}
                 <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--admin-bg-surface)', border: '1px solid var(--admin-border-glass)' }}>
                   <div style={{ fontSize: '12px', fontWeight: 800, color: '#10b981', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>🎞️ Stock Footage & Composition</span>
@@ -1130,7 +1644,6 @@ export default function StockStudioManagerView() {
                   </div>
                 </div>
 
-                {/* 4. Subtitles & Styling */}
                 <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--admin-bg-surface)', border: '1px solid var(--admin-border-glass)' }}>
                   <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-amber)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>💬 Subtitles & Durations</span>
@@ -1144,7 +1657,6 @@ export default function StockStudioManagerView() {
                 </div>
               </div>
 
-              {/* Collapsible Raw JSON Payload Viewer */}
               <div style={{ borderTop: '1px solid var(--admin-border-glass)', paddingTop: '12px' }}>
                 <button
                   type="button"
@@ -1183,7 +1695,6 @@ export default function StockStudioManagerView() {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -1254,7 +1765,6 @@ export default function StockStudioManagerView() {
               flexDirection: 'column'
             }}
           >
-            {/* Modal Header */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -1286,7 +1796,6 @@ export default function StockStudioManagerView() {
               </button>
             </div>
 
-            {/* Video Player (9:16 vertical ratio) */}
             <div style={{ background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               <video
                 src={playingVideo.videoUrl}
@@ -1302,7 +1811,6 @@ export default function StockStudioManagerView() {
               />
             </div>
 
-            {/* Modal Footer */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',

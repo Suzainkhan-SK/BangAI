@@ -237,5 +237,16 @@ export const adminService = {
   // 16. Real Stock Studio Management & Modal Cloud Synchronization
   getStockStudioDetails: async () => adminFetch('get-stock-studio-details', 'GET'),
   saveStockStudioDetails: async (settings) => adminFetch('save-stock-studio-details', 'POST', settings),
-  syncModalClusterKeys: async () => adminFetch('sync-modal-cluster-keys', 'POST')
+  syncModalClusterKeys: async () => adminFetch('sync-modal-cluster-keys', 'POST'),
+
+  // 16B. Autonomous 24-Hour Stock Studio Video Engine Governance
+  getAllStockStudioAutomations: async () => adminFetch('get-all-stock-studio-automations', 'GET'),
+  adminToggleStockStudioAutomation: async (automationId, status) =>
+    adminFetch('admin-toggle-stock-studio-automation', 'POST', { automationId, status }),
+  adminRunStockStudioAutomation: async (automationId) =>
+    adminFetch('admin-run-stock-studio-automation', 'POST', { automationId }),
+  adminUpdateStockStudioAutomation: async (automationId, updates) =>
+    adminFetch('admin-update-stock-studio-automation', 'POST', { automationId, updates }),
+  adminDeleteStockStudioAutomation: async (automationId) =>
+    adminFetch('admin-delete-stock-studio-automation', 'POST', { automationId })
 };
