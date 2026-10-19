@@ -130,10 +130,10 @@ export default function Showcase({ onSelectPreset }) {
     }}>
       <div className="container">
         {/* Section Header */}
-        <div style={{ textAlign: 'center', maxWidth: '720px', margin: '0 auto 36px auto' }}>
+        <div style={{ textAlign: 'center', maxWidth: '780px', margin: '0 auto 36px auto' }}>
           <span className="badge badge-brand" style={{ marginBottom: '12px' }}>
             <Sparkles size={13} />
-            <span>Proven High-Retention Blueprints</span>
+            <span>Autonomous AI Video Templates</span>
           </span>
           <h2 className="font-display" style={{
             fontSize: 'clamp(26px, 5vw, 38px)',
@@ -142,11 +142,11 @@ export default function Showcase({ onSelectPreset }) {
             marginBottom: '14px',
             color: 'var(--text-primary)'
           }}>
-            Explore Pre-Engineered Viral Video Templates
+            Explore Pre-Trained Generative AI Video Blueprints
           </h2>
           <p style={{ fontSize: isMobile ? '14.5px' : '16px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Every template is scientifically structured with calibrated narrative hooks, multi-act visual prompts, 
-            natural voiceover timings, and dynamic background ducking.
+            Each template is a complete autonomous pipeline: original 5-act screenplay writing, photorealistic 
+            generative video prompts, emotional neural voice synthesis, and direct-to-YouTube auto-publishing.
           </p>
         </div>
 
@@ -228,7 +228,7 @@ export default function Showcase({ onSelectPreset }) {
                       borderRadius: '8px',
                       border: `1px solid ${card.color}40`
                     }}>
-                      {card.badge}
+                      AI TEMPLATE • {card.badge}
                     </span>
 
                     <span style={{

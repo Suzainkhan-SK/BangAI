@@ -17,26 +17,27 @@ import {
 import { useBreakpoint } from '../../hooks/useMediaQuery';
 
 const ROW_ONE = [
+  { icon: <Sparkles size={14} color="var(--accent-primary)" />, text: 'Generative AI Video Engine' },
+  { icon: <Film size={14} color="#38bdf8" />, text: 'Autonomous AI Video Templates' },
+  { icon: <Flame size={14} color="#f59e0b" />, text: '5-Act Cinematic AI Screenplays' },
   { icon: <Zap size={14} color="var(--accent-primary)" />, text: '20 Parallel GPU Cloud Workers' },
-  { icon: <Film size={14} color="#38bdf8" />, text: '4 Flagship Autonomous Video Pipelines' },
   { icon: <Mic2 size={14} color="#10b981" />, text: 'ElevenLabs Neural Speech Matrix' },
   { icon: <Sparkles size={14} color="#ec4899" />, text: '1-Click AI Thumbnail Studio' },
-  { icon: <Music size={14} color="#f59e0b" />, text: '-18dB Dynamic Speech Ducking' },
   { icon: <Globe2 size={14} color="#8b5cf6" />, text: 'Authentic Hindi & 31+ Languages' },
   { icon: <ShieldCheck size={14} color="#10b981" />, text: '100% Commercial Monetization Rights' },
-  { icon: <Layers size={14} color="var(--accent-primary)" />, text: 'Stock Studio 24-Hour Autopilot' },
   { icon: <Monitor size={14} color="#38bdf8" />, text: 'Ultra HD 1080p 60 FPS Export' }
 ];
 
 const ROW_TWO = [
+  { icon: <Film size={14} color="#6366f1" />, text: '🛸 World Mysteries AI Pipeline' },
+  { icon: <Film size={14} color="#f59e0b" />, text: '⏳ Last 24 Hours AI Pipeline' },
+  { icon: <Film size={14} color="#ef4444" />, text: '👻 3-AM Horror AI Pipeline' },
+  { icon: <Layers size={14} color="var(--accent-primary)" />, text: 'Stock Studio 24-Hour Autopilot' },
   { icon: <Smartphone size={14} color="#ef4444" />, text: 'Official Google OAuth 2.0 Token Vault' },
   { icon: <Share2 size={14} color="#ec4899" />, text: 'Direct YouTube Data API v3 Auto-Publish' },
-  { icon: <Film size={14} color="#06b6d4" />, text: 'Pexels & Pixabay Licensed B-Roll' },
-  { icon: <CheckCircle2 size={14} color="#10b981" />, text: 'HTTP 206 Partial Content Video Streaming' },
-  { icon: <Layers size={14} color="#f59e0b" />, text: 'Google Sheets Live Batch Sync' },
-  { icon: <Flame size={14} color="var(--accent-primary)" />, text: 'Hook-First 5-Act Screenplays' },
-  { icon: <Globe2 size={14} color="#8b5cf6" />, text: 'High-CTR YouTube SEO Titles & Tags' },
-  { icon: <Sparkles size={14} color="#38bdf8" />, text: 'Face-Swap Facial Consistency Engine' }
+  { icon: <Music size={14} color="#f59e0b" />, text: '-18dB Dynamic Speech Ducking' },
+  { icon: <CheckCircle2 size={14} color="#10b981" />, text: 'HTTP 206 Video Streaming Playback' },
+  { icon: <Sparkles size={14} color="#38bdf8" />, text: 'Face-Swap Brand Consistency' }
 ];
 
 export default function MarqueeTicker() {

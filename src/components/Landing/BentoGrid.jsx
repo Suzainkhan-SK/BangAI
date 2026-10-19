@@ -18,49 +18,79 @@ import {
   Key,
   Flame,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Clapperboard,
+  Video
 } from 'lucide-react';
 import { useBreakpoint } from '../../hooks/useMediaQuery';
 import { audioEngine } from '../../audio/audioEngine';
 
 export default function BentoGrid() {
   const { isMobile, isTablet } = useBreakpoint();
-  const [activePipeline, setActivePipeline] = useState('mysteries');
+  const [activeAct, setActiveAct] = useState(1);
+  const [activeTemplate, setActiveTemplate] = useState('mysteries');
   const [activeAspect, setActiveAspect] = useState('9:16');
   const [activeLang, setActiveLang] = useState('hi');
 
-  const pipelines = [
+  const actDetails = {
+    1: {
+      name: 'Act 1: Curiosity Hook (0.0s – 15.0s)',
+      pacing: '18 Words • High Hook Velocity',
+      dialogue: 'पाँच दिसंबर उन्नीस सौ पैंतालीस, पाँच अमेरिकी बॉम्बर विमान समुद्र के ऊपर उड़ते हैं और अचानक कम्पास पागल हो जाते हैं...',
+      videoPrompt: 'Cinematic wide aerial drone orbit: Five vintage 1940s TBM Avenger warplanes flying over dark turbulent ocean. Mysterious emerald bioluminescent fog rising from water, dramatic cinematic lighting, 4K photorealistic, 9:16 vertical.',
+      camera: 'Aerial Drone Orbit through Storm Clouds',
+      sfx: 'Radio Static & Alarm Sound'
+    },
+    2: {
+      name: 'Act 2: The Anomaly Setup (15.0s – 30.0s)',
+      pacing: 'Tense Dialogue • Atmospheric Build',
+      dialogue: 'फ्लोरिडा के तट से कुछ ही दूर, समुद्र का रंग एकदम बदल गया और रडार पर पूरा फ्लोरिडा अचानक गायब होकर सिर्फ सन्नाटा छोड़ गया...',
+      videoPrompt: 'Interior cockpit macro shot: Tense WWII naval aviator in flight helmet staring in shock at spinning gyro compass. Gauges trembling uncontrollably, golden instrument lights reflecting in pilot eyes, 4K realism.',
+      camera: 'Cockpit Interior Macro Push-In',
+      sfx: 'Ticking Compass Whir'
+    },
+    3: {
+      name: 'Act 3: The Climax Reveal (45.0s – 60.0s)',
+      pacing: 'Peak Emotional Tension • Dramatic Peak',
+      dialogue: 'चौबीस मिनट के अंदर वो विशाल रेस्क्यू प्लेन भी आसमान में बिना कोई मलबा छोड़े रहस्यमयी तरीके से हमेशा के लिए खो गया...',
+      videoPrompt: 'Epic cinematic visual: Massive Martin Mariner rescue seaplane engulfed in a blinding electrical atmospheric vortex over dark ocean. Lightning arcs across airplane wings, water whirlpool below, 4K cinematic.',
+      camera: 'Dynamic Spiral Dive towards Abyss',
+      sfx: 'Cinematic Impact Boom'
+    }
+  };
+
+  const templatesList = [
     {
       id: 'mysteries',
       icon: '🛸',
-      name: 'World Mysteries',
-      hook: 'Curiosity-Gap Suspense',
-      desc: 'Self-researches unexplained anomalies and oceanic enigmas with 5-act cinematic pacing.',
-      stat: '98% Retention Rate'
+      name: 'World Mysteries & Paranormal',
+      badge: 'PRO TEMPLATE',
+      desc: 'Self-researches unexplained historical mysteries, scripts 5 cinematic scenes, and renders photorealistic AI video.',
+      specs: '75s+ · 5 Scenes · 1080p Ultra HD'
     },
     {
       id: 'history',
       icon: '⏳',
-      name: 'Last 24 Hours',
-      hook: 'Emotional Countdown',
-      desc: 'Tells the final 24 hours of iconic figures with archival atmosphere and empathetic narration.',
-      stat: 'High Viral Share'
+      name: 'Last 24 Hours [True Stories]',
+      badge: 'PRO TEMPLATE',
+      desc: 'Counts down the poignant and dramatic final 24 hours of legendary figures with empathetic narration.',
+      specs: '75s+ · 5 Scenes · 1080p Ultra HD'
     },
     {
       id: 'horror',
       icon: '👻',
-      name: '3-AM Horror',
-      hook: 'Atmospheric Tension',
-      desc: 'Psychological thrillers and paranormal tales with dark ambient SFX and cliffhangers.',
-      stat: 'Peak Watch Time'
+      name: '3-AM Horror & Paranormal',
+      badge: 'PRO TEMPLATE',
+      desc: 'Psychological tension, terrifying encounters, and dark ambient soundscapes engineered for viral retention.',
+      specs: '75s+ · 5 Scenes · 1080p Ultra HD'
     },
     {
-      id: 'stock',
-      icon: '⚡',
-      name: 'Stock Autopilot',
-      hook: 'Pexels/Pixabay B-Roll',
-      desc: 'Automated topic queues rendering full shorts with commercial media and auto-publishing.',
-      stat: 'Zero Manual Work'
+      id: 'ancient',
+      icon: '🏛️',
+      name: 'Ancient Civilizations & Lore',
+      badge: 'UPCOMING',
+      desc: 'Explores forgotten dynasties, ancient monoliths, and lost technological wonders with epic CGI.',
+      specs: '75s+ · 5 Scenes · 1080p Ultra HD'
     }
   ];
 
@@ -72,6 +102,8 @@ export default function BentoGrid() {
     { code: 'ja', label: 'Japanese' }
   ];
 
+  const currentAct = actDetails[activeAct] || actDetails[1];
+
   return (
     <section id="features" style={{
       paddingTop: isMobile ? '56px' : '90px',
@@ -81,7 +113,7 @@ export default function BentoGrid() {
     }}>
       <div className="container">
         {/* Section Header */}
-        <div style={{ textAlign: 'center', maxWidth: '780px', margin: isMobile ? '0 auto 36px auto' : '0 auto 52px auto' }}>
+        <div style={{ textAlign: 'center', maxWidth: '820px', margin: isMobile ? '0 auto 36px auto' : '0 auto 52px auto' }}>
           <div className="glow-pill" style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -94,7 +126,7 @@ export default function BentoGrid() {
           }}>
             <Sparkles size={14} color="var(--accent-primary)" />
             <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Next-Gen Autonomous Architecture
+              Generative AI Video & Autonomous Templates
             </span>
           </div>
 
@@ -105,7 +137,7 @@ export default function BentoGrid() {
             marginBottom: '16px',
             color: 'var(--text-primary)'
           }}>
-            Built for <span className="grad-text">Unstoppable Video Automation</span>
+            Engineered for <span className="grad-text">Generative AI Video Excellence</span>
           </h2>
 
           <p style={{
@@ -113,17 +145,17 @@ export default function BentoGrid() {
             color: 'var(--text-secondary)',
             lineHeight: 1.6
           }}>
-            From 20 parallel cloud GPU workers to 1-click YouTube publishing, every system is engineered 
-            to eliminate bottlenecks and scale your faceless channel ecosystem.
+            Combine autonomous 5-act AI screenwriting and photorealistic video generation with 
+            cloud stock automation, neural voiceovers, and 1-click YouTube publishing.
           </p>
         </div>
 
         {/* Bento Grid */}
         <div className="bento-grid">
           
-          {/* Card 1: 20-Worker GPU Cloud Cluster (8 cols) */}
+          {/* Card 1: Autonomous Generative AI Video Engine (8 cols) */}
           <div className="bento-card bento-col-8">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{
                   width: '38px',
@@ -134,82 +166,105 @@ export default function BentoGrid() {
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <Cpu size={22} color="var(--accent-primary)" />
+                  <Clapperboard size={22} color="var(--accent-primary)" />
                 </div>
                 <div>
                   <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                    20-Worker GPU Cloud Render Cluster
+                    Generative AI Video Engine & 5-Act Screenwriter
                   </h3>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Modal.com Serverless Compute • Zero Thread Locks • FIFO Queues
+                    Multi-LLM Narrative Brain • Photorealistic Diffusion Video Prompts
                   </div>
                 </div>
               </div>
               <span className="badge badge-brand" style={{ fontSize: '11px', padding: '3px 8px' }}>
-                Sub-60s Turnaround
+                AI Generated
               </span>
             </div>
 
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
-              Our rendering engine is orchestrated across 20 high-performance GPU containers. Tasks are dispatched 
-              with intelligent FIFO queue positioning and streamed directly via native HTTP 206 range-streaming for instant, bufferless previews.
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '16px' }}>
+              Orchestrated via Claude Haiku 4.5 and Gemini, BangAI autonomously writes original 5-act screenplays and 
+              generates precise cinematic diffusion prompts with dynamic camera motions, lighting setups, and visual atmosphere.
             </p>
 
-            {/* GPU Worker Visual Simulation Grid */}
+            {/* Interactive Act Switcher Tabs */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              {[1, 2, 3].map((actNum) => (
+                <button
+                  key={actNum}
+                  type="button"
+                  onClick={() => {
+                    audioEngine.playSfx('click');
+                    setActiveAct(actNum);
+                  }}
+                  style={{
+                    background: activeAct === actNum ? 'var(--accent-primary)' : 'var(--bg-input)',
+                    color: activeAct === actNum ? '#ffffff' : 'var(--text-secondary)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    padding: '5px 12px',
+                    fontSize: '11.5px',
+                    fontWeight: activeAct === actNum ? 700 : 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  Act {actNum}: {actNum === 1 ? 'Curiosity Hook' : actNum === 2 ? 'Anomaly Setup' : 'Climax Reveal'}
+                </button>
+              ))}
+            </div>
+
+            {/* Act Visual Simulation Card */}
             <div style={{
               background: 'var(--bg-input)',
               border: '1px solid var(--border-subtle)',
               borderRadius: '12px',
-              padding: '16px'
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-                  Live GPU Container Cluster Status
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  {currentAct.name}
                 </span>
-                <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700 }}>
-                  20/20 Workers Active • 0 Queue Wait
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  {currentAct.pacing}
                 </span>
               </div>
 
-              {/* 20 GPU worker nodes visual */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(10, 1fr)',
-                gap: '6px',
-                marginBottom: '12px'
-              }}>
-                {Array.from({ length: 20 }).map((_, i) => (
-                  <div
-                    key={i}
-                    title={`Worker Node #${i + 1} - Online`}
-                    style={{
-                      height: '24px',
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      border: '1px solid rgba(16, 185, 129, 0.4)',
-                      borderRadius: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      color: '#10b981'
-                    }}
-                  >
-                    W{i + 1}
-                  </div>
-                ))}
+              {/* Spoken Narration Script */}
+              <div>
+                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>
+                  Voiceover Dialogue:
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontStyle: 'italic', lineHeight: 1.5 }}>
+                  "{currentAct.dialogue}"
+                </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                <span>✓ HTTP 206 Partial Content Streaming</span>
-                <span>✓ Automatic Secondary Cluster Failover</span>
-                <span>✓ 1080p Ultra HD Hardware Acceleration</span>
+              {/* Generative AI Video Prompt */}
+              <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '10.5px', color: '#38bdf8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>
+                  Generated AI Video Scene Prompt:
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                  {currentAct.videoPrompt}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
+                <span style={{ fontSize: '11px', background: 'var(--bg-pill)', padding: '3px 8px', borderRadius: '6px', color: 'var(--text-secondary)' }}>
+                  🎥 Camera: {currentAct.camera}
+                </span>
+                <span style={{ fontSize: '11px', background: 'var(--bg-pill)', padding: '3px 8px', borderRadius: '6px', color: 'var(--text-secondary)' }}>
+                  🔊 SFX: {currentAct.sfx}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Card 2: 4 Flagship Autonomous Video Pipelines (4 cols) */}
+          {/* Card 2: 4 Flagship Autonomous AI Templates (4 cols) */}
           <div className="bento-card bento-col-4">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
               <div style={{
@@ -225,28 +280,28 @@ export default function BentoGrid() {
               </div>
               <div>
                 <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                  4 Autonomous Pipelines
+                  Autonomous AI Templates
                 </h3>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Tailored High-Retention Blueprints
+                  24h Scheduled Autopilot • YouTube Publishing
                 </div>
               </div>
             </div>
 
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '14px' }}>
-              Select a battle-tested viral format with custom scene timing, dramatic audio cues, and viral retention hooks.
+              Pre-trained end-to-end viral video channels. Each template autonomously researches topics, generates 5 AI video scenes, and publishes to YouTube.
             </p>
 
-            {/* Pipeline Selector Rail */}
+            {/* Template Selector Rail */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {pipelines.map((p) => {
-                const isSelected = activePipeline === p.id;
+              {templatesList.map((tpl) => {
+                const isSelected = activeTemplate === tpl.id;
                 return (
                   <div
-                    key={p.id}
+                    key={tpl.id}
                     onClick={() => {
                       audioEngine.playSfx('click');
-                      setActivePipeline(p.id);
+                      setActiveTemplate(tpl.id);
                     }}
                     style={{
                       padding: '8px 10px',
@@ -254,33 +309,104 @@ export default function BentoGrid() {
                       background: isSelected ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-input)',
                       border: `1px solid ${isSelected ? '#38bdf8' : 'var(--border-subtle)'}`,
                       cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
+                      transition: 'all 0.15s ease'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '15px' }}>{p.icon}</span>
-                      <div>
-                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: isSelected ? '#38bdf8' : 'var(--text-primary)' }}>
-                          {p.name}
-                        </div>
-                        <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                          {p.hook}
-                        </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '14px' }}>{tpl.icon}</span>
+                        <span style={{ fontSize: '12.5px', fontWeight: 700, color: isSelected ? '#38bdf8' : 'var(--text-primary)' }}>
+                          {tpl.name}
+                        </span>
                       </div>
+                      <span style={{
+                        fontSize: '9px',
+                        fontWeight: 800,
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        background: tpl.badge === 'PRO TEMPLATE' ? 'rgba(255, 79, 0, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                        color: tpl.badge === 'PRO TEMPLATE' ? 'var(--accent-primary)' : 'var(--text-muted)'
+                      }}>
+                        {tpl.badge}
+                      </span>
                     </div>
-                    <span style={{ fontSize: '10px', color: isSelected ? '#38bdf8' : 'var(--text-muted)', fontWeight: 600 }}>
-                      {p.stat}
-                    </span>
+                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', lineHeight: 1.35 }}>
+                      {tpl.desc}
+                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Card 3: Stock Studio 24-Hour Autopilot (4 cols) */}
+          {/* Card 3: 20-Worker GPU Cloud Cluster (4 cols) */}
+          <div className="bento-card bento-col-4">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'rgba(16, 185, 129, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Cpu size={22} color="#10b981" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  20-Worker Cloud GPU Cluster
+                </h3>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Modal.com Serverless Compute
+                </div>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '12px' }}>
+              High-concurrency rendering across 20 parallel serverless containers. Zero thread locks, intelligent FIFO queues, and native HTTP 206 range-streaming.
+            </p>
+
+            {/* 20 GPU visual grid */}
+            <div style={{
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '10px',
+              padding: '10px',
+              marginBottom: '8px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', fontWeight: 700, color: '#10b981', marginBottom: '6px' }}>
+                <span>● 20 GPU Workers Active</span>
+                <span>Sub-60s Turnaround</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '4px' }}>
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      height: '18px',
+                      background: 'rgba(16, 185, 129, 0.2)',
+                      border: '1px solid rgba(16, 185, 129, 0.5)',
+                      borderRadius: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      color: '#10b981'
+                    }}
+                  >
+                    W{i + 1}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              ✓ HTTP 206 Streaming • Automatic Cluster Failover
+            </div>
+          </div>
+
+          {/* Card 4: BangAI Stock Studio & Autopilot (4 cols) */}
           <div className="bento-card bento-col-4">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
               <div style={{
@@ -296,42 +422,43 @@ export default function BentoGrid() {
               </div>
               <div>
                 <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                  24-Hour Autopilot
+                  Stock Studio 24h Autopilot
                 </h3>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Continuous Topic Queue Scheduling
+                  Licensed Commercial B-Roll Footage
                 </div>
               </div>
             </div>
 
-            <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '16px' }}>
-              Queue your upcoming channel themes. BangAI continuously generates scripts, matches commercial b-roll, burns kinetic subtitles, and auto-publishes to YouTube around the clock.
+            <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '14px' }}>
+              Queue your upcoming daily topics. BangAI matches commercial clips from Pexels & Pixabay APIs, burns subtitles, ducks audio, and auto-uploads to YouTube.
             </p>
 
             <div style={{
               background: 'var(--bg-input)',
               border: '1px solid var(--border-subtle)',
               borderRadius: '12px',
-              padding: '12px'
+              padding: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase' }}>
-                  Next Scheduled Job
-                </span>
-                <span style={{ fontSize: '10.5px', color: '#10b981', fontWeight: 700 }}>
-                  ● Running Now
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-primary)' }}>
+                <CheckCircle2 size={13} color="#f59e0b" />
+                <span>Pexels & Pixabay Commercial API Licenses</span>
               </div>
-              <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                "Deep Ocean Trench Anomalies"
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-primary)' }}>
+                <CheckCircle2 size={13} color="#f59e0b" />
+                <span>100% Monetization Rights & Copyright Safe</span>
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Target: Connected YouTube Channel • 9:16 Shorts
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-primary)' }}>
+                <CheckCircle2 size={13} color="#f59e0b" />
+                <span>Upcoming Daily Topics Queue Automation</span>
               </div>
             </div>
           </div>
 
-          {/* Card 4: AI Thumbnail Studio & Face-Swap (4 cols) */}
+          {/* Card 5: AI Thumbnail Studio & Face-Swap (4 cols) */}
           <div className="bento-card bento-col-4">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
               <div style={{
@@ -383,59 +510,7 @@ export default function BentoGrid() {
             </div>
           </div>
 
-          {/* Card 5: Official Google OAuth & Multi-Channel Token Vault (4 cols) */}
-          <div className="bento-card bento-col-4">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-              <div style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '10px',
-                background: 'rgba(16, 185, 129, 0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Key size={22} color="#10b981" />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                  Official Google OAuth Vault
-                </h3>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Multi-Channel YouTube Management
-                </div>
-              </div>
-            </div>
-
-            <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '14px' }}>
-              Connect multiple YouTube channels and live Google Sheets with encrypted token vaults and automatic refresh token rotation.
-            </p>
-
-            <div style={{
-              background: 'var(--bg-input)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '12px',
-              padding: '12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-primary)' }}>
-                <CheckCircle2 size={13} color="#10b981" />
-                <span>YouTube Data API v3 Direct Publishing</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-primary)' }}>
-                <CheckCircle2 size={13} color="#10b981" />
-                <span>Google Sheets Batch Sync Automation</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-primary)' }}>
-                <CheckCircle2 size={13} color="#10b981" />
-                <span>Encrypted At-Rest in MongoDB Atlas</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 6: Neural Voice Matrix & Smart -18dB Ducking (12 cols) */}
+          {/* Card 6: Neural Voice Matrix & Official Google OAuth Auto-Publish (12 cols) */}
           <div className="bento-card bento-col-12">
             <div style={{
               display: 'flex',
@@ -459,14 +534,14 @@ export default function BentoGrid() {
                     <Mic2 size={18} color="#8b5cf6" />
                   </div>
                   <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                    Neural Voice Matrix & Smart -18dB Audio Ducking
+                    Neural Voice Matrix, Kinetic Subtitles & Google OAuth Auto-Publish
                   </h3>
                   <span className="badge badge-brand" style={{ fontSize: '11px', padding: '2px 8px' }}>
                     31+ Languages
                   </span>
                 </div>
                 <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: 0 }}>
-                  Emotionally expressive speech synthesis paired with automatic -18dB background music ducking whenever narration plays.
+                  ElevenLabs speech with authentic Hindi <code style={{ color: 'var(--accent-primary)' }}>hi-IN</code> cadence, automatic -18dB BGM ducking, and direct publishing via official Google OAuth 2.0.
                 </p>
               </div>
 

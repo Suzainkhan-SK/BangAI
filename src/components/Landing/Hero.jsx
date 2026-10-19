@@ -146,7 +146,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
               letterSpacing: '0.02em',
               color: 'var(--text-primary)'
             }}>
-              BangAI 4.0 • 20 Cloud GPU Workers Online
+              Autonomous AI Video Generation & Templates Suite
             </span>
             <span style={{
               background: 'linear-gradient(135deg, #ff4f00, #ff7733)',
@@ -156,7 +156,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
               padding: '2px 7px',
               borderRadius: '6px',
               textTransform: 'uppercase'
-            }}>Live</span>
+            }}>Pro</span>
           </div>
         </div>
 
@@ -170,13 +170,13 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
             marginBottom: '18px',
             color: 'var(--text-primary)'
           }}>
-            Automate Viral AI Videos {isMobile ? ' ' : <br />}
+            Generative AI Video Creation {isMobile ? ' ' : <br />}
             <span style={{
               background: 'linear-gradient(135deg, #ff4f00 0%, #ff7733 50%, #38bdf8 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               display: 'inline-block'
-            }}>in Under 60 Seconds</span>
+            }}>& Autonomous AI Templates</span>
           </h1>
 
           <p style={{
@@ -187,7 +187,7 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
             margin: '0 auto',
             fontWeight: 400
           }}>
-            The all-in-one autonomous video creation suite. 20 parallel cloud GPU workers, 4 specialized narrative engines, studio voice acting in 31+ languages, and 1-click YouTube auto-publishing.
+            Generate photorealistic 5-act cinematic AI video scenes, viral screenplays, and studio voiceovers in 31+ languages. Scale with autonomous AI templates or cloud stock automation with 1-click YouTube publishing.
           </p>
         </div>
 
@@ -669,13 +669,49 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
               transition: 'border-color 0.2s ease'
             }}>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Cloud Compute
+                AI Video Engine
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+                5-Act AI Screenplays
+              </div>
+              <div style={{ fontSize: '11px', color: '#ff4f00', marginTop: '2px', fontWeight: 600 }}>
+                🎬 Generative Video Prompts
+              </div>
+            </div>
+
+            <div style={{
+              padding: '14px 16px',
+              background: 'var(--bg-card)',
+              borderRadius: '14px',
+              border: '1px solid var(--border-subtle)',
+              transition: 'border-color 0.2s ease'
+            }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Autonomous AI Templates
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+                4 Flagship Niches
+              </div>
+              <div style={{ fontSize: '11px', color: '#38bdf8', marginTop: '2px', fontWeight: 600 }}>
+                🛸 24h Daily Autopilot
+              </div>
+            </div>
+
+            <div style={{
+              padding: '14px 16px',
+              background: 'var(--bg-card)',
+              borderRadius: '14px',
+              border: '1px solid var(--border-subtle)',
+              transition: 'border-color 0.2s ease'
+            }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Stock Studio & Compute
               </div>
               <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
                 20 Parallel GPUs
               </div>
               <div style={{ fontSize: '11px', color: '#10b981', marginTop: '2px', fontWeight: 600 }}>
-                ⚡ Modal.com Cluster
+                ⚡ Modal.com Cloud Engine
               </div>
             </div>
 
@@ -687,46 +723,10 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
               transition: 'border-color 0.2s ease'
             }}>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Autonomous Pipelines
+                Voice & Auto-Publish
               </div>
               <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-                4 Flagship Niches
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--accent-primary)', marginTop: '2px', fontWeight: 600 }}>
-                🎯 5-Act Screenplays
-              </div>
-            </div>
-
-            <div style={{
-              padding: '14px 16px',
-              background: 'var(--bg-card)',
-              borderRadius: '14px',
-              border: '1px solid var(--border-subtle)',
-              transition: 'border-color 0.2s ease'
-            }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Voice Matrix
-              </div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-                31+ Languages
-              </div>
-              <div style={{ fontSize: '11px', color: '#38bdf8', marginTop: '2px', fontWeight: 600 }}>
-                🎙️ Native Hindi & Global
-              </div>
-            </div>
-
-            <div style={{
-              padding: '14px 16px',
-              background: 'var(--bg-card)',
-              borderRadius: '14px',
-              border: '1px solid var(--border-subtle)',
-              transition: 'border-color 0.2s ease'
-            }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Security & Auto-Publish
-              </div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-                1-Click Direct Upload
+                31+ Languages & Upload
               </div>
               <div style={{ fontSize: '11px', color: '#10b981', marginTop: '2px', fontWeight: 600 }}>
                 🔒 Official Google OAuth
