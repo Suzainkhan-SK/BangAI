@@ -309,6 +309,7 @@ function AppContent() {
       }}>
         {currentView === 'landing' && (
           <LandingPage
+            onNavigate={handleNavigate}
             onNavigateToDashboard={() => handleNavigate('dashboard')}
             onNavigateToLogin={() => handleNavigate('login')}
             onNavigateToRegister={() => handleNavigate('register')}

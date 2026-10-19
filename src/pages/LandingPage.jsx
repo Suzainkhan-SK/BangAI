@@ -45,6 +45,9 @@ export default function LandingPage({
       onNavigateToRegister();
     } else if (target === 'pricing' && onNavigateToPricing) {
       onNavigateToPricing();
+    } else if (target) {
+      window.location.hash = `#/${target}`;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 

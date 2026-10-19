@@ -48,7 +48,13 @@ export default function Footer({ onNavigate }) {
               <a href="#features" style={{ color: 'var(--text-secondary)', textDecoration: 'none', transition: 'color 0.15s ease' }}>AI Storyboard Engine</a>
               <a href="#features" style={{ color: 'var(--text-secondary)', textDecoration: 'none', transition: 'color 0.15s ease' }}>Viral Story Blueprints</a>
               <a href="#showcase" style={{ color: 'var(--text-secondary)', textDecoration: 'none', transition: 'color 0.15s ease' }}>Cinematic AI Visuals</a>
-              <button onClick={() => onNavigate && onNavigate('pricing')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>Creator Pricing</button>
+              <a 
+                href="#/pricing" 
+                onClick={(e) => { e.preventDefault(); if (onNavigate) onNavigate('pricing'); else window.location.hash = '#/pricing'; }}
+                style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}
+              >
+                Creator Pricing
+              </a>
             </div>
           </div>
 
@@ -58,8 +64,20 @@ export default function Footer({ onNavigate }) {
               Resources
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-              <button onClick={() => onNavigate && onNavigate('about')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>About BangAI</button>
-              <button onClick={() => onNavigate && onNavigate('api')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>API Documentation</button>
+              <a 
+                href="#/about" 
+                onClick={(e) => { e.preventDefault(); if (onNavigate) onNavigate('about'); else window.location.hash = '#/about'; }}
+                style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}
+              >
+                About BangAI
+              </a>
+              <a 
+                href="#/api" 
+                onClick={(e) => { e.preventDefault(); if (onNavigate) onNavigate('api'); else window.location.hash = '#/api'; }}
+                style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}
+              >
+                API Documentation
+              </a>
               <span style={{ color: 'var(--text-muted)' }}>Status: 99.98% Operational</span>
               <a href="mailto:support@bangai.netlify.app" style={{ color: 'var(--text-secondary)', textDecoration: 'none', transition: 'color 0.15s ease' }}>Support & Contact</a>
             </div>
@@ -71,9 +89,27 @@ export default function Footer({ onNavigate }) {
               Legal & Compliance
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-              <button onClick={() => onNavigate && onNavigate('privacy')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>Privacy Policy</button>
-              <button onClick={() => onNavigate && onNavigate('terms')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>Terms of Service</button>
-              <button onClick={() => onNavigate && onNavigate('compliance')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}>Commercial Rights Compliance</button>
+              <a 
+                href="#/privacy" 
+                onClick={(e) => { e.preventDefault(); if (onNavigate) onNavigate('privacy'); else window.location.hash = '#/privacy'; }}
+                style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}
+              >
+                Privacy Policy
+              </a>
+              <a 
+                href="#/terms" 
+                onClick={(e) => { e.preventDefault(); if (onNavigate) onNavigate('terms'); else window.location.hash = '#/terms'; }}
+                style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}
+              >
+                Terms of Service
+              </a>
+              <a 
+                href="#/compliance" 
+                onClick={(e) => { e.preventDefault(); if (onNavigate) onNavigate('compliance'); else window.location.hash = '#/compliance'; }}
+                style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '13px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.15s ease' }}
+              >
+                Commercial Rights Compliance
+              </a>
               <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '12px' }}>YouTube Terms of Service ↗</a>
             </div>
           </div>
