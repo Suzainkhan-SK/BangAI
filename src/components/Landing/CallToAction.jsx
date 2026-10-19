@@ -68,10 +68,10 @@ export default function CallToAction({ onStartCreation }) {
           fontSize: isMobile ? '15px' : '17.5px',
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
-          maxWidth: '640px',
+          maxWidth: '660px',
           margin: '0 auto 36px auto'
         }}>
-          Turn your creative concepts into high-retention cinematic videos across YouTube, Reels, TikTok, and LinkedIn in seconds.
+          Turn your ideas into high-retention cinematic videos with autonomous AI templates, photorealistic generative video prompts, and studio narration in seconds.
         </p>
 
         {/* Action Form */}

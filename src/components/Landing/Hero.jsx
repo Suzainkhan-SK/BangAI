@@ -22,7 +22,9 @@ import {
   Share2,
   Eye,
   Sliders,
-  Check
+  Check,
+  Video,
+  Clapperboard
 } from 'lucide-react';
 import { PRESETS } from '../../data/presets';
 import { audioEngine } from '../../audio/audioEngine';
@@ -482,11 +484,12 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
                 : aspectRatio === '16:9'
                   ? (isMobile ? '100%' : '440px')
                   : (isMobile ? 'min(280px, 80vw)' : '320px'),
-              height: aspectRatio === '9:16'
-                ? (isMobile ? 'min(470px, 134vw)' : '490px')
+              minHeight: aspectRatio === '9:16'
+                ? (isMobile ? '480px' : '520px')
                 : aspectRatio === '16:9'
-                  ? (isMobile ? '240px' : '260px')
-                  : (isMobile ? 'min(280px, 80vw)' : '320px'),
+                  ? (isMobile ? '260px' : '280px')
+                  : (isMobile ? '320px' : '360px'),
+              height: 'auto',
               borderRadius: '26px',
               padding: '16px',
               background: currentPreset.gradient || 'radial-gradient(circle at 50% 30%, #1e1b4b 0%, #0f172a 70%, #020617 100%)',
@@ -551,6 +554,24 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
                   {currentPreset.scenes?.[activeSceneIdx]?.visualIcon || '🎬'}
                 </div>
 
+                {/* Scene Act & Camera Motion Badge */}
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(255, 79, 0, 0.25)',
+                  backdropFilter: 'blur(8px)',
+                  padding: '3px 10px',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(255, 79, 0, 0.4)',
+                  marginBottom: '8px'
+                }}>
+                  <Sparkles size={11} color="var(--accent-primary)" />
+                  <span style={{ fontSize: '10px', fontWeight: 800, color: '#ffb38a', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    {currentScene?.act || 'AI SCENE'} • {currentScene?.cameraMotion || 'Cinematic Motion'}
+                  </span>
+                </div>
+
                 {/* Kinetic Subtitles Simulation */}
                 <div style={{
                   background: 'rgba(0, 0, 0, 0.75)',
@@ -567,9 +588,38 @@ export default function Hero({ onStartCreation, onOpenDemoPreset }) {
                     lineHeight: 1.45,
                     margin: 0
                   }}>
-                    "{currentScene?.voiceoverText || currentPreset.scenes[0].voiceoverText}"
+                    &quot;{currentScene?.voiceoverText || currentPreset.scenes[0].voiceoverText}&quot;
                   </p>
                 </div>
+
+                {/* Generative AI Video Prompt Snippet */}
+                {currentScene?.videoPrompt && (
+                  <div style={{
+                    marginTop: '8px',
+                    background: 'rgba(15, 23, 42, 0.85)',
+                    backdropFilter: 'blur(8px)',
+                    padding: '6px 10px',
+                    borderRadius: '10px',
+                    border: '1px dashed rgba(56, 189, 248, 0.4)',
+                    textAlign: 'left'
+                  }}>
+                    <div style={{ fontSize: '9.5px', color: '#38bdf8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Video size={10} color="#38bdf8" />
+                      <span>Generative Video Prompt</span>
+                    </div>
+                    <div style={{
+                      fontSize: '11px',
+                      color: 'rgba(255, 255, 255, 0.85)',
+                      lineHeight: 1.35,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {currentScene.videoPrompt}
+                    </div>
+                  </div>
+                )}
 
                 {/* Interactive Voice Audition Button */}
                 <button

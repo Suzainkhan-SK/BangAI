@@ -162,7 +162,14 @@ export default function TermsPage({ onNavigateToLanding, onNavigateToDashboard }
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                 <CheckCircle2 size={18} color="#10b981" style={{ flexShrink: 0, marginTop: '3px' }} />
                 <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>100% Commercial Ownership:</strong> As between you and BangAI, you own all rights, title, and interest in and to the final videos, screenplays, and media generated through your account on BangAI, subject to third-party underlying stock and voice licenses.
+                  <strong style={{ color: 'var(--text-primary)' }}>100% Commercial Ownership:</strong> As between you and BangAI, you own all rights, title, and interest in and to the final videos, AI-generated video scenes, screenplays, prompt engineering, and composite media generated through your account on BangAI, subject to underlying third-party stock and voice licenses.
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <CheckCircle2 size={18} color="#10b981" style={{ flexShrink: 0, marginTop: '3px' }} />
+                <div>
+                  <strong style={{ color: 'var(--text-primary)' }}>Generative AI Video & Templates Rights:</strong> Content generated through our Autonomous AI Video Templates (World Mysteries, Last 24 Hours, 3-AM Horror, Ancient Civilizations) or custom generative prompts belongs to you. BangAI claims zero ongoing royalty obligations or copyright ownership over your rendered video outputs.
                 </div>
               </div>
 
@@ -232,6 +239,7 @@ export default function TermsPage({ onNavigateToLanding, onNavigateToDashboard }
               BangAI integrates with reputable third-party APIs to assemble your videos:
             </p>
             <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+              <li><strong>Generative AI Video & LLM Directives:</strong> Screenplays and scene visual prompts are orchestrated via advanced multimodal language models and diffusion scene engines. Users retain ownership of generation outputs.</li>
               <li><strong>Stock Footage:</strong> Sourced via Pexels and Pixabay APIs under their respective royalty-free commercial licenses.</li>
               <li><strong>Voice Synthesis:</strong> Powered by ElevenLabs and json2video commercial voice APIs.</li>
               <li><strong>Automated Publishing:</strong> Powered by YouTube API Services.</li>

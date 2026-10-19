@@ -13,8 +13,16 @@ export default function FAQ() {
       a: 'Bang AI supports fast-paced 15–75s viral Shorts, 5-act narrative cinematic videos, and long-form storytelling. We natively export in 9:16 Vertical (YouTube Shorts, Instagram Reels, TikTok), 16:9 Landscape (YouTube standard, LinkedIn, TV & Web), and 1:1 Square (Feed & Paid Ads) in pristine 1080p Full HD.'
     },
     {
+      q: 'How does Generative AI Video Generation work in Bang AI?',
+      a: 'Our Generative AI Video Engine translates your core topic or screenplay into scene-by-scene cinematic video generation prompts complete with camera choreography (drone orbits, macro zooms, tracking shots) and lighting physics. Each scene visual is rendered to match the exact emotional arc of your narrative, giving you unique cinematic visuals alongside our licensed Stock Studio b-roll library.'
+    },
+    {
+      q: 'What are Autonomous AI Video Templates and how do they work?',
+      a: 'Autonomous AI Video Templates are proven, niche-specific blueprints (World Mysteries, Last 24 Hours, 3-AM Horror, Ancient Civilizations) engineered with algorithmic retention curves. Instead of starting from scratch, you select a niche template; Bang AI handles viral hook generation, multi-scene screenplay writing, voice acting, visual direction, and subtitle styling automatically.'
+    },
+    {
       q: 'Are generated videos eligible for monetization on YouTube without copyright strikes?',
-      a: 'Yes, 100%. All visuals are commercially licensed via Pexels and Pixabay APIs, neural voiceovers carry full commercial broadcast rights from ElevenLabs/json2video, and kinetic subtitle fonts use the permissive SIL Open Font License. Because our 5-act narrative engine writes original de novo scripts and dynamically mixes layered audio with smart-paced subtitles, your videos satisfy YouTube Partner Program (YPP) transformative originality guidelines and avoid "Reused Content" flags.'
+      a: 'Yes, 100%. Generative AI scene prompts and screenplays are original de novo creations, neural voiceovers carry commercial broadcast rights from ElevenLabs/json2video, stock b-roll is commercially licensed via Pexels/Pixabay, and kinetic subtitle fonts use the permissive SIL Open Font License. Your videos satisfy YouTube Partner Program (YPP) transformative originality guidelines and avoid "Reused Content" flags.'
     },
     {
       q: 'How does YouTube Auto-Publishing work and is my channel secure?',

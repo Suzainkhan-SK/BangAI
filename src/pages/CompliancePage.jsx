@@ -12,7 +12,9 @@ import {
   AlertCircle,
   ExternalLink,
   Award,
-  FileCheck
+  FileCheck,
+  Layers,
+  Video
 } from 'lucide-react';
 import { audioEngine } from '../audio/audioEngine';
 import { useBreakpoint } from '../hooks/useMediaQuery';
@@ -33,23 +35,39 @@ export default function CompliancePage({ onNavigateToLanding, onNavigateToDashbo
 
   const licenses = [
     {
-      title: 'Visual Footage & B-Roll',
+      title: 'Generative AI Video & Scene Prompts',
+      provider: 'BangAI Generative Visual Directives Engine',
+      icon: Sparkles,
+      color: '#ff4f00',
+      badge: '100% Commercial Ownership',
+      description: 'All AI-generated video frames, scene diffusion prompts, and cinematic visual compositions produced by BangAI belong entirely to you. You retain perpetual worldwide rights to broadcast, commercialize, or sell your generated video renders with zero royalties.'
+    },
+    {
+      title: 'Autonomous AI Video Templates',
+      provider: 'Transformative 5-Act Narrative Architecture',
+      icon: Layers,
+      color: '#8b5cf6',
+      badge: 'YPP Monetization Safe',
+      description: 'Our proprietary template pipelines (World Mysteries, Last 24 Hours, 3-AM Horror, Ancient Lore) construct original de novo story arcs with custom hook velocity, ensuring unique transformative works that satisfy YouTube Partner Program monetization.'
+    },
+    {
+      title: 'Licensed Stock Footage & B-Roll',
       provider: 'Pexels & Pixabay Commercial API Licenses',
       icon: Film,
       color: '#3b82f6',
-      badge: '100% Royalty-Free',
-      description: 'All visual clips assembled by Stock Studio originate from licensed commercial media repositories. The licenses grant irrevocable, worldwide rights to modify, compile, and broadcast footage commercially across YouTube, television, web streaming, and social networks without copyright claims.'
+      badge: 'Royalty-Free Commercial',
+      description: 'Visual b-roll clips assembled via Stock Studio originate from licensed commercial media repositories. The licenses grant irrevocable, worldwide rights to modify, compile, and broadcast footage commercially across social networks without copyright claims.'
     },
     {
       title: 'Neural Speech & Voiceovers',
       provider: 'ElevenLabs & json2video Commercial Voice Engine',
       icon: Mic2,
-      color: '#8b5cf6',
+      color: '#06b6d4',
       badge: 'Commercial Broadcast Cleared',
       description: 'All generated character voice tracks and narrator voices carry full commercial rights. Generated audio tracks are cleared for commercial monetization under the YouTube Partner Program (YPP) and commercial advertising campaigns.'
     },
     {
-      title: 'Typography & Subtitles',
+      title: 'Typography & Kinetic Subtitles',
       provider: 'Open Font License (OFL) & Google Fonts',
       icon: Type,
       color: '#10b981',
@@ -233,13 +251,34 @@ export default function CompliancePage({ onNavigateToLanding, onNavigateToDashbo
               <strong style={{ color: 'var(--text-primary)' }}>Original 5-Act Screenplays:</strong> Every script is generated de novo with unique narrative hooks, pacing, and story structure rather than scraping existing text.
             </li>
             <li>
-              <strong style={{ color: 'var(--text-primary)' }}>Multi-Scene Dynamic Assembly:</strong> Video clips change dynamically every 4 to 12 seconds in sync with narration pacing, avoiding static repeating loops.
+              <strong style={{ color: 'var(--text-primary)' }}>Generative Video & Multi-Scene Direction:</strong> Generative AI scene prompts and b-roll clips change dynamically every 4 to 12 seconds in sync with narration pacing, avoiding static repeating loops.
             </li>
             <li>
-              <strong style={{ color: 'var(--text-primary)' }}>Custom Dynamic Subtitles:</strong> Animated phrase-by-phrase typography provides substantial visual modification to stock footage.
+              <strong style={{ color: 'var(--text-primary)' }}>Custom Dynamic Subtitles:</strong> Animated phrase-by-phrase typography provides substantial visual modification and high retention.
             </li>
             <li>
-              <strong style={{ color: 'var(--text-primary)' }}>Layered Audio Mixing:</strong> Combines voiceover narration, audio ducking, and background tracks into a unified master track.
+              <strong style={{ color: 'var(--text-primary)' }}>Layered Audio Mixing:</strong> Combines neural voiceover narration, automated -18dB audio ducking, and royalty-free music into a broadcast master track.
+            </li>
+          </ul>
+        </section>
+
+        {/* YouTube Synthetic & AI Content Disclosure Guidance */}
+        <section className="saas-card" style={{ padding: isMobile ? '20px' : '28px', borderRadius: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '14px' }}>
+            YouTube Synthetic & Generative AI Content Disclosure Compliance
+          </h2>
+          <p style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+            Under YouTube’s official AI transparency policies, creators are encouraged to disclose realistic synthetic media (such as photorealistic generative human scenes or depicting real-world events synthetically). BangAI ensures complete compliance:
+          </p>
+          <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px', fontSize: '14px', color: 'var(--text-secondary)' }}>
+            <li>
+              <strong style={{ color: 'var(--text-primary)' }}>1-Click &quot;Altered Content&quot; Flagging:</strong> When auto-uploading via our Google OAuth integration, BangAI allows creators to mark videos with YouTube&apos;s official &quot;Altered or Synthetic Content&quot; flag.
+            </li>
+            <li>
+              <strong style={{ color: 'var(--text-primary)' }}>Full Monetization Eligibility:</strong> Disclosing generative AI content does not reduce channel monetization or algorithmic reach on YouTube Shorts. Channels with disclosed synthetic media remain 100% eligible for the YouTube Partner Program (YPP).
+            </li>
+            <li>
+              <strong style={{ color: 'var(--text-primary)' }}>No &quot;Reused Content&quot; False Positives:</strong> Because every AI Template generates unique screenplays, prompt variations, and vocal timings, channels using BangAI avoid automated duplicate detection flags.
             </li>
           </ul>
         </section>

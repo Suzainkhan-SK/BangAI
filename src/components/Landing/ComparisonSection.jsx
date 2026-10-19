@@ -33,21 +33,27 @@ export default function ComparisonSection() {
 
   const comparisons = [
     {
-      feature: 'Story & Screenplay Writing',
-      oldWay: '45–60 minutes of manual scripting, hook research & scene planning',
-      bangAi: '4 Flagship narrative pipelines auto-architect 5-act high-retention screenplays in seconds',
+      feature: 'Autonomous AI Video Templates',
+      oldWay: 'Guessing random ideas and structuring video plots from scratch every day',
+      bangAi: 'Pre-architected viral formats (World Mysteries, Last 24 Hours, 3-AM Horror) with proven retention curves',
+      highlight: true
+    },
+    {
+      feature: 'Story & 5-Act Screenwriting',
+      oldWay: '45–60 minutes of manual scripting, hook research & scene breakdown',
+      bangAi: '5-Act AI narrative engine auto-architects high-retention screenplays with viral hooks in seconds',
+      highlight: true
+    },
+    {
+      feature: 'Generative AI Video & Scene Direction',
+      oldWay: 'Browsing repetitive stock sites or paying 3D VFX artists ($300+ per clip)',
+      bangAi: 'Photorealistic AI video scene generation with camera moves (drone, macro) + licensed Stock Studio b-roll',
       highlight: true
     },
     {
       feature: 'Voiceover & Actor Narration',
       oldWay: 'Hiring voice actors ($50–$150/video) or noisy amateur mic takes with endless re-records',
       bangAi: 'ElevenLabs neural speech in 31+ languages with authentic Hindi/Hinglish cadence',
-      highlight: true
-    },
-    {
-      feature: 'Visual Footage & Scene Direction',
-      oldWay: 'Browsing repetitive stock video sites or paying 3D VFX artists ($300+ per clip)',
-      bangAi: 'Licensed commercial b-roll (Pexels/Pixabay) + generative VFX in 9:16 vertical & 16:9 widescreen',
       highlight: true
     },
     {
@@ -65,7 +71,7 @@ export default function ComparisonSection() {
     {
       feature: 'Publishing & Multi-Channel Syndication',
       oldWay: 'Manual re-rendering, manual uploading, writing separate descriptions, tags & titles',
-      bangAi: '1-Click direct auto-upload via official Google Cloud OAuth 2.0 with scheduled topic queues',
+      bangAi: '1-Click direct auto-upload via official Google Cloud OAuth 2.0 with scheduled 24h Autopilot',
       highlight: true
     },
     {

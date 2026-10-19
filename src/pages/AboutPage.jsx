@@ -45,16 +45,28 @@ export default function AboutPage({ onNavigateToLanding, onNavigateToDashboard, 
 
   const pillars = [
     {
+      icon: Sparkles,
+      color: '#ff4f00',
+      title: 'Generative AI Video Engine',
+      description: 'Translates 5-act screenplays into photorealistic diffusion video scene prompts with dynamic camera choreography (drone orbits, macro zooms, tracking shots) and cinematic visual continuity.'
+    },
+    {
+      icon: Layers,
+      color: '#8b5cf6',
+      title: 'Autonomous AI Video Templates',
+      description: 'Pre-architected viral storytelling formats (World Mysteries, Last 24 Hours, 3-AM Horror, Ancient Civilizations) engineered with algorithmic retention curves and automated research pipelines.'
+    },
+    {
       icon: Cpu,
       color: '#3b82f6',
       title: '20-Worker GPU Cloud Render Engine',
       description: 'Powered by Modal.com with 20 parallel containers, zero thread-blocking locks, intelligent FIFO queue position tracking, and native HTTP 206 range-streaming playback.'
     },
     {
-      icon: Layers,
-      color: '#8b5cf6',
-      title: '54 Autonomous Workflow Pipelines',
-      description: 'Orchestrated via n8n Cloud and multi-tier dynamic fallback chains, autonomously researching viral hooks, writing 5-act screenplays, and ducking audio in real time.'
+      icon: Film,
+      color: '#06b6d4',
+      title: 'Stock Studio & Hybrid Footage',
+      description: 'Combines licensed commercial b-roll (Pexels/Pixabay) with generative visuals, giving creators complete freedom between photorealistic AI generation and live-action stock footage.'
     },
     {
       icon: Globe2,
@@ -153,7 +165,7 @@ export default function AboutPage({ onNavigateToLanding, onNavigateToDashboard, 
             Our Vision: Radical Creative Leverage
           </h2>
           <p style={{ fontSize: '15px', lineHeight: 1.7, color: 'var(--text-secondary)', margin: 0 }}>
-            Modern video platforms demand consistent, daily high-quality uploads. Traditional video creation requires hours of scripting, hiring voice artists, hunting stock b-roll, keyframing subtitles, and configuring exports. BangAI compresses this entire 6-hour workflow into <strong>75 seconds of automated cloud compute</strong>. You bring the ideas; our autonomous engines handle the cinematography, audio mastering, and publishing.
+            Modern video platforms demand consistent, daily high-quality uploads. Traditional video creation requires hours of scripting, hiring voice artists, generating visual prompts, keyframing subtitles, and configuring exports. BangAI compresses this entire workflow into <strong>under 60 seconds of automated cloud compute</strong>. Whether you deploy photorealistic Generative AI Video scenes or automated commercial stock b-roll using our flagship AI Templates, our engine handles the cinematography, audio mastering, and 1-click publishing.
           </p>
         </div>
 

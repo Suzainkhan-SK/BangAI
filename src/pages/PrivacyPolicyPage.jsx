@@ -169,7 +169,7 @@ export default function PrivacyPolicyPage({ onNavigateToLanding, onNavigateToDas
                 <strong style={{ color: 'var(--text-primary)' }}>Account Credentials:</strong> Email address, username, hashed password, and authentication session tokens (HMAC-SHA256 JWT).
               </li>
               <li>
-                <strong style={{ color: 'var(--text-primary)' }}>Creative Inputs:</strong> Story prompts, custom topics, selected templates, voice configurations, subtitle styling preferences, and generated video metadata.
+                <strong style={{ color: 'var(--text-primary)' }}>Creative Inputs:</strong> Story prompts, custom topics, selected Autonomous AI Video Templates, Generative AI video scene directives, character descriptions, voice configurations, subtitle styling preferences, and generated video metadata.
               </li>
               <li>
                 <strong style={{ color: 'var(--text-primary)' }}>Google OAuth & YouTube Data:</strong> When you connect your Google Account via official OAuth 2.0, we access and store:
@@ -285,10 +285,10 @@ export default function PrivacyPolicyPage({ onNavigateToLanding, onNavigateToDas
             <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
               <li><strong>Hosting & Compute:</strong> Netlify Cloud (Serverless), Modal.com (GPU Rendering Clusters).</li>
               <li><strong>Database:</strong> MongoDB Atlas (Cloud Database).</li>
-              <li><strong>Media & AI Engines:</strong> Pexels / Pixabay (Royalty-free footage), ElevenLabs / json2video (Voice synthesis), Google Gemini (Script generation).</li>
+              <li><strong>Media & AI Engines:</strong> Google Gemini & Multimodal LLMs (Scriptwriting and scene video generation directives), ElevenLabs / json2video (Voice synthesis), Pexels / Pixabay (Royalty-free commercial footage).</li>
             </ul>
             <p style={{ marginTop: '12px' }}>
-              All partners are bound by strict data processing agreements and only process inputs required to render your specific tasks.
+              All partners are bound by strict data processing agreements and only process inputs required to render your specific tasks. Your proprietary story prompts and generated video scripts are never used to train generalized foundation models.
             </p>
           </section>
 
