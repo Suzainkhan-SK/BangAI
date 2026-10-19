@@ -378,18 +378,22 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.16s ease, border-color 0.16s ease, filter 0.16s ease;
   user-select: none;
   font-family: inherit;
   border: 1px solid transparent;
+  will-change: transform;
 }
 
 .admin-btn:hover {
-  transform: translateY(-1px);
+  transform: translateY(-1.5px);
+  filter: brightness(1.03);
 }
 
 .admin-btn:active {
-  transform: translateY(0);
+  transform: translateY(0.75px) scale(0.982);
+  transition: transform 0.06s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.06s cubic-bezier(0.2, 0.8, 0.2, 1);
+  filter: brightness(0.96);
 }
 
 .admin-btn-primary {
