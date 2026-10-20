@@ -5844,12 +5844,13 @@ export async function handler(event) {
           }
         }
 
-        // Build Stock Studio rendered videos list (strictly successful tasks and active renders, failed tasks removed)
+        // Build Stock Studio rendered videos list (completed, active renders, and failed tasks for complete visibility)
         const userVideoMap = {};
         const validModalTasks = modalTasks.filter(t => {
           if (t.videoUrl || t.status === 'completed' || t.progress === 100) return true;
-          const isRecent = (Date.now() - new Date(t.createdAt).getTime()) < 15 * 60 * 1000;
-          return t.status === 'rendering' && isRecent && !t.error;
+          if (t.status === 'failed' || t.error) return true;
+          const isRecent = (Date.now() - new Date(t.createdAt).getTime()) < 20 * 60 * 1000;
+          return t.status === 'rendering' && isRecent;
         });
 
         const videos = validModalTasks.map(t => {
@@ -5861,10 +5862,11 @@ export async function handler(event) {
 
           userVideoMap[userEmail] = (userVideoMap[userEmail] || 0) + 1;
 
-          const status = t.videoUrl ? 'completed' : (t.status || 'rendering');
-          const progress = status === 'completed' ? 100 : (typeof t.progress === 'number' ? t.progress : 20);
-          const currentStep = status === 'completed' ? 'Render Complete' : (t.currentStep || 'Processing...');
-          const error = t.error || '';
+          const isFailedTask = t.status === 'failed' || (!t.videoUrl && t.progress !== 100 && t.error);
+          const status = t.videoUrl ? 'completed' : (isFailedTask ? 'failed' : (t.status || 'rendering'));
+          const progress = status === 'completed' ? 100 : (status === 'failed' ? 0 : (typeof t.progress === 'number' ? t.progress : 20));
+          const currentStep = status === 'completed' ? 'Render Complete' : (status === 'failed' ? (t.error || t.failedStage || 'Task Failed') : (t.currentStep || 'Processing...'));
+          const error = t.error || (status === 'failed' ? 'Generation encountered an error' : '');
           const failedStage = t.failedStage || '';
 
           return {
