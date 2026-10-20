@@ -110,23 +110,36 @@ export default function BasicTemplatesPage({
   const [topicsInput, setTopicsInput] = useState('');
 
   // Fetch user automation config
-  const fetchAutomationConfig = async () => {
+  const fetchAutomationConfig = async (forceChannels = false) => {
     setLoadingAuto(true);
     try {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const res = await fetch(`/.netlify/functions/stock-studio-automation?email=${encodeURIComponent(userEmail)}&userId=${encodeURIComponent(effectiveUserId)}`, {
         headers
       });
+      let chList = [];
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.automation) {
           setAutomationConfig(data.automation);
           setTopicsInput((data.automation.upcomingTopics || []).join('\n'));
-          if (Array.isArray(data.channels)) {
-            setChannels(data.channels);
+          if (Array.isArray(data.channels) && data.channels.length > 0) {
+            chList = data.channels;
           }
         }
       }
+      if (chList.length === 0 || forceChannels) {
+        try {
+          const chRes = await fetch(`/.netlify/functions/google-oauth?action=list&email=${encodeURIComponent(userEmail)}&userId=${encodeURIComponent(effectiveUserId)}`, { headers });
+          if (chRes.ok) {
+            const chData = await chRes.json();
+            if (Array.isArray(chData.channels) && chData.channels.length > 0) {
+              chList = chData.channels;
+            }
+          }
+        } catch (_) {}
+      }
+      setChannels(chList);
     } catch (e) {
       console.warn('[BasicTemplates] fetchAutomation error:', e);
     } finally {
@@ -792,8 +805,17 @@ export default function BasicTemplatesPage({
 
               {/* YouTube Channel Auto-Upload Settings */}
               <div style={{ padding: '14px', borderRadius: '10px', background: 'var(--bg-app)', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '12.5px', fontWeight: 800, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>📺 YouTube Auto-Upload Integration</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>📺 YouTube Auto-Upload Integration</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchAutomationConfig(true)}
+                    style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    🔄 Refresh Channels
+                  </button>
                 </div>
 
                 {channels && channels.length > 0 ? (

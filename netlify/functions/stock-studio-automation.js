@@ -305,7 +305,13 @@ export async function handler(event, context) {
         userQuery.push({ email: String(candidateEmail).toLowerCase() }, { email: candidateEmail });
       }
       if (candidateUserId) {
-        userQuery.push({ id: candidateUserId }, { userId: candidateUserId }, { _id: candidateUserId });
+        userQuery.push(
+          { id: candidateUserId },
+          { userId: candidateUserId },
+          { _id: candidateUserId },
+          { customId: candidateUserId },
+          { googleId: candidateUserId }
+        );
         if (ObjectId.isValid(candidateUserId)) {
           try { userQuery.push({ _id: new ObjectId(candidateUserId) }); } catch (_) {}
         }
@@ -374,7 +380,9 @@ export async function handler(event, context) {
         channelId: c.channelId,
         channelTitle: c.channelTitle || c.title || 'YouTube Channel',
         avatarUrl: c.avatarUrl || c.thumbnailUrl || '',
-        isDefault: !!c.isDefault
+        subscriberCount: c.subscriberCount || '0',
+        isDefault: !!c.isDefault,
+        needsReconnect: !!c.tokens?.needsReconnect
       }));
 
       return {
