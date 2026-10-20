@@ -5843,6 +5843,21 @@ export async function handler(event) {
 
           userVideoMap[userEmail] = (userVideoMap[userEmail] || 0) + 1;
 
+          const isStale = (Date.now() - new Date(t.createdAt).getTime()) > 20 * 60 * 1000;
+          const status = (t.status === 'rendering' && isStale) ? 'failed' : (t.status || 'rendering');
+          const progress = (status === 'failed' && isStale && t.status === 'rendering') 
+            ? 0 
+            : (typeof t.progress === 'number' ? t.progress : (t.status === 'completed' ? 100 : 20));
+          const currentStep = (status === 'failed' && isStale && t.status === 'rendering')
+            ? 'Task Timed Out'
+            : (t.currentStep || '');
+          const error = (status === 'failed' && isStale && !t.error)
+            ? 'Task timed out: worker container terminated or disconnected'
+            : (t.error || '');
+          const failedStage = (status === 'failed' && isStale && !t.failedStage)
+            ? 'timeout'
+            : (t.failedStage || '');
+
           return {
             id: t.id || t.task_id,
             task_id: t.task_id || t.id,
@@ -5851,11 +5866,11 @@ export async function handler(event) {
             userName,
             userAvatar,
             userId: rawUid,
-            status: t.status || 'rendering', // 'completed' | 'rendering' | 'failed'
-            progress: typeof t.progress === 'number' ? t.progress : (t.status === 'completed' ? 100 : 20),
-            currentStep: t.currentStep || '',
-            error: t.error || '',
-            failedStage: t.failedStage || '',
+            status,
+            progress,
+            currentStep,
+            error,
+            failedStage,
             videoUrl: t.videoUrl || null,
             youtube_url: t.youtube_url || t.youtubeUrl || '',
             youtube_channel_title: t.youtube_channel_title || '',
