@@ -7,6 +7,12 @@
 [functions]
   node_bundler = "esbuild"
 
+[functions."stock-studio-automation"]
+  schedule = "*/15 * * * *"
+
+[functions."template-automation"]
+  schedule = "*/15 * * * *"
+
 [[edge_functions]]
   path = "/api/chat"
   function = "chat"

@@ -38,6 +38,13 @@ export default function StockStudioManagerView() {
   const [showRawJson, setShowRawJson] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
 
+  // Live Terminal Logs & Task Purging State
+  const [liveTerminalTask, setLiveTerminalTask] = useState(null);
+  const [terminalLogs, setTerminalLogs] = useState([]);
+  const [terminalLoading, setTerminalLoading] = useState(false);
+  const [terminalAutoRefresh, setTerminalAutoRefresh] = useState(true);
+  const [deletingTaskId, setDeletingTaskId] = useState(null);
+
   // ── Stock Studio 24-Hour Automations State ──
   const [automations, setAutomations] = useState([]);
   const [automationsStats, setAutomationsStats] = useState({
@@ -51,6 +58,67 @@ export default function StockStudioManagerView() {
   const [editingAutomation, setEditingAutomation] = useState(null);
   const [editTopicsText, setEditTopicsText] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+
+  const fetchTerminalLogs = async (taskId, silent = false) => {
+    if (!taskId) return;
+    if (!silent) setTerminalLoading(true);
+    try {
+      const res = await adminService.getStockStudioTaskLogs(taskId);
+      if (res && res.success) {
+        const logsList = res.logs || (res.text ? res.text.split('\n') : []);
+        setTerminalLogs(logsList);
+      }
+    } catch (e) {
+      if (!silent) console.warn('Failed to fetch terminal logs:', e.message);
+    } finally {
+      if (!silent) setTerminalLoading(false);
+    }
+  };
+
+  const handleOpenLiveTerminal = (task) => {
+    setLiveTerminalTask(task);
+    setTerminalLogs([]);
+    fetchTerminalLogs(task.id || task.task_id);
+  };
+
+  // Poll terminal logs every 2s for active tasks
+  useEffect(() => {
+    let interval = null;
+    if (liveTerminalTask && terminalAutoRefresh) {
+      interval = setInterval(() => {
+        fetchTerminalLogs(liveTerminalTask.id || liveTerminalTask.task_id, true);
+      }, 2000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [liveTerminalTask, terminalAutoRefresh]);
+
+  const handleDeleteTask = async (taskId) => {
+    if (!taskId) return;
+    if (!window.confirm(`Permanently delete video generation task ${taskId} and all its artifacts from Modal volume?`)) {
+      return;
+    }
+    setDeletingTaskId(taskId);
+    setToastMsg(`Deleting task ${taskId}...`);
+    try {
+      const res = await adminService.adminDeleteStockStudioTask(taskId);
+      if (res && res.success) {
+        setToastMsg(`✅ Task ${taskId} permanently deleted.`);
+        if (liveTerminalTask && (liveTerminalTask.id === taskId || liveTerminalTask.task_id === taskId)) {
+          setLiveTerminalTask(null);
+        }
+        fetchStockStudioData(true);
+      } else {
+        setToastMsg(`⚠️ Failed to delete task: ${res?.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      setToastMsg(`⚠️ Delete error: ${e.message}`);
+    } finally {
+      setDeletingTaskId(null);
+      setTimeout(() => setToastMsg(''), 4000);
+    }
+  };
 
   const fetchStockStudioData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -244,13 +312,9 @@ export default function StockStudioManagerView() {
     }
   };
 
-  // Filtered Videos List (strictly successful tasks and active renders)
+  // Filtered Videos List (completed, active renders, and failed tasks)
   const filteredVideos = useMemo(() => {
     return (data.videos || []).filter(v => {
-      // Exclude failed tasks from everywhere
-      if (v.status === 'failed' || v.state === -1 || v.state === 'failed') {
-        return false;
-      }
       if (selectedUserFilter && v.userEmail !== selectedUserFilter && v.userId !== selectedUserFilter) {
         return false;
       }
@@ -258,6 +322,9 @@ export default function StockStudioManagerView() {
         return false;
       }
       if (statusFilter === 'rendering' && v.status !== 'rendering') {
+        return false;
+      }
+      if (statusFilter === 'failed' && v.status !== 'failed') {
         return false;
       }
       if (creditFilter === 'bang_credits' && v.creditMode !== 'bang_credits') {
@@ -667,9 +734,10 @@ export default function StockStudioManagerView() {
               <>
                 <div style={{ display: 'flex', gap: '4px' }}>
                   {[
-                    { id: 'all', label: 'All Successful' },
+                    { id: 'all', label: 'All Tasks' },
                     { id: 'completed', label: 'Playable' },
-                    { id: 'rendering', label: '⚡ Rendering' }
+                    { id: 'rendering', label: '⚡ Rendering' },
+                    { id: 'failed', label: '⚠️ Failed' }
                   ].map(filter => (
                     <button
                       key={filter.id}
@@ -946,6 +1014,50 @@ export default function StockStudioManagerView() {
                             }}
                           >
                             <span>⚙️ Applied Settings & Mode</span>
+                          </button>
+
+                          {/* Live Terminal Logs Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLiveTerminal(video)}
+                            className="admin-btn"
+                            style={{
+                              padding: '5px 12px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: isRendering ? 'rgba(6, 182, 212, 0.2)' : 'var(--admin-bg-surface)',
+                              border: isRendering ? '1px solid #06b6d4' : '1px solid var(--admin-border-glass)',
+                              color: isRendering ? '#06b6d4' : 'var(--admin-text-main)',
+                              borderRadius: '6px',
+                              cursor: 'pointer'
+                            }}
+                            title="Inspect live real-time terminal output and GPU execution logs"
+                          >
+                            <span>📟 Live Terminal</span>
+                            {isRendering && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#06b6d4', display: 'inline-block' }}>●</span>}
+                          </button>
+
+                          {/* 1-Click Delete Task Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTask(video.id)}
+                            disabled={deletingTaskId === video.id}
+                            className="admin-btn"
+                            style={{
+                              padding: '5px 9px',
+                              fontSize: '11.5px',
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              color: '#ef4444',
+                              borderRadius: '6px',
+                              cursor: 'pointer'
+                            }}
+                            title="Permanently delete task and all files from Modal volume"
+                          >
+                            {deletingTaskId === video.id ? '⏳' : '🗑️'}
                           </button>
 
                           {video.videoUrl ? (
@@ -2136,6 +2248,261 @@ export default function StockStudioManagerView() {
           </div>
         </div>
       )}
+
+      {/* MODAL 4: LIVE TERMINAL LOGS VIEWER */}
+      {liveTerminalTask && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setLiveTerminalTask(null);
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '850px',
+              height: '80vh',
+              maxHeight: '800px',
+              background: '#0d1117',
+              borderRadius: '14px',
+              border: '1px solid rgba(56, 139, 253, 0.4)',
+              overflow: 'hidden',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(6, 182, 212, 0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+            }}
+          >
+            {/* Terminal Window Header Bar */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '12px 18px',
+                background: '#161b22',
+                borderBottom: '1px solid #30363d'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {/* Traffic lights */}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }} />
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }} />
+                </div>
+                <div style={{ marginLeft: '6px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#f0f6fc' }}>
+                    {liveTerminalTask.title}
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#8b949e', marginLeft: '10px' }}>
+                    task_id: {liveTerminalTask.id}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  background: liveTerminalTask.status === 'completed' ? 'rgba(35, 134, 54, 0.25)' : (liveTerminalTask.status === 'failed' ? 'rgba(218, 54, 51, 0.25)' : 'rgba(56, 139, 253, 0.25)'),
+                  color: liveTerminalTask.status === 'completed' ? '#3fb950' : (liveTerminalTask.status === 'failed' ? '#f85149' : '#58a6ff'),
+                  border: `1px solid ${liveTerminalTask.status === 'completed' ? 'rgba(63, 185, 80, 0.4)' : (liveTerminalTask.status === 'failed' ? 'rgba(248, 81, 73, 0.4)' : 'rgba(88, 166, 255, 0.4)')}`
+                }}>
+                  {liveTerminalTask.status ? liveTerminalTask.status.toUpperCase() : 'UNKNOWN'}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setLiveTerminalTask(null)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '18px',
+                    color: '#8b949e',
+                    cursor: 'pointer',
+                    padding: '2px 6px',
+                    lineHeight: 1
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Sub-header info banner */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '8px 18px',
+                background: '#0d1117',
+                borderBottom: '1px solid #21262d',
+                fontSize: '11px',
+                color: '#8b949e',
+                flexWrap: 'wrap',
+                gap: '8px'
+              }}
+            >
+              <div>
+                <span>User: <strong style={{ color: '#c9d1d9' }}>{liveTerminalTask.userName}</strong> ({liveTerminalTask.userEmail})</span>
+                <span style={{ margin: '0 8px' }}>•</span>
+                <span>Stage: <strong style={{ color: '#58a6ff' }}>{liveTerminalTask.currentStep || 'Processing'}</strong></span>
+                <span style={{ margin: '0 8px' }}>•</span>
+                <span>Progress: <strong style={{ color: '#3fb950' }}>{liveTerminalTask.progress}%</strong></span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', userSelect: 'none', fontSize: '11px', color: '#c9d1d9' }}>
+                  <input
+                    type="checkbox"
+                    checked={terminalAutoRefresh}
+                    onChange={(e) => setTerminalAutoRefresh(e.target.checked)}
+                    style={{ accentColor: '#58a6ff' }}
+                  />
+                  <span>Live 2s Stream</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => fetchTerminalLogs(liveTerminalTask.id)}
+                  disabled={terminalLoading}
+                  style={{
+                    background: '#21262d',
+                    border: '1px solid #30363d',
+                    color: '#c9d1d9',
+                    fontSize: '11px',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {terminalLoading ? '⏳ Refreshing...' : '🔄 Refresh'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCopyLink(terminalLogs.join('\n'), `logs_${liveTerminalTask.id}`)}
+                  style={{
+                    background: '#21262d',
+                    border: '1px solid #30363d',
+                    color: copiedId === `logs_${liveTerminalTask.id}` ? '#3fb950' : '#c9d1d9',
+                    fontSize: '11px',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {copiedId === `logs_${liveTerminalTask.id}` ? '✓ Copied' : '📋 Copy All Logs'}
+                </button>
+              </div>
+            </div>
+
+            {/* Terminal Output Log Area */}
+            <div
+              style={{
+                flex: 1,
+                padding: '16px',
+                overflowY: 'auto',
+                fontSize: '12px',
+                lineHeight: '1.6',
+                color: '#c9d1d9',
+                background: '#0d1117'
+              }}
+            >
+              {terminalLogs.length === 0 ? (
+                <div style={{ color: '#8b949e', fontStyle: 'italic', padding: '20px 0' }}>
+                  {terminalLoading ? 'Loading real-time terminal execution logs from Modal GPU cluster...' : 'No logs recorded yet for this task.'}
+                </div>
+              ) : (
+                terminalLogs.map((line, idx) => {
+                  let lineCol = '#c9d1d9';
+                  if (line.includes('[ERROR]') || line.includes('Error') || line.includes('FAILED') || line.includes('Exception')) {
+                    lineCol = '#f85149';
+                  } else if (line.includes('[WARNING]') || line.includes('WARN')) {
+                    lineCol = '#d29922';
+                  } else if (line.includes('[INFO]') || line.includes('SUCCESS') || line.includes('100%')) {
+                    lineCol = '#3fb950';
+                  } else if (line.includes('DEBUG') || line.includes('task_id=')) {
+                    lineCol = '#58a6ff';
+                  }
+                  return (
+                    <div key={idx} style={{ color: lineCol, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                      <span style={{ color: '#484f58', userSelect: 'none', marginRight: '10px' }}>
+                        {String(idx + 1).padStart(3, '0')}
+                      </span>
+                      {line}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Terminal Footer */}
+            <div
+              style={{
+                padding: '10px 18px',
+                background: '#161b22',
+                borderTop: '1px solid #30363d',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <div style={{ fontSize: '11px', color: '#8b949e' }}>
+                Cluster: <span style={{ color: '#58a6ff' }}>{liveTerminalTask.cluster || activeCluster}</span> • Total Lines: {terminalLogs.length}
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteTask(liveTerminalTask.id)}
+                  style={{
+                    background: 'rgba(218, 54, 51, 0.2)',
+                    border: '1px solid rgba(248, 81, 73, 0.4)',
+                    color: '#f85149',
+                    fontSize: '11px',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🗑️ Delete Task
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLiveTerminalTask(null)}
+                  style={{
+                    background: '#21262d',
+                    border: '1px solid #30363d',
+                    color: '#f0f6fc',
+                    fontSize: '11px',
+                    padding: '4px 14px',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

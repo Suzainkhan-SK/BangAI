@@ -249,5 +249,10 @@ export const adminService = {
   adminUpdateStockStudioAutomation: async (automationId, updates) =>
     adminFetch('admin-update-stock-studio-automation', 'POST', { automationId, updates }),
   adminDeleteStockStudioAutomation: async (automationId) =>
-    adminFetch('admin-delete-stock-studio-automation', 'POST', { automationId })
+    adminFetch('admin-delete-stock-studio-automation', 'POST', { automationId }),
+
+  // 16C. Live Terminal Logs & Task Purging
+  getStockStudioTaskLogs: async (taskId) => adminFetch('get-stock-studio-task-logs', 'GET', null, { taskId }),
+  adminDeleteStockStudioTask: async (taskId) => adminFetch('admin-delete-stock-studio-task', 'POST', { taskId })
 };
+

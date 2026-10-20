@@ -9,7 +9,7 @@ import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 import { getN8nConfig } from './n8n-config.js';
 
 const MODAL_SERVE_URL = 'https://cmpunktg--bangai-stock-studio-serve.modal.run';
-const N8N_YOUTUBE_WEBHOOK_URL = 'https://cmpunktg29.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
+const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg1outlook.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
 
 /**
  * Dispatches a single autonomous Stock Studio video generation
@@ -19,18 +19,25 @@ export async function executeStockStudioAutonomousRun(db, automation, isManualTr
   const userEmail = String(automation.userEmail || '').toLowerCase();
 
   // 1. Resolve User Document & Dynamic YouTube Tokens
+  const userQuery = [
+    { email: String(userEmail || '').toLowerCase() },
+    { email: userEmail }
+  ];
+  if (userId) {
+    userQuery.push({ id: userId }, { userId: userId }, { _id: userId });
+    if (ObjectId.isValid(userId)) {
+      try {
+        userQuery.push({ _id: new ObjectId(userId) });
+      } catch (_) {}
+    }
+  }
+
   const userDoc = await db.collection('users').findOne({
-    $or: [
-      { id: userId },
-      { _id: userId },
-      { userId: userId },
-      { email: String(userEmail || '').toLowerCase() },
-      { email: userEmail }
-    ]
+    $or: userQuery
   });
 
   if (!userDoc) {
-    throw new Error(`User account for ${userEmail} was not found.`);
+    throw new Error(`User account for ${userEmail || userId} was not found.`);
   }
 
   // 2. Resolve YouTube Channel
@@ -235,21 +242,85 @@ export async function handler(event, context) {
     const candidateUserId = verifiedUser?.id || verifiedUser?.userId || queryParams.userId || reqBody.userId || '';
 
     // =========================================================================
+    // 0. CRON / SCHEDULED BACKGROUND RUNNER (Triggered by Netlify Schedule or Modal Cron)
+    // =========================================================================
+    const isCronTrigger = 
+      reqBody.action === 'cron-runner' || 
+      reqBody.action === 'process-due' || 
+      queryParams.action === 'cron-runner' || 
+      queryParams.action === 'process-due' ||
+      queryParams.cron === '1' ||
+      event.headers?.['x-nf-event'] === 'schedule';
+
+    if (isCronTrigger) {
+      const now = new Date();
+      const dueAutomations = await autoCol.find({
+        status: 'ACTIVE',
+        nextRunAt: { $lte: now }
+      }).toArray();
+
+      console.log(`[stock-studio-automation] Cron trigger: found ${dueAutomations.length} due automations.`);
+      const results = [];
+
+      for (const item of dueAutomations) {
+        try {
+          const res = await executeStockStudioAutonomousRun(db, item, false);
+          results.push({ id: item._id, email: item.userEmail, success: true, res });
+        } catch (itemErr) {
+          console.error(`[stock-studio-automation] Error processing ${item.userEmail}:`, itemErr.message);
+          await autoCol.updateOne(
+            { _id: item._id },
+            {
+              $push: {
+                executionLogs: {
+                  $each: [{
+                    timestamp: new Date(),
+                    status: 'failed',
+                    message: `Execution failed: ${itemErr.message}`
+                  }],
+                  $slice: -30
+                }
+              }
+            }
+          );
+          results.push({ id: item._id, email: item.userEmail, success: false, error: itemErr.message });
+        }
+      }
+
+      return {
+        statusCode: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: true,
+          processedCount: dueAutomations.length,
+          results
+        })
+      };
+    }
+
+    // Helper to find user document
+    const findUser = async () => {
+      const userQuery = [];
+      if (candidateEmail) {
+        userQuery.push({ email: String(candidateEmail).toLowerCase() }, { email: candidateEmail });
+      }
+      if (candidateUserId) {
+        userQuery.push({ id: candidateUserId }, { userId: candidateUserId }, { _id: candidateUserId });
+        if (ObjectId.isValid(candidateUserId)) {
+          try { userQuery.push({ _id: new ObjectId(candidateUserId) }); } catch (_) {}
+        }
+      }
+      if (userQuery.length > 0) {
+        return await usersCol.findOne({ $or: userQuery });
+      }
+      return null;
+    };
+
+    // =========================================================================
     // GET: Fetch User's Stock Studio Automation Document & YouTube Channels
     // =========================================================================
     if (event.httpMethod === 'GET') {
-      let userDoc = null;
-      if (candidateEmail || candidateUserId) {
-        userDoc = await usersCol.findOne({
-          $or: [
-            { email: String(candidateEmail).toLowerCase() },
-            { id: candidateUserId },
-            { _id: candidateUserId },
-            { userId: candidateUserId }
-          ]
-        });
-      }
-
+      const userDoc = await findUser();
       const effectiveEmail = userDoc?.email || candidateEmail || 'creator@bangai.com';
       const effectiveUserId = userDoc?.id || userDoc?._id?.toString() || candidateUserId || 'creator';
 
@@ -324,66 +395,8 @@ export async function handler(event, context) {
     if (event.httpMethod === 'POST') {
       const action = reqBody.action || 'save';
 
-      // ── CRON / BACKGROUND RUNNER ──────────────────────────────────────────
-      if (action === 'cron-runner' || action === 'process-due') {
-        const now = new Date();
-        const dueAutomations = await autoCol.find({
-          status: 'ACTIVE',
-          nextRunAt: { $lte: now }
-        }).toArray();
-
-        console.log(`[stock-studio-automation] Cron trigger: found ${dueAutomations.length} due automations.`);
-        const results = [];
-
-        for (const item of dueAutomations) {
-          try {
-            const res = await executeStockStudioAutonomousRun(db, item, false);
-            results.push({ id: item._id, email: item.userEmail, success: true, res });
-          } catch (itemErr) {
-            console.error(`[stock-studio-automation] Error processing ${item.userEmail}:`, itemErr.message);
-            await autoCol.updateOne(
-              { _id: item._id },
-              {
-                $push: {
-                  executionLogs: {
-                    $each: [{
-                      timestamp: new Date(),
-                      status: 'failed',
-                      message: `Execution failed: ${itemErr.message}`
-                    }],
-                    $slice: -30
-                  }
-                }
-              }
-            );
-            results.push({ id: item._id, email: item.userEmail, success: false, error: itemErr.message });
-          }
-        }
-
-        return {
-          statusCode: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            success: true,
-            processedCount: dueAutomations.length,
-            results
-          })
-        };
-      }
-
       // ── User-specific Actions (save, toggle, run-now) ───────────────────────
-      let userDoc = null;
-      if (candidateEmail || candidateUserId) {
-        userDoc = await usersCol.findOne({
-          $or: [
-            { email: String(candidateEmail).toLowerCase() },
-            { id: candidateUserId },
-            { _id: candidateUserId },
-            { userId: candidateUserId }
-          ]
-        });
-      }
-
+      const userDoc = await findUser();
       const effectiveEmail = userDoc?.email || candidateEmail || 'creator@bangai.com';
       const effectiveUserId = userDoc?.id || userDoc?._id?.toString() || candidateUserId || 'creator';
 

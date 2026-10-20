@@ -6127,6 +6127,112 @@ export async function handler(event) {
         };
       }
 
+      case 'get-stock-studio-task-logs': {
+        const taskId = String(query.taskId || body.taskId || '').trim();
+        if (!taskId) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'taskId parameter is required' })
+          };
+        }
+
+        const sysCol = db.collection('system_config');
+        const modalDoc = await sysCol.findOne({ _id: 'modal_configuration' });
+        const activeCluster = modalDoc?.activeCluster || 'cmpunktg';
+        const clusters = [
+          { id: 'cmpunktg', url: 'https://cmpunktg--bangai-stock-studio-serve.modal.run' },
+          { id: 'cmpunktg1', url: 'https://cmpunktg1--bangai-stock-studio-serve.modal.run' }
+        ];
+        const activeUrl = clusters.find(c => c.id === activeCluster)?.url || clusters[0].url;
+
+        try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 9000);
+          const modalRes = await fetch(`${activeUrl}/api/bangai/task/${encodeURIComponent(taskId)}/logs`, {
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal
+          });
+          clearTimeout(tid);
+
+          if (modalRes.ok) {
+            const data = await modalRes.json();
+            return {
+              statusCode: 200,
+              headers: {
+                ...corsHeaders,
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
+              },
+              body: JSON.stringify({
+                success: true,
+                taskId,
+                logs: data?.data?.logs || [],
+                text: data?.data?.text || '',
+                state: data?.data?.state || {},
+                cluster: activeCluster
+              })
+            };
+          } else {
+            return {
+              statusCode: modalRes.status,
+              headers: corsHeaders,
+              body: JSON.stringify({ success: false, error: `Modal cluster returned ${modalRes.status} for task logs` })
+            };
+          }
+        } catch (err) {
+          return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: err.message })
+          };
+        }
+      }
+
+      case 'admin-delete-stock-studio-task': {
+        const taskId = String(query.taskId || body.taskId || '').trim();
+        if (!taskId) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'taskId parameter is required' })
+          };
+        }
+
+        const sysCol = db.collection('system_config');
+        const modalDoc = await sysCol.findOne({ _id: 'modal_configuration' });
+        const activeCluster = modalDoc?.activeCluster || 'cmpunktg';
+        const clusters = [
+          { id: 'cmpunktg', url: 'https://cmpunktg--bangai-stock-studio-serve.modal.run' },
+          { id: 'cmpunktg1', url: 'https://cmpunktg1--bangai-stock-studio-serve.modal.run' }
+        ];
+        const activeUrl = clusters.find(c => c.id === activeCluster)?.url || clusters[0].url;
+
+        try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 12000);
+          const modalRes = await fetch(`${activeUrl}/api/bangai/task/${encodeURIComponent(taskId)}`, {
+            method: 'DELETE',
+            signal: controller.signal
+          });
+          clearTimeout(tid);
+
+          const mData = await modalRes.json().catch(() => ({}));
+          await logAdminAction(db, 'ADMIN_DELETE_STOCK_STUDIO_TASK', { taskId, modalResult: mData }, clientIp);
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: true, taskId, ...mData })
+          };
+        } catch (err) {
+          return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: err.message })
+          };
+        }
+      }
+
       // ----------------------------------------------------
       // [16B] STOCK STUDIO 24-HOUR AUTOPILOT GOVERNANCE
       // ----------------------------------------------------
