@@ -21,6 +21,7 @@ export default function StockStudioManagerView() {
   const [toastMsg, setToastMsg] = useState('');
   const [switchingCluster, setSwitchingCluster] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
 
   // Active view tab: 'videos' (Video Generation Vault) | 'automations' (24h Autopilot Automations) | 'users' (Creators Analytics)
   const [activeTab, setActiveTab] = useState('videos');
@@ -135,6 +136,29 @@ export default function StockStudioManagerView() {
     }
   };
 
+  const handleClearCache = async () => {
+    if (!window.confirm('🧹 Clear all video material caches, temp files, and purge failed tasks from the active Modal volume?\n\nThis will safely reclaim cloud storage and clean all failed video render records.')) {
+      return;
+    }
+    setClearingCache(true);
+    setToastMsg('🧹 Clearing Modal caches and purging failed tasks...');
+    try {
+      const res = await adminService.clearStockStudioCache();
+      if (res && res.success) {
+        const d = res.modalResult || {};
+        setToastMsg(`✅ Cache cleared! Purged ${d.purged_failed_tasks || 0} failed task(s), deleted ${d.deleted_cache_files || 0} cache file(s), and reclaimed ${d.reclaimed_mb || 0} MB.`);
+        fetchStockStudioData();
+      } else {
+        setToastMsg(`⚠️ Cache clear warning: ${res?.error || 'Unknown response'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error clearing cache: ${err.message}`);
+    } finally {
+      setClearingCache(false);
+      setTimeout(() => setToastMsg(''), 5000);
+    }
+  };
+
   const handleCopyLink = (url, id) => {
     if (!url) return;
     navigator.clipboard?.writeText(url);
@@ -220,9 +244,13 @@ export default function StockStudioManagerView() {
     }
   };
 
-  // Filtered Videos List
+  // Filtered Videos List (strictly successful tasks and active renders)
   const filteredVideos = useMemo(() => {
     return (data.videos || []).filter(v => {
+      // Exclude failed tasks from everywhere
+      if (v.status === 'failed' || v.state === -1 || v.state === 'failed') {
+        return false;
+      }
       if (selectedUserFilter && v.userEmail !== selectedUserFilter && v.userId !== selectedUserFilter) {
         return false;
       }
@@ -230,9 +258,6 @@ export default function StockStudioManagerView() {
         return false;
       }
       if (statusFilter === 'rendering' && v.status !== 'rendering') {
-        return false;
-      }
-      if (statusFilter === 'failed' && v.status !== 'failed') {
         return false;
       }
       if (creditFilter === 'bang_credits' && v.creditMode !== 'bang_credits') {
@@ -336,6 +361,28 @@ export default function StockStudioManagerView() {
             className="admin-btn admin-btn-secondary"
           >
             {loading ? 'Refreshing...' : '🔄 Refresh Data'}
+          </button>
+          <button
+            type="button"
+            onClick={handleClearCache}
+            disabled={clearingCache || loading}
+            className="admin-btn"
+            style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#f87171',
+              fontWeight: 700,
+              fontSize: '12.5px',
+              padding: '7px 14px',
+              borderRadius: '8px',
+              cursor: clearingCache ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title="Clean failed tasks and free up cloud temp cache storage"
+          >
+            <span>{clearingCache ? '🧹 Purging...' : '🧹 Clear Caches'}</span>
           </button>
           <a
             href="https://cmpunktg--bangai-stock-studio-ui.modal.run"
@@ -620,10 +667,9 @@ export default function StockStudioManagerView() {
               <>
                 <div style={{ display: 'flex', gap: '4px' }}>
                   {[
-                    { id: 'all', label: 'All Status' },
+                    { id: 'all', label: 'All Successful' },
                     { id: 'completed', label: 'Playable' },
-                    { id: 'rendering', label: '⚡ Rendering' },
-                    { id: 'failed', label: '⚠️ Failed' }
+                    { id: 'rendering', label: '⚡ Rendering' }
                   ].map(filter => (
                     <button
                       key={filter.id}

@@ -5844,9 +5844,15 @@ export async function handler(event) {
           }
         }
 
-        // Build Stock Studio rendered videos list (strictly Stock Studio, no n8n rawPreviews or threads)
+        // Build Stock Studio rendered videos list (strictly successful tasks and active renders, failed tasks removed)
         const userVideoMap = {};
-        const videos = modalTasks.map(t => {
+        const validModalTasks = modalTasks.filter(t => {
+          if (t.videoUrl || t.status === 'completed' || t.progress === 100) return true;
+          const isRecent = (Date.now() - new Date(t.createdAt).getTime()) < 15 * 60 * 1000;
+          return t.status === 'rendering' && isRecent && !t.error;
+        });
+
+        const videos = validModalTasks.map(t => {
           const rawUid = t.userId || '';
           const matchedUser = userMap.get(rawUid) || userMap.get(rawUid.replace('usr_', '')) || null;
           const userEmail = matchedUser?.email || (rawUid.includes('@') ? rawUid : (rawUid ? `${rawUid}@bangai.user` : 'creator@bangai.com'));
@@ -5855,20 +5861,11 @@ export async function handler(event) {
 
           userVideoMap[userEmail] = (userVideoMap[userEmail] || 0) + 1;
 
-          const isStale = (Date.now() - new Date(t.createdAt).getTime()) > 20 * 60 * 1000;
-          const status = (t.status === 'rendering' && isStale) ? 'failed' : (t.status || 'rendering');
-          const progress = (status === 'failed' && isStale && t.status === 'rendering') 
-            ? 0 
-            : (typeof t.progress === 'number' ? t.progress : (t.status === 'completed' ? 100 : 20));
-          const currentStep = (status === 'failed' && isStale && t.status === 'rendering')
-            ? 'Task Timed Out'
-            : (t.currentStep || '');
-          const error = (status === 'failed' && isStale && !t.error)
-            ? 'Task timed out: worker container terminated or disconnected'
-            : (t.error || '');
-          const failedStage = (status === 'failed' && isStale && !t.failedStage)
-            ? 'timeout'
-            : (t.failedStage || '');
+          const status = t.videoUrl ? 'completed' : (t.status || 'rendering');
+          const progress = status === 'completed' ? 100 : (typeof t.progress === 'number' ? t.progress : 20);
+          const currentStep = status === 'completed' ? 'Render Complete' : (t.currentStep || 'Processing...');
+          const error = t.error || '';
+          const failedStage = t.failedStage || '';
 
           return {
             id: t.id || t.task_id,
@@ -5922,6 +5919,8 @@ export async function handler(event) {
           };
         });
 
+        videos.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
         const totalVideos = videos.length;
         const completedVideos = videos.filter(v => v.status === 'completed' && v.videoUrl).length;
         const renderingVideos = videos.filter(v => v.status === 'rendering').length;
@@ -5936,7 +5935,12 @@ export async function handler(event) {
 
         return {
           statusCode: 200,
-          headers: corsHeaders,
+          headers: {
+            ...corsHeaders,
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          },
           body: JSON.stringify({
             success: true,
             activeCluster,
@@ -6075,6 +6079,49 @@ export async function handler(event) {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({ success: true, message: 'Keys synced to Modal clusters', syncResults })
+        };
+      }
+
+      case 'clear-stock-studio-cache': {
+        const sysCol = db.collection('system_config');
+        const modalDoc = await sysCol.findOne({ _id: 'modal_configuration' });
+        const activeCluster = modalDoc?.activeCluster || 'cmpunktg';
+        const clusters = [
+          { id: 'cmpunktg', url: 'https://cmpunktg--bangai-stock-studio-serve.modal.run' },
+          { id: 'cmpunktg1', url: 'https://cmpunktg1--bangai-stock-studio-serve.modal.run' }
+        ];
+        const activeUrl = clusters.find(c => c.id === activeCluster)?.url || clusters[0].url;
+
+        let modalResult = null;
+        try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 15000);
+          const res = await fetch(`${activeUrl}/api/bangai/clear-cache`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal
+          });
+          clearTimeout(tid);
+          if (res.ok) {
+            modalResult = await res.json();
+          }
+        } catch (err) {
+          console.warn('Modal clear cache error:', err.message);
+        }
+
+        await logAdminAction(db, 'CLEAR_STOCK_STUDIO_CACHE', { activeCluster, modalResult }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: {
+            ...corsHeaders,
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
+          },
+          body: JSON.stringify({
+            success: true,
+            message: 'Stock Studio caches cleared and failed tasks purged successfully.',
+            modalResult: modalResult?.data || {}
+          })
         };
       }
 

@@ -238,6 +238,7 @@ export const adminService = {
   getStockStudioDetails: async () => adminFetch('get-stock-studio-details', 'GET'),
   saveStockStudioDetails: async (settings) => adminFetch('save-stock-studio-details', 'POST', settings),
   syncModalClusterKeys: async () => adminFetch('sync-modal-cluster-keys', 'POST'),
+  clearStockStudioCache: async () => adminFetch('clear-stock-studio-cache', 'POST'),
 
   // 16B. Autonomous 24-Hour Stock Studio Video Engine Governance
   getAllStockStudioAutomations: async () => adminFetch('get-all-stock-studio-automations', 'GET'),
