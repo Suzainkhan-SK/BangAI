@@ -1378,9 +1378,9 @@ export default function StockStudioManagerView() {
                               fontWeight: 800,
                               padding: '3px 10px',
                               borderRadius: '12px',
-                              background: item.lastTaskStatus === 'rendering' ? 'rgba(6, 182, 212, 0.15)' : (item.lastTaskStatus === 'failed' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)'),
-                              color: item.lastTaskStatus === 'rendering' ? '#06b6d4' : (item.lastTaskStatus === 'failed' ? '#ef4444' : '#10b981'),
-                              border: item.lastTaskStatus === 'rendering' ? '1px solid rgba(6, 182, 212, 0.4)' : (item.lastTaskStatus === 'failed' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)'),
+                              background: item.lastTaskStatus === 'rendering' ? 'rgba(6, 182, 212, 0.15)' : (item.lastTaskStatus === 'failed' ? 'rgba(239, 68, 68, 0.15)' : (item.lastTaskStatus === 'completed' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)')),
+                              color: item.lastTaskStatus === 'rendering' ? '#06b6d4' : (item.lastTaskStatus === 'failed' ? '#ef4444' : (item.lastTaskStatus === 'completed' ? '#10b981' : '#f59e0b')),
+                              border: item.lastTaskStatus === 'rendering' ? '1px solid rgba(6, 182, 212, 0.4)' : (item.lastTaskStatus === 'failed' ? '1px solid rgba(239, 68, 68, 0.4)' : (item.lastTaskStatus === 'completed' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)')),
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '6px'
@@ -1389,13 +1389,17 @@ export default function StockStudioManagerView() {
                                 width: '6px',
                                 height: '6px',
                                 borderRadius: '50%',
-                                background: item.lastTaskStatus === 'rendering' ? '#06b6d4' : (item.lastTaskStatus === 'failed' ? '#ef4444' : '#10b981'),
+                                background: item.lastTaskStatus === 'rendering' ? '#06b6d4' : (item.lastTaskStatus === 'failed' ? '#ef4444' : (item.lastTaskStatus === 'completed' ? '#10b981' : '#f59e0b')),
                                 boxShadow: item.lastTaskStatus === 'rendering' ? '0 0 6px #06b6d4' : 'none'
                               }} />
                               <span>
                                 {item.lastTaskStatus === 'rendering'
                                   ? `⚡ Rendering (${item.lastTaskProgress || 50}%)`
-                                  : (item.lastTaskStatus === 'failed' ? '⚠️ Last Render Failed' : '✅ Render Complete')}
+                                  : (item.lastTaskStatus === 'failed'
+                                      ? '⚠️ Last Render Failed'
+                                      : (item.lastTaskStatus === 'completed'
+                                          ? '✅ Render Complete'
+                                          : '⏳ Dispatched to Queue'))}
                               </span>
                             </span>
                           )}

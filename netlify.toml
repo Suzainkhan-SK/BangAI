@@ -7,10 +7,10 @@
 [functions]
   node_bundler = "esbuild"
 
-[functions."stock-studio-automation"]
+[functions."stock-studio-cron"]
   schedule = "*/15 * * * *"
 
-[functions."template-automation"]
+[functions."template-cron"]
   schedule = "*/15 * * * *"
 
 [[edge_functions]]

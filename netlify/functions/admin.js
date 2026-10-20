@@ -6317,6 +6317,11 @@ export async function handler(event) {
           } else if (resolvedVideoUrl || resolvedYtUrl) {
             lastTaskStatus = 'completed';
             lastTaskProgress = 100;
+            lastTaskStep = 'Complete & Published';
+          } else if (lastCompleted?.status) {
+            lastTaskStatus = lastCompleted.status;
+            lastTaskProgress = lastCompleted.status === 'completed' ? 100 : (lastCompleted.status === 'failed' ? 0 : 25);
+            lastTaskStep = lastCompleted.status === 'dispatched' ? 'Dispatched to queue' : lastCompleted.status;
           }
 
           // Synchronize back to MongoDB if new links were discovered
