@@ -9,7 +9,78 @@ import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 import { getN8nConfig } from './n8n-config.js';
 
 const MODAL_SERVE_URL = 'https://cmpunktg--bangai-stock-studio-serve.modal.run';
-const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg1outlook.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
+const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg33.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
+
+/**
+ * Reconciles status and media URLs for a Stock Studio automation document by querying Modal GPU cluster.
+ */
+export async function reconcileAutomationTaskStatus(db, autoDoc, modalBaseUrl = MODAL_SERVE_URL) {
+  if (!autoDoc || !autoDoc.lastTaskId) return autoDoc;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`${modalBaseUrl}/api/bangai/task/${autoDoc.lastTaskId}`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const payload = await res.json();
+      const taskData = payload?.data || payload || {};
+      const rawStatus = taskData.status || (taskData.state === 1 || taskData.state === 'complete' ? 'complete' : taskData.state);
+      const isComplete = rawStatus === 'complete' || taskData.state === 1 || !!taskData.video_url;
+      const ytUrl = taskData.youtube_url || taskData.youtubeUrl || '';
+      const videoUrl = taskData.video_url || taskData.videoUrl || '';
+
+      autoDoc.lastTaskStatus = isComplete ? 'completed' : (rawStatus === 'processing' || rawStatus === 'rendering' ? 'rendering' : (rawStatus === 'failed' || rawStatus === -1 ? 'failed' : rawStatus));
+      autoDoc.lastTaskProgress = taskData.progress ?? (isComplete ? 100 : 20);
+      autoDoc.lastTaskStep = taskData.step || (isComplete ? 'Complete & Published' : '');
+      if (videoUrl) autoDoc.lastVideoUrl = videoUrl;
+      if (ytUrl) autoDoc.lastYoutubeUrl = ytUrl;
+
+      // Persist to MongoDB if newly resolved
+      const updates = {};
+      if (ytUrl && !autoDoc.lastYoutubeUrl) updates.lastYoutubeUrl = ytUrl;
+      if (videoUrl && !autoDoc.lastVideoUrl) updates.lastVideoUrl = videoUrl;
+
+      const autoCol = db.collection('stock_studio_automations');
+      if (Object.keys(updates).length > 0) {
+        updates.updatedAt = new Date();
+        await autoCol.updateOne({ _id: autoDoc._id }, { $set: updates });
+      }
+
+      // Reconcile completedTopics matching this taskId
+      if (Array.isArray(autoDoc.completedTopics) && autoDoc.completedTopics.length > 0) {
+        let topicUpdated = false;
+        const updatedCompleted = autoDoc.completedTopics.map(ct => {
+          if (ct.taskId === autoDoc.lastTaskId) {
+            topicUpdated = true;
+            return {
+              ...ct,
+              status: isComplete ? 'completed' : (ct.status || 'rendering'),
+              youtubeUrl: ytUrl || ct.youtubeUrl || null,
+              videoUrl: videoUrl || ct.videoUrl || null
+            };
+          }
+          return ct;
+        });
+
+        if (topicUpdated) {
+          autoDoc.completedTopics = updatedCompleted;
+          await autoCol.updateOne(
+            { _id: autoDoc._id },
+            { $set: { completedTopics: updatedCompleted } }
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.debug(`[stock-studio-automation] Task reconciliation notice for ${autoDoc.lastTaskId}:`, err.message);
+  }
+
+  return autoDoc;
+}
 
 /**
  * Dispatches a single autonomous Stock Studio video generation
@@ -375,6 +446,9 @@ export async function handler(event, context) {
         autoDoc = { ...defaultDoc, _id: insertRes.insertedId };
       }
 
+      // Reconcile real-time status & media links for active/recent tasks from Modal GPU cluster
+      autoDoc = await reconcileAutomationTaskStatus(db, autoDoc, MODAL_SERVE_URL);
+
       // Fetch Connected YouTube Channels from user document
       const channels = (userDoc?.youtubeChannels || []).map(c => ({
         channelId: c.channelId,
@@ -402,6 +476,47 @@ export async function handler(event, context) {
     // =========================================================================
     if (event.httpMethod === 'POST') {
       const action = reqBody.action || 'save';
+
+      // ── ACTION: TASK COMPLETED CALLBACK (From Modal Cluster) ───────────────
+      if (action === 'task-completed') {
+        const { taskId, youtubeUrl, videoUrl, channelTitle } = reqBody;
+        if (!taskId) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Missing taskId' }) };
+        }
+
+        const now = new Date();
+        const setFields = { updatedAt: now };
+        if (youtubeUrl) setFields.lastYoutubeUrl = youtubeUrl;
+        if (videoUrl) setFields.lastVideoUrl = videoUrl;
+
+        // 1. Update matching document by lastTaskId or completedTopics.taskId
+        const matched = await autoCol.findOne({
+          $or: [{ lastTaskId: taskId }, { 'completedTopics.taskId': taskId }]
+        });
+
+        if (matched) {
+          await autoCol.updateOne({ _id: matched._id }, { $set: setFields });
+
+          // 2. Update specific completedTopic entry
+          await autoCol.updateOne(
+            { _id: matched._id, 'completedTopics.taskId': taskId },
+            {
+              $set: {
+                'completedTopics.$.status': 'completed',
+                'completedTopics.$.youtubeUrl': youtubeUrl || null,
+                'completedTopics.$.videoUrl': videoUrl || null,
+                'completedTopics.$.completedAt': now
+              }
+            }
+          );
+        }
+
+        return {
+          statusCode: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ success: true, message: `Task ${taskId} completion recorded successfully.` })
+        };
+      }
 
       // ── User-specific Actions (save, toggle, run-now) ───────────────────────
       const userDoc = await findUser();

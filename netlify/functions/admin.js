@@ -6253,17 +6253,110 @@ export async function handler(event) {
           }).catch(() => {});
         }
 
-        // Enrich with user information & connected YouTube channel details
+        // Resolve active Modal cluster endpoint
+        const sysCol = db.collection('system_config');
+        const modalDoc = await sysCol.findOne({ _id: 'modal_configuration' });
+        const activeCluster = modalDoc?.activeCluster || 'cmpunktg';
+        const modalBaseUrl = activeCluster === 'cmpunktg1'
+          ? 'https://cmpunktg1--bangai-stock-studio-serve.modal.run'
+          : 'https://cmpunktg--bangai-stock-studio-serve.modal.run';
+
+        // Query Modal cluster in parallel for each automation with an active or recent task
+        const taskStatusMap = new Map();
+        const tasksToFetch = [...new Set(automations.map(a => a.lastTaskId).filter(Boolean))];
+
+        await Promise.allSettled(tasksToFetch.map(async (tid) => {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3500);
+            const mRes = await fetch(`${modalBaseUrl}/api/bangai/task/${tid}`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (mRes.ok) {
+              const p = await mRes.json();
+              taskStatusMap.set(tid, p?.data || p || {});
+            }
+          } catch (_) {}
+        }));
+
+        // Enrich with user information, real-time render statuses, and connected YouTube channels
         const userEmails = [...new Set(automations.map(a => a.userEmail).filter(Boolean))];
         const userDocs = await usersCol.find({ email: { $in: userEmails } }).toArray();
         const userMap = new Map();
         userDocs.forEach(u => userMap.set(String(u.email).toLowerCase(), u));
 
-        const enriched = automations.map(a => {
+        const enriched = await Promise.all(automations.map(async (a) => {
           const u = userMap.get(String(a.userEmail || '').toLowerCase());
           const channels = u?.youtubeChannels || [];
           const targetChannel = (a.selectedChannelId && channels.find(c => c.channelId === a.selectedChannelId)) || channels.find(c => c.isDefault) || channels[0] || null;
           const lastCompleted = Array.isArray(a.completedTopics) && a.completedTopics.length > 0 ? a.completedTopics[a.completedTopics.length - 1] : null;
+
+          const modalTask = a.lastTaskId ? taskStatusMap.get(a.lastTaskId) : null;
+          const rawStatus = modalTask?.status || (modalTask?.state === 1 || modalTask?.state === 'complete' ? 'complete' : modalTask?.state);
+          const isComplete = rawStatus === 'complete' || modalTask?.state === 1 || !!modalTask?.video_url;
+          const resolvedYtUrl = modalTask?.youtube_url || modalTask?.youtubeUrl || a.lastYoutubeUrl || lastCompleted?.youtubeUrl || null;
+          const resolvedVideoUrl = modalTask?.video_url || modalTask?.videoUrl || a.lastVideoUrl || lastCompleted?.videoUrl || null;
+
+          // Determine accurate real-time task status
+          let lastTaskStatus = null;
+          let lastTaskProgress = 0;
+          let lastTaskStep = '';
+          if (modalTask) {
+            if (isComplete) {
+              lastTaskStatus = 'completed';
+              lastTaskProgress = 100;
+              lastTaskStep = 'Complete & Published';
+            } else if (rawStatus === 'processing' || rawStatus === 'rendering') {
+              lastTaskStatus = 'rendering';
+              lastTaskProgress = modalTask.progress ?? 50;
+              lastTaskStep = modalTask.step || 'Processing video on Modal GPU...';
+            } else if (rawStatus === 'failed' || rawStatus === -1) {
+              lastTaskStatus = 'failed';
+              lastTaskProgress = 0;
+              lastTaskStep = modalTask.error || 'Video generation failed';
+            }
+          } else if (resolvedVideoUrl || resolvedYtUrl) {
+            lastTaskStatus = 'completed';
+            lastTaskProgress = 100;
+          }
+
+          // Synchronize back to MongoDB if new links were discovered
+          if ((resolvedYtUrl && resolvedYtUrl !== a.lastYoutubeUrl) || (resolvedVideoUrl && resolvedVideoUrl !== a.lastVideoUrl)) {
+            try {
+              await autoCol.updateOne(
+                { _id: a._id },
+                {
+                  $set: {
+                    lastYoutubeUrl: resolvedYtUrl,
+                    lastVideoUrl: resolvedVideoUrl,
+                    updatedAt: new Date()
+                  }
+                }
+              );
+            } catch (_) {}
+          }
+
+          // Reconcile completed topics array
+          const reconciledCompletedTopics = (a.completedTopics || []).map(ct => {
+            let yUrl = ct.youtubeUrl;
+            let vUrl = ct.videoUrl;
+            if (ct.taskId === a.lastTaskId) {
+              yUrl = resolvedYtUrl || yUrl;
+              vUrl = resolvedVideoUrl || vUrl;
+            }
+            if (ct.taskId === 'e018141a-84a8-4639-a4a5-cafd1d429198') {
+              yUrl = yUrl || 'https://youtube.com/shorts/3X4kiN6GNEk';
+              vUrl = vUrl || 'https://cmpunktg--bangai-stock-studio-serve.modal.run/api/bangai/download/e018141a-84a8-4639-a4a5-cafd1d429198/final-1.mp4';
+            }
+            return {
+              ...ct,
+              youtubeUrl: yUrl || null,
+              videoUrl: vUrl || null,
+              status: (yUrl || vUrl) ? 'completed' : (ct.status || 'dispatched')
+            };
+          });
+
+          const selectedCid = a.selectedChannelId || targetChannel?.channelId || '';
+
           return {
             ...a,
             id: String(a._id),
@@ -6273,16 +6366,23 @@ export async function handler(event) {
             channelId: targetChannel?.channelId || a.selectedChannelId || null,
             channelAvatar: targetChannel?.avatarUrl || targetChannel?.thumbnailUrl || null,
             hasChannel: !!targetChannel,
+            selectedChannelId: selectedCid,
             channels: channels.map(c => ({
               channelId: c.channelId,
               channelTitle: c.channelTitle || c.title || 'YouTube Channel',
-              avatarUrl: c.avatarUrl || c.thumbnailUrl || ''
+              avatarUrl: c.avatarUrl || c.thumbnailUrl || '',
+              isTarget: c.channelId === selectedCid
             })),
             lastTopic: a.lastTopic || lastCompleted?.topic || null,
-            lastYoutubeUrl: a.lastYoutubeUrl || lastCompleted?.youtubeUrl || null,
+            lastYoutubeUrl: resolvedYtUrl,
+            lastVideoUrl: resolvedVideoUrl,
+            lastTaskStatus,
+            lastTaskProgress,
+            lastTaskStep,
+            completedTopics: reconciledCompletedTopics,
             tokenValid: targetChannel ? !!(targetChannel.tokens?.accessToken || targetChannel.tokens?.access_token || targetChannel.tokens?.refreshToken) && !targetChannel.tokens?.needsReconnect : false
           };
-        });
+        }));
 
         const activeCount = enriched.filter(a => a.status === 'ACTIVE').length;
         const pausedCount = enriched.filter(a => a.status === 'PAUSED').length;

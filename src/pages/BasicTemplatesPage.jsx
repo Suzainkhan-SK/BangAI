@@ -869,6 +869,71 @@ export default function BasicTemplatesPage({
                 )}
               </div>
 
+              {/* Latest Autonomous Video Run Status & Link */}
+              {(automationConfig.lastTopic || automationConfig.lastYoutubeUrl || automationConfig.lastVideoUrl) && (
+                <div style={{
+                  padding: '14px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%)',
+                  border: '1px solid rgba(6, 182, 212, 0.25)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Latest Autopilot Generation
+                    </div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
+                      {automationConfig.lastTopic || 'Autonomous Video'}
+                    </div>
+                    {automationConfig.lastRunAt && (
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        Dispatched: {new Date(automationConfig.lastRunAt).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {automationConfig.lastVideoUrl && (
+                      <a
+                        href={automationConfig.lastVideoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-zapier-outline"
+                        style={{ fontSize: '11.5px', padding: '5px 12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <span>▶️ Watch Video</span>
+                      </a>
+                    )}
+                    {automationConfig.lastYoutubeUrl && (
+                      <a
+                        href={automationConfig.lastYoutubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          fontSize: '11.5px',
+                          padding: '5px 12px',
+                          background: '#ff0000',
+                          color: '#fff',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          textDecoration: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <span>🎬 YouTube</span>
+                        <span>↗</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Applied Video Creation Settings Summary */}
               <div style={{ padding: '14px', borderRadius: '10px', background: 'var(--bg-app)', border: '1px solid var(--border-subtle)' }}>
                 <div style={{ fontSize: '12.5px', fontWeight: 800, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>

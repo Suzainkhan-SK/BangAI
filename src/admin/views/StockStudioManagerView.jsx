@@ -58,6 +58,7 @@ export default function StockStudioManagerView() {
   const [editingAutomation, setEditingAutomation] = useState(null);
   const [editTopicsText, setEditTopicsText] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState(null);
 
   const fetchTerminalLogs = async (taskId, silent = false) => {
     if (!taskId) return;
@@ -1325,40 +1326,77 @@ export default function StockStudioManagerView() {
                             <span>{item.settings?.video_language === 'hi-IN' || item.settings?.video_language === 'Hindi' ? 'Hindi (हिन्दी)' : (item.settings?.video_language || 'Hindi (हिन्दी)')}</span>
                           </span>
 
-                          {/* YouTube Connected Channels Status */}
+                          {/* YouTube Connected Channels Status & Active Target Channel */}
                           {item.channels && item.channels.length > 0 ? (
-                            item.channels.map((ch, chIdx) => (
-                              <span key={chIdx} style={{
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                padding: '3px 9px',
-                                borderRadius: '12px',
-                                background: 'rgba(239, 68, 68, 0.12)',
-                                color: '#ef4444',
-                                border: '1px solid rgba(239, 68, 68, 0.3)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}>
-                                <span>📺</span>
-                                <span>{ch.channelTitle}</span>
-                              </span>
-                            ))
+                            item.channels.map((ch, chIdx) => {
+                              const isTarget = ch.isTarget || ch.channelId === item.selectedChannelId || (!item.selectedChannelId && (ch.isDefault || chIdx === 0));
+                              return (
+                                <span key={chIdx} style={{
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  padding: '3px 10px',
+                                  borderRadius: '12px',
+                                  background: isTarget ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+                                  color: isTarget ? '#10b981' : '#ef4444',
+                                  border: isTarget ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid rgba(239, 68, 68, 0.25)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px'
+                                }}>
+                                  <span>{isTarget ? '🎯 Target:' : '📺'}</span>
+                                  <span>{ch.channelTitle}</span>
+                                  {isTarget && (
+                                    <span style={{ fontSize: '9.5px', background: '#10b981', color: '#000', padding: '1px 5px', borderRadius: '4px', fontWeight: 900 }}>
+                                      AUTOPILOT TARGET
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })
                           ) : (
                             <span style={{
                               fontSize: '11px',
                               fontWeight: 700,
                               padding: '3px 9px',
                               borderRadius: '12px',
-                              background: item.hasChannel ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.06)',
-                              color: item.hasChannel ? '#ef4444' : 'var(--admin-text-sub)',
-                              border: item.hasChannel ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--admin-border-glass)',
+                              background: item.hasChannel ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.06)',
+                              color: item.hasChannel ? '#10b981' : 'var(--admin-text-sub)',
+                              border: item.hasChannel ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--admin-border-glass)',
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '4px'
                             }}>
                               <span>📺</span>
-                              <span>{item.hasChannel ? item.channelTitle : 'No Channel Connected'}</span>
+                              <span>{item.hasChannel ? `🎯 ${item.channelTitle}` : 'No Channel Connected'}</span>
+                            </span>
+                          )}
+
+                          {/* Live Modal Render Status Badge */}
+                          {item.lastTaskId && (
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              padding: '3px 10px',
+                              borderRadius: '12px',
+                              background: item.lastTaskStatus === 'rendering' ? 'rgba(6, 182, 212, 0.15)' : (item.lastTaskStatus === 'failed' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)'),
+                              color: item.lastTaskStatus === 'rendering' ? '#06b6d4' : (item.lastTaskStatus === 'failed' ? '#ef4444' : '#10b981'),
+                              border: item.lastTaskStatus === 'rendering' ? '1px solid rgba(6, 182, 212, 0.4)' : (item.lastTaskStatus === 'failed' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)'),
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              <span style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: item.lastTaskStatus === 'rendering' ? '#06b6d4' : (item.lastTaskStatus === 'failed' ? '#ef4444' : '#10b981'),
+                                boxShadow: item.lastTaskStatus === 'rendering' ? '0 0 6px #06b6d4' : 'none'
+                              }} />
+                              <span>
+                                {item.lastTaskStatus === 'rendering'
+                                  ? `⚡ Rendering (${item.lastTaskProgress || 50}%)`
+                                  : (item.lastTaskStatus === 'failed' ? '⚠️ Last Render Failed' : '✅ Render Complete')}
+                              </span>
                             </span>
                           )}
                         </div>
@@ -1371,12 +1409,12 @@ export default function StockStudioManagerView() {
                         background: 'rgba(0, 0, 0, 0.25)',
                         border: '1px solid var(--admin-border-glass)'
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
                           <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>
                             📋 Upcoming Topics Queue ({topics.length} topics)
                           </span>
                           <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
-                            Total Runs Completed: <strong style={{ color: '#10b981' }}>{item.totalRuns || 0}</strong>
+                            Total Runs Completed: <strong style={{ color: '#10b981' }}>{item.totalRuns || (item.completedTopics?.length || 0)}</strong>
                           </span>
                         </div>
 
@@ -1409,8 +1447,8 @@ export default function StockStudioManagerView() {
                           </span>
                         )}
 
-                        {/* Last Run Topic & Uploaded YouTube Video link */}
-                        {(item.lastTopic || item.lastYoutubeUrl) && (
+                        {/* Last Run Topic, Task ID, Video Stream & YouTube link */}
+                        {(item.lastTopic || item.lastTaskId || item.lastYoutubeUrl || item.lastVideoUrl) && (
                           <div style={{
                             marginTop: '10px',
                             paddingTop: '8px',
@@ -1421,35 +1459,197 @@ export default function StockStudioManagerView() {
                             flexWrap: 'wrap',
                             gap: '8px'
                           }}>
-                            <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
-                              🎬 Last Run Topic: <strong style={{ color: 'var(--admin-text-main)' }}>{item.lastTopic || 'Completed Run'}</strong>
-                            </span>
-                            {item.lastYoutubeUrl ? (
-                              <a
-                                href={item.lastYoutubeUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="admin-btn"
-                                style={{
-                                  fontSize: '11px',
-                                  padding: '3px 10px',
-                                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                                  color: '#fff',
-                                  textDecoration: 'none',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  borderRadius: '6px',
-                                  boxShadow: '0 2px 6px rgba(239, 68, 68, 0.3)'
-                                }}
-                              >
-                                <span>🎬 View on YouTube</span>
-                                <span>↗</span>
-                              </a>
-                            ) : null}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>
+                                🎬 Last Run Topic: <strong style={{ color: 'var(--admin-text-main)' }}>{item.lastTopic || 'Autonomous Video'}</strong>
+                              </span>
+                              {item.lastTaskId && (
+                                <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)', background: 'rgba(255, 255, 255, 0.05)', padding: '1px 6px', borderRadius: '4px' }}>
+                                  ID: {item.lastTaskId.slice(0, 8)}...
+                                </span>
+                              )}
+                              {item.lastTaskStep && item.lastTaskStatus === 'rendering' && (
+                                <span style={{ fontSize: '11px', color: '#06b6d4', fontStyle: 'italic' }}>
+                                  • {item.lastTaskStep}
+                                </span>
+                              )}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                              {/* Live Logs Terminal Button */}
+                              {item.lastTaskId && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenLiveTerminal({ id: item.lastTaskId, title: item.lastTopic || 'Stock Studio Run' })}
+                                  className="admin-btn"
+                                  style={{
+                                    fontSize: '11px',
+                                    padding: '3px 8px',
+                                    background: 'rgba(6, 182, 212, 0.15)',
+                                    color: 'var(--admin-accent-cyan)',
+                                    border: '1px solid rgba(6, 182, 212, 0.35)',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                  title="Inspect live generation terminal logs from Modal volume"
+                                >
+                                  <span>🖥️ Live Logs</span>
+                                </button>
+                              )}
+
+                              {/* Preview Playable MP4 Video */}
+                              {item.lastVideoUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPlayingVideo({ url: item.lastVideoUrl, title: item.lastTopic || 'Autonomous Video' })}
+                                  className="admin-btn"
+                                  style={{
+                                    fontSize: '11px',
+                                    padding: '3px 8px',
+                                    background: 'rgba(16, 185, 129, 0.15)',
+                                    color: '#10b981',
+                                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <span>▶️ Preview Video</span>
+                                </button>
+                              )}
+
+                              {/* View on YouTube */}
+                              {item.lastYoutubeUrl && (
+                                <a
+                                  href={item.lastYoutubeUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="admin-btn"
+                                  style={{
+                                    fontSize: '11px',
+                                    padding: '3px 10px',
+                                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                    color: '#fff',
+                                    textDecoration: 'none',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    borderRadius: '6px',
+                                    boxShadow: '0 2px 6px rgba(239, 68, 68, 0.3)'
+                                  }}
+                                >
+                                  <span>🎬 View on YouTube</span>
+                                  <span>↗</span>
+                                </a>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
+
+                      {/* Expandable Run History Drawer */}
+                      {expandedHistoryId === item.id && (
+                        <div style={{
+                          padding: '12px 14px',
+                          borderRadius: '8px',
+                          background: 'rgba(0, 0, 0, 0.4)',
+                          border: '1px solid rgba(6, 182, 212, 0.25)',
+                          animation: 'fadeIn 0.2s ease-in-out'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>
+                              📜 Past Execution History ({item.completedTopics?.length || 0} runs)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedHistoryId(null)}
+                              style={{ background: 'transparent', border: 'none', color: 'var(--admin-text-sub)', fontSize: '11px', cursor: 'pointer' }}
+                            >
+                              ✕ Close History
+                            </button>
+                          </div>
+
+                          {(!item.completedTopics || item.completedTopics.length === 0) ? (
+                            <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontStyle: 'italic' }}>
+                              No past executions recorded yet. Dispatches will appear here with permanent video & YouTube links.
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {[...item.completedTopics].reverse().map((run, rIdx) => (
+                                <div
+                                  key={rIdx}
+                                  style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '6px 10px',
+                                    borderRadius: '6px',
+                                    background: 'rgba(255, 255, 255, 0.03)',
+                                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                                    fontSize: '11px',
+                                    flexWrap: 'wrap',
+                                    gap: '6px'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ color: '#10b981', fontWeight: 800 }}>#{item.completedTopics.length - rIdx}</span>
+                                    <strong style={{ color: 'var(--admin-text-main)' }}>{run.topic}</strong>
+                                    {run.dispatchedAt && (
+                                      <span style={{ color: 'var(--admin-text-sub)' }}>
+                                        ({new Date(run.dispatchedAt).toLocaleString()})
+                                      </span>
+                                    )}
+                                    {run.taskId && (
+                                      <span
+                                        onClick={() => handleCopyLink(run.taskId, `hist-${rIdx}`)}
+                                        style={{ cursor: 'pointer', color: 'var(--admin-accent-cyan)', background: 'rgba(6, 182, 212, 0.1)', padding: '1px 5px', borderRadius: '4px' }}
+                                        title="Click to copy Task ID"
+                                      >
+                                        📋 {run.taskId.slice(0, 8)}...
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                    {run.channelTitle && (
+                                      <span style={{ color: 'var(--admin-text-sub)', fontSize: '10.5px' }}>
+                                        📺 {run.channelTitle}
+                                      </span>
+                                    )}
+                                    {run.videoUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPlayingVideo({ url: run.videoUrl, title: run.topic })}
+                                        style={{ background: 'transparent', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#10b981', borderRadius: '4px', padding: '1px 6px', fontSize: '10.5px', cursor: 'pointer' }}
+                                      >
+                                        ▶️ Preview
+                                      </button>
+                                    )}
+                                    {run.youtubeUrl ? (
+                                      <a
+                                        href={run.youtubeUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{ color: '#ef4444', textDecoration: 'none', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                                      >
+                                        <span>🎬 YouTube</span>
+                                        <span>↗</span>
+                                      </a>
+                                    ) : (
+                                      <span style={{ color: 'var(--admin-text-sub)', fontSize: '10.5px' }}>No YouTube Link</span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Bottom Row: Next Run & Admin Controls */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -1460,6 +1660,21 @@ export default function StockStudioManagerView() {
                         </div>
 
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          {/* Toggle Run History Drawer */}
+                          <button
+                            type="button"
+                            onClick={() => setExpandedHistoryId(expandedHistoryId === item.id ? null : item.id)}
+                            className="admin-btn admin-btn-secondary"
+                            style={{
+                              fontSize: '11px',
+                              padding: '4px 10px',
+                              border: expandedHistoryId === item.id ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
+                              color: expandedHistoryId === item.id ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)'
+                            }}
+                          >
+                            <span>📜 History ({item.completedTopics?.length || 0})</span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => handleAdminToggleAutomation(item.id, item.status)}
