@@ -6087,6 +6087,17 @@ export async function handler(event) {
 
         const automations = await autoCol.find({}).sort({ updatedAt: -1, createdAt: -1 }).toArray();
 
+        // Background auto-trigger for any due 24h Autopilots
+        const now = new Date();
+        const hasDue = automations.some(a => a.status === 'ACTIVE' && a.nextRunAt && new Date(a.nextRunAt) <= now);
+        if (hasDue) {
+          fetch('https://bangai.netlify.app/.netlify/functions/stock-studio-automation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'process-due' })
+          }).catch(() => {});
+        }
+
         // Enrich with user information & connected YouTube channel details
         const userEmails = [...new Set(automations.map(a => a.userEmail).filter(Boolean))];
         const userDocs = await usersCol.find({ email: { $in: userEmails } }).toArray();
