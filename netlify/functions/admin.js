@@ -5777,33 +5777,61 @@ export async function handler(event) {
 
         const activeCluster = modalDoc?.activeCluster || 'cmpunktg';
 
-        // Fast cluster ping
+        // Fast parallel cluster ping and live task fetch from active Modal Stock Studio volume
         const clusters = [
           { id: 'cmpunktg', name: 'Primary Cluster (cmpunktg)', url: 'https://cmpunktg--bangai-stock-studio-serve.modal.run', uiUrl: 'https://cmpunktg--bangai-stock-studio-ui.modal.run' },
           { id: 'cmpunktg1', name: 'Backup Cluster (cmpunktg1)', url: 'https://cmpunktg1--bangai-stock-studio-serve.modal.run', uiUrl: 'https://cmpunktg1--bangai-stock-studio-ui.modal.run' }
         ];
 
-        const clusterHealth = await Promise.all(clusters.map(async (c) => {
-          const t0 = Date.now();
-          let online = false;
-          let latencyMs = 0;
-          try {
-            const controller = new AbortController();
-            const tid = setTimeout(() => controller.abort(), 6500);
-            const res = await fetch(`${c.url}/ping`, { signal: controller.signal });
-            clearTimeout(tid);
-            latencyMs = Date.now() - t0;
-            online = res.ok;
-          } catch (_) {
-            online = false;
-          }
-          return {
-            ...c,
-            online,
-            latencyMs,
-            isActive: c.id === activeCluster
-          };
-        }));
+        let modalTasks = [];
+        const activeUrl = clusters.find(c => c.id === activeCluster)?.url || clusters[0].url;
+
+        const [tasksResult, clusterHealth] = await Promise.all([
+          (async () => {
+            try {
+              const controller = new AbortController();
+              const tid = setTimeout(() => controller.abort(), 9000);
+              const modalTasksRes = await fetch(`${activeUrl}/api/bangai/tasks?limit=100`, { signal: controller.signal });
+              clearTimeout(tid);
+              if (modalTasksRes.ok) {
+                const tData = await modalTasksRes.json();
+                return tData?.data?.tasks || [];
+              }
+            } catch (mErr) {
+              console.warn('[StockStudio] Failed to fetch live tasks from Modal:', mErr.message);
+            }
+            return [];
+          })(),
+          Promise.all(clusters.map(async (c) => {
+            const t0 = Date.now();
+            let online = false;
+            let latencyMs = 0;
+            try {
+              const controller = new AbortController();
+              const tid = setTimeout(() => controller.abort(), 7500);
+              const res = await fetch(`${c.url}/ping`, { signal: controller.signal });
+              clearTimeout(tid);
+              latencyMs = Date.now() - t0;
+              online = res.ok;
+            } catch (_) {
+              online = false;
+            }
+            return {
+              ...c,
+              online,
+              latencyMs,
+              isActive: c.id === activeCluster
+            };
+          }))
+        ]);
+
+        modalTasks = tasksResult;
+
+        // If tasks or ping responded, ensure cluster is marked online
+        const activeClusterObj = clusterHealth.find(c => c.id === activeCluster);
+        if (activeClusterObj && modalTasks.length > 0) {
+          activeClusterObj.online = true;
+        }
 
         // User lookup map
         const userMap = new Map();
@@ -5814,22 +5842,6 @@ export async function handler(event) {
           if (u.id && String(u.id).startsWith('usr_')) {
             userMap.set(String(u.id).replace('usr_', ''), u);
           }
-        }
-
-        // Fetch live tasks strictly from active Modal Stock Studio volume
-        let modalTasks = [];
-        const activeUrl = clusters.find(c => c.id === activeCluster)?.url || clusters[0].url;
-        try {
-          const controller = new AbortController();
-          const tid = setTimeout(() => controller.abort(), 6000);
-          const modalTasksRes = await fetch(`${activeUrl}/api/bangai/tasks?limit=100`, { signal: controller.signal });
-          clearTimeout(tid);
-          if (modalTasksRes.ok) {
-            const tData = await modalTasksRes.json();
-            modalTasks = tData?.data?.tasks || [];
-          }
-        } catch (mErr) {
-          console.warn('[StockStudio] Failed to fetch live tasks from Modal:', mErr.message);
         }
 
         // Build Stock Studio rendered videos list (strictly Stock Studio, no n8n rawPreviews or threads)
