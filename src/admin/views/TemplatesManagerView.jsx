@@ -25,7 +25,7 @@ export const OFFICIAL_TEMPLATES = [
     videoTitle: "The Bermuda Triangle's Darkest Secret",
     aiBrain: 'Claude Haiku 4.5 & Gemini',
     n8nWorkflowId: 'NXZyaUNBciJ9gzCT',
-    webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
+    webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-world-mysteries',
     youtubeUrl: 'https://youtube.com/shorts/r3LTM0G7BTc?si=a5xHNd5fSDyfAny9',
     youtubeId: 'r3LTM0G7BTc',
     color: '#6366f1',
@@ -44,7 +44,7 @@ export const OFFICIAL_TEMPLATES = [
     videoTitle: 'Princess Diana: The Final 24 Hours',
     aiBrain: 'Claude Haiku 4.5 & Gemini',
     n8nWorkflowId: 'SpEEzOq1LHWbGbti',
-    webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
+    webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-last-24-hours',
     youtubeUrl: 'https://youtube.com/shorts/1ySvtrgDTnE?si=pMbTnIisLg7ftrg-',
     youtubeId: '1ySvtrgDTnE',
     color: '#f59e0b',
@@ -63,7 +63,7 @@ export const OFFICIAL_TEMPLATES = [
     videoTitle: 'The Dyatlov Incident: 3 AM Anomaly',
     aiBrain: 'Claude Haiku 4.5 & Gemini',
     n8nWorkflowId: 'sY13UPWrlpUWyNJR',
-    webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror',
+    webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-3am-horror',
     youtubeUrl: 'https://youtube.com/shorts/vOb4jIQkAOY?si=bPQqp7MGmRkW00uF',
     youtubeId: 'vOb4jIQkAOY',
     color: '#ef4444',
@@ -80,7 +80,7 @@ export const OFFICIAL_TEMPLATES = [
     scenes: '5 Scenes',
     resolution: '1080p',
     aiBrain: 'Claude Haiku 4.5 & Gemini',
-    webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-ancient-history',
+    webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-ancient-history',
     color: '#8b5cf6',
     status: 'UPCOMING'
   },
@@ -95,7 +95,7 @@ export const OFFICIAL_TEMPLATES = [
     scenes: '4 Scenes',
     resolution: '1080p',
     aiBrain: 'Claude Haiku 4.5 & Gemini',
-    webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-dark-psychology',
+    webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-dark-psychology',
     color: '#06b6d4',
     status: 'UPCOMING'
   },
@@ -110,7 +110,7 @@ export const OFFICIAL_TEMPLATES = [
     scenes: '5 Scenes',
     resolution: '1080p',
     aiBrain: 'Claude Haiku 4.5 & Gemini',
-    webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-cosmic-space',
+    webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-cosmic-space',
     color: '#3b82f6',
     status: 'UPCOMING'
   },
@@ -125,7 +125,7 @@ export const OFFICIAL_TEMPLATES = [
     scenes: '5 Scenes',
     resolution: '1080p',
     aiBrain: 'Claude Haiku 4.5 & Gemini',
-    webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-mythical-heists',
+    webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-mythical-heists',
     color: '#10b981',
     status: 'UPCOMING'
   }
@@ -191,7 +191,7 @@ export default function TemplatesManagerView() {
     duration: '75s+',
     scenes: '5 Scenes',
     resolution: '1080p',
-    webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-',
+    webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-',
     desc: 'Autonomous high-retention 5-scene viral template.'
   });
 
@@ -489,7 +489,7 @@ export default function TemplatesManagerView() {
           duration: '75s+',
           scenes: '5 Scenes',
           resolution: '1080p',
-          webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-',
+          webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-',
           desc: 'Autonomous high-retention 5-scene viral template.'
         });
         showToast(`✅ Template "${item.title}" deployed to MongoDB Atlas!`);

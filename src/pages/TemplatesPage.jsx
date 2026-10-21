@@ -87,6 +87,24 @@ export const ACTIVE_TEMPLATES = [
     aiBrain: 'Claude Haiku 4.5 & Gemini',
     youtubeUrl: 'https://youtube.com/shorts/vOb4jIQkAOY?si=bPQqp7MGmRkW00uF',
     youtubeId: 'vOb4jIQkAOY'
+  },
+  {
+    id: 'time-travel-influencer',
+    emoji: '⏳',
+    title: 'Time Travel Influencer [Native Voice]',
+    category: 'history',
+    label: 'POV Vlogger',
+    desc: 'High-energy Indian influencer traveling across historical eras, mythic ancient times, and future ages. Pure native in-video character speech with lip-sync and character retention.',
+    tagline: '75s · 5 Scenes · 480p · Native Voice',
+    duration: '75s',
+    scenes: '5 Scenes',
+    resolution: '480p',
+    demoImage: '/template-time-travel.jpg',
+    videoTitle: 'Influencer Lands in Harappa 2500 BC',
+    specs: '480p 15s Direct Video · 9:16 Vertical · Native Hindi Dialogue · Character Retention',
+    color: '#10b981',
+    aiBrain: 'Claude Haiku 4.5 & Grok Video',
+    badge: '⚡ NATIVE HINDI VOICE'
   }
 ];
 
@@ -136,7 +154,8 @@ export default function TemplatesPage({
   const [customTopics, setCustomTopics] = useState({
     'world-mysteries': '',
     'last-24-hours': '',
-    '3am-horror': ''
+    '3am-horror': '',
+    'time-travel-influencer': ''
   });
 
   const [launchingId, setLaunchingId] = useState(null);
@@ -2917,11 +2936,12 @@ export default function TemplatesPage({
               <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
                 Template
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: '8px' }}>
                 {[
                   { id: 'world-mysteries', emoji: '🛸', title: 'World Mysteries' },
                   { id: 'last-24-hours', emoji: '⏳', title: 'Last 24 Hours' },
-                  { id: '3am-horror', emoji: '👻', title: '3-AM Horror' }
+                  { id: '3am-horror', emoji: '👻', title: '3-AM Horror' },
+                  { id: 'time-travel-influencer', emoji: '⏳', title: 'Time Travel' }
                 ].map(t => {
                   const isSelected = automationConfig.templateId === t.id;
                   return (

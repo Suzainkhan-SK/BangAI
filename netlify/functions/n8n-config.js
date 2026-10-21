@@ -18,7 +18,9 @@ const DEFAULT_CONFIG = {
     youtube_upload: process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg1outlook.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload',
     template_world_mysteries: 'https://cmpunktg1outlook.app.n8n.cloud/webhook/template-world-mysteries',
     template_last_24_hours: 'https://cmpunktg1outlook.app.n8n.cloud/webhook/template-last-24-hours',
-    template_3am_horror: 'https://cmpunktg1outlook.app.n8n.cloud/webhook/template-3am-horror'
+    template_3am_horror: 'https://cmpunktg1outlook.app.n8n.cloud/webhook/template-3am-horror',
+    template_time_travel_influencer: 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer',
+    timeTravelInfluencer: 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer'
   }
 };
 

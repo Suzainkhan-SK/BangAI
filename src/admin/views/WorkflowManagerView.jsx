@@ -3,7 +3,7 @@ import { adminService } from '../adminService';
 
 export default function WorkflowManagerView() {
   const [workflows, setWorkflows] = useState([]);
-  const [activeHost, setActiveHost] = useState('https://cmpunktg29.app.n8n.cloud');
+  const [activeHost, setActiveHost] = useState('https://cmpunktg33.app.n8n.cloud');
   const [selectedWf, setSelectedWf] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState('');
@@ -259,7 +259,7 @@ export default function WorkflowManagerView() {
       if (res.success && res.data) {
         const wfs = res.data.workflows || [];
         setWorkflows(wfs);
-        setActiveHost(res.data.activeHost || 'https://cmpunktg29.app.n8n.cloud');
+        setActiveHost(res.data.activeHost || 'https://cmpunktg33.app.n8n.cloud');
         if (wfs.length > 0) {
           if (!selectedWf) {
             setSelectedWf(wfs[0]);
@@ -281,8 +281,10 @@ export default function WorkflowManagerView() {
     fetchWorkflows(true);
   }, []);
 
-  // Compute KPI Totals
-  const flagshipWorkflows = useMemo(() => workflows.slice(0, 4), [workflows]);
+  // Compute KPI Totals across all Flagship Production Workflows
+  const flagshipWorkflows = useMemo(() => {
+    return workflows.filter(w => !['story-approval', 'youtube-upload'].includes(w.id));
+  }, [workflows]);
   
   const liveCount = useMemo(() => {
     return flagshipWorkflows.filter(w => w.published !== false && w.status === 'ACTIVE').length;

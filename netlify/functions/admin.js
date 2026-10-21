@@ -105,7 +105,7 @@ function makeHttpRequest(options, bodyData = null) {
 
 // Helper: Call n8n Cloud MCP Server via JSON-RPC 2.0 over SSE
 async function callN8nMcp(hostUrl, token, toolName, args = {}) {
-  const cleanHost = String(hostUrl || 'https://cmpunktg29.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const cleanHost = String(hostUrl || 'https://cmpunktg33.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
   const url = `https://${cleanHost}/mcp-server/http`;
   const payload = {
     jsonrpc: '2.0',
@@ -350,7 +350,7 @@ export async function handler(event) {
         const xkiroPool = xkiroDoc?.pool || xkiroDoc?.keys || [];
         const totalKeys = j2vPool.length + elevenPool.length + thumbPool.length + xkiroPool.length;
 
-        const activeHost = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeHost = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const cleanHost = activeHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
         return {
@@ -410,7 +410,7 @@ export async function handler(event) {
 
         const cleanDestHost = String(newHost).replace(/^https?:\/\//, '').replace(/\/$/, '');
         const cleanDestBaseUrl = `https://${cleanDestHost}`;
-        const cleanSrcHost = String(currentDoc.activeInstance || 'cmpunktg29.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const cleanSrcHost = String(currentDoc.activeInstance || 'cmpunktg33.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
 
         // Snapshot current instance for instant rollback
         const previousSnapshot = {
@@ -465,7 +465,7 @@ export async function handler(event) {
         }
 
         function extractFlagshipWorkflows(workflows) {
-          const map = { viralShorts: null, worldMysteries: null, last24Hours: null, horror3am: null };
+          const map = { viralShorts: null, worldMysteries: null, last24Hours: null, horror3am: null, timeTravelInfluencer: null };
           // Tier 1: Look specifically for 'Webhook Based' (exact production flagship pipelines)
           for (const wf of workflows) {
             const name = wf.name || '';
@@ -474,6 +474,7 @@ export async function handler(event) {
             else if (/world\s*mysteries/i.test(name) && /webhook\s*based/i.test(name)) map.worldMysteries = wf.id;
             else if (/last\s*24\s*hours/i.test(name) && /webhook\s*based/i.test(name)) map.last24Hours = wf.id;
             else if (/3-?\s*am\s*horror/i.test(name) && /webhook\s*based/i.test(name)) map.horror3am = wf.id;
+            else if (/time\s*travel\s*influencer/i.test(name) && /webhook\s*based/i.test(name)) map.timeTravelInfluencer = wf.id;
           }
           // Tier 2: Fallback if no Webhook Based match found
           for (const wf of workflows) {
@@ -483,6 +484,7 @@ export async function handler(event) {
             if (!map.worldMysteries && /world\s*mysteries/i.test(name)) map.worldMysteries = wf.id;
             if (!map.last24Hours && /last\s*24\s*hours/i.test(name)) map.last24Hours = wf.id;
             if (!map.horror3am && /3-?\s*am\s*horror/i.test(name)) map.horror3am = wf.id;
+            if (!map.timeTravelInfluencer && /time\s*travel\s*influencer/i.test(name)) map.timeTravelInfluencer = wf.id;
           }
           return map;
         }
@@ -568,6 +570,7 @@ export async function handler(event) {
                       jsonStr = jsonStr.replaceAll(cleanSrcHost, cleanDestHost);
                       jsonStr = jsonStr.replaceAll('cmpunktg1outlook', cleanDestHost);
                       jsonStr = jsonStr.replaceAll('cmpunktg29', cleanDestHost);
+                      jsonStr = jsonStr.replaceAll('cmpunktg33', cleanDestHost);
                       jsonStr = jsonStr.replaceAll('cmpunktg30', cleanDestHost);
                       jsonStr = jsonStr.replaceAll('cmpunktg31', cleanDestHost);
                       const payload = JSON.parse(jsonStr);
@@ -590,6 +593,7 @@ export async function handler(event) {
                         else if (/world\s*mysteries/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.worldMysteries) flagshipMap.worldMysteries = newWf.id;
                         else if (/last\s*24\s*hours/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.last24Hours) flagshipMap.last24Hours = newWf.id;
                         else if (/3-?\s*am\s*horror/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.horror3am) flagshipMap.horror3am = newWf.id;
+                        else if (/time\s*travel\s*influencer/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.timeTravelInfluencer) flagshipMap.timeTravelInfluencer = newWf.id;
                       } else {
                         const errText = await createRes.text().catch(() => '');
                         console.warn(`[migrate-n8n] Create ${summary.name} failed (${createRes.status}):`, errText.slice(0, 200));
@@ -696,10 +700,11 @@ export async function handler(event) {
 
         // Final mapped flagship IDs
         const newProductionWorkflows = {
-          viralShorts: flagshipMap.viralShorts || currentDoc?.productionWorkflows?.viralShorts || 'ptSzLbQe2bNC60yj',
-          worldMysteries: flagshipMap.worldMysteries || currentDoc?.productionWorkflows?.worldMysteries || 'zVBy4s3xp0AaCAep',
-          last24Hours: flagshipMap.last24Hours || currentDoc?.productionWorkflows?.last24Hours || '7ybMrstKZczRXbb0',
-          horror3am: flagshipMap.horror3am || currentDoc?.productionWorkflows?.horror3am || 'SdWBsjQaN8hhxS03'
+          viralShorts: flagshipMap.viralShorts || currentDoc?.productionWorkflows?.viralShorts || 'UKWYwnlKuCqTazIG',
+          worldMysteries: flagshipMap.worldMysteries || currentDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY',
+          last24Hours: flagshipMap.last24Hours || currentDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ',
+          horror3am: flagshipMap.horror3am || currentDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun',
+          timeTravelInfluencer: flagshipMap.timeTravelInfluencer || currentDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9'
         };
 
         // Dual format webhooks: snake_case for generators, camelCase for UI tables
@@ -715,7 +720,9 @@ export async function handler(event) {
           youtubeUpload: `${cleanDestBaseUrl}/webhook/viral-shorts-ai-youtube-upload`,
           worldMysteries: `${cleanDestBaseUrl}/webhook/template-world-mysteries`,
           last24Hours: `${cleanDestBaseUrl}/webhook/template-last-24-hours`,
-          horror3am: `${cleanDestBaseUrl}/webhook/template-3am-horror`
+          horror3am: `${cleanDestBaseUrl}/webhook/template-3am-horror`,
+          template_time_travel_influencer: `${cleanDestBaseUrl}/webhook/template-time-travel-influencer`,
+          timeTravelInfluencer: `${cleanDestBaseUrl}/webhook/template-time-travel-influencer`
         };
 
         // Update MongoDB configuration
@@ -810,6 +817,12 @@ export async function handler(event) {
                   id: newProductionWorkflows.horror3am,
                   url: `${cleanDestBaseUrl}/workflow/${newProductionWorkflows.horror3am}`,
                   creds: 'Google Sheets OAuth2'
+                },
+                {
+                  name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]',
+                  id: newProductionWorkflows.timeTravelInfluencer,
+                  url: `${cleanDestBaseUrl}/workflow/${newProductionWorkflows.timeTravelInfluencer}`,
+                  creds: 'Google Sheets OAuth2, Kie.ai API, Zvid API, YouTube OAuth2'
                 }
               ]
             }
@@ -879,7 +892,7 @@ export async function handler(event) {
       case 'auto-detect-workflow-ids': {
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const cleanHost = activeBaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || '';
 
@@ -910,7 +923,8 @@ export async function handler(event) {
             viralShorts: detected.viralShorts || n8nDoc?.productionWorkflows?.viralShorts,
             worldMysteries: detected.worldMysteries || n8nDoc?.productionWorkflows?.worldMysteries,
             last24Hours: detected.last24Hours || n8nDoc?.productionWorkflows?.last24Hours,
-            horror3am: detected.horror3am || n8nDoc?.productionWorkflows?.horror3am
+            horror3am: detected.horror3am || n8nDoc?.productionWorkflows?.horror3am,
+            timeTravelInfluencer: detected.timeTravelInfluencer || n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9'
           };
 
           await sysCol.updateOne(
@@ -1965,12 +1979,13 @@ export async function handler(event) {
         const sysCol = db.collection('system_config');
         const doc = await sysCol.findOne({ _id: 'n8n_configuration' });
         const webhooks = doc?.webhooks || {
-          viralShorts: 'https://cmpunktg29.app.n8n.cloud/webhook/viral-shorts-ai',
-          storyApproval: 'https://cmpunktg29.app.n8n.cloud/webhook/story-approval',
-          youtubeUpload: 'https://cmpunktg29.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload',
-          worldMysteries: 'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
-          last24Hours: 'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
-          horror3am: 'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror'
+          viralShorts: 'https://cmpunktg33.app.n8n.cloud/webhook/viral-shorts-ai',
+          storyApproval: 'https://cmpunktg33.app.n8n.cloud/webhook/story-approval',
+          youtubeUpload: 'https://cmpunktg33.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload',
+          worldMysteries: 'https://cmpunktg33.app.n8n.cloud/webhook/template-world-mysteries',
+          last24Hours: 'https://cmpunktg33.app.n8n.cloud/webhook/template-last-24-hours',
+          horror3am: 'https://cmpunktg33.app.n8n.cloud/webhook/template-3am-horror',
+          timeTravelInfluencer: 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer'
         };
 
         const results = {};
@@ -2079,13 +2094,14 @@ export async function handler(event) {
           sysCol.findOne({ _id: 'workflow_node_config' })
         ]);
 
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
-        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
-        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
-        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
-        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
 
         const defaultWorkflows = [
           {
@@ -2137,6 +2153,18 @@ export async function handler(event) {
             category: 'Autonomous Niche Template'
           },
           {
+            id: timeTravelId,
+            key: 'timeTravelInfluencer',
+            slug: 'time-travel-influencer',
+            name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]',
+            webhook: `${activeBaseUrl}/webhook/template-time-travel-influencer`,
+            n8nUrl: `${activeBaseUrl}/workflow/${timeTravelId}`,
+            nodesCount: 229,
+            status: 'ACTIVE',
+            published: true,
+            category: 'Autonomous Niche Template'
+          },
+          {
             id: 'story-approval',
             slug: 'story-approval',
             name: 'Story Approval & Script Polish Callback',
@@ -2162,7 +2190,7 @@ export async function handler(event) {
 
         // Optionally fetch real-time cloud status if requested
         if (query.syncStatus === 'true' || query.syncStatus === true) {
-          await Promise.allSettled(defaultWorkflows.slice(0, 4).map(async (wf) => {
+          await Promise.allSettled(defaultWorkflows.slice(0, 5).map(async (wf) => {
             try {
               const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: wf.id });
               const cloudWf = details.workflow || details;
@@ -2367,19 +2395,21 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
-        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
-        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
-        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
-        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
         ];
 
         let targetList = [];
@@ -2436,6 +2466,44 @@ export async function handler(event) {
                 operations.push({
                   type: 'updateNodeParameters',
                   nodeName: nodeName,
+                  parameters: { jsCode: updatedCode }
+                });
+              }
+            }
+
+            // Also synchronize Config: Kie Image Master if present (for Kie.ai anchor image generation)
+            if (!isBackup) {
+              const imgNode = wf.nodes.find(n => n.name === 'Config: Kie Image Master');
+              if (imgNode) {
+                const curCode = imgNode.parameters?.jsCode || '';
+                let updatedCode = curCode;
+                if (testRegex.test(curCode)) {
+                  updatedCode = curCode.replace(testRegex, replacementCode);
+                } else {
+                  updatedCode = `${fallbackHeader}${replacementCode}\n\n${curCode}`;
+                }
+                operations.push({
+                  type: 'updateNodeParameters',
+                  nodeName: 'Config: Kie Image Master',
+                  parameters: { jsCode: updatedCode }
+                });
+              }
+            }
+
+            // Also synchronize Config: Kie Image Master if present (for Kie.ai anchor image generation)
+            if (!isBackup) {
+              const imgNode = wf.nodes.find(n => n.name === 'Config: Kie Image Master');
+              if (imgNode) {
+                const curCode = imgNode.parameters?.jsCode || '';
+                let updatedCode = curCode;
+                if (testRegex.test(curCode)) {
+                  updatedCode = curCode.replace(testRegex, replacementCode);
+                } else {
+                  updatedCode = `${fallbackHeader}${replacementCode}\n\n${curCode}`;
+                }
+                operations.push({
+                  type: 'updateNodeParameters',
+                  nodeName: 'Config: Kie Image Master',
                   parameters: { jsCode: updatedCode }
                 });
               }
@@ -2530,7 +2598,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
         const shouldPublish = !!publish;
@@ -2538,16 +2606,17 @@ export async function handler(event) {
 
         // UNIVERSAL TOGGLE: Publish or Unpublish ALL 4 workflows at once
         if (workflowId === 'all') {
-          const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
-          const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
-          const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
-          const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+          const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+          const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+          const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+          const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
           const targets = [
             { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
             { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
             { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-            { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+            { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+            { id: n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9', name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
           ];
 
           const results = [];
@@ -2624,7 +2693,7 @@ export async function handler(event) {
       case 'auto-detect-workflow-ids': {
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
         try {
@@ -2649,10 +2718,10 @@ export async function handler(event) {
           const horrorMatch = list.find(w => w.name && /3-?\s*am\s*horror/i.test(w.name));
 
           const detectedWorkflows = {
-            viralShorts: viralMatch?.id || n8nDoc?.productionWorkflows?.viralShorts || 'YKl6hhWT4kEs9Ytc',
-            worldMysteries: mysteriesMatch?.id || n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT',
-            last24Hours: last24hMatch?.id || n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti',
-            horror3am: horrorMatch?.id || n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR'
+            viralShorts: viralMatch?.id || n8nDoc?.productionWorkflows?.viralShorts || 'UKWYwnlKuCqTazIG',
+            worldMysteries: mysteriesMatch?.id || n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY',
+            last24Hours: last24hMatch?.id || n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ',
+            horror3am: horrorMatch?.id || n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun'
           };
 
           await sysCol.updateOne(
@@ -2700,19 +2769,20 @@ export async function handler(event) {
       case 'get-cloud-workflow-status': {
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
-        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
-        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
-        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
-        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const targets = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]', key: 'viralShorts' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]', key: 'worldMysteries' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]', key: 'last24Hours' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]', key: 'horror3am' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]', key: 'horror3am' },
+          { id: n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9', name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]', key: 'timeTravelInfluencer' }
         ];
 
         const statuses = {};
@@ -2881,19 +2951,21 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
-        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
-        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
-        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
-        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
         ];
 
         let targetList = [];
@@ -2952,6 +3024,22 @@ export async function handler(event) {
                 operations.push({
                   type: 'updateNodeParameters',
                   nodeName: nodeName,
+                  parameters: { jsCode: updatedCode }
+                });
+            // Also synchronize Config: Kie Image Master if present (for Kie.ai anchor image generation)
+            if (!isBackup) {
+              const imgNode = wf.nodes.find(n => n.name === 'Config: Kie Image Master');
+              if (imgNode) {
+                const curCode = imgNode.parameters?.jsCode || '';
+                let updatedCode = curCode;
+                if (testRegex.test(curCode)) {
+                  updatedCode = curCode.replace(testRegex, replacementCode);
+                } else {
+                  updatedCode = `${fallbackHeader}${replacementCode}\n\n${curCode}`;
+                }
+                operations.push({
+                  type: 'updateNodeParameters',
+                  nodeName: 'Config: Kie Image Master',
                   parameters: { jsCode: updatedCode }
                 });
               }
@@ -3060,19 +3148,21 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
-        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
-        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
-        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
-        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
         ];
 
         let targetList = [];
@@ -3278,19 +3368,21 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
-        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'YKl6hhWT4kEs9Ytc';
-        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'NXZyaUNBciJ9gzCT';
-        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'SpEEzOq1LHWbGbti';
-        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'sY13UPWrlpUWyNJR';
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
         ];
 
         let targetList = [];
@@ -3500,7 +3592,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -3508,11 +3600,13 @@ export async function handler(event) {
         const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
         ];
 
         let targetList = [];
@@ -3645,7 +3739,7 @@ export async function handler(event) {
         const deleteSet = new Set(keysToDelete);
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -3653,11 +3747,13 @@ export async function handler(event) {
         const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
         ];
 
         let targetList = [];
@@ -3782,7 +3878,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -3790,11 +3886,13 @@ export async function handler(event) {
         const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
         ];
 
         let targetList = [];
@@ -3919,7 +4017,7 @@ export async function handler(event) {
         const deleteSet = new Set(keysToDelete);
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -3927,11 +4025,13 @@ export async function handler(event) {
         const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
         ];
 
         let targetList = [];
@@ -4056,7 +4156,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -4064,11 +4164,13 @@ export async function handler(event) {
         const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
         ];
 
         let targetList = [];
@@ -4193,7 +4295,7 @@ export async function handler(event) {
         const deleteSet = new Set(keysToDelete);
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -4201,11 +4303,13 @@ export async function handler(event) {
         const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
-          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' }
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
         ];
 
         let targetList = [];
@@ -4363,13 +4467,13 @@ export async function handler(event) {
 
         if (!tplDoc || !Array.isArray(tplDoc.templates) || tplDoc.templates.length === 0) {
           const initialTemplates = [
-            { id: 'world-mysteries', name: 'World Mysteries & Paranormal', category: 'Documentary', icon: '🛸', webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries', active: true, tier: 'Free', promptFormula: 'Unrepeated paranormal anomalies and ancient unsolved mysteries' },
-            { id: 'last-24-hours', name: 'Last 24 Hours [True Stories]', category: 'History', icon: '⏳', webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours', active: true, tier: 'Pro', promptFormula: 'Countdown of the poignant and dramatic final 24 hours of legendary figures' },
-            { id: '3am-horror', name: '3-AM Horror & Paranormal', category: 'Entertainment', icon: '👻', webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror', active: true, tier: 'Free', promptFormula: 'Bone-chilling psychological terror and terrifying 3 AM encounters' },
-            { id: 'ancient-history', name: 'Ancient History & Lost Civilizations', category: 'History', icon: '🏛️', webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-ancient-history', active: true, tier: 'Pro', promptFormula: 'Forgotten dynasties, ancient monoliths, and lost technological wonders' },
-            { id: 'dark-psychology', name: 'Dark Psychology & Human Behavior', category: 'Science', icon: '🧠', webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-dark-psychology', active: true, tier: 'Pro', promptFormula: 'Subconscious micro-signals, cognitive quirks, and psychological principles' },
-            { id: 'cosmic-space', name: 'Deep Space & Cosmic Wonders', category: 'Science', icon: '🌌', webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-cosmic-space', active: false, tier: 'Pro', promptFormula: 'Black hole anomalies, quantum paradoxes, and deep cosmos discoveries' },
-            { id: 'mythical-heists', name: 'Legendary Heists & Unsolved Enigmas', category: 'Documentary', icon: '💎', webhook: 'https://cmpunktg29.app.n8n.cloud/webhook/template-mythical-heists', active: false, tier: 'Pro', promptFormula: 'Fast-paced breakdowns of impossible vaults, art heists, and unexplained escapes' }
+            { id: 'world-mysteries', name: 'World Mysteries & Paranormal', category: 'Documentary', icon: '🛸', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-world-mysteries', active: true, tier: 'Free', promptFormula: 'Unrepeated paranormal anomalies and ancient unsolved mysteries' },
+            { id: 'last-24-hours', name: 'Last 24 Hours [True Stories]', category: 'History', icon: '⏳', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-last-24-hours', active: true, tier: 'Pro', promptFormula: 'Countdown of the poignant and dramatic final 24 hours of legendary figures' },
+            { id: '3am-horror', name: '3-AM Horror & Paranormal', category: 'Entertainment', icon: '👻', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-3am-horror', active: true, tier: 'Free', promptFormula: 'Bone-chilling psychological terror and terrifying 3 AM encounters' },
+            { id: 'ancient-history', name: 'Ancient History & Lost Civilizations', category: 'History', icon: '🏛️', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-ancient-history', active: true, tier: 'Pro', promptFormula: 'Forgotten dynasties, ancient monoliths, and lost technological wonders' },
+            { id: 'dark-psychology', name: 'Dark Psychology & Human Behavior', category: 'Science', icon: '🧠', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-dark-psychology', active: true, tier: 'Pro', promptFormula: 'Subconscious micro-signals, cognitive quirks, and psychological principles' },
+            { id: 'cosmic-space', name: 'Deep Space & Cosmic Wonders', category: 'Science', icon: '🌌', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-cosmic-space', active: false, tier: 'Pro', promptFormula: 'Black hole anomalies, quantum paradoxes, and deep cosmos discoveries' },
+            { id: 'mythical-heists', name: 'Legendary Heists & Unsolved Enigmas', category: 'Documentary', icon: '💎', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-mythical-heists', active: false, tier: 'Pro', promptFormula: 'Fast-paced breakdowns of impossible vaults, art heists, and unexplained escapes' }
           ];
 
           await sysCol.updateOne(
@@ -5046,9 +5150,9 @@ export async function handler(event) {
         }
 
         const defaultWebhooks = {
-          'world-mysteries': 'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
-          'last-24-hours':   'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
-          '3am-horror':      'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror'
+          'world-mysteries': 'https://cmpunktg33.app.n8n.cloud/webhook/template-world-mysteries',
+          'last-24-hours':   'https://cmpunktg33.app.n8n.cloud/webhook/template-last-24-hours',
+          '3am-horror':      'https://cmpunktg33.app.n8n.cloud/webhook/template-3am-horror'
         };
 
         const templateMeta = {

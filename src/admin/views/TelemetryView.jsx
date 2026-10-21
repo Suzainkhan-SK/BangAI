@@ -38,7 +38,7 @@ export default function TelemetryView() {
 
   const handlePingAll = async () => {
     setPinging(true);
-    setToastMsg('Pinging all 6 master webhook endpoints on cmpunktg29.app.n8n.cloud...');
+    setToastMsg('Pinging all 6 master webhook endpoints on cmpunktg33.app.n8n.cloud...');
     try {
       const res = await adminService.pingWebhooks();
       if (res.success && res.results) {
@@ -46,7 +46,7 @@ export default function TelemetryView() {
           const item = res.results[w.id];
           return item ? { ...w, latency: item.latencyMs, status: item.status } : w;
         }));
-        setToastMsg('✅ All 6 webhooks successfully responded with 200 OK from cmpunktg29.app.n8n.cloud!');
+        setToastMsg('✅ All 6 webhooks successfully responded with 200 OK from cmpunktg33.app.n8n.cloud!');
       } else {
         setToastMsg('Live webhook ping completed successfully.');
       }
@@ -92,7 +92,7 @@ export default function TelemetryView() {
         <div>
           <h1 className="admin-view-title">Telemetry & Automated Alerts</h1>
           <p className="admin-view-desc">
-            Real-time HTTP roundtrip latency matrix for all 6 n8n webhooks on <code>cmpunktg29.app.n8n.cloud</code> and Telegram Bot push notifications.
+            Real-time HTTP roundtrip latency matrix for all 6 n8n webhooks on <code>cmpunktg33.app.n8n.cloud</code> and Telegram Bot push notifications.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -125,7 +125,7 @@ export default function TelemetryView() {
       <div className="admin-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0 }}>
-            6-Webhook Live Latency Ping Matrix (cmpunktg29.app.n8n.cloud)
+            6-Webhook Live Latency Ping Matrix (cmpunktg33.app.n8n.cloud)
           </h3>
           <span className="admin-badge admin-badge-success">● ALL ENDPOINTS RESPONDING</span>
         </div>

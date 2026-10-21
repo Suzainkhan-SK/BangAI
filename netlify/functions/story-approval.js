@@ -8,9 +8,9 @@ import { verifyToken } from './google-oauth.js';
 import { getN8nConfig } from './n8n-config.js';
 import { getDirectExecutionStatus, getLatestWorkflowExecutions } from './n8n-checker.js';
 
-const N8N_API_URL = 'https://cmpunktg29.app.n8n.cloud/api/v1';
+const N8N_API_URL = 'https://cmpunktg33.app.n8n.cloud/api/v1';
 const N8N_API_KEY = process.env.N8N_API_KEY || 'n8n_api_d07ac84c49c0e4b37d0025c7d8cb5c6d773a14f0';
-const WORKFLOW_ID = 'YKl6hhWT4kEs9Ytc';
+const WORKFLOW_ID = 'UKWYwnlKuCqTazIG';
 
 const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'UPLOADING_YOUTUBE', 'RENDER_FAILED', 'FAILED', 'CANCELLED', 'DUPLICATE_TOPIC', 'EXECUTION_TIMEOUT'];
 

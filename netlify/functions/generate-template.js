@@ -9,9 +9,10 @@ import { getN8nConfig } from './n8n-config.js';
 
 // Webhook endpoints for autonomous template workflows on n8n Cloud
 const TEMPLATE_WEBHOOKS = {
-  'world-mysteries': 'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
-  'last-24-hours':   'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
-  '3am-horror':      'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror'
+  'world-mysteries':        'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
+  'last-24-hours':          'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
+  '3am-horror':             'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror',
+  'time-travel-influencer': 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer'
 };
 
 const TEMPLATE_META = {
@@ -35,6 +36,13 @@ const TEMPLATE_META = {
     musicId: 'mystery2',
     visualStyle: 'Dark Horror Cinematic',
     language: 'Hinglish'
+  },
+  'time-travel-influencer': {
+    name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]',
+    title: 'POV: Time Travel Influencer [1-Click]',
+    musicId: 'action',
+    visualStyle: 'Cinematic Live-Action Vlog',
+    language: 'Hindi'
   }
 };
 
@@ -234,9 +242,10 @@ export const handler = async (event) => {
     const templateId = payload.templateId || 'world-mysteries';
     const n8nCfg = await getN8nConfig();
     const dynamicWebhooks = {
-      'world-mysteries': n8nCfg.webhooks?.template_world_mysteries || TEMPLATE_WEBHOOKS['world-mysteries'],
-      'last-24-hours':   n8nCfg.webhooks?.template_last_24_hours   || TEMPLATE_WEBHOOKS['last-24-hours'],
-      '3am-horror':      n8nCfg.webhooks?.template_3am_horror      || TEMPLATE_WEBHOOKS['3am-horror']
+      'world-mysteries':        n8nCfg.webhooks?.template_world_mysteries || TEMPLATE_WEBHOOKS['world-mysteries'],
+      'last-24-hours':          n8nCfg.webhooks?.template_last_24_hours   || TEMPLATE_WEBHOOKS['last-24-hours'],
+      '3am-horror':             n8nCfg.webhooks?.template_3am_horror      || TEMPLATE_WEBHOOKS['3am-horror'],
+      'time-travel-influencer': n8nCfg.webhooks?.template_time_travel_influencer || n8nCfg.webhooks?.timeTravelInfluencer || TEMPLATE_WEBHOOKS['time-travel-influencer']
     };
     const webhookUrl = dynamicWebhooks[templateId];
 
@@ -382,10 +391,11 @@ export const handler = async (event) => {
     const meta = TEMPLATE_META[templateId] || TEMPLATE_META['world-mysteries'];
 
     const WORKFLOW_ID_MAP = {
-      'world-mysteries': n8nCfg.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY',
-      'last-24-hours':   n8nCfg.productionWorkflows?.last24Hours   || 'PQKEFVjhD3P2yfnZ',
-      '3am-horror':      n8nCfg.productionWorkflows?.horror3am     || '94IjipHAsUQWjkun',
-      'viral-shorts':    n8nCfg.productionWorkflows?.viralShorts   || 'UKWYwnlKuCqTazIG'
+      'world-mysteries':        n8nCfg.productionWorkflows?.worldMysteries        || 'i458lFk0Pnf2cSHY',
+      'last-24-hours':          n8nCfg.productionWorkflows?.last24Hours          || 'PQKEFVjhD3P2yfnZ',
+      '3am-horror':             n8nCfg.productionWorkflows?.horror3am            || '94IjipHAsUQWjkun',
+      'time-travel-influencer': n8nCfg.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9',
+      'viral-shorts':           n8nCfg.productionWorkflows?.viralShorts          || 'UKWYwnlKuCqTazIG'
     };
     const workflowId = WORKFLOW_ID_MAP[templateId] || null;
 
@@ -461,9 +471,9 @@ export const handler = async (event) => {
       userSheetAccessToken,
       userSpreadsheetId,
       userSheetName,
-      // Voice & Visual Settings
-      voiceId: payload.voiceId || 'adam',
-      elevenLabsVoiceId: payload.elevenLabsVoiceId || '',
+      // Voice & Visual Settings (Do not send voiceId for native character voice time-travel-influencer)
+      voiceId: templateId === 'time-travel-influencer' ? '' : (payload.voiceId || 'adam'),
+      elevenLabsVoiceId: templateId === 'time-travel-influencer' ? '' : (payload.elevenLabsVoiceId || ''),
       voiceSpeed: payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20,
       voiceVolume: payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0,
       visualStyle: payload.visualStyle || meta.visualStyle,

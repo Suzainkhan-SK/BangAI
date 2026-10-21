@@ -149,7 +149,7 @@ export default function N8nMigratorView() {
     }
   };
 
-  const activeHost = config?.activeInstance || 'https://cmpunktg29.app.n8n.cloud';
+  const activeHost = config?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
   const cleanActiveHost = activeHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const lastSnapshotHost = config?.previousSnapshot?.activeInstance || 'https://cmpunktg25.app.n8n.cloud';
   const cleanLastSnapshot = lastSnapshotHost.replace(/^https?:\/\//, '').replace(/\/$/, '');

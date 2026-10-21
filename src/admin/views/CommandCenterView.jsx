@@ -82,7 +82,7 @@ export default function CommandCenterView({ onNavigatePage }) {
   };
 
   const isMaintenance = data?.settings?.maintenanceMode?.enabled;
-  const n8nHost = data?.activeN8nInstance || 'cmpunktg29.app.n8n.cloud';
+  const n8nHost = data?.activeN8nInstance || 'cmpunktg33.app.n8n.cloud';
   const modalCluster = data?.activeModalCluster || 'cmpunktg';
   const totalUsers = data?.totalUsers !== undefined ? data.totalUsers : 6;
   const totalKeys = data?.totalKeys || 31;
@@ -345,7 +345,7 @@ export default function CommandCenterView({ onNavigatePage }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--admin-bg-elevated)', borderRadius: '10px', border: '1px solid var(--admin-border-glass)' }}>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 600 }}>Viral Shorts Production Webhook</div>
-                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>https://cmpunktg29.app.n8n.cloud/webhook/viral-shorts-ai</div>
+                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>https://cmpunktg33.app.n8n.cloud/webhook/viral-shorts-ai</div>
               </div>
               <span className="admin-badge admin-badge-success">200 OK • 120ms</span>
             </div>
@@ -353,7 +353,7 @@ export default function CommandCenterView({ onNavigatePage }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--admin-bg-elevated)', borderRadius: '10px', border: '1px solid var(--admin-border-glass)' }}>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 600 }}>Story Approval Webhook</div>
-                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>https://cmpunktg29.app.n8n.cloud/webhook/story-approval</div>
+                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>https://cmpunktg33.app.n8n.cloud/webhook/story-approval</div>
               </div>
               <span className="admin-badge admin-badge-success">200 OK • 95ms</span>
             </div>
