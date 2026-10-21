@@ -53,6 +53,17 @@ export default function TemplateCards({ onSelectTemplate, onSelectPreset }) {
       voice: 'adam',
       style: 'cinematic',
       stats: '5.1M Views'
+    },
+    {
+      id: 'time-travel',
+      emoji: '⏳',
+      title: 'Time Travel Vlogger: Taj Mahal 1632',
+      category: 'Native Voice POV',
+      accentColor: '#f97316',
+      prompt: 'High-energy Indian influencer travels back to 1632 Agra, showing first floor construction of Taj Mahal in selfie vlogging mode with native Hindi voice.',
+      voice: '',
+      style: 'vlog',
+      stats: '3.9M Views'
     }
   ];
 

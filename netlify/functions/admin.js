@@ -3026,6 +3026,9 @@ export async function handler(event) {
                   nodeName: nodeName,
                   parameters: { jsCode: updatedCode }
                 });
+              }
+            }
+
             // Also synchronize Config: Kie Image Master if present (for Kie.ai anchor image generation)
             if (!isBackup) {
               const imgNode = wf.nodes.find(n => n.name === 'Config: Kie Image Master');

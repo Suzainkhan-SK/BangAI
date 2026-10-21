@@ -70,6 +70,24 @@ export const OFFICIAL_TEMPLATES = [
     status: 'ACTIVE'
   },
   {
+    id: 'time-travel-influencer',
+    emoji: '⏳',
+    title: 'Time Travel Influencer [Native Voice]',
+    category: 'POV Vlogger',
+    desc: 'High-energy Indian influencer traveling across historical eras, mythic ancient times, and future ages. Pure native in-video character speech with lip-sync and character retention.',
+    tagline: '75s · 5 Scenes · 480p · Native Voice',
+    duration: '75s',
+    scenes: '5 Scenes',
+    resolution: '480p',
+    videoTitle: 'Influencer Lands in Harappa 2500 BC',
+    aiBrain: 'Claude Haiku 4.5 & Grok Video',
+    n8nWorkflowId: '0IxJ385ACJjVJ2o9',
+    webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer',
+    demoImage: '/template-time-travel.jpg',
+    color: '#10b981',
+    status: 'ACTIVE'
+  },
+  {
     id: 'ancient-history',
     emoji: '🏛️',
     title: 'Ancient History & Lost Civilizations',
@@ -2070,7 +2088,8 @@ export default function TemplatesManagerView() {
                         const templateTitleMap = {
                           'world-mysteries': '🛸 World Mysteries & Paranormal',
                           'last-24-hours': '⏳ Last 24 Hours [True Stories]',
-                          '3am-horror': '👻 3-AM Horror & Paranormal'
+                          '3am-horror': '👻 3-AM Horror & Paranormal',
+                          'time-travel-influencer': '⏳ Time Travel Influencer [Native Voice]'
                         };
                         const displayTemplate = templateTitleMap[auto.templateId] || auto.templateId || 'AI Template';
                         const completedDays = Number(auto.completedDays || 0);
@@ -2634,6 +2653,7 @@ export default function TemplatesManagerView() {
                     <option value="world-mysteries">🛸 World Mysteries & Paranormal [75s+]</option>
                     <option value="last-24-hours">⏳ Last 24 Hours [True Stories - 75s+]</option>
                     <option value="3am-horror">👻 3-AM Horror & Paranormal [75s+]</option>
+                    <option value="time-travel-influencer">⏳ Time Travel Influencer [75s Native Voice]</option>
                   </select>
                 </div>
 
