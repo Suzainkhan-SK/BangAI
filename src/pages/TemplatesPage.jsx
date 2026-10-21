@@ -104,7 +104,8 @@ export const ACTIVE_TEMPLATES = [
     specs: '480p 15s Direct Video · 9:16 Vertical · Native Hindi Dialogue · Character Retention',
     color: '#10b981',
     aiBrain: 'Claude Haiku 4.5 & Grok Video',
-    badge: '⚡ NATIVE HINDI VOICE'
+    badge: '⚡ NATIVE HINDI VOICE',
+    isNativeVoice: true
   }
 ];
 
@@ -156,6 +157,14 @@ export default function TemplatesPage({
     'last-24-hours': '',
     '3am-horror': '',
     'time-travel-influencer': ''
+  });
+
+  // Per-template custom subtitle styles & background music (for native voice templates)
+  const [customSubtitleStyles, setCustomSubtitleStyles] = useState({
+    'time-travel-influencer': 'hormozi'
+  });
+  const [customMusicIds, setCustomMusicIds] = useState({
+    'time-travel-influencer': 'action'
   });
 
   const [launchingId, setLaunchingId] = useState(null);
@@ -290,9 +299,6 @@ export default function TemplatesPage({
           if (Array.isArray(data.channels) && data.channels.length > 0) {
             const norm = data.channels.map(normalizeChannel);
             setChannels(prev => (prev && prev.length > 0 ? prev : norm));
-            if (data.automation.selectedChannelId) {
-              setSelectedChannelId(prev => prev || data.automation.selectedChannelId);
-            }
           }
         }
       }
@@ -533,7 +539,9 @@ export default function TemplatesPage({
           const norm = data.channels.map(normalizeChannel);
           setChannels(norm);
           const def = norm.find(c => c.isDefault) || norm[0];
-          if (def?.channelId) setSelectedChannelId(prev => prev || def.channelId);
+          if (def?.channelId) {
+            setSelectedChannelId(prev => (prev && norm.some(c => c.channelId === prev && c.channelId !== def.channelId) ? prev : def.channelId));
+          }
         }
       } catch (err) {
         console.error('[TemplatesPage] Error loading channels:', err);
@@ -572,7 +580,9 @@ export default function TemplatesPage({
               const norm = data.channels.map(normalizeChannel);
               setChannels(norm);
               const def = norm.find(c => c.isDefault) || norm[0];
-              if (def?.channelId) setSelectedChannelId(prev => prev || def.channelId);
+              if (def?.channelId) {
+                setSelectedChannelId(prev => (prev && norm.some(c => c.channelId === prev && c.channelId !== def.channelId) ? prev : def.channelId));
+              }
               setErrorMsg(null);
             }
           })
@@ -770,7 +780,16 @@ export default function TemplatesPage({
         console.warn('[TemplatesPage] localStorage write error:', e);
       }
 
-      const chosenMusic = getMusicTrackById(videoSettings?.musicId || 'mystery2');
+      const isTargetNativeVoice = targetTpl.id === 'time-travel-influencer' || !!targetTpl.isNativeVoice;
+      const chosenSubtitleStyle = isTargetNativeVoice
+        ? (customSubtitleStyles[templateId] || videoSettings?.subtitleStyle || 'hormozi')
+        : (videoSettings?.subtitleStyle || 'hormozi');
+      const chosenMusicId = isTargetNativeVoice
+        ? (customMusicIds[templateId] || 'action')
+        : (videoSettings?.musicId || 'mystery2');
+      const chosenMusic = getMusicTrackById(chosenMusicId);
+      const targetChannelToUse = selectedChannel?.channelId || selectedChannelId || undefined;
+
       const res = await fetch('/.netlify/functions/generate-template', {
         method: 'POST',
         signal: controller.signal,
@@ -779,16 +798,16 @@ export default function TemplatesPage({
           templateId,
           threadId: newThreadId,
           sessionId,
-          selectedChannelId: selectedChannelId || undefined,
+          selectedChannelId: targetChannelToUse,
           token,
           prompt: targetTopic,
-          voiceId: activeVoiceObj?.id || voiceId,
-          elevenLabsVoiceId,
+          voiceId: isTargetNativeVoice ? '' : (activeVoiceObj?.id || voiceId),
+          elevenLabsVoiceId: isTargetNativeVoice ? '' : elevenLabsVoiceId,
           voiceSpeed: clampedSpeed,
           voiceVolume: videoSettings?.voiceVolume ?? 1.0,
           subtitleSettings: videoSettings?.subtitleSettings || null,
-          subtitleStyle: videoSettings?.subtitleStyle || 'hormozi',
-          musicId: videoSettings?.musicId || 'mystery2',
+          subtitleStyle: chosenSubtitleStyle,
+          musicId: chosenMusicId,
           musicTrackUrl: videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
           musicVolume: videoSettings?.musicVolume ?? 0.08,
           isRetry
@@ -1204,9 +1223,33 @@ export default function TemplatesPage({
                         <span style={{ color: 'var(--text-muted)' }}>Loading YouTube...</span>
                       ) : channels.length > 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontWeight: 600, color: 'var(--text-primary)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {selectedChannel?.channelTitle || selectedChannel?.title || 'YouTube Connected'}
-                          </span>
+                          {channels.length > 1 ? (
+                            <select
+                              value={selectedChannel?.channelId || ''}
+                              onChange={(e) => setSelectedChannelId(e.target.value)}
+                              title="Active YouTube Upload Channel"
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-primary)',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                outline: 'none',
+                                cursor: 'pointer',
+                                maxWidth: '190px'
+                              }}
+                            >
+                              {channels.map((c) => (
+                                <option key={c.channelId} value={c.channelId} style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>
+                                  {c.channelTitle || c.title || 'Channel'}{c.isDefault ? ' (Default)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {selectedChannel?.channelTitle || selectedChannel?.title || 'YouTube Connected'}
+                            </span>
+                          )}
                           {isChannelTokenExpired ? (
                             <button
                               type="button"
@@ -1781,6 +1824,7 @@ export default function TemplatesPage({
                   const isCurrentGenerating = isGenerating && generatingTemplateId === tpl.id;
                   const isCustomizing = customizingId === tpl.id;
                   const currentTopic = customTopics[tpl.id] || '';
+                  const isNativeAudio = tpl.id === 'time-travel-influencer' || !!tpl.isNativeVoice;
 
                   return (
                     <div
@@ -1919,13 +1963,23 @@ export default function TemplatesPage({
                           }}>
                             🧠 {tpl.aiBrain.split('&')[0].trim()}
                           </span>
-                          <span style={{
-                            fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)',
-                            background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-                            padding: '3px 8px', borderRadius: '6px'
-                          }}>
-                            🎙️ {activeVoiceObj?.name || 'Adam'} ({voiceSpeed.toFixed(2)}x)
-                          </span>
+                          {isNativeAudio ? (
+                            <span style={{
+                              fontSize: '11px', fontWeight: 700, color: '#10b981',
+                              background: 'rgba(16, 185, 129, 0.10)', border: '1px solid rgba(16, 185, 129, 0.3)',
+                              padding: '3px 8px', borderRadius: '6px'
+                            }}>
+                              🗣️ Native Character Voice
+                            </span>
+                          ) : (
+                            <span style={{
+                              fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)',
+                              background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                              padding: '3px 8px', borderRadius: '6px'
+                            }}>
+                              🎙️ {activeVoiceObj?.name || 'Adam'} ({voiceSpeed.toFixed(2)}x)
+                            </span>
+                          )}
                           <span style={{
                             fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)',
                             background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
@@ -1961,7 +2015,7 @@ export default function TemplatesPage({
                           >
                             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <Sliders size={13} color="var(--accent-primary, #ff4f00)" />
-                              <span>{isCustomizing ? 'Hide Customization' : 'Customize Topic, Voice & Speed'}</span>
+                              <span>{isCustomizing ? 'Hide Customization' : (isNativeAudio ? 'Customize Topic, Subtitles & Music' : 'Customize Topic, Voice & Speed')}</span>
                             </span>
                             {isCustomizing ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                           </button>
@@ -1982,7 +2036,7 @@ export default function TemplatesPage({
                                   type="text"
                                   value={currentTopic}
                                   onChange={e => setCustomTopics(prev => ({ ...prev, [tpl.id]: e.target.value }))}
-                                  placeholder={`e.g. ${tpl.videoTitle} (or auto-researched)`}
+                                  placeholder={isNativeAudio ? "e.g. Cleopatra's Palace 30 BC (or auto-generates historic era)" : `e.g. ${tpl.videoTitle} (or auto-researched)`}
                                   style={{
                                     width: '100%', padding: '7px 10px', borderRadius: '7px',
                                     border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
@@ -1990,73 +2044,148 @@ export default function TemplatesPage({
                                     boxSizing: 'border-box'
                                   }}
                                 />
+                                {isNativeAudio && (
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px', display: 'block' }}>
+                                    💡 Leave empty to let the AI travel to a random mythic, ancient, or historical civilization.
+                                  </span>
+                                )}
                               </div>
 
-                              {/* Voice selector */}
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
-                                    <Mic size={11} /> Voice
-                                  </label>
-                                  {isCustomVoice && (
-                                    <span style={{ fontSize: '9px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '1px 5px', borderRadius: '4px' }}>
-                                      Studio Selected
-                                    </span>
-                                  )}
-                                </div>
-                                <div style={{ position: 'relative' }}>
-                                  <select
-                                    value={activeVoiceObj?.id || voiceId}
-                                    aria-label="Narration voice"
-                                    onChange={(e) => handleVoiceChange(e.target.value)}
-                                    style={{
-                                      width: '100%', padding: '7px 28px 7px 10px', borderRadius: '7px',
-                                      border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
-                                      color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600,
-                                      outline: 'none', cursor: 'pointer', appearance: 'none'
-                                    }}
-                                  >
-                                    {isCustomVoice && activeVoiceObj && (
-                                      <option value={activeVoiceObj.id}>
-                                        💎 {activeVoiceObj.name} ({activeVoiceObj.flag || activeVoiceObj.language || 'Premium'})
-                                      </option>
-                                    )}
-                                    <optgroup label="⚡ Native ElevenLabs Voices">
-                                      {VOICES.map((v) => (
-                                        <option key={v.id} value={v.id}>
-                                          🎙️ {v.name} ({v.flag || v.gender || 'Universal'})
-                                        </option>
-                                      ))}
-                                    </optgroup>
-                                    <optgroup label="🌐 Full Voice Library">
-                                      <option value="__open_studio__">🌐 Browse 9,650+ Voices in Studio...</option>
-                                    </optgroup>
-                                  </select>
-                                  <ChevronDown size={13} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
-                                </div>
-                              </div>
+                              {isNativeAudio ? (
+                                <>
+                                  {/* Subtitle Style selector for Native Audio */}
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
+                                        <Sparkles size={11} /> Subtitle Style
+                                      </label>
+                                      <span style={{ fontSize: '9px', fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.12)', padding: '1px 5px', borderRadius: '4px' }}>
+                                        Synced Captions
+                                      </span>
+                                    </div>
+                                    <div style={{ position: 'relative' }}>
+                                      <select
+                                        value={customSubtitleStyles[tpl.id] || videoSettings?.subtitleStyle || 'hormozi'}
+                                        aria-label="Subtitle style"
+                                        onChange={(e) => setCustomSubtitleStyles(prev => ({ ...prev, [tpl.id]: e.target.value }))}
+                                        style={{
+                                          width: '100%', padding: '7px 28px 7px 10px', borderRadius: '7px',
+                                          border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
+                                          color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600,
+                                          outline: 'none', cursor: 'pointer', appearance: 'none'
+                                        }}
+                                      >
+                                        <option value="hormozi">🔥 Hormozi — High Energy Word-by-Word</option>
+                                        <option value="mrbeast-viral">⚡ MrBeast Viral — Bold Electric Pop-in</option>
+                                        <option value="neon-box">✨ Neon Box — Vibrant Glow Badge</option>
+                                        <option value="classic">📺 Clean Classic — Minimalist High-Contrast</option>
+                                      </select>
+                                      <ChevronDown size={13} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+                                    </div>
+                                  </div>
 
-                              {/* Speed Slider */}
-                              <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                                  <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Narration Speed</span>
-                                  <span style={{
-                                    background: 'rgba(255, 79, 0, 0.12)', padding: '1px 6px', borderRadius: '4px',
-                                    fontSize: '10px', fontWeight: 700, color: 'var(--accent-primary, #ff4f00)'
-                                  }}>{voiceSpeed.toFixed(2)}x</span>
-                                </div>
-                                <input
-                                  type="range"
-                                  min={SPEED_MIN} max={SPEED_MAX} step={SPEED_STEP}
-                                  value={voiceSpeed}
-                                  onChange={e => handleSpeedChange(parseFloat(e.target.value))}
-                                  style={{ width: '100%', accentColor: 'var(--accent-primary, #ff4f00)', cursor: 'pointer' }}
-                                />
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                  <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{SPEED_MIN}x</span>
-                                  <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{SPEED_MAX}x</span>
-                                </div>
-                              </div>
+                                  {/* Background Music selector for Native Audio */}
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
+                                        <Film size={11} /> Background Music (Auto-Ducked)
+                                      </label>
+                                      <span style={{ fontSize: '9px', fontWeight: 700, color: '#6366f1', background: 'rgba(99,102,241,0.12)', padding: '1px 5px', borderRadius: '4px' }}>
+                                        Ducked -16dB
+                                      </span>
+                                    </div>
+                                    <div style={{ position: 'relative' }}>
+                                      <select
+                                        value={customMusicIds[tpl.id] || 'action'}
+                                        aria-label="Background music"
+                                        onChange={(e) => setCustomMusicIds(prev => ({ ...prev, [tpl.id]: e.target.value }))}
+                                        style={{
+                                          width: '100%', padding: '7px 28px 7px 10px', borderRadius: '7px',
+                                          border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
+                                          color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600,
+                                          outline: 'none', cursor: 'pointer', appearance: 'none'
+                                        }}
+                                      >
+                                        <option value="action">⚡ Cinematic Dark Trap / Action</option>
+                                        <option value="mystery2">🕵️ Dark Ambient Mystery</option>
+                                        <option value="synth">🌆 Cyberpunk Synthwave Pulse</option>
+                                        <option value="ambient">🌌 Deep Historical Tension / Ambient</option>
+                                        <option value="indian">🪕 Cultural & Emotional Strings</option>
+                                        <option value="none">🔇 No Music (Character Voice Only)</option>
+                                      </select>
+                                      <ChevronDown size={13} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+                                    </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  {/* Voice selector */}
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
+                                        <Mic size={11} /> Voice
+                                      </label>
+                                      {isCustomVoice && (
+                                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '1px 5px', borderRadius: '4px' }}>
+                                          Studio Selected
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div style={{ position: 'relative' }}>
+                                      <select
+                                        value={activeVoiceObj?.id || voiceId}
+                                        aria-label="Narration voice"
+                                        onChange={(e) => handleVoiceChange(e.target.value)}
+                                        style={{
+                                          width: '100%', padding: '7px 28px 7px 10px', borderRadius: '7px',
+                                          border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
+                                          color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600,
+                                          outline: 'none', cursor: 'pointer', appearance: 'none'
+                                        }}
+                                      >
+                                        {isCustomVoice && activeVoiceObj && (
+                                          <option value={activeVoiceObj.id}>
+                                            💎 {activeVoiceObj.name} ({activeVoiceObj.flag || activeVoiceObj.language || 'Premium'})
+                                          </option>
+                                        )}
+                                        <optgroup label="⚡ Native ElevenLabs Voices">
+                                          {VOICES.map((v) => (
+                                            <option key={v.id} value={v.id}>
+                                              🎙️ {v.name} ({v.flag || v.gender || 'Universal'})
+                                            </option>
+                                          ))}
+                                        </optgroup>
+                                        <optgroup label="🌐 Full Voice Library">
+                                          <option value="__open_studio__">🌐 Browse 9,650+ Voices in Studio...</option>
+                                        </optgroup>
+                                      </select>
+                                      <ChevronDown size={13} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+                                    </div>
+                                  </div>
+
+                                  {/* Speed Slider */}
+                                  <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                                      <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Narration Speed</span>
+                                      <span style={{
+                                        background: 'rgba(255, 79, 0, 0.12)', padding: '1px 6px', borderRadius: '4px',
+                                        fontSize: '10px', fontWeight: 700, color: 'var(--accent-primary, #ff4f00)'
+                                      }}>{voiceSpeed.toFixed(2)}x</span>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min={SPEED_MIN} max={SPEED_MAX} step={SPEED_STEP}
+                                      value={voiceSpeed}
+                                      onChange={e => handleSpeedChange(parseFloat(e.target.value))}
+                                      style={{ width: '100%', accentColor: 'var(--accent-primary, #ff4f00)', cursor: 'pointer' }}
+                                    />
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{SPEED_MIN}x</span>
+                                      <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{SPEED_MAX}x</span>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
