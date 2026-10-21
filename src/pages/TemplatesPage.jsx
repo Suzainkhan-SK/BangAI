@@ -159,14 +159,6 @@ export default function TemplatesPage({
     'time-travel-influencer': ''
   });
 
-  // Per-template custom subtitle styles & background music (for native voice templates)
-  const [customSubtitleStyles, setCustomSubtitleStyles] = useState({
-    'time-travel-influencer': 'hormozi'
-  });
-  const [customMusicIds, setCustomMusicIds] = useState({
-    'time-travel-influencer': 'action'
-  });
-
   const [launchingId, setLaunchingId] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null);
@@ -780,14 +772,10 @@ export default function TemplatesPage({
         console.warn('[TemplatesPage] localStorage write error:', e);
       }
 
-      const isTargetNativeVoice = targetTpl.id === 'time-travel-influencer' || !!targetTpl.isNativeVoice;
-      const chosenSubtitleStyle = isTargetNativeVoice
-        ? (customSubtitleStyles[templateId] || videoSettings?.subtitleStyle || 'hormozi')
-        : (videoSettings?.subtitleStyle || 'hormozi');
-      const chosenMusicId = isTargetNativeVoice
-        ? (customMusicIds[templateId] || 'action')
-        : (videoSettings?.musicId || 'mystery2');
+      const chosenSubtitlePreset = videoSettings?.subtitleSettings?.presetId || videoSettings?.subtitleStyle || 'hormozi';
+      const chosenMusicId = videoSettings?.musicId || 'mystery2';
       const chosenMusic = getMusicTrackById(chosenMusicId);
+      const isTargetNativeVoice = targetTpl.id === 'time-travel-influencer' || !!targetTpl.isNativeVoice;
       const targetChannelToUse = selectedChannel?.channelId || selectedChannelId || undefined;
 
       const res = await fetch('/.netlify/functions/generate-template', {
@@ -806,7 +794,7 @@ export default function TemplatesPage({
           voiceSpeed: clampedSpeed,
           voiceVolume: videoSettings?.voiceVolume ?? 1.0,
           subtitleSettings: videoSettings?.subtitleSettings || null,
-          subtitleStyle: chosenSubtitleStyle,
+          subtitleStyle: chosenSubtitlePreset,
           musicId: chosenMusicId,
           musicTrackUrl: videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
           musicVolume: videoSettings?.musicVolume ?? 0.08,
@@ -2015,7 +2003,7 @@ export default function TemplatesPage({
                           >
                             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <Sliders size={13} color="var(--accent-primary, #ff4f00)" />
-                              <span>{isCustomizing ? 'Hide Customization' : (isNativeAudio ? 'Customize Topic, Subtitles & Music' : 'Customize Topic, Voice & Speed')}</span>
+                              <span>{isCustomizing ? 'Hide Customization' : (isNativeAudio ? 'Customize Topic (Optional)' : 'Customize Topic, Voice & Speed')}</span>
                             </span>
                             {isCustomizing ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                           </button>
@@ -2045,79 +2033,13 @@ export default function TemplatesPage({
                                   }}
                                 />
                                 {isNativeAudio && (
-                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px', display: 'block' }}>
-                                    💡 Leave empty to let the AI travel to a random mythic, ancient, or historical civilization.
+                                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '5px', display: 'block', lineHeight: 1.45 }}>
+                                    💡 Leave empty to auto-travel to a random mythic or ancient era. Subtitles and background music are automatically applied from your <strong>Design Studio</strong> settings.
                                   </span>
                                 )}
                               </div>
 
-                              {isNativeAudio ? (
-                                <>
-                                  {/* Subtitle Style selector for Native Audio */}
-                                  <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
-                                        <Sparkles size={11} /> Subtitle Style
-                                      </label>
-                                      <span style={{ fontSize: '9px', fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.12)', padding: '1px 5px', borderRadius: '4px' }}>
-                                        Synced Captions
-                                      </span>
-                                    </div>
-                                    <div style={{ position: 'relative' }}>
-                                      <select
-                                        value={customSubtitleStyles[tpl.id] || videoSettings?.subtitleStyle || 'hormozi'}
-                                        aria-label="Subtitle style"
-                                        onChange={(e) => setCustomSubtitleStyles(prev => ({ ...prev, [tpl.id]: e.target.value }))}
-                                        style={{
-                                          width: '100%', padding: '7px 28px 7px 10px', borderRadius: '7px',
-                                          border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
-                                          color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600,
-                                          outline: 'none', cursor: 'pointer', appearance: 'none'
-                                        }}
-                                      >
-                                        <option value="hormozi">🔥 Hormozi — High Energy Word-by-Word</option>
-                                        <option value="mrbeast-viral">⚡ MrBeast Viral — Bold Electric Pop-in</option>
-                                        <option value="neon-box">✨ Neon Box — Vibrant Glow Badge</option>
-                                        <option value="classic">📺 Clean Classic — Minimalist High-Contrast</option>
-                                      </select>
-                                      <ChevronDown size={13} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
-                                    </div>
-                                  </div>
-
-                                  {/* Background Music selector for Native Audio */}
-                                  <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
-                                        <Film size={11} /> Background Music (Auto-Ducked)
-                                      </label>
-                                      <span style={{ fontSize: '9px', fontWeight: 700, color: '#6366f1', background: 'rgba(99,102,241,0.12)', padding: '1px 5px', borderRadius: '4px' }}>
-                                        Ducked -16dB
-                                      </span>
-                                    </div>
-                                    <div style={{ position: 'relative' }}>
-                                      <select
-                                        value={customMusicIds[tpl.id] || 'action'}
-                                        aria-label="Background music"
-                                        onChange={(e) => setCustomMusicIds(prev => ({ ...prev, [tpl.id]: e.target.value }))}
-                                        style={{
-                                          width: '100%', padding: '7px 28px 7px 10px', borderRadius: '7px',
-                                          border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
-                                          color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600,
-                                          outline: 'none', cursor: 'pointer', appearance: 'none'
-                                        }}
-                                      >
-                                        <option value="action">⚡ Cinematic Dark Trap / Action</option>
-                                        <option value="mystery2">🕵️ Dark Ambient Mystery</option>
-                                        <option value="synth">🌆 Cyberpunk Synthwave Pulse</option>
-                                        <option value="ambient">🌌 Deep Historical Tension / Ambient</option>
-                                        <option value="indian">🪕 Cultural & Emotional Strings</option>
-                                        <option value="none">🔇 No Music (Character Voice Only)</option>
-                                      </select>
-                                      <ChevronDown size={13} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
-                                    </div>
-                                  </div>
-                                </>
-                              ) : (
+                              {!isNativeAudio && (
                                 <>
                                   {/* Voice selector */}
                                   <div>
