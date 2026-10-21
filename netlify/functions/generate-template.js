@@ -451,7 +451,7 @@ export const handler = async (event) => {
       }
     }
 
-    const postData = JSON.stringify({
+    const postPayload = {
       templateId,
       templateName: meta.name,
       prompt: (payload.prompt || '').trim(),
@@ -471,11 +471,6 @@ export const handler = async (event) => {
       userSheetAccessToken,
       userSpreadsheetId,
       userSheetName,
-      // Voice & Visual Settings (Do not send voiceId for native character voice time-travel-influencer)
-      voiceId: templateId === 'time-travel-influencer' ? '' : (payload.voiceId || 'adam'),
-      elevenLabsVoiceId: templateId === 'time-travel-influencer' ? '' : (payload.elevenLabsVoiceId || ''),
-      voiceSpeed: payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20,
-      voiceVolume: payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0,
       visualStyle: payload.visualStyle || meta.visualStyle,
       language: payload.language || meta.language,
       aspectRatio: payload.aspectRatio || '9:16',
@@ -487,7 +482,17 @@ export const handler = async (event) => {
       musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
       musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
       timestamp: new Date().toISOString()
-    });
+    };
+
+    // Only attach voiceover fields for non-native voice workflows
+    if (templateId !== 'time-travel-influencer') {
+      postPayload.voiceId = payload.voiceId || 'adam';
+      postPayload.elevenLabsVoiceId = payload.elevenLabsVoiceId || '';
+      postPayload.voiceSpeed = payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20;
+      postPayload.voiceVolume = payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0;
+    }
+
+    const postData = JSON.stringify(postPayload);
 
     console.log(`[generate-template] Dispatching 1-click template ${templateId} to n8n webhook...`);
     console.log(`[generate-template] Target YouTube: "${userYouTubeChannelTitle || 'None'}", Auto-Upload: ${autoUploadToYouTube}`);
