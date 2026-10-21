@@ -506,12 +506,13 @@ export default function WorkflowManagerView() {
     }
   };
 
-  // 1B. Universal Publish / Unpublish ALL 4 Workflows via MCP
+  // 1B. Universal Publish / Unpublish ALL Workflows via MCP
   const handleUniversalPublish = async (shouldPublish) => {
     const actionLabel = shouldPublish ? 'PUBLISH & ACTIVATE' : 'UNPUBLISH (Draft mode)';
+    const totalWfs = flagshipWorkflows.length || 5;
     const warning = shouldPublish
-      ? 'Confirm: Are you sure you want to PUBLISH all 4 production workflows in n8n Cloud? This will make all webhook triggers live.'
-      : '⚠️ Confirm: Are you sure you want to UNPUBLISH all 4 production workflows in n8n Cloud? Webhook triggers will be paused until re-published.';
+      ? `Confirm: Are you sure you want to PUBLISH all ${totalWfs} production workflows in n8n Cloud? This will make all webhook triggers live.`
+      : `⚠️ Confirm: Are you sure you want to UNPUBLISH all ${totalWfs} production workflows in n8n Cloud? Webhook triggers will be paused until re-published.`;
 
     if (!window.confirm(warning)) return;
 
@@ -521,14 +522,14 @@ export default function WorkflowManagerView() {
     setTogglingPublish(allTogglingMap);
 
     try {
-      addLog('action', `Dispatched Universal ${actionLabel} command across all 4 production workflows in n8n Cloud...`);
+      addLog('action', `Dispatched Universal ${actionLabel} command across all ${totalWfs} production workflows in n8n Cloud...`);
       const res = await adminService.universalTogglePublish(shouldPublish);
       if (res && res.success) {
         setToastMsg(shouldPublish
-          ? '🚀 Universal Publish Complete! All 4 production workflows are live in n8n Cloud.'
-          : '⏸️ Universal Unpublish Complete! All 4 workflows are set to Draft mode in n8n Cloud.'
+          ? `🚀 Universal Publish Complete! All ${totalWfs} production workflows are live in n8n Cloud.`
+          : `⏸️ Universal Unpublish Complete! All ${totalWfs} workflows are set to Draft mode in n8n Cloud.`
         );
-        addLog('success', res.message || `Universal ${actionLabel} applied successfully across all 4 workflows.`);
+        addLog('success', res.message || `Universal ${actionLabel} applied successfully across all ${totalWfs} workflows.`);
 
         setWorkflows(prev => prev.map(item => ({
           ...item,
@@ -567,7 +568,7 @@ export default function WorkflowManagerView() {
     }
 
     const targetDesc = targetWorkflow === 'all'
-      ? 'ALL 4 flagship workflows simultaneously'
+      ? `ALL ${workflows.length || 5} flagship workflows simultaneously`
       : `workflow "${workflows.find(w => w.id === targetWorkflow)?.name || targetWorkflow}"`;
 
     const confirmed = window.confirm(
@@ -655,7 +656,7 @@ export default function WorkflowManagerView() {
     }
 
     const targetDesc = targetWorkflow === 'all'
-      ? 'ALL 4 flagship workflows simultaneously'
+      ? `ALL ${workflows.length || 5} flagship workflows simultaneously`
       : `workflow "${workflows.find(w => w.id === targetWorkflow)?.name || targetWorkflow}"`;
 
     const summaryText = cleanKeys.length === 1
@@ -740,7 +741,7 @@ export default function WorkflowManagerView() {
   // 4. Auto-Detect Workflow IDs from active n8n instance
   const handleAutoDetectIds = async () => {
     const confirmed = window.confirm(
-      `Scan active n8n instance (${activeHost}) via MCP and auto-detect the 4 flagship workflow IDs?\n\n` +
+      `Scan active n8n instance (${activeHost}) via MCP and auto-detect all ${workflows.length || 5} flagship workflow IDs?\n\n` +
       `Use this whenever you migrate to a new 14-day free trial n8n account to automatically re-wire workflow IDs without editing code.`
     );
     if (!confirmed) return;
@@ -750,7 +751,7 @@ export default function WorkflowManagerView() {
     try {
       const res = await adminService.autoDetectWorkflowIds();
       if (res.success && res.detectedWorkflows) {
-        setToastMsg(`🎉 Auto-detected 4 flagship workflows! MongoDB configuration updated.`);
+        setToastMsg(`🎉 Auto-detected all ${workflows.length || 5} flagship workflows! MongoDB configuration updated.`);
         fetchWorkflows(true);
       } else {
         setToastMsg(`⚠️ Detection notice: ${res.error || 'Could not find all matching workflows'}`);
@@ -844,13 +845,13 @@ export default function WorkflowManagerView() {
               cursor: universalToggling ? 'not-allowed' : 'pointer',
               transition: 'all 0.15s ease'
             }}
-            title="Publish (Activate) all 4 production workflows in n8n Cloud simultaneously"
+            title={`Publish (Activate) all ${flagshipWorkflows.length || 5} production workflows in n8n Cloud simultaneously`}
           >
             <span>{universalToggling === 'publish' ? '⏳' : '▶️'}</span>
-            {universalToggling === 'publish' ? 'Publishing All...' : 'Publish All (4)'}
+            {universalToggling === 'publish' ? 'Publishing All...' : `Publish All (${flagshipWorkflows.length || 5})`}
           </button>
 
-          {/* Universal Unpublish All (4) */}
+          {/* Universal Unpublish All */}
           <button
             type="button"
             onClick={() => handleUniversalPublish(false)}
@@ -870,10 +871,10 @@ export default function WorkflowManagerView() {
               cursor: universalToggling ? 'not-allowed' : 'pointer',
               transition: 'all 0.15s ease'
             }}
-            title="Unpublish (Draft mode) all 4 production workflows in n8n Cloud simultaneously"
+            title={`Unpublish (Draft mode) all ${flagshipWorkflows.length || 5} production workflows in n8n Cloud simultaneously`}
           >
             <span>{universalToggling === 'unpublish' ? '⏳' : '⏸️'}</span>
-            {universalToggling === 'unpublish' ? 'Unpublishing All...' : 'Unpublish All (4)'}
+            {universalToggling === 'unpublish' ? 'Unpublishing All...' : `Unpublish All (${flagshipWorkflows.length || 5})`}
           </button>
 
           <button
@@ -1153,7 +1154,7 @@ export default function WorkflowManagerView() {
               background: 'var(--admin-bg-elevated)',
               color: 'var(--admin-text-sub)'
             }}>
-              4 Automated Workflows
+              {flagshipWorkflows.length || 5} Automated Workflows
             </span>
           </div>
 
@@ -1177,10 +1178,10 @@ export default function WorkflowManagerView() {
                 cursor: universalToggling ? 'not-allowed' : 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title="Publish all 4 production workflows in n8n Cloud simultaneously"
+              title={`Publish all ${flagshipWorkflows.length || 5} production workflows in n8n Cloud simultaneously`}
             >
               <span>{universalToggling === 'publish' ? '⏳' : '▶️'}</span>
-              {universalToggling === 'publish' ? 'Publishing All...' : 'Publish All (4)'}
+              {universalToggling === 'publish' ? 'Publishing All...' : `Publish All (${flagshipWorkflows.length || 5})`}
             </button>
 
             <button
@@ -1202,10 +1203,10 @@ export default function WorkflowManagerView() {
                 cursor: universalToggling ? 'not-allowed' : 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title="Unpublish (Draft mode) all 4 production workflows in n8n Cloud simultaneously"
+              title={`Unpublish (Draft mode) all ${flagshipWorkflows.length || 5} production workflows in n8n Cloud simultaneously`}
             >
               <span>{universalToggling === 'unpublish' ? '⏳' : '⏸️'}</span>
-              {universalToggling === 'unpublish' ? 'Unpublishing All...' : 'Unpublish All (4)'}
+              {universalToggling === 'unpublish' ? 'Unpublishing All...' : `Unpublish All (${flagshipWorkflows.length || 5})`}
             </button>
           </div>
         </div>
@@ -2166,7 +2167,7 @@ export default function WorkflowManagerView() {
                       Universal Error Detection Engine
                     </div>
                     <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
-                      Detect unhandled node errors across all 4 workflows
+                      Detect unhandled node errors across all {flagshipWorkflows.length || 5} workflows
                     </div>
                   </div>
                   <input
@@ -2677,7 +2678,7 @@ export default function WorkflowManagerView() {
               }}
             >
               <option value="all">
-                🌟 All 4 Flagship Workflows (Simultaneous Cloud Push/Remove)
+                🌟 All {flagshipWorkflows.length || 5} Flagship Workflows (Simultaneous Cloud Push/Remove)
               </option>
               {flagshipWorkflows.map(wf => {
                 let count = '?';
@@ -2914,7 +2915,7 @@ export default function WorkflowManagerView() {
             <div>
               <span style={{ fontWeight: 700, color: 'var(--admin-text-main)' }}>Video Render Engine: </span>
               <code>Config: Zvid Master</code> manages render queue tokens for stitching 5 multi-track visual scenes into 75-second high-definition MP4 videos.
-              Paste <code>zvid_...</code> rotation keys (one per line) to expand render throughput across all 4 workflows simultaneously.
+              Paste <code>zvid_...</code> rotation keys (one per line) to expand render throughput across all {flagshipWorkflows.length || 5} workflows simultaneously.
             </div>
           </div>
         )}
