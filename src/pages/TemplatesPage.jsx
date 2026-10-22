@@ -105,7 +105,9 @@ export const ACTIVE_TEMPLATES = [
     color: '#10b981',
     aiBrain: 'Claude Haiku 4.5 & Grok Video',
     badge: '⚡ NATIVE HINDI VOICE',
-    isNativeVoice: true
+    isNativeVoice: true,
+    youtubeUrl: 'https://www.youtube.com/shorts/Xt0hPq-z7Dk',
+    youtubeId: 'Xt0hPq-z7Dk'
   }
 ];
 
@@ -158,6 +160,10 @@ export default function TemplatesPage({
     '3am-horror': '',
     'time-travel-influencer': ''
   });
+
+  // Time Travel Influencer specific options (gender & character image url)
+  const [influencerGender, setInfluencerGender] = useState('auto'); // 'auto' | 'female' | 'male'
+  const [characterImageUrl, setCharacterImageUrl] = useState('');
 
   const [launchingId, setLaunchingId] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -798,6 +804,8 @@ export default function TemplatesPage({
           musicId: chosenMusicId,
           musicTrackUrl: videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
           musicVolume: videoSettings?.musicVolume ?? 0.08,
+          influencerGender: templateId === 'time-travel-influencer' ? influencerGender : undefined,
+          characterImageUrl: (templateId === 'time-travel-influencer' && characterImageUrl.trim()) ? characterImageUrl.trim() : undefined,
           isRetry
         })
       });
@@ -2003,7 +2011,7 @@ export default function TemplatesPage({
                           >
                             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <Sliders size={13} color="var(--accent-primary, #ff4f00)" />
-                              <span>{isCustomizing ? 'Hide Customization' : (isNativeAudio ? 'Customize Topic (Optional)' : 'Customize Topic, Voice & Speed')}</span>
+                              <span>{isCustomizing ? 'Hide Customization' : (isNativeAudio ? 'Customize Topic, Gender & Photo (Optional)' : 'Customize Topic, Voice & Speed')}</span>
                             </span>
                             {isCustomizing ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                           </button>
@@ -2024,7 +2032,7 @@ export default function TemplatesPage({
                                   type="text"
                                   value={currentTopic}
                                   onChange={e => setCustomTopics(prev => ({ ...prev, [tpl.id]: e.target.value }))}
-                                  placeholder={isNativeAudio ? "e.g. Cleopatra's Palace 30 BC (or auto-generates historic era)" : `e.g. ${tpl.videoTitle} (or auto-researched)`}
+                                  placeholder={isNativeAudio ? "e.g. Stepping out of a mall elevator into dinosaur era, or saving Emperor Akbar from a tiger (or auto-generates unique viral adventure)" : `e.g. ${tpl.videoTitle} (or auto-researched)`}
                                   style={{
                                     width: '100%', padding: '7px 10px', borderRadius: '7px',
                                     border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
@@ -2033,11 +2041,119 @@ export default function TemplatesPage({
                                   }}
                                 />
                                 {isNativeAudio && (
-                                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '5px', display: 'block', lineHeight: 1.45 }}>
-                                    💡 Leave empty to auto-travel to a random mythic or ancient era. Subtitles and background music are automatically applied from your <strong>Design Studio</strong> settings.
+                                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '4px', display: 'block', lineHeight: 1.4 }}>
+                                    💡 Leave empty to auto-travel to a completely fresh, unrepeated viral adventure every time.
                                   </span>
                                 )}
                               </div>
+
+                              {isNativeAudio && (
+                                <>
+                                  {/* Gender Selection */}
+                                  <div>
+                                    <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                      <span>👤</span> Character Gender (Optional)
+                                    </label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                                      {[
+                                        { id: 'auto', label: 'Auto / Balanced', icon: '✨' },
+                                        { id: 'female', label: 'Female (Cute Girl)', icon: '👩' },
+                                        { id: 'male', label: 'Male (Handsome Guy)', icon: '👨' }
+                                      ].map(g => {
+                                        const isSel = influencerGender === g.id;
+                                        return (
+                                          <button
+                                            key={g.id}
+                                            type="button"
+                                            onClick={() => setInfluencerGender(g.id)}
+                                            style={{
+                                              padding: '6px 8px', borderRadius: '8px', cursor: 'pointer',
+                                              background: isSel ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-card)',
+                                              border: isSel ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                              color: isSel ? '#10b981' : 'var(--text-secondary)',
+                                              fontSize: '11px', fontWeight: isSel ? 700 : 500,
+                                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                                              transition: 'all 0.15s ease'
+                                            }}
+                                          >
+                                            <span>{g.icon}</span>
+                                            <span>{g.label}</span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                                      Auto balances between high-retention female vloggers and charismatic male creators.
+                                    </span>
+                                  </div>
+
+                                  {/* Custom Character Image URL */}
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
+                                        <span>📸</span> Custom Character Photo URL (Optional)
+                                      </label>
+                                      {characterImageUrl.trim() && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setCharacterImageUrl('')}
+                                          style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                        >
+                                          ✕ Clear Photo
+                                        </button>
+                                      )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                      <input
+                                        type="url"
+                                        value={characterImageUrl}
+                                        onChange={e => setCharacterImageUrl(e.target.value)}
+                                        placeholder="https://i.ibb.co/...jpg (direct image URL)"
+                                        style={{
+                                          flex: 1, padding: '7px 10px', borderRadius: '7px',
+                                          border: characterImageUrl.trim() ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                          background: 'var(--bg-card)',
+                                          color: 'var(--text-primary)', fontSize: '12px', outline: 'none',
+                                          boxSizing: 'border-box'
+                                        }}
+                                      />
+                                      {characterImageUrl.trim() && (
+                                        <div style={{
+                                          width: '32px', height: '32px', borderRadius: '6px',
+                                          overflow: 'hidden', border: '1px solid #10b981', flexShrink: 0
+                                        }}>
+                                          <img
+                                            src={characterImageUrl.trim()}
+                                            alt="Preview"
+                                            onError={(e) => { e.target.style.display = 'none'; }}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '4px', display: 'block', lineHeight: 1.45 }}>
+                                      Host your photo for free on{' '}
+                                      <a
+                                        href="https://imgbb.com"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{ color: '#10b981', fontWeight: 700, textDecoration: 'underline' }}
+                                      >
+                                        ImgBB ↗
+                                      </a>{' '}
+                                      and paste the direct image link (.jpg/.png). When provided, the AI directly casts your photo & skips image generation!
+                                    </span>
+                                  </div>
+
+                                  <div style={{
+                                    padding: '6px 8px', borderRadius: '6px',
+                                    background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)',
+                                    fontSize: '10.5px', color: '#10b981'
+                                  }}>
+                                    ✨ Subtitles and background music are automatically applied from your <strong>Design Studio</strong> settings.
+                                  </div>
+                                </>
+                              )}
 
                               {!isNativeAudio && (
                                 <>

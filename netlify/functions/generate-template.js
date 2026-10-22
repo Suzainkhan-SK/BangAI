@@ -490,6 +490,14 @@ export const handler = async (event) => {
       postPayload.elevenLabsVoiceId = payload.elevenLabsVoiceId || '';
       postPayload.voiceSpeed = payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20;
       postPayload.voiceVolume = payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0;
+    } else {
+      // Pass optional gender selection and custom character image for time-travel-influencer
+      if (payload.influencerGender) {
+        postPayload.influencerGender = payload.influencerGender;
+      }
+      if (payload.characterImageUrl && typeof payload.characterImageUrl === 'string' && payload.characterImageUrl.trim()) {
+        postPayload.characterImageUrl = payload.characterImageUrl.trim();
+      }
     }
 
     const postData = JSON.stringify(postPayload);
