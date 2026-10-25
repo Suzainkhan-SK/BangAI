@@ -587,7 +587,10 @@ export const handler = async (event, context) => {
           isConnected: !needsReconnect,
           isTokenExpired: isExpired,
           needsReconnect: needsReconnect,
-          reconnectReason: reconnectReason
+          reconnectReason: reconnectReason,
+          characterImageUrl: c.characterImageUrl || '',
+          characterName: c.characterName || '',
+          characterGender: c.characterGender || 'auto'
         };
       }));
 

@@ -54,6 +54,12 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
   const [sheetInputTitle, setSheetInputTitle] = useState('');
   const [isSubmittingSheet, setIsSubmittingSheet] = useState(false);
 
+  // Permanent Channel Face Editor State
+  const [editingFaceChannelId, setEditingFaceChannelId] = useState(null);
+  const [faceForm, setFaceForm] = useState({ characterImageUrl: '', characterName: '', characterGender: 'auto' });
+  const [savingFace, setSavingFace] = useState(false);
+  const [faceError, setFaceError] = useState(null);
+
   // Fetch connected channels & sheets from Netlify serverless token vault
   const fetchPublishingData = async () => {
     setLoadingChannels(true);
@@ -198,6 +204,111 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
       }
     } catch (err) {
       alert('Failed to disconnect: ' + err.message);
+    }
+  };
+
+  // Permanent Channel Face Handlers
+  const handleOpenFaceEditor = (channel) => {
+    audioEngine.playSfx('click');
+    setFaceForm({
+      characterImageUrl: channel.characterImageUrl || '',
+      characterName: channel.characterName || '',
+      characterGender: channel.characterGender || 'auto'
+    });
+    setFaceError(null);
+    setEditingFaceChannelId(channel.channelId);
+  };
+
+  const handleCancelFaceEditor = () => {
+    audioEngine.playSfx('click');
+    setEditingFaceChannelId(null);
+    setFaceError(null);
+  };
+
+  const handleSaveChannelFace = async (channelId) => {
+    audioEngine.playSfx('click');
+    const rawUrl = faceForm.characterImageUrl.trim();
+    if (!rawUrl) {
+      setFaceError('Please enter a photo URL.');
+      return;
+    }
+    try {
+      const u = new URL(rawUrl);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+        setFaceError('URL must start with http:// or https://');
+        return;
+      }
+    } catch (_) {
+      setFaceError('Please enter a valid URL.');
+      return;
+    }
+
+    setSavingFace(true);
+    setFaceError(null);
+    try {
+      const token = getAuthToken();
+      const res = await fetch('/.netlify/functions/channel-face', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action: 'set',
+          channelId,
+          characterImageUrl: rawUrl,
+          characterName: faceForm.characterName.trim(),
+          characterGender: faceForm.characterGender
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save channel face.');
+      setChannels(prev => prev.map(c => c.channelId === channelId ? {
+        ...c,
+        characterImageUrl: data.channel?.characterImageUrl || rawUrl,
+        characterName: data.channel?.characterName || faceForm.characterName.trim(),
+        characterGender: data.channel?.characterGender || faceForm.characterGender
+      } : c));
+      setEditingFaceChannelId(null);
+      setOauthNotice({ type: 'success', message: 'Channel face saved successfully.' });
+      audioEngine.playSfx('success');
+    } catch (err) {
+      setFaceError(err.message);
+      audioEngine.playSfx('error');
+    } finally {
+      setSavingFace(false);
+    }
+  };
+
+  const handleRemoveChannelFace = async (channelId) => {
+    if (!window.confirm('Remove saved character face from this channel?')) return;
+    audioEngine.playSfx('click');
+    setSavingFace(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch('/.netlify/functions/channel-face', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ action: 'remove', channelId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to remove channel face.');
+      setChannels(prev => prev.map(c => c.channelId === channelId ? {
+        ...c,
+        characterImageUrl: '',
+        characterName: '',
+        characterGender: 'auto'
+      } : c));
+      setOauthNotice({ type: 'success', message: 'Channel face removed.' });
+      audioEngine.playSfx('success');
+    } catch (err) {
+      alert('Error removing channel face: ' + err.message);
+      audioEngine.playSfx('error');
+    } finally {
+      setSavingFace(false);
     }
   };
 
@@ -789,6 +900,273 @@ export default function ProfilePage({ user, onNavigateToDashboard, onNavigateToS
                             {ch.defaultPrivacy || 'Public'}
                           </strong>
                         </div>
+                      </div>
+
+                      {/* ── PERMANENT CHANNEL FACE SECTION ──────────────────────── */}
+                      <div style={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}>
+                            <span>👤</span> Permanent Channel Face
+                          </span>
+                          {ch.characterImageUrl && (
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              color: '#10b981',
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              padding: '2px 7px',
+                              borderRadius: '99px'
+                            }}>
+                              Active Face
+                            </span>
+                          )}
+                        </div>
+
+                        {editingFaceChannelId === ch.channelId ? (
+                          /* Inline Face Editor */
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '4px' }}>
+                            <div>
+                              <label style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                                Character Photo URL (ImgBB direct link)
+                              </label>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <input
+                                  type="url"
+                                  value={faceForm.characterImageUrl}
+                                  onChange={e => setFaceForm(prev => ({ ...prev, characterImageUrl: e.target.value }))}
+                                  placeholder="https://i.ibb.co/...jpg"
+                                  style={{
+                                    flex: 1,
+                                    padding: '7px 10px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border-subtle)',
+                                    background: 'var(--bg-input)',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '12px',
+                                    outline: 'none'
+                                  }}
+                                />
+                                {faceForm.characterImageUrl.trim() && (
+                                  <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #10b981', flexShrink: 0 }}>
+                                    <img
+                                      src={faceForm.characterImageUrl.trim()}
+                                      alt="Face Preview"
+                                      onError={e => { e.target.style.display = 'none'; }}
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                              <div>
+                                <label style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                                  Character Name (Optional)
+                                </label>
+                                <input
+                                  type="text"
+                                  maxLength={40}
+                                  value={faceForm.characterName}
+                                  onChange={e => setFaceForm(prev => ({ ...prev, characterName: e.target.value }))}
+                                  placeholder="e.g. Aryan or Ananya"
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px 10px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border-subtle)',
+                                    background: 'var(--bg-input)',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '12px',
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                  }}
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                                  Gender
+                                </label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
+                                  {[
+                                    { id: 'auto', label: 'Auto' },
+                                    { id: 'female', label: 'Female' },
+                                    { id: 'male', label: 'Male' }
+                                  ].map(g => (
+                                    <button
+                                      key={g.id}
+                                      type="button"
+                                      onClick={() => setFaceForm(prev => ({ ...prev, characterGender: g.id }))}
+                                      style={{
+                                        padding: '6px 2px',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        border: faceForm.characterGender === g.id ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                        background: faceForm.characterGender === g.id ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-input)',
+                                        color: faceForm.characterGender === g.id ? '#10b981' : 'var(--text-muted)',
+                                        fontSize: '10.5px',
+                                        fontWeight: faceForm.characterGender === g.id ? 700 : 500
+                                      }}
+                                    >
+                                      {g.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {faceError && (
+                              <div style={{ fontSize: '11px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '6px 8px', borderRadius: '6px' }}>
+                                ⚠️ {faceError}
+                              </div>
+                            )}
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '2px' }}>
+                              <button
+                                type="button"
+                                onClick={handleCancelFaceEditor}
+                                disabled={savingFace}
+                                style={{
+                                  background: 'none',
+                                  border: '1px solid var(--border-subtle)',
+                                  borderRadius: '6px',
+                                  padding: '5px 12px',
+                                  color: 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveChannelFace(ch.channelId)}
+                                disabled={savingFace}
+                                style={{
+                                  background: '#10b981',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  padding: '5px 14px',
+                                  color: '#fff',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                {savingFace ? 'Saving...' : 'Save Face'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : ch.characterImageUrl ? (
+                          /* Face Displayed */
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', border: '1.5px solid #10b981', flexShrink: 0, background: 'var(--bg-input)' }}>
+                                <img
+                                  src={ch.characterImageUrl}
+                                  alt={ch.characterName || 'Channel Face'}
+                                  onError={e => {
+                                    e.target.style.display = 'none';
+                                    e.target.parentElement.innerHTML = '<div style=\"width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ef4444;font-size:10px;\">Invalid</div>';
+                                  }}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                  {ch.characterName || 'Consistent Channel Influencer'}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                  <span style={{ textTransform: 'capitalize' }}>
+                                    {ch.characterGender === 'female' ? '👩 Female' : (ch.characterGender === 'male' ? '👨 Male' : '✨ Auto Balanced')}
+                                  </span>
+                                  <span>·</span>
+                                  <span style={{ color: '#10b981' }}>Reused across videos</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenFaceEditor(ch)}
+                                style={{
+                                  background: 'var(--bg-elevated)',
+                                  border: '1px solid var(--border-subtle)',
+                                  borderRadius: '6px',
+                                  padding: '5px 10px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Change
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveChannelFace(ch.channelId)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#ef4444',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  padding: '5px 6px'
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* No Face Set */
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                              No recurring face set. AI generates dynamic personas per video.
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenFaceEditor(ch)}
+                              style={{
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                borderRadius: '6px',
+                                padding: '5px 10px',
+                                color: '#10b981',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              + Set Face
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
