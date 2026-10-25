@@ -165,6 +165,15 @@ export default function TemplatesPage({
   const [influencerGender, setInfluencerGender] = useState('auto'); // 'auto' | 'female' | 'male'
   const [characterImageUrl, setCharacterImageUrl] = useState('');
 
+  // Time Travel Influencer Section B: Story Mode, Series Mode, Character Mode
+  const [storyMode, setStoryMode] = useState('library'); // 'library' | 'custom'
+  const [seriesMode, setSeriesMode] = useState('new'); // 'new' | 'continue'
+  const [selectedSeriesId, setSelectedSeriesId] = useState(null);
+  const [eligibleSeries, setEligibleSeries] = useState([]);
+  const [loadingSeries, setLoadingSeries] = useState(false);
+  const [characterMode, setCharacterMode] = useState('random'); // 'channel' | 'upload' | 'random'
+  const [saveChannelFaceCheckbox, setSaveChannelFaceCheckbox] = useState(false);
+
   const [launchingId, setLaunchingId] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null);
@@ -564,6 +573,62 @@ export default function TemplatesPage({
   const isAutomationChannelExpired = !!(automationTargetChannel && (automationTargetChannel.needsReconnect || automationTargetChannel.isTokenExpired));
   const selectedAutomationTpl = ACTIVE_TEMPLATES.find(t => t.id === automationConfig.templateId) || ACTIVE_TEMPLATES[0];
 
+  // Fetch eligible series for Time Travel Influencer Part 2 continuation from Section C
+  useEffect(() => {
+    const chId = selectedChannel?.channelId || selectedChannelId;
+    if (!chId || !user) {
+      setEligibleSeries([]);
+      return;
+    }
+    let isCancelled = false;
+    setLoadingSeries(true);
+    const fetchSeries = async () => {
+      try {
+        const token = getAuthToken() || '';
+        const res = await fetch(`/.netlify/functions/template-series?channelId=${encodeURIComponent(chId)}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : (data.series || []);
+          if (!isCancelled) {
+            setEligibleSeries(list);
+            if (list.length > 0) {
+              setSelectedSeriesId(prev => (prev && list.some(s => s.seriesId === prev) ? prev : list[0].seriesId));
+            } else {
+              setSelectedSeriesId(null);
+              setSeriesMode('new');
+            }
+          }
+        } else {
+          if (!isCancelled) {
+            setEligibleSeries([]);
+            setSelectedSeriesId(null);
+            setSeriesMode('new');
+          }
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn('[TemplatesPage] Failed to fetch eligible series:', err);
+          setEligibleSeries([]);
+        }
+      } finally {
+        if (!isCancelled) setLoadingSeries(false);
+      }
+    };
+    fetchSeries();
+    return () => { isCancelled = true; };
+  }, [selectedChannel?.channelId, selectedChannelId, user]);
+
+  // Synchronize characterMode default when selected channel has/lacks a permanent face
+  useEffect(() => {
+    if (selectedChannel?.characterImageUrl) {
+      setCharacterMode(prev => (prev === 'upload' ? 'upload' : 'channel'));
+    } else {
+      setCharacterMode(prev => (prev === 'channel' ? 'random' : prev));
+    }
+  }, [selectedChannel?.channelId, selectedChannel?.characterImageUrl]);
+
   // Listen for OAuth completion from popup
   useEffect(() => {
     const handleAuthMessage = (event) => {
@@ -784,6 +849,23 @@ export default function TemplatesPage({
       const isTargetNativeVoice = targetTpl.id === 'time-travel-influencer' || !!targetTpl.isNativeVoice;
       const targetChannelToUse = selectedChannel?.channelId || selectedChannelId || undefined;
 
+      // Section B: Compute exact payload fields for Time Travel Influencer
+      const effectiveStoryMode = (storyMode === 'custom' && targetTopic) ? 'custom' : 'library';
+      const effectiveSeriesMode = (seriesMode === 'continue' && selectedSeriesId) ? 'continue' : 'new';
+      const effectiveSeriesId = effectiveSeriesMode === 'continue' ? selectedSeriesId : null;
+      const effectiveCharacterMode = characterMode; // 'channel' | 'upload' | 'random'
+      let resolvedCharUrl = '';
+      if (effectiveCharacterMode === 'channel') {
+        resolvedCharUrl = selectedChannel?.characterImageUrl || '';
+      } else if (effectiveCharacterMode === 'upload') {
+        resolvedCharUrl = characterImageUrl.trim();
+      } else {
+        resolvedCharUrl = '';
+      }
+      const effectiveSaveChannelFace = Boolean(effectiveCharacterMode === 'upload' && saveChannelFaceCheckbox && resolvedCharUrl);
+      const chName = selectedChannel?.characterName || '';
+      const chGender = selectedChannel?.characterGender || '';
+
       const res = await fetch('/.netlify/functions/generate-template', {
         method: 'POST',
         signal: controller.signal,
@@ -794,7 +876,7 @@ export default function TemplatesPage({
           sessionId,
           selectedChannelId: targetChannelToUse,
           token,
-          prompt: targetTopic,
+          prompt: isTargetNativeVoice ? (effectiveStoryMode === 'custom' ? targetTopic : '') : targetTopic,
           voiceId: isTargetNativeVoice ? '' : (activeVoiceObj?.id || voiceId),
           elevenLabsVoiceId: isTargetNativeVoice ? '' : elevenLabsVoiceId,
           voiceSpeed: clampedSpeed,
@@ -805,7 +887,14 @@ export default function TemplatesPage({
           musicTrackUrl: videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
           musicVolume: videoSettings?.musicVolume ?? 0.08,
           influencerGender: templateId === 'time-travel-influencer' ? influencerGender : undefined,
-          characterImageUrl: (templateId === 'time-travel-influencer' && characterImageUrl.trim()) ? characterImageUrl.trim() : undefined,
+          characterImageUrl: templateId === 'time-travel-influencer' ? resolvedCharUrl : undefined,
+          storyMode: templateId === 'time-travel-influencer' ? effectiveStoryMode : undefined,
+          seriesMode: templateId === 'time-travel-influencer' ? effectiveSeriesMode : undefined,
+          seriesId: templateId === 'time-travel-influencer' ? effectiveSeriesId : undefined,
+          characterMode: templateId === 'time-travel-influencer' ? effectiveCharacterMode : undefined,
+          saveChannelFace: templateId === 'time-travel-influencer' ? effectiveSaveChannelFace : undefined,
+          channelCharacterName: templateId === 'time-travel-influencer' ? chName : undefined,
+          channelCharacterGender: templateId === 'time-travel-influencer' ? chGender : undefined,
           isRetry
         })
       });
@@ -2023,33 +2112,410 @@ export default function TemplatesPage({
                               background: 'var(--bg-elevated)', border: '1px solid var(--border-medium)',
                               display: 'flex', flexDirection: 'column', gap: '10px'
                             }}>
-                              {/* Custom Topic Input */}
-                              <div>
-                                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', textTransform: 'uppercase' }}>
-                                  <Type size={11} /> Specific Topic (Optional)
-                                </label>
-                                <input
-                                  type="text"
-                                  value={currentTopic}
-                                  onChange={e => setCustomTopics(prev => ({ ...prev, [tpl.id]: e.target.value }))}
-                                  placeholder={isNativeAudio ? "e.g. Stepping out of a mall elevator into dinosaur era, or saving Emperor Akbar from a tiger (or auto-generates unique viral adventure)" : `e.g. ${tpl.videoTitle} (or auto-researched)`}
-                                  style={{
-                                    width: '100%', padding: '7px 10px', borderRadius: '7px',
-                                    border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
-                                    color: 'var(--text-primary)', fontSize: '12px', outline: 'none',
-                                    boxSizing: 'border-box'
-                                  }}
-                                />
-                                {isNativeAudio && (
-                                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '4px', display: 'block', lineHeight: 1.4 }}>
-                                    💡 Leave empty to auto-travel to a completely fresh, unrepeated viral adventure every time.
-                                  </span>
-                                )}
-                              </div>
+                              {/* Custom Topic Input (For standard narration templates only) */}
+                              {!isNativeAudio && (
+                                <div>
+                                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                                    <Type size={11} /> Specific Topic (Optional)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={currentTopic}
+                                    onChange={e => setCustomTopics(prev => ({ ...prev, [tpl.id]: e.target.value }))}
+                                    placeholder={`e.g. ${tpl.videoTitle} (or auto-researched)`}
+                                    style={{
+                                      width: '100%', padding: '7px 10px', borderRadius: '7px',
+                                      border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
+                                      color: 'var(--text-primary)', fontSize: '12px', outline: 'none',
+                                      boxSizing: 'border-box'
+                                    }}
+                                  />
+                                </div>
+                              )}
 
                               {isNativeAudio && (
                                 <>
-                                  {/* Gender Selection */}
+                                  {/* 1. STORY MODE */}
+                                  <div>
+                                    <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                      <span>📖</span> Story Mode
+                                    </label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          audioEngine.playSfx('click');
+                                          setStoryMode('library');
+                                        }}
+                                        style={{
+                                          padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                                          background: storyMode === 'library' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-card)',
+                                          border: storyMode === 'library' ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                          color: storyMode === 'library' ? '#10b981' : 'var(--text-secondary)',
+                                          fontSize: '11.5px', fontWeight: storyMode === 'library' ? 700 : 500,
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        <span>🎲</span>
+                                        <span>Random from library</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          audioEngine.playSfx('click');
+                                          setStoryMode('custom');
+                                        }}
+                                        style={{
+                                          padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                                          background: storyMode === 'custom' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-card)',
+                                          border: storyMode === 'custom' ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                          color: storyMode === 'custom' ? '#10b981' : 'var(--text-secondary)',
+                                          fontSize: '11.5px', fontWeight: storyMode === 'custom' ? 700 : 500,
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        <span>✍️</span>
+                                        <span>My own topic</span>
+                                      </button>
+                                    </div>
+
+                                    {storyMode === 'custom' ? (
+                                      <div style={{ marginTop: '8px' }}>
+                                        <input
+                                          type="text"
+                                          value={currentTopic}
+                                          onChange={e => setCustomTopics(prev => ({ ...prev, [tpl.id]: e.target.value }))}
+                                          placeholder="e.g. Stepping out of a mall elevator into dinosaur era, or saving Emperor Akbar from a tiger"
+                                          style={{
+                                            width: '100%', padding: '7px 10px', borderRadius: '7px',
+                                            border: currentTopic.trim() ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                            background: 'var(--bg-card)',
+                                            color: 'var(--text-primary)', fontSize: '12px', outline: 'none',
+                                            boxSizing: 'border-box'
+                                          }}
+                                        />
+                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                                          {currentTopic.trim() ? '✅ Custom topic will be scripted with native Hindi dialogue.' : '💡 If left empty, mode automatically defaults to library.'}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '5px', display: 'block', lineHeight: 1.4 }}>
+                                        💡 Auto-travels to a completely fresh, unrepeated viral adventure every time.
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* 2. SERIES MODE */}
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
+                                        <span>🎬</span> Series Mode
+                                      </label>
+                                      {loadingSeries && (
+                                        <span style={{ fontSize: '10px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                          <Loader2 size={11} className="spin" /> Checking series...
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          audioEngine.playSfx('click');
+                                          setSeriesMode('new');
+                                        }}
+                                        style={{
+                                          padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                                          background: seriesMode === 'new' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-card)',
+                                          border: seriesMode === 'new' ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                          color: seriesMode === 'new' ? '#10b981' : 'var(--text-secondary)',
+                                          fontSize: '11.5px', fontWeight: seriesMode === 'new' ? 700 : 500,
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        <span>✨</span>
+                                        <span>New story</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={eligibleSeries.length === 0}
+                                        onClick={() => {
+                                          if (eligibleSeries.length > 0) {
+                                            audioEngine.playSfx('click');
+                                            setSeriesMode('continue');
+                                            if (!selectedSeriesId) {
+                                              setSelectedSeriesId(eligibleSeries[0].seriesId);
+                                            }
+                                          }
+                                        }}
+                                        style={{
+                                          padding: '8px 10px', borderRadius: '8px',
+                                          cursor: eligibleSeries.length === 0 ? 'not-allowed' : 'pointer',
+                                          background: seriesMode === 'continue' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-card)',
+                                          border: seriesMode === 'continue' ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                          color: seriesMode === 'continue' ? '#10b981' : (eligibleSeries.length === 0 ? 'var(--text-muted)' : 'var(--text-secondary)'),
+                                          opacity: eligibleSeries.length === 0 ? 0.6 : 1,
+                                          fontSize: '11.5px', fontWeight: seriesMode === 'continue' ? 700 : 500,
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        <span>⏳</span>
+                                        <span>Continue a series</span>
+                                        {eligibleSeries.length > 0 && (
+                                          <span style={{ background: '#10b981', color: '#ffffff', borderRadius: '99px', fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>
+                                            {eligibleSeries.length}
+                                          </span>
+                                        )}
+                                      </button>
+                                    </div>
+
+                                    {eligibleSeries.length === 0 ? (
+                                      <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '5px', display: 'block' }}>
+                                        No series ready for Part 2 on this channel
+                                      </span>
+                                    ) : seriesMode === 'continue' ? (
+                                      <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <span style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                          Select series to produce Part 2:
+                                        </span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                                          {eligibleSeries.map(s => {
+                                            const isSel = selectedSeriesId === s.seriesId;
+                                            return (
+                                              <div
+                                                key={s.seriesId}
+                                                onClick={() => {
+                                                  audioEngine.playSfx('click');
+                                                  setSelectedSeriesId(s.seriesId);
+                                                }}
+                                                style={{
+                                                  padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                                                  background: isSel ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-card)',
+                                                  border: isSel ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
+                                                  transition: 'all 0.15s ease'
+                                                }}
+                                              >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                                                  {s.characterImageUrl && (
+                                                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border-subtle)' }}>
+                                                      <img
+                                                        src={s.characterImageUrl}
+                                                        alt="Character"
+                                                        onError={e => { e.currentTarget.style.display = 'none'; }}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                      />
+                                                    </div>
+                                                  )}
+                                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                                    <div style={{ fontSize: '11.5px', fontWeight: isSel ? 700 : 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                      {s.title}
+                                                    </div>
+                                                    <div style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>
+                                                      ID: {s.seriesId} {s.part1CompletedAt ? `· ${new Date(s.part1CompletedAt).toLocaleDateString()}` : ''}
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                                <span style={{
+                                                  fontSize: '10px', fontWeight: 700, color: '#10b981',
+                                                  background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)',
+                                                  padding: '2px 6px', borderRadius: '4px', flexShrink: 0
+                                                }}>
+                                                  Part 2 ready
+                                                </span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
+
+                                  {/* 3. CHARACTER MODE */}
+                                  <div>
+                                    <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                      <span>👤</span> Character Mode
+                                    </label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                                      {/* Option 1: Use channel face */}
+                                      <button
+                                        type="button"
+                                        disabled={!selectedChannel?.characterImageUrl}
+                                        onClick={() => {
+                                          if (selectedChannel?.characterImageUrl) {
+                                            audioEngine.playSfx('click');
+                                            setCharacterMode('channel');
+                                          }
+                                        }}
+                                        style={{
+                                          padding: '7px 8px', borderRadius: '8px',
+                                          cursor: !selectedChannel?.characterImageUrl ? 'not-allowed' : 'pointer',
+                                          background: characterMode === 'channel' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-card)',
+                                          border: characterMode === 'channel' ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                          color: characterMode === 'channel' ? '#10b981' : (!selectedChannel?.characterImageUrl ? 'var(--text-muted)' : 'var(--text-secondary)'),
+                                          opacity: !selectedChannel?.characterImageUrl ? 0.5 : 1,
+                                          fontSize: '11px', fontWeight: characterMode === 'channel' ? 700 : 500,
+                                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        <span>⭐</span>
+                                        <span>Use channel face</span>
+                                      </button>
+
+                                      {/* Option 2: Upload photo */}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          audioEngine.playSfx('click');
+                                          setCharacterMode('upload');
+                                        }}
+                                        style={{
+                                          padding: '7px 8px', borderRadius: '8px', cursor: 'pointer',
+                                          background: characterMode === 'upload' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-card)',
+                                          border: characterMode === 'upload' ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                          color: characterMode === 'upload' ? '#10b981' : 'var(--text-secondary)',
+                                          fontSize: '11px', fontWeight: characterMode === 'upload' ? 700 : 500,
+                                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        <span>📸</span>
+                                        <span>Upload photo</span>
+                                      </button>
+
+                                      {/* Option 3: Random new character */}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          audioEngine.playSfx('click');
+                                          setCharacterMode('random');
+                                        }}
+                                        style={{
+                                          padding: '7px 8px', borderRadius: '8px', cursor: 'pointer',
+                                          background: characterMode === 'random' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-card)',
+                                          border: characterMode === 'random' ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                          color: characterMode === 'random' ? '#10b981' : 'var(--text-secondary)',
+                                          fontSize: '11px', fontWeight: characterMode === 'random' ? 700 : 500,
+                                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        <span>✨</span>
+                                        <span>Random new</span>
+                                      </button>
+                                    </div>
+
+                                    {/* Details based on character mode */}
+                                    {characterMode === 'channel' && selectedChannel?.characterImageUrl && (
+                                      <div style={{
+                                        marginTop: '8px', padding: '8px 10px', borderRadius: '8px',
+                                        background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)',
+                                        display: 'flex', alignItems: 'center', gap: '10px'
+                                      }}>
+                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #10b981', flexShrink: 0 }}>
+                                          <img
+                                            src={selectedChannel.characterImageUrl}
+                                            alt={selectedChannel.characterName || 'Channel Face'}
+                                            onError={e => { e.currentTarget.style.display = 'none'; }}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                          />
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                            {selectedChannel.characterName || 'Saved Channel Face'}
+                                          </div>
+                                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                                            Permanent actor for {selectedChannel.channelTitle || selectedChannel.title}
+                                            {selectedChannel.characterGender ? ` · ${selectedChannel.characterGender}` : ''}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {characterMode === 'upload' && (
+                                      <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                          <span style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                            Character Photo URL:
+                                          </span>
+                                          {characterImageUrl.trim() && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setCharacterImageUrl('')}
+                                              style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                            >
+                                              ✕ Clear
+                                            </button>
+                                          )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                          <input
+                                            type="url"
+                                            value={characterImageUrl}
+                                            onChange={e => setCharacterImageUrl(e.target.value)}
+                                            placeholder="https://i.ibb.co/...jpg (direct image URL)"
+                                            style={{
+                                              flex: 1, padding: '7px 10px', borderRadius: '7px',
+                                              border: characterImageUrl.trim() ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                                              background: 'var(--bg-card)',
+                                              color: 'var(--text-primary)', fontSize: '12px', outline: 'none',
+                                              boxSizing: 'border-box'
+                                            }}
+                                          />
+                                          {characterImageUrl.trim() && (
+                                            <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #10b981', flexShrink: 0 }}>
+                                              <img
+                                                src={characterImageUrl.trim()}
+                                                alt="Preview"
+                                                onError={e => { e.currentTarget.style.display = 'none'; }}
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Checkbox: Also save this photo as my channel face */}
+                                        <div
+                                          onClick={() => setSaveChannelFaceCheckbox(prev => !prev)}
+                                          style={{
+                                            display: 'flex', alignItems: 'center', gap: '7px', marginTop: '4px', cursor: 'pointer', userSelect: 'none'
+                                          }}
+                                        >
+                                          <div style={{
+                                            width: '16px', height: '16px', borderRadius: '4px',
+                                            border: saveChannelFaceCheckbox ? '1.5px solid #10b981' : '1.5px solid var(--border-medium)',
+                                            background: saveChannelFaceCheckbox ? '#10b981' : 'var(--bg-card)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease'
+                                          }}>
+                                            {saveChannelFaceCheckbox && <Check size={12} color="#ffffff" strokeWidth={3} />}
+                                          </div>
+                                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: saveChannelFaceCheckbox ? 600 : 400 }}>
+                                            Also save this photo as my channel face
+                                          </span>
+                                        </div>
+
+                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                                          Host your photo for free on <a href="https://imgbb.com" target="_blank" rel="noopener noreferrer" style={{ color: '#10b981', fontWeight: 700, textDecoration: 'underline' }}>ImgBB ↗</a> and paste direct link.
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {characterMode === 'random' && (
+                                      <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '5px', display: 'block' }}>
+                                        🎲 AI will invent and cast a fresh new character for this adventure.
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* 4. GENDER SELECTION (preserved as before) */}
                                   <div>
                                     <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', textTransform: 'uppercase' }}>
                                       <span>👤</span> Character Gender (Optional)
@@ -2084,64 +2550,6 @@ export default function TemplatesPage({
                                     </div>
                                     <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
                                       Auto balances between high-retention female vloggers and charismatic male creators.
-                                    </span>
-                                  </div>
-
-                                  {/* Custom Character Image URL */}
-                                  <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
-                                        <span>📸</span> Custom Character Photo URL (Optional)
-                                      </label>
-                                      {characterImageUrl.trim() && (
-                                        <button
-                                          type="button"
-                                          onClick={() => setCharacterImageUrl('')}
-                                          style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                                        >
-                                          ✕ Clear Photo
-                                        </button>
-                                      )}
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                      <input
-                                        type="url"
-                                        value={characterImageUrl}
-                                        onChange={e => setCharacterImageUrl(e.target.value)}
-                                        placeholder="https://i.ibb.co/...jpg (direct image URL)"
-                                        style={{
-                                          flex: 1, padding: '7px 10px', borderRadius: '7px',
-                                          border: characterImageUrl.trim() ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
-                                          background: 'var(--bg-card)',
-                                          color: 'var(--text-primary)', fontSize: '12px', outline: 'none',
-                                          boxSizing: 'border-box'
-                                        }}
-                                      />
-                                      {characterImageUrl.trim() && (
-                                        <div style={{
-                                          width: '32px', height: '32px', borderRadius: '6px',
-                                          overflow: 'hidden', border: '1px solid #10b981', flexShrink: 0
-                                        }}>
-                                          <img
-                                            src={characterImageUrl.trim()}
-                                            alt="Preview"
-                                            onError={(e) => { e.target.style.display = 'none'; }}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                          />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '4px', display: 'block', lineHeight: 1.45 }}>
-                                      Host your photo for free on{' '}
-                                      <a
-                                        href="https://imgbb.com"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{ color: '#10b981', fontWeight: 700, textDecoration: 'underline' }}
-                                      >
-                                        ImgBB ↗
-                                      </a>{' '}
-                                      and paste the direct image link (.jpg/.png). When provided, the AI directly casts your photo & skips image generation!
                                     </span>
                                   </div>
 

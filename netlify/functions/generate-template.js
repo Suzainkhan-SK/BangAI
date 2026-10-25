@@ -6,6 +6,7 @@
 import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 import { getN8nConfig } from './n8n-config.js';
+import { verifySeriesOwnership } from './template-series.js';
 
 // Webhook endpoints for autonomous template workflows on n8n Cloud
 const TEMPLATE_WEBHOOKS = {
@@ -317,6 +318,7 @@ export const handler = async (event) => {
     let userSheetAccessToken = '';
     let userSpreadsheetId = '';
     let userSheetName = 'Production Log';
+    let targetChannel = null;
 
     if (db) {
       try {
@@ -333,7 +335,6 @@ export const handler = async (event) => {
           // Resolve Target YouTube Channel
           const selectedChannelId = payload.selectedChannelId || payload.channelId;
           const channels = userDoc.youtubeChannels || [];
-          let targetChannel = null;
 
           if (selectedChannelId) {
             targetChannel = channels.find(c => c.channelId === selectedChannelId);
@@ -491,13 +492,119 @@ export const handler = async (event) => {
       postPayload.voiceSpeed = payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20;
       postPayload.voiceVolume = payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0;
     } else {
-      // Pass optional gender selection and custom character image for time-travel-influencer
+      // Keep influencerGender exactly as it is today
       if (payload.influencerGender) {
         postPayload.influencerGender = payload.influencerGender;
       }
-      if (payload.characterImageUrl && typeof payload.characterImageUrl === 'string' && payload.characterImageUrl.trim()) {
-        postPayload.characterImageUrl = payload.characterImageUrl.trim();
+
+      // 1. Story Mode: "library" | "custom" (custom only if prompt is non-empty)
+      const promptText = (payload.prompt || '').trim();
+      const effectiveStoryMode = (payload.storyMode === 'custom' && promptText) ? 'custom' : 'library';
+
+      // 2. Series Mode: "new" | "continue" and seriesId
+      const effectiveSeriesMode = payload.seriesMode === 'continue' ? 'continue' : 'new';
+      let effectiveSeriesId = null;
+
+      if (effectiveSeriesMode === 'continue') {
+        effectiveSeriesId = payload.seriesId ? String(payload.seriesId).trim() : null;
+        if (!effectiveSeriesId) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: false,
+              error: 'SERIES_ID_REQUIRED',
+              message: 'A valid seriesId is required when continuing a series.'
+            })
+          };
+        }
+
+        // Server-side validation: Reject any seriesId that does not belong to the signed-in user
+        const isOwner = await verifySeriesOwnership(effectiveSeriesId, user);
+        if (!isOwner) {
+          return {
+            statusCode: 403,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: false,
+              error: 'SERIES_NOT_OWNED',
+              message: 'The selected series does not belong to your account.'
+            })
+          };
+        }
       }
+
+      // 3. Character Mode: recompute characterImageUrl on the server from the chosen mode
+      const chosenCharacterMode = ['channel', 'upload', 'random'].includes(payload.characterMode)
+        ? payload.characterMode
+        : (targetChannel?.characterImageUrl ? 'channel' : (payload.characterImageUrl ? 'upload' : 'random'));
+
+      let resolvedCharacterImageUrl = '';
+      let isUploadUrlValid = false;
+
+      if (chosenCharacterMode === 'channel') {
+        resolvedCharacterImageUrl = targetChannel?.characterImageUrl || '';
+      } else if (chosenCharacterMode === 'upload') {
+        const rawUrl = (payload.characterImageUrl && typeof payload.characterImageUrl === 'string')
+          ? payload.characterImageUrl.trim()
+          : '';
+        try {
+          if (rawUrl) {
+            const parsed = new URL(rawUrl);
+            if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && rawUrl.length <= 2048) {
+              isUploadUrlValid = true;
+              resolvedCharacterImageUrl = rawUrl;
+            }
+          }
+        } catch (e) {
+          isUploadUrlValid = false;
+        }
+      } else {
+        // Random mode: empty string, never null and never a placeholder
+        resolvedCharacterImageUrl = '';
+      }
+
+      // saveChannelFace: boolean (true only when the checkbox is ticked and the URL is valid)
+      const isSaveFace = Boolean(
+        payload.saveChannelFace === true &&
+        chosenCharacterMode === 'upload' &&
+        isUploadUrlValid &&
+        resolvedCharacterImageUrl
+      );
+
+      // Auto-save channel face to database if requested
+      if (isSaveFace && db && userYouTubeChannelId) {
+        try {
+          await db.collection('users').updateOne(
+            {
+              $or: [{ id: userId }, { _id: userId }, { userId: userId }, { email: userEmail }],
+              'youtubeChannels.channelId': userYouTubeChannelId
+            },
+            {
+              $set: {
+                'youtubeChannels.$.characterImageUrl': resolvedCharacterImageUrl,
+                'youtubeChannels.$.updatedAt': new Date()
+              }
+            }
+          );
+          console.log(`[generate-template] Persisted new channel face for channel ${userYouTubeChannelId}: ${resolvedCharacterImageUrl}`);
+        } catch (saveErr) {
+          console.warn('[generate-template] Could not auto-save channel face:', saveErr.message);
+        }
+      }
+
+      const channelName = targetChannel?.characterName || (typeof payload.channelCharacterName === 'string' ? payload.channelCharacterName : '');
+      const channelGender = targetChannel?.characterGender || (['female', 'male', 'auto'].includes(payload.channelCharacterGender) ? payload.channelCharacterGender : '');
+
+      // ADD these fields after existing fields are built
+      postPayload.storyMode = effectiveStoryMode;
+      postPayload.seriesMode = effectiveSeriesMode;
+      postPayload.seriesId = effectiveSeriesId;
+      postPayload.characterMode = chosenCharacterMode;
+      postPayload.characterImageUrl = resolvedCharacterImageUrl;
+      postPayload.saveChannelFace = isSaveFace;
+      postPayload.channelCharacterName = channelName;
+      postPayload.channelCharacterGender = channelGender;
     }
 
     const postData = JSON.stringify(postPayload);
