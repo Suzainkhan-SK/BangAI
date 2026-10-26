@@ -13,7 +13,8 @@ const TEMPLATE_WEBHOOKS = {
   'world-mysteries':        'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
   'last-24-hours':          'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
   '3am-horror':             'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror',
-  'time-travel-influencer': 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer'
+  'time-travel-influencer': 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer',
+  'family-micro-drama':     process.env.N8N_FAMILY_WEBHOOK_URL || 'https://cmpunktg33.app.n8n.cloud/webhook/ghar-ki-kahani'
 };
 
 const TEMPLATE_META = {
@@ -43,6 +44,13 @@ const TEMPLATE_META = {
     title: 'POV: Time Travel Influencer [1-Click]',
     musicId: 'action',
     visualStyle: 'Cinematic Live-Action Vlog',
+    language: 'Hindi'
+  },
+  'family-micro-drama': {
+    name: 'Ghar Ki Kahani - Family Drama - Webhook Based',
+    title: 'Ghar Ki Kahani [Family Drama]',
+    musicId: 'cinematic',
+    visualStyle: 'Realistic Live-Action Micro-Drama',
     language: 'Hindi'
   }
 };
@@ -246,7 +254,8 @@ export const handler = async (event) => {
       'world-mysteries':        n8nCfg.webhooks?.template_world_mysteries || TEMPLATE_WEBHOOKS['world-mysteries'],
       'last-24-hours':          n8nCfg.webhooks?.template_last_24_hours   || TEMPLATE_WEBHOOKS['last-24-hours'],
       '3am-horror':             n8nCfg.webhooks?.template_3am_horror      || TEMPLATE_WEBHOOKS['3am-horror'],
-      'time-travel-influencer': n8nCfg.webhooks?.template_time_travel_influencer || n8nCfg.webhooks?.timeTravelInfluencer || TEMPLATE_WEBHOOKS['time-travel-influencer']
+      'time-travel-influencer': n8nCfg.webhooks?.template_time_travel_influencer || n8nCfg.webhooks?.timeTravelInfluencer || TEMPLATE_WEBHOOKS['time-travel-influencer'],
+      'family-micro-drama':     process.env.N8N_FAMILY_WEBHOOK_URL || n8nCfg.webhooks?.template_family_micro_drama || n8nCfg.webhooks?.familyMicroDrama || TEMPLATE_WEBHOOKS['family-micro-drama']
     };
     const webhookUrl = dynamicWebhooks[templateId];
 
@@ -396,13 +405,164 @@ export const handler = async (event) => {
       'last-24-hours':          n8nCfg.productionWorkflows?.last24Hours          || 'PQKEFVjhD3P2yfnZ',
       '3am-horror':             n8nCfg.productionWorkflows?.horror3am            || '94IjipHAsUQWjkun',
       'time-travel-influencer': n8nCfg.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9',
+      'family-micro-drama':     n8nCfg.productionWorkflows?.familyMicroDrama     || 'NymNAsVCHNff4DWs',
       'viral-shorts':           n8nCfg.productionWorkflows?.viralShorts          || 'UKWYwnlKuCqTazIG'
     };
     const workflowId = WORKFLOW_ID_MAP[templateId] || null;
 
+    // -------------------------------------------------------------
+    // Section 3.5: Server-side validation (only for "family-micro-drama")
+    // -------------------------------------------------------------
+    let effectiveEpisodeMode = 'next';
+    let effectiveCustomTopic = '';
+    let characterImages = null;
+
+    if (templateId === 'family-micro-drama') {
+      // 1. Reject a showId other than GKK-001
+      const showId = payload.showId || 'GKK-001';
+      if (showId !== 'GKK-001') {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: false,
+            error: 'INVALID_SHOW_ID',
+            message: 'Invalid showId. Only "GKK-001" is currently supported.'
+          })
+        };
+      }
+
+      if (!db) {
+        return {
+          statusCode: 500,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Database connection unavailable.' })
+        };
+      }
+
+      // 2. Recompute characterImages from show_cast for token's user (never trust client)
+      const castDocs = await db.collection('show_cast').find({ userId, showId: 'GKK-001' }).toArray();
+      const castMap = {};
+      for (const doc of castDocs) {
+        castMap[doc.characterId] = doc.imageUrl;
+      }
+
+      const isValidHttpUrl = (str) => {
+        if (!str || typeof str !== 'string') return false;
+        try {
+          const u = new URL(str);
+          return (u.protocol === 'http:' || u.protocol === 'https:') && str.length <= 2048;
+        } catch (_) {
+          return false;
+        }
+      };
+
+      // Reject if any required photo is missing or not a valid http(s) URL
+      const REQUIRED_CAST = ['DADI', 'PAPA', 'MUMMY', 'DIDI', 'CHHOTA'];
+      const missingRequired = [];
+      for (const charId of REQUIRED_CAST) {
+        const url = castMap[charId];
+        if (!url || !isValidHttpUrl(url)) {
+          missingRequired.push(charId);
+        }
+      }
+
+      if (missingRequired.length > 0) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: false,
+            error: 'REQUIRED_CAST_MISSING',
+            message: `Missing or invalid required character reference photos for: ${missingRequired.join(', ')}. All 5 required characters (DADI, PAPA, MUMMY, DIDI, CHHOTA) must be saved before generating.`
+          })
+        };
+      }
+
+      // Reject any non-http(s) URL in optional cast if provided
+      const OPTIONAL_CAST = ['NEIGHBOUR', 'GUEST'];
+      for (const charId of OPTIONAL_CAST) {
+        const url = castMap[charId];
+        if (url && !isValidHttpUrl(url)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: false,
+              error: 'INVALID_IMAGE_URL',
+              message: `Photo for character "${charId}" must be a valid http or https URL (max 2048 characters).`
+            })
+          };
+        }
+      }
+
+      // Recompute characterImages: optional empty values are "" (never null)
+      characterImages = {
+        DADI: castMap.DADI,
+        PAPA: castMap.PAPA,
+        MUMMY: castMap.MUMMY,
+        DIDI: castMap.DIDI,
+        CHHOTA: castMap.CHHOTA,
+        NEIGHBOUR: castMap.NEIGHBOUR && isValidHttpUrl(castMap.NEIGHBOUR) ? castMap.NEIGHBOUR : '',
+        GUEST: castMap.GUEST && isValidHttpUrl(castMap.GUEST) ? castMap.GUEST : ''
+      };
+
+      // 3. Reject a custom idea over 300 characters, or one containing a blocked word
+      effectiveEpisodeMode = payload.episodeMode === 'custom' ? 'custom' : 'next';
+      if (effectiveEpisodeMode === 'custom') {
+        const customIdea = typeof payload.customEpisodeTopic === 'string'
+          ? payload.customEpisodeTopic.trim()
+          : (typeof payload.prompt === 'string' ? payload.prompt.trim() : '');
+
+        if (customIdea.length > 300) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: false,
+              error: 'CUSTOM_IDEA_TOO_LONG',
+              message: `Custom episode idea must not exceed 300 characters (received ${customIdea.length}).`
+            })
+          };
+        }
+
+        const BLOCKED_WORDS = [
+          'rape', 'murder', 'kill', 'torture', 'terrorist', 'terrorism', 'suicide',
+          'porn', 'sex', 'nude', 'nudity', 'nsfw', 'erotic', 'pedophile', 'child abuse',
+          'domestic violence', 'assault', 'slur', 'bastard', 'bitch'
+        ];
+
+        const lowerIdea = customIdea.toLowerCase();
+        const matchedWord = BLOCKED_WORDS.find(word => {
+          const regex = new RegExp(`\\b${word}\\b`, 'i');
+          return regex.test(lowerIdea);
+        });
+
+        if (matchedWord) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: false,
+              error: 'BLOCKED_CONTENT',
+              message: `Custom episode idea contains prohibited content ("${matchedWord}"). Please revise to follow content guidelines.`
+            })
+          };
+        }
+
+        effectiveCustomTopic = customIdea;
+      } else {
+        effectiveCustomTopic = '';
+      }
+    }
+
     // 3. Atomically record the generation in MongoDB
     if (db && userId) {
       try {
+        const generationPrompt = templateId === 'family-micro-drama'
+          ? (effectiveEpisodeMode === 'custom' ? effectiveCustomTopic : 'Next Episode in Season')
+          : (payload.prompt || '').trim();
+
         await db.collection('threads').updateOne(
           { threadId },
           {
@@ -422,7 +582,7 @@ export const handler = async (event) => {
               messages: [
                 {
                   role: 'system',
-                  content: `${payload.isRetry ? '🔄 Retrying' : '1-Click Autonomous Generation started for'} template: ${meta.title}.${(payload.prompt || '').trim() ? ` Custom topic: "${payload.prompt.trim()}".` : ' Auto-selecting topic.'} Auto-uploading to YouTube channel: ${userYouTubeChannelTitle || 'Default'}.`,
+                  content: `${payload.isRetry ? '🔄 Retrying' : '1-Click Autonomous Generation started for'} template: ${meta.title}.${generationPrompt ? ` Topic: "${generationPrompt}".` : ' Auto-selecting topic.'} Auto-uploading to YouTube channel: ${userYouTubeChannelTitle || 'Default'}.`,
                   timestamp: new Date().toISOString()
                 }
               ]
@@ -440,7 +600,7 @@ export const handler = async (event) => {
           threadId,
           workflowId,
           isRetry: !!payload.isRetry,
-          prompt: (payload.prompt || '').trim(),
+          prompt: generationPrompt,
           channelTitle: userYouTubeChannelTitle || null,
           channelId: userYouTubeChannelId || null,
           createdAt: new Date(),
@@ -452,46 +612,80 @@ export const handler = async (event) => {
       }
     }
 
-    const postPayload = {
-      templateId,
-      templateName: meta.name,
-      prompt: (payload.prompt || '').trim(),
-      callbackUrl,
-      threadId,
-      sessionId,
-      userId: userId || 'anonymous',
-      userEmail: userEmail.toLowerCase(),
-      webhookSecret,
-      // Dynamic YouTube Settings
-      autoUploadToYouTube,
-      userYouTubeAccessToken,
-      userYouTubeChannelTitle,
-      userYouTubeChannelId,
-      // Dynamic Google Sheet Settings
-      autoLogToSheet,
-      userSheetAccessToken,
-      userSpreadsheetId,
-      userSheetName,
-      visualStyle: payload.visualStyle || meta.visualStyle,
-      language: payload.language || meta.language,
-      aspectRatio: payload.aspectRatio || '9:16',
-      // Subtitle settings & styling
-      subtitleSettings: payload.subtitleSettings || null,
-      subtitleStyle: payload.subtitleStyle || payload.subtitlePreset || 'hormozi',
-      // Music & volume settings
-      musicId: payload.musicId || meta.musicId,
-      musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
-      musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
-      timestamp: new Date().toISOString()
-    };
+    // -------------------------------------------------------------
+    // Section 3.4: Construct Payload for n8n Workflow Dispatch
+    // -------------------------------------------------------------
+    let postPayload;
 
-    // Only attach voiceover fields for non-native voice workflows
-    if (templateId !== 'time-travel-influencer') {
-      postPayload.voiceId = payload.voiceId || 'adam';
-      postPayload.elevenLabsVoiceId = payload.elevenLabsVoiceId || '';
-      postPayload.voiceSpeed = payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20;
-      postPayload.voiceVolume = payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0;
+    if (templateId === 'family-micro-drama') {
+      postPayload = {
+        userId: userId || 'anonymous',
+        userEmail: userEmail.toLowerCase(),
+        threadId,
+        sessionId,
+        callbackUrl,
+        webhookSecret,
+        autoUploadToYouTube,
+        userYouTubeAccessToken,
+        userYouTubeChannelId,
+        userYouTubeChannelTitle,
+        autoLogToSheet,
+        userSpreadsheetId,
+        subtitleSettings: payload.subtitleSettings || null,
+        subtitleStyle: payload.subtitleStyle || payload.subtitlePreset || 'hormozi',
+        musicId: payload.musicId || meta.musicId,
+        musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
+        musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
+        aspectRatio: '9:16',
+        language: 'Hindi',
+        timestamp: new Date().toISOString(),
+        templateId: 'family-micro-drama',
+        showId: 'GKK-001',
+        episodeMode: effectiveEpisodeMode,
+        customEpisodeTopic: effectiveCustomTopic,
+        characterImages
+      };
     } else {
+      postPayload = {
+        templateId,
+        templateName: meta.name,
+        prompt: (payload.prompt || '').trim(),
+        callbackUrl,
+        threadId,
+        sessionId,
+        userId: userId || 'anonymous',
+        userEmail: userEmail.toLowerCase(),
+        webhookSecret,
+        // Dynamic YouTube Settings
+        autoUploadToYouTube,
+        userYouTubeAccessToken,
+        userYouTubeChannelTitle,
+        userYouTubeChannelId,
+        // Dynamic Google Sheet Settings
+        autoLogToSheet,
+        userSheetAccessToken,
+        userSpreadsheetId,
+        userSheetName,
+        visualStyle: payload.visualStyle || meta.visualStyle,
+        language: payload.language || meta.language,
+        aspectRatio: payload.aspectRatio || '9:16',
+        // Subtitle settings & styling
+        subtitleSettings: payload.subtitleSettings || null,
+        subtitleStyle: payload.subtitleStyle || payload.subtitlePreset || 'hormozi',
+        // Music & volume settings
+        musicId: payload.musicId || meta.musicId,
+        musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
+        musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
+        timestamp: new Date().toISOString()
+      };
+
+      // Only attach voiceover fields for non-native voice workflows
+      if (templateId !== 'time-travel-influencer') {
+        postPayload.voiceId = payload.voiceId || 'adam';
+        postPayload.elevenLabsVoiceId = payload.elevenLabsVoiceId || '';
+        postPayload.voiceSpeed = payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20;
+        postPayload.voiceVolume = payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0;
+      } else {
       // Keep influencerGender exactly as it is today
       if (payload.influencerGender) {
         postPayload.influencerGender = payload.influencerGender;
@@ -606,8 +800,9 @@ export const handler = async (event) => {
       postPayload.channelCharacterName = channelName;
       postPayload.channelCharacterGender = channelGender;
     }
+  }
 
-    const postData = JSON.stringify(postPayload);
+  const postData = JSON.stringify(postPayload);
 
     console.log(`[generate-template] Dispatching 1-click template ${templateId} to n8n webhook...`);
     console.log(`[generate-template] Target YouTube: "${userYouTubeChannelTitle || 'None'}", Auto-Upload: ${autoUploadToYouTube}`);
