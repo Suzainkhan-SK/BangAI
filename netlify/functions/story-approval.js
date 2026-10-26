@@ -13,6 +13,7 @@ const N8N_API_KEY = process.env.N8N_API_KEY || 'n8n_api_d07ac84c49c0e4b37d0025c7
 const WORKFLOW_ID = 'UKWYwnlKuCqTazIG';
 
 const READY_STATES = ['READY_FOR_APPROVAL', 'SCENES_READY_FOR_APPROVAL', 'COMPLETED', 'UPLOADING_YOUTUBE', 'RENDER_FAILED', 'FAILED', 'CANCELLED', 'DUPLICATE_TOPIC', 'EXECUTION_TIMEOUT'];
+export const ACTIVE_GEN_STATUSES = ['started', 'GENERATING', 'GENERATING_SCENES', 'RENDERING_VIDEO'];
 
 // Fallback: query n8n execution API to find if this thread got a story callback
 async function checkN8nExecutionForThread(threadId) {
@@ -150,7 +151,6 @@ export const handler = async (event, context) => {
       //    - GENERATING_SCENES: 60 minutes (1 hour)
       //    - started: 60 minutes (1 hour)
       //    - RENDERING_VIDEO: 90 minutes (covers long renders + buffers)
-      const ACTIVE_GEN_STATUSES = ['started', 'GENERATING', 'GENERATING_SCENES', 'RENDERING_VIDEO'];
       const STALL_TIMEOUTS_MS = {
         started: 60 * 60 * 1000,
         GENERATING: 60 * 60 * 1000,
