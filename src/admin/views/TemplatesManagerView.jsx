@@ -72,10 +72,10 @@ export const OFFICIAL_TEMPLATES = [
   {
     id: 'time-travel-influencer',
     emoji: '⏳',
-    title: 'Time Travel Influencer [Native Voice]',
+    title: 'Time Travel Influencer [Native Voice & Series]',
     category: 'POV Vlogger',
-    desc: 'High-energy Indian influencer traveling across historical eras, mythic ancient times, and future ages. Pure native in-video character speech with lip-sync and character retention.',
-    tagline: '75s · 5 Scenes · 480p · Native Voice',
+    desc: 'High-energy Indian influencer traveling across historical eras, mythic ancient times, and future ages. 100% Devanagari native Hindi dialogue, 3-shot vlog cinematography, Reference Image 1 wardrobe & face retention, library story picker (BangAI Master sheet), Series Part 2 continuation, per-user topic blocklist, and permanent YouTube channel face.',
+    tagline: '75s · 5 Scenes · 480p · Native Voice · Series Part 2',
     duration: '75s',
     scenes: '5 Scenes',
     resolution: '480p',
@@ -85,6 +85,24 @@ export const OFFICIAL_TEMPLATES = [
     webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer',
     demoImage: '/template-time-travel.jpg',
     color: '#10b981',
+    status: 'ACTIVE'
+  },
+  {
+    id: 'family-micro-drama',
+    emoji: '🎭',
+    title: 'Ghar Ki Kahani [Family Drama]',
+    category: 'Serial Drama',
+    desc: 'Serial family micro-drama set in Pune. 5 family members, a locked steel tin box, and an elderly grandmother who was a celebrated stage singer. Realistic live-action with native Devanagari Hindi dialogue, Hinglish title, 7-character cast photo reference system (no AI faces), and Season 1 canon arc.',
+    tagline: '75s · 5 Scenes · 480p · Serial Drama',
+    duration: '75s',
+    scenes: '5 Scenes',
+    resolution: '480p',
+    videoTitle: 'Ghar Ki Kahani: Ek Pune ka parivaar. Ek steel ki dibbi. Ek purani gayika.',
+    aiBrain: 'Claude Haiku 4.5 & Grok Video',
+    n8nWorkflowId: 'NymNAsVCHNff4DWs',
+    webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/ghar-ki-kahani',
+    demoImage: '/template-ghar-ki-kahani.jpg',
+    color: '#e11d48',
     status: 'ACTIVE'
   },
   {
@@ -1546,7 +1564,7 @@ export default function TemplatesManagerView() {
         <div>
           {/* Category Filter Tabs */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', flexWrap: 'wrap' }}>
-            {['All', 'World Mysteries', 'True Stories', 'Horror & Paranormal', 'Space & Tech'].map(cat => (
+            {['All', 'World Mysteries', 'True Stories', 'Horror & Paranormal', 'POV Vlogger', 'Serial Drama', 'Space & Tech'].map(cat => (
               <button
                 key={cat}
                 type="button"
@@ -2089,7 +2107,8 @@ export default function TemplatesManagerView() {
                           'world-mysteries': '🛸 World Mysteries & Paranormal',
                           'last-24-hours': '⏳ Last 24 Hours [True Stories]',
                           '3am-horror': '👻 3-AM Horror & Paranormal',
-                          'time-travel-influencer': '⏳ Time Travel Influencer [Native Voice]'
+                          'time-travel-influencer': '⏳ Time Travel Influencer [Native Voice & Series]',
+                          'family-micro-drama': '🎭 Ghar Ki Kahani [Family Drama]'
                         };
                         const displayTemplate = templateTitleMap[auto.templateId] || auto.templateId || 'AI Template';
                         const completedDays = Number(auto.completedDays || 0);
@@ -2653,7 +2672,8 @@ export default function TemplatesManagerView() {
                     <option value="world-mysteries">🛸 World Mysteries & Paranormal [75s+]</option>
                     <option value="last-24-hours">⏳ Last 24 Hours [True Stories - 75s+]</option>
                     <option value="3am-horror">👻 3-AM Horror & Paranormal [75s+]</option>
-                    <option value="time-travel-influencer">⏳ Time Travel Influencer [75s Native Voice]</option>
+                    <option value="time-travel-influencer">⏳ Time Travel Influencer [75s Native Voice & Series]</option>
+                    <option value="family-micro-drama">🎭 Ghar Ki Kahani [Family Drama - 75s]</option>
                   </select>
                 </div>
 

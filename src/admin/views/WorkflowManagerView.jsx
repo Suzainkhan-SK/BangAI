@@ -509,7 +509,7 @@ export default function WorkflowManagerView() {
   // 1B. Universal Publish / Unpublish ALL Workflows via MCP
   const handleUniversalPublish = async (shouldPublish) => {
     const actionLabel = shouldPublish ? 'PUBLISH & ACTIVATE' : 'UNPUBLISH (Draft mode)';
-    const totalWfs = flagshipWorkflows.length || 5;
+    const totalWfs = flagshipWorkflows.length || 6;
     const warning = shouldPublish
       ? `Confirm: Are you sure you want to PUBLISH all ${totalWfs} production workflows in n8n Cloud? This will make all webhook triggers live.`
       : `⚠️ Confirm: Are you sure you want to UNPUBLISH all ${totalWfs} production workflows in n8n Cloud? Webhook triggers will be paused until re-published.`;
@@ -568,7 +568,7 @@ export default function WorkflowManagerView() {
     }
 
     const targetDesc = targetWorkflow === 'all'
-      ? `ALL ${workflows.length || 5} flagship workflows simultaneously`
+      ? `ALL ${workflows.length || 6} flagship workflows simultaneously`
       : `workflow "${workflows.find(w => w.id === targetWorkflow)?.name || targetWorkflow}"`;
 
     const confirmed = window.confirm(
@@ -656,7 +656,7 @@ export default function WorkflowManagerView() {
     }
 
     const targetDesc = targetWorkflow === 'all'
-      ? `ALL ${workflows.length || 5} flagship workflows simultaneously`
+      ? `ALL ${workflows.length || 6} flagship workflows simultaneously`
       : `workflow "${workflows.find(w => w.id === targetWorkflow)?.name || targetWorkflow}"`;
 
     const summaryText = cleanKeys.length === 1
@@ -741,7 +741,7 @@ export default function WorkflowManagerView() {
   // 4. Auto-Detect Workflow IDs from active n8n instance
   const handleAutoDetectIds = async () => {
     const confirmed = window.confirm(
-      `Scan active n8n instance (${activeHost}) via MCP and auto-detect all ${workflows.length || 5} flagship workflow IDs?\n\n` +
+      `Scan active n8n instance (${activeHost}) via MCP and auto-detect all ${workflows.length || 6} flagship workflow IDs?\n\n` +
       `Use this whenever you migrate to a new 14-day free trial n8n account to automatically re-wire workflow IDs without editing code.`
     );
     if (!confirmed) return;
@@ -751,7 +751,7 @@ export default function WorkflowManagerView() {
     try {
       const res = await adminService.autoDetectWorkflowIds();
       if (res.success && res.detectedWorkflows) {
-        setToastMsg(`🎉 Auto-detected all ${workflows.length || 5} flagship workflows! MongoDB configuration updated.`);
+        setToastMsg(`🎉 Auto-detected all ${workflows.length || 6} flagship workflows! MongoDB configuration updated.`);
         fetchWorkflows(true);
       } else {
         setToastMsg(`⚠️ Detection notice: ${res.error || 'Could not find all matching workflows'}`);
@@ -845,10 +845,10 @@ export default function WorkflowManagerView() {
               cursor: universalToggling ? 'not-allowed' : 'pointer',
               transition: 'all 0.15s ease'
             }}
-            title={`Publish (Activate) all ${flagshipWorkflows.length || 5} production workflows in n8n Cloud simultaneously`}
+            title={`Publish (Activate) all ${flagshipWorkflows.length || 6} production workflows in n8n Cloud simultaneously`}
           >
             <span>{universalToggling === 'publish' ? '⏳' : '▶️'}</span>
-            {universalToggling === 'publish' ? 'Publishing All...' : `Publish All (${flagshipWorkflows.length || 5})`}
+            {universalToggling === 'publish' ? 'Publishing All...' : `Publish All (${flagshipWorkflows.length || 6})`}
           </button>
 
           {/* Universal Unpublish All */}
@@ -871,10 +871,10 @@ export default function WorkflowManagerView() {
               cursor: universalToggling ? 'not-allowed' : 'pointer',
               transition: 'all 0.15s ease'
             }}
-            title={`Unpublish (Draft mode) all ${flagshipWorkflows.length || 5} production workflows in n8n Cloud simultaneously`}
+            title={`Unpublish (Draft mode) all ${flagshipWorkflows.length || 6} production workflows in n8n Cloud simultaneously`}
           >
             <span>{universalToggling === 'unpublish' ? '⏳' : '⏸️'}</span>
-            {universalToggling === 'unpublish' ? 'Unpublishing All...' : `Unpublish All (${flagshipWorkflows.length || 5})`}
+            {universalToggling === 'unpublish' ? 'Unpublishing All...' : `Unpublish All (${flagshipWorkflows.length || 6})`}
           </button>
 
           <button
@@ -1139,7 +1139,7 @@ export default function WorkflowManagerView() {
         </div>
       </div>
 
-      {/* 3. Flagship Production Pipelines (4 Modern Interactive Cards) */}
+      {/* 3. Flagship Production Pipelines (6 Modern Interactive Cards) */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1154,7 +1154,7 @@ export default function WorkflowManagerView() {
               background: 'var(--admin-bg-elevated)',
               color: 'var(--admin-text-sub)'
             }}>
-              {flagshipWorkflows.length || 5} Automated Workflows
+              {flagshipWorkflows.length || 6} Automated Workflows
             </span>
           </div>
 
@@ -1178,10 +1178,10 @@ export default function WorkflowManagerView() {
                 cursor: universalToggling ? 'not-allowed' : 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title={`Publish all ${flagshipWorkflows.length || 5} production workflows in n8n Cloud simultaneously`}
+              title={`Publish all ${flagshipWorkflows.length || 6} production workflows in n8n Cloud simultaneously`}
             >
               <span>{universalToggling === 'publish' ? '⏳' : '▶️'}</span>
-              {universalToggling === 'publish' ? 'Publishing All...' : `Publish All (${flagshipWorkflows.length || 5})`}
+              {universalToggling === 'publish' ? 'Publishing All...' : `Publish All (${flagshipWorkflows.length || 6})`}
             </button>
 
             <button
@@ -1203,10 +1203,10 @@ export default function WorkflowManagerView() {
                 cursor: universalToggling ? 'not-allowed' : 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title={`Unpublish (Draft mode) all ${flagshipWorkflows.length || 5} production workflows in n8n Cloud simultaneously`}
+              title={`Unpublish (Draft mode) all ${flagshipWorkflows.length || 6} production workflows in n8n Cloud simultaneously`}
             >
               <span>{universalToggling === 'unpublish' ? '⏳' : '⏸️'}</span>
-              {universalToggling === 'unpublish' ? 'Unpublishing All...' : `Unpublish All (${flagshipWorkflows.length || 5})`}
+              {universalToggling === 'unpublish' ? 'Unpublishing All...' : `Unpublish All (${flagshipWorkflows.length || 6})`}
             </button>
           </div>
         </div>

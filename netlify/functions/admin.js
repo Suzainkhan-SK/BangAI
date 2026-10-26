@@ -465,7 +465,7 @@ export async function handler(event) {
         }
 
         function extractFlagshipWorkflows(workflows) {
-          const map = { viralShorts: null, worldMysteries: null, last24Hours: null, horror3am: null, timeTravelInfluencer: null };
+          const map = { viralShorts: null, worldMysteries: null, last24Hours: null, horror3am: null, timeTravelInfluencer: null, familyMicroDrama: null };
           // Tier 1: Look specifically for 'Webhook Based' (exact production flagship pipelines)
           for (const wf of workflows) {
             const name = wf.name || '';
@@ -475,6 +475,7 @@ export async function handler(event) {
             else if (/last\s*24\s*hours/i.test(name) && /webhook\s*based/i.test(name)) map.last24Hours = wf.id;
             else if (/3-?\s*am\s*horror/i.test(name) && /webhook\s*based/i.test(name)) map.horror3am = wf.id;
             else if (/time\s*travel\s*influencer/i.test(name) && /webhook\s*based/i.test(name)) map.timeTravelInfluencer = wf.id;
+            else if (/ghar\s*ki\s*kahani|family\s*micro\s*drama/i.test(name) && /webhook\s*based/i.test(name)) map.familyMicroDrama = wf.id;
           }
           // Tier 2: Fallback if no Webhook Based match found
           for (const wf of workflows) {
@@ -485,6 +486,7 @@ export async function handler(event) {
             if (!map.last24Hours && /last\s*24\s*hours/i.test(name)) map.last24Hours = wf.id;
             if (!map.horror3am && /3-?\s*am\s*horror/i.test(name)) map.horror3am = wf.id;
             if (!map.timeTravelInfluencer && /time\s*travel\s*influencer/i.test(name)) map.timeTravelInfluencer = wf.id;
+            if (!map.familyMicroDrama && /ghar\s*ki\s*kahani|family\s*micro\s*drama/i.test(name)) map.familyMicroDrama = wf.id;
           }
           return map;
         }
@@ -519,10 +521,10 @@ export async function handler(event) {
                 const srcListData = await srcListRes.json();
                 const srcWorkflows = srcListData.data || srcListData || [];
 
-                // Sort so the 4 flagship workflows are created FIRST
+                // Sort so the 6 flagship workflows are created FIRST
                 srcWorkflows.sort((a, b) => {
-                  const aFlag = /viral\s*all-in-one|world\s*mysteries|last\s*24\s*hours|3-?\s*am\s*horror/i.test(a.name || '');
-                  const bFlag = /viral\s*all-in-one|world\s*mysteries|last\s*24\s*hours|3-?\s*am\s*horror/i.test(b.name || '');
+                  const aFlag = /viral\s*all-in-one|world\s*mysteries|last\s*24\s*hours|3-?\s*am\s*horror|time\s*travel\s*influencer|ghar\s*ki\s*kahani|family\s*micro\s*drama/i.test(a.name || '');
+                  const bFlag = /viral\s*all-in-one|world\s*mysteries|last\s*24\s*hours|3-?\s*am\s*horror|time\s*travel\s*influencer|ghar\s*ki\s*kahani|family\s*micro\s*drama/i.test(b.name || '');
                   return (bFlag ? 1 : 0) - (aFlag ? 1 : 0);
                 });
 
@@ -594,6 +596,7 @@ export async function handler(event) {
                         else if (/last\s*24\s*hours/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.last24Hours) flagshipMap.last24Hours = newWf.id;
                         else if (/3-?\s*am\s*horror/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.horror3am) flagshipMap.horror3am = newWf.id;
                         else if (/time\s*travel\s*influencer/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.timeTravelInfluencer) flagshipMap.timeTravelInfluencer = newWf.id;
+                        else if (/ghar\s*ki\s*kahani|family\s*micro\s*drama/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.familyMicroDrama) flagshipMap.familyMicroDrama = newWf.id;
                       } else {
                         const errText = await createRes.text().catch(() => '');
                         console.warn(`[migrate-n8n] Create ${summary.name} failed (${createRes.status}):`, errText.slice(0, 200));
@@ -693,6 +696,8 @@ export async function handler(event) {
             if (preciseMap.worldMysteries) flagshipMap.worldMysteries = preciseMap.worldMysteries;
             if (preciseMap.last24Hours) flagshipMap.last24Hours = preciseMap.last24Hours;
             if (preciseMap.horror3am) flagshipMap.horror3am = preciseMap.horror3am;
+            if (preciseMap.timeTravelInfluencer) flagshipMap.timeTravelInfluencer = preciseMap.timeTravelInfluencer;
+            if (preciseMap.familyMicroDrama) flagshipMap.familyMicroDrama = preciseMap.familyMicroDrama;
           }
         } catch (rescanErr) {
           console.warn('[migrate-n8n] Error during final flagship scan:', rescanErr.message);
@@ -704,7 +709,8 @@ export async function handler(event) {
           worldMysteries: flagshipMap.worldMysteries || currentDoc?.productionWorkflows?.worldMysteries || 'i458lFk0Pnf2cSHY',
           last24Hours: flagshipMap.last24Hours || currentDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ',
           horror3am: flagshipMap.horror3am || currentDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun',
-          timeTravelInfluencer: flagshipMap.timeTravelInfluencer || currentDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9'
+          timeTravelInfluencer: flagshipMap.timeTravelInfluencer || currentDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9',
+          familyMicroDrama: flagshipMap.familyMicroDrama || currentDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs'
         };
 
         // Dual format webhooks: snake_case for generators, camelCase for UI tables
@@ -722,7 +728,9 @@ export async function handler(event) {
           last24Hours: `${cleanDestBaseUrl}/webhook/template-last-24-hours`,
           horror3am: `${cleanDestBaseUrl}/webhook/template-3am-horror`,
           template_time_travel_influencer: `${cleanDestBaseUrl}/webhook/template-time-travel-influencer`,
-          timeTravelInfluencer: `${cleanDestBaseUrl}/webhook/template-time-travel-influencer`
+          timeTravelInfluencer: `${cleanDestBaseUrl}/webhook/template-time-travel-influencer`,
+          template_family_micro_drama: `${cleanDestBaseUrl}/webhook/ghar-ki-kahani`,
+          familyMicroDrama: `${cleanDestBaseUrl}/webhook/ghar-ki-kahani`
         };
 
         // Update MongoDB configuration
@@ -770,6 +778,23 @@ export async function handler(event) {
             scopes: ['builds', 'functions', 'post_processing', 'runtime'],
             values: [
               { value: newWebhooks.viralShorts, context: 'all' }
+            ]
+          }));
+
+          await makeHttpRequest({
+            hostname: 'api.netlify.com',
+            port: 443,
+            path: `/api/v1/accounts/67ebd3eee7251e008668073d/env/N8N_FAMILY_WEBHOOK_URL?site_id=${NETLIFY_SITE_ID}`,
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${NETLIFY_PAT}`,
+              'Content-Type': 'application/json'
+            }
+          }, JSON.stringify({
+            key: 'N8N_FAMILY_WEBHOOK_URL',
+            scopes: ['builds', 'functions', 'post_processing', 'runtime'],
+            values: [
+              { value: newWebhooks.familyMicroDrama, context: 'all' }
             ]
           }));
         } catch (netErr) {
@@ -822,6 +847,12 @@ export async function handler(event) {
                   name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]',
                   id: newProductionWorkflows.timeTravelInfluencer,
                   url: `${cleanDestBaseUrl}/workflow/${newProductionWorkflows.timeTravelInfluencer}`,
+                  creds: 'Google Sheets OAuth2, Kie.ai API, Zvid API, YouTube OAuth2'
+                },
+                {
+                  name: 'Ghar Ki Kahani - Family Drama - Webhook Based',
+                  id: newProductionWorkflows.familyMicroDrama,
+                  url: `${cleanDestBaseUrl}/workflow/${newProductionWorkflows.familyMicroDrama}`,
                   creds: 'Google Sheets OAuth2, Kie.ai API, Zvid API, YouTube OAuth2'
                 }
               ]
@@ -912,6 +943,10 @@ export async function handler(event) {
               detected.last24Hours = wf.id;
             } else if (/3-?\s*am\s*horror/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !detected.horror3am) {
               detected.horror3am = wf.id;
+            } else if (/time\s*travel\s*influencer/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !detected.timeTravelInfluencer) {
+              detected.timeTravelInfluencer = wf.id;
+            } else if (/ghar\s*ki\s*kahani|family\s*micro\s*drama/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !detected.familyMicroDrama) {
+              detected.familyMicroDrama = wf.id;
             }
           }
         } catch (mcpErr) {
@@ -924,7 +959,8 @@ export async function handler(event) {
             worldMysteries: detected.worldMysteries || n8nDoc?.productionWorkflows?.worldMysteries,
             last24Hours: detected.last24Hours || n8nDoc?.productionWorkflows?.last24Hours,
             horror3am: detected.horror3am || n8nDoc?.productionWorkflows?.horror3am,
-            timeTravelInfluencer: detected.timeTravelInfluencer || n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9'
+            timeTravelInfluencer: detected.timeTravelInfluencer || n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9',
+            familyMicroDrama: detected.familyMicroDrama || n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs'
           };
 
           await sysCol.updateOne(
@@ -1985,7 +2021,8 @@ export async function handler(event) {
           worldMysteries: 'https://cmpunktg33.app.n8n.cloud/webhook/template-world-mysteries',
           last24Hours: 'https://cmpunktg33.app.n8n.cloud/webhook/template-last-24-hours',
           horror3am: 'https://cmpunktg33.app.n8n.cloud/webhook/template-3am-horror',
-          timeTravelInfluencer: 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer'
+          timeTravelInfluencer: 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer',
+          familyMicroDrama: 'https://cmpunktg33.app.n8n.cloud/webhook/ghar-ki-kahani'
         };
 
         const results = {};
@@ -2102,6 +2139,7 @@ export async function handler(event) {
         const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ';
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
 
         const defaultWorkflows = [
           {
@@ -2156,12 +2194,24 @@ export async function handler(event) {
             id: timeTravelId,
             key: 'timeTravelInfluencer',
             slug: 'time-travel-influencer',
-            name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]',
+            name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s - Native Voice & Series]',
             webhook: `${activeBaseUrl}/webhook/template-time-travel-influencer`,
             n8nUrl: `${activeBaseUrl}/workflow/${timeTravelId}`,
             nodesCount: 229,
             status: 'ACTIVE',
             published: true,
+            category: 'Autonomous Niche Template'
+          },
+          {
+            id: familyDramaId,
+            key: 'familyMicroDrama',
+            slug: 'family-micro-drama',
+            name: 'Ghar Ki Kahani - Family Drama - Webhook Based',
+            webhook: `${activeBaseUrl}/webhook/ghar-ki-kahani`,
+            n8nUrl: `${activeBaseUrl}/workflow/${familyDramaId}`,
+            nodesCount: 231,
+            status: 'DRAFT',
+            published: false,
             category: 'Autonomous Niche Template'
           },
           {
@@ -2190,7 +2240,7 @@ export async function handler(event) {
 
         // Optionally fetch real-time cloud status if requested
         if (query.syncStatus === 'true' || query.syncStatus === true) {
-          await Promise.allSettled(defaultWorkflows.slice(0, 5).map(async (wf) => {
+          await Promise.allSettled(defaultWorkflows.filter(wf => !['story-approval', 'youtube-upload'].includes(wf.id)).map(async (wf) => {
             try {
               const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: wf.id });
               const cloudWf = details.workflow || details;
@@ -2404,12 +2454,14 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
         ];
 
         let targetList = [];
@@ -2616,7 +2668,8 @@ export async function handler(event) {
             { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
             { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
             { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-            { id: n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9', name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+            { id: n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9', name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+            { id: n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs', name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
           ];
 
           const results = [];
@@ -2782,7 +2835,8 @@ export async function handler(event) {
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]', key: 'worldMysteries' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]', key: 'last24Hours' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]', key: 'horror3am' },
-          { id: n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9', name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]', key: 'timeTravelInfluencer' }
+          { id: n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9', name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]', key: 'timeTravelInfluencer' },
+          { id: n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs', name: 'Ghar Ki Kahani - Family Drama - Webhook Based', key: 'familyMicroDrama' }
         ];
 
         const statuses = {};
@@ -2960,12 +3014,14 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
         ];
 
         let targetList = [];
@@ -3160,12 +3216,14 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
         ];
 
         let targetList = [];
@@ -3380,12 +3438,14 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
         ];
 
         let targetList = [];
@@ -3604,12 +3664,14 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
         ];
 
         let targetList = [];
@@ -3751,12 +3813,14 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
         ];
 
         let targetList = [];
@@ -3890,12 +3954,14 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
         ];
 
         let targetList = [];
@@ -4029,12 +4095,14 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
         ];
 
         let targetList = [];
@@ -4168,12 +4236,14 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
         ];
 
         let targetList = [];
@@ -4307,12 +4377,14 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
 
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
         const flagshipWorkflows = [
           { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
           { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
-          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' }
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
         ];
 
         let targetList = [];

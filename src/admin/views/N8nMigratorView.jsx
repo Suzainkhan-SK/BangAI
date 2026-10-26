@@ -59,7 +59,7 @@ export default function N8nMigratorView() {
       '1. Authenticating with new n8n cloud instance via REST session...',
       '2. Checking destination workflows & snapshotting current config in Atlas...',
       '3. Transferring master automation workflows with sanitized node credentials...',
-      '4. Mapping 4 Flagship workflow IDs & dual-format webhook endpoints...',
+      '4. Mapping Flagship workflow IDs & dual-format webhook endpoints...',
       '5. Updating MongoDB Atlas configuration & Netlify environment variables...'
     ];
 
@@ -276,7 +276,7 @@ export default function N8nMigratorView() {
               className="admin-btn admin-btn-primary"
               style={{ padding: '8px 18px', fontSize: '13px' }}
             >
-              {publishing ? 'Publishing...' : '▶️ Publish All (4) Flagship Workflows'}
+              {publishing ? 'Publishing...' : `▶️ Publish All (${migrationResult.checklist?.length || 6}) Flagship Workflows`}
             </button>
           </div>
 
