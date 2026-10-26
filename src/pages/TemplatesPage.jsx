@@ -108,7 +108,41 @@ export const ACTIVE_TEMPLATES = [
     isNativeVoice: true,
     youtubeUrl: 'https://www.youtube.com/shorts/Xt0hPq-z7Dk',
     youtubeId: 'Xt0hPq-z7Dk'
+  },
+  {
+    id: 'family-micro-drama',
+    emoji: '🎭',
+    title: 'Ghar Ki Kahani [Family Drama]',
+    category: 'history',
+    label: 'Serial Drama',
+    desc: 'A serial family micro-drama set in Pune. Five characters, a locked steel tin box, and an elderly grandmother who was once a celebrated stage singer. Realistic live-action with native Hindi dialogue.',
+    tagline: '75s · 5 Scenes · 480p · Serial Drama',
+    duration: '75s',
+    scenes: '5 Scenes',
+    resolution: '480p',
+    demoImage: '/template-ghar-ki-kahani.jpg',
+    videoTitle: 'Ghar Ki Kahani: Ek Pune ka parivaar. Ek steel ki dibbi. Ek purani gayika.',
+    specs: '480p 15s Direct Video · 9:16 Vertical · Native Hindi Dialogue · Character Retention',
+    color: '#e11d48',
+    aiBrain: 'Claude Haiku 4.5 & Grok Video',
+    badge: '🎭 SERIAL FAMILY DRAMA',
+    isNativeVoice: true,
+    isFamilyDrama: true,
+    badges: ['Serial', 'Hinglish title', 'Devanagari dialogue', 'Native voice', '9:16', '480p'],
+    sampleLine: 'Ek Pune ka parivaar. Ek steel ki dibbi. Ek purani gayika.',
+    youtubeUrl: 'https://www.youtube.com/shorts/Xt0hPq-z7Dk',
+    youtubeId: 'Xt0hPq-z7Dk'
   }
+];
+
+export const GHAR_KI_KAHANI_CHARACTERS = [
+  { id: 'DADI', name: 'Dadi', role: 'Grandmother (Ex-stage singer)', required: true, avatar: '👵' },
+  { id: 'PAPA', name: 'Papa', role: 'Father', required: true, avatar: '👨' },
+  { id: 'MUMMY', name: 'Mummy', role: 'Mother', required: true, avatar: '👩' },
+  { id: 'DIDI', name: 'Didi', role: 'Elder Daughter', required: true, avatar: '👧' },
+  { id: 'CHHOTA', name: 'Chhota', role: 'Younger Son', required: true, avatar: '👦' },
+  { id: 'NEIGHBOUR', name: 'Neighbour', role: 'Nosy Neighbour', required: false, avatar: '👀' },
+  { id: 'GUEST', name: 'Guest', role: 'Unexpected Visitor', required: false, avatar: '👤' }
 ];
 
 export const UPCOMING_TEMPLATES = [
@@ -158,7 +192,8 @@ export default function TemplatesPage({
     'world-mysteries': '',
     'last-24-hours': '',
     '3am-horror': '',
-    'time-travel-influencer': ''
+    'time-travel-influencer': '',
+    'family-micro-drama': ''
   });
 
   // Time Travel Influencer specific options (gender & character image url)
@@ -173,6 +208,29 @@ export default function TemplatesPage({
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [characterMode, setCharacterMode] = useState('random'); // 'channel' | 'upload' | 'random'
   const [saveChannelFaceCheckbox, setSaveChannelFaceCheckbox] = useState(false);
+
+  // Ghar Ki Kahani (family-micro-drama) specific states
+  const [castPhotos, setCastPhotos] = useState({
+    DADI: null,
+    PAPA: null,
+    MUMMY: null,
+    DIDI: null,
+    CHHOTA: null,
+    NEIGHBOUR: null,
+    GUEST: null
+  });
+  const [castInputUrls, setCastInputUrls] = useState({
+    DADI: '',
+    PAPA: '',
+    MUMMY: '',
+    DIDI: '',
+    CHHOTA: '',
+    NEIGHBOUR: '',
+    GUEST: ''
+  });
+  const [savingCastId, setSavingCastId] = useState(null);
+  const [episodeMode, setEpisodeMode] = useState('next'); // 'next' | 'custom'
+  const [customEpisodeIdea, setCustomEpisodeIdea] = useState('');
 
   const [launchingId, setLaunchingId] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -629,6 +687,105 @@ export default function TemplatesPage({
     }
   }, [selectedChannel?.channelId, selectedChannel?.characterImageUrl]);
 
+  // Fetch Ghar Ki Kahani (GKK-001) cast photos from show_cast collection
+  useEffect(() => {
+    if (!user) return;
+    let isCancelled = false;
+    const fetchCast = async () => {
+      try {
+        const token = getAuthToken() || '';
+        const res = await fetch('/.netlify/functions/show-cast?showId=GKK-001', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (!isCancelled && data.characters) {
+            setCastPhotos(prev => ({ ...prev, ...data.characters }));
+          }
+        }
+      } catch (err) {
+        console.warn('[TemplatesPage] Failed to fetch show-cast:', err);
+      }
+    };
+    fetchCast();
+    return () => { isCancelled = true; };
+  }, [user]);
+
+  const handleSaveCastPhoto = async (characterId) => {
+    const rawUrl = (castInputUrls[characterId] || '').trim();
+    if (!rawUrl) {
+      setErrorMsg('Please enter an image URL.');
+      return;
+    }
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        setErrorMsg('Image URL must use http: or https:');
+        return;
+      }
+    } catch (e) {
+      setErrorMsg('Please enter a valid, well-formed image URL.');
+      return;
+    }
+    setSavingCastId(characterId);
+    try {
+      const token = getAuthToken() || '';
+      const res = await fetch('/.netlify/functions/show-cast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({
+          showId: 'GKK-001',
+          characterId,
+          imageUrl: rawUrl
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCastPhotos(prev => ({ ...prev, [characterId]: rawUrl }));
+        setCastInputUrls(prev => ({ ...prev, [characterId]: '' }));
+        audioEngine.playSfx('success');
+      } else {
+        setErrorMsg(data.error || 'Failed to save character photo.');
+      }
+    } catch (e) {
+      setErrorMsg(e.message || 'Error saving photo.');
+    } finally {
+      setSavingCastId(null);
+    }
+  };
+
+  const handleRemoveCastPhoto = async (characterId) => {
+    setSavingCastId(characterId);
+    try {
+      const token = getAuthToken() || '';
+      const res = await fetch('/.netlify/functions/show-cast', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({
+          showId: 'GKK-001',
+          characterId
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCastPhotos(prev => ({ ...prev, [characterId]: null }));
+        audioEngine.playSfx('click');
+      } else {
+        setErrorMsg(data.error || 'Failed to remove character photo.');
+      }
+    } catch (e) {
+      setErrorMsg(e.message || 'Error removing photo.');
+    } finally {
+      setSavingCastId(null);
+    }
+  };
+
   // Listen for OAuth completion from popup
   useEffect(() => {
     const handleAuthMessage = (event) => {
@@ -876,7 +1033,12 @@ export default function TemplatesPage({
           sessionId,
           selectedChannelId: targetChannelToUse,
           token,
-          prompt: isTargetNativeVoice ? (effectiveStoryMode === 'custom' ? targetTopic : '') : targetTopic,
+          showId: templateId === 'family-micro-drama' ? 'GKK-001' : undefined,
+          episodeMode: templateId === 'family-micro-drama' ? episodeMode : undefined,
+          customEpisodeTopic: templateId === 'family-micro-drama' ? (episodeMode === 'custom' ? customEpisodeIdea.trim() : '') : undefined,
+          prompt: templateId === 'family-micro-drama'
+            ? (episodeMode === 'custom' ? customEpisodeIdea.trim() : '')
+            : (isTargetNativeVoice ? (effectiveStoryMode === 'custom' ? targetTopic : '') : targetTopic),
           voiceId: isTargetNativeVoice ? '' : (activeVoiceObj?.id || voiceId),
           elevenLabsVoiceId: isTargetNativeVoice ? '' : elevenLabsVoiceId,
           voiceSpeed: clampedSpeed,
@@ -1909,7 +2071,13 @@ export default function TemplatesPage({
                   const isCurrentGenerating = isGenerating && generatingTemplateId === tpl.id;
                   const isCustomizing = customizingId === tpl.id;
                   const currentTopic = customTopics[tpl.id] || '';
-                  const isNativeAudio = tpl.id === 'time-travel-influencer' || !!tpl.isNativeVoice;
+                  const isTimeTravel = tpl.id === 'time-travel-influencer';
+                  const isFamilyDrama = tpl.id === 'family-micro-drama';
+                  const isNativeAudio = isTimeTravel || isFamilyDrama || !!tpl.isNativeVoice;
+                  const missingCast = GHAR_KI_KAHANI_CHARACTERS.filter(c => c.required && !castPhotos[c.id]);
+                  const hasRequiredGkkCast = missingCast.length === 0;
+                  const savedRequiredCount = GHAR_KI_KAHANI_CHARACTERS.filter(c => c.required && Boolean(castPhotos[c.id])).length;
+                  const isGkkBlocked = isFamilyDrama && !hasRequiredGkkCast;
 
                   return (
                     <div
@@ -2010,7 +2178,7 @@ export default function TemplatesPage({
                             fontSize: '11px', color: 'rgba(255,255,255,0.9)', fontWeight: 600,
                             textShadow: '0 1px 3px rgba(0,0,0,0.8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                           }}>
-                            Sample: {tpl.videoTitle}
+                            Sample: {tpl.sampleLine || tpl.videoTitle}
                           </span>
                           <span style={{
                             fontSize: '10px', color: 'rgba(255,255,255,0.7)',
@@ -2037,6 +2205,21 @@ export default function TemplatesPage({
                             <span>🇮🇳</span>
                             <span>Produces Hindi language videos only</span>
                           </div>
+
+                          {/* Specific badges if declared */}
+                          {Array.isArray(tpl.badges) && (
+                            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '6px' }}>
+                              {tpl.badges.map((b, bi) => (
+                                <span key={bi} style={{
+                                  fontSize: '10px', fontWeight: 700, color: tpl.color || '#e11d48',
+                                  background: `${tpl.color || '#e11d48'}15`, border: `1px solid ${tpl.color || '#e11d48'}30`,
+                                  padding: '1px 6px', borderRadius: '4px'
+                                }}>
+                                  {b}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         {/* Spec Pills */}
@@ -2050,8 +2233,8 @@ export default function TemplatesPage({
                           </span>
                           {isNativeAudio ? (
                             <span style={{
-                              fontSize: '11px', fontWeight: 700, color: '#10b981',
-                              background: 'rgba(16, 185, 129, 0.10)', border: '1px solid rgba(16, 185, 129, 0.3)',
+                              fontSize: '11px', fontWeight: 700, color: tpl.color || '#10b981',
+                              background: `${tpl.color || '#10b981'}15`, border: `1px solid ${tpl.color || '#10b981'}30`,
                               padding: '3px 8px', borderRadius: '6px'
                             }}>
                               🗣️ Native Character Voice
@@ -2100,7 +2283,15 @@ export default function TemplatesPage({
                           >
                             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <Sliders size={13} color="var(--accent-primary, #ff4f00)" />
-                              <span>{isCustomizing ? 'Hide Customization' : (isNativeAudio ? 'Customize Topic, Gender & Photo (Optional)' : 'Customize Topic, Voice & Speed')}</span>
+                              <span>
+                                {isCustomizing
+                                  ? 'Hide Customization'
+                                  : isFamilyDrama
+                                  ? 'Customize Cast Photos & Episode'
+                                  : isTimeTravel
+                                  ? 'Customize Topic, Gender & Photo (Optional)'
+                                  : 'Customize Topic, Voice & Speed'}
+                              </span>
                             </span>
                             {isCustomizing ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                           </button>
@@ -2133,7 +2324,7 @@ export default function TemplatesPage({
                                 </div>
                               )}
 
-                              {isNativeAudio && (
+                              {isTimeTravel && (
                                 <>
                                   {/* 1. STORY MODE */}
                                   <div>
@@ -2563,6 +2754,242 @@ export default function TemplatesPage({
                                 </>
                               )}
 
+                              {isFamilyDrama && (
+                                <>
+                                  {/* 1. CAST PHOTOS PANEL */}
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
+                                        <span>🎭</span> Cast Reference Photos
+                                      </label>
+                                      <span style={{
+                                        fontSize: '10px', fontWeight: 700,
+                                        padding: '1px 6px', borderRadius: '4px',
+                                        background: hasRequiredGkkCast ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                        color: hasRequiredGkkCast ? '#10b981' : '#f59e0b',
+                                        border: hasRequiredGkkCast ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)'
+                                      }}>
+                                        {hasRequiredGkkCast ? '✓ 5 of 5 Required Saved' : `${savedRequiredCount} of 5 Required`}
+                                      </span>
+                                    </div>
+
+                                    <p style={{ fontSize: '10.5px', color: 'var(--text-muted)', margin: '0 0 10px 0', lineHeight: 1.4 }}>
+                                      Upload photo URLs for the Pune family members. The 5 required characters must be saved to enable generation.
+                                    </p>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                      {GHAR_KI_KAHANI_CHARACTERS.map(char => {
+                                        const savedUrl = castPhotos[char.id];
+                                        const isSaving = savingCastId === char.id;
+                                        const inputVal = castInputUrls[char.id] || '';
+
+                                        return (
+                                          <div
+                                            key={char.id}
+                                            style={{
+                                              padding: '8px 10px',
+                                              borderRadius: '8px',
+                                              background: savedUrl ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-card)',
+                                              border: savedUrl ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-subtle)',
+                                              display: 'flex',
+                                              flexDirection: 'column',
+                                              gap: '6px'
+                                            }}
+                                          >
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ fontSize: '14px' }}>{char.avatar}</span>
+                                                <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                  {char.name}
+                                                </span>
+                                                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                                                  ({char.role})
+                                                </span>
+                                              </div>
+                                              <span style={{
+                                                fontSize: '9.5px', fontWeight: 700,
+                                                padding: '1px 5px', borderRadius: '3px',
+                                                background: char.required
+                                                  ? (savedUrl ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)')
+                                                  : 'rgba(148, 163, 184, 0.15)',
+                                                color: char.required
+                                                  ? (savedUrl ? '#10b981' : '#ef4444')
+                                                  : 'var(--text-muted)'
+                                              }}>
+                                                {char.required ? (savedUrl ? '✓ Saved' : 'Required') : (savedUrl ? '✓ Saved' : 'Optional')}
+                                              </span>
+                                            </div>
+
+                                            {savedUrl ? (
+                                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                                                  <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #10b981', flexShrink: 0 }}>
+                                                    <img
+                                                      src={savedUrl}
+                                                      alt={char.name}
+                                                      onError={e => { e.currentTarget.style.display = 'none'; }}
+                                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    />
+                                                  </div>
+                                                  <span style={{ fontSize: '10.5px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {savedUrl}
+                                                  </span>
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  disabled={isSaving}
+                                                  onClick={() => handleRemoveCastPhoto(char.id)}
+                                                  style={{
+                                                    background: 'none', border: 'none',
+                                                    color: '#ef4444', fontSize: '10px', fontWeight: 700,
+                                                    cursor: isSaving ? 'not-allowed' : 'pointer', padding: '3px 6px',
+                                                    borderRadius: '4px'
+                                                  }}
+                                                >
+                                                  {isSaving ? '...' : '✕ Remove'}
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                <input
+                                                  type="url"
+                                                  value={inputVal}
+                                                  onChange={e => setCastInputUrls(prev => ({ ...prev, [char.id]: e.target.value }))}
+                                                  placeholder="https://i.ibb.co/...jpg (direct image link)"
+                                                  style={{
+                                                    flex: 1, padding: '6px 9px', borderRadius: '6px',
+                                                    border: '1px solid var(--border-subtle)', background: 'var(--bg-card)',
+                                                    color: 'var(--text-primary)', fontSize: '11px', outline: 'none',
+                                                    boxSizing: 'border-box'
+                                                  }}
+                                                />
+                                                <button
+                                                  type="button"
+                                                  disabled={isSaving || !inputVal.trim()}
+                                                  onClick={() => handleSaveCastPhoto(char.id)}
+                                                  style={{
+                                                    padding: '6px 12px', borderRadius: '6px', border: 'none',
+                                                    background: inputVal.trim() ? '#e11d48' : 'var(--bg-input)',
+                                                    color: inputVal.trim() ? '#ffffff' : 'var(--text-muted)',
+                                                    fontSize: '11px', fontWeight: 700,
+                                                    cursor: (isSaving || !inputVal.trim()) ? 'not-allowed' : 'pointer',
+                                                    display: 'flex', alignItems: 'center', gap: '4px',
+                                                    flexShrink: 0
+                                                  }}
+                                                >
+                                                  {isSaving ? '...' : 'Save'}
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>
+                                      Host photos free on <a href="https://imgbb.com" target="_blank" rel="noopener noreferrer" style={{ color: '#e11d48', fontWeight: 700, textDecoration: 'underline' }}>ImgBB ↗</a> and paste direct link.
+                                    </span>
+                                  </div>
+
+                                  {/* 2. EPISODE CHOICE PANEL */}
+                                  <div style={{ marginTop: '8px' }}>
+                                    <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                      <span>🎬</span> Episode Choice
+                                    </label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          audioEngine.playSfx('click');
+                                          setEpisodeMode('next');
+                                        }}
+                                        style={{
+                                          padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                                          background: episodeMode === 'next' ? 'rgba(225, 29, 72, 0.15)' : 'var(--bg-card)',
+                                          border: episodeMode === 'next' ? '1.5px solid #e11d48' : '1px solid var(--border-subtle)',
+                                          color: episodeMode === 'next' ? '#e11d48' : 'var(--text-secondary)',
+                                          fontSize: '11.5px', fontWeight: episodeMode === 'next' ? 700 : 500,
+                                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        <span>📅 Next in Season</span>
+                                        <span style={{ fontSize: '9.5px', opacity: 0.8 }}>Sequential Season 1 arc</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          audioEngine.playSfx('click');
+                                          setEpisodeMode('custom');
+                                        }}
+                                        style={{
+                                          padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                                          background: episodeMode === 'custom' ? 'rgba(225, 29, 72, 0.15)' : 'var(--bg-card)',
+                                          border: episodeMode === 'custom' ? '1.5px solid #e11d48' : '1px solid var(--border-subtle)',
+                                          color: episodeMode === 'custom' ? '#e11d48' : 'var(--text-secondary)',
+                                          fontSize: '11.5px', fontWeight: episodeMode === 'custom' ? 700 : 500,
+                                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        <span>✍️ My Own Episode Idea</span>
+                                        <span style={{ fontSize: '9.5px', opacity: 0.8 }}>Custom scenario (max 300)</span>
+                                      </button>
+                                    </div>
+
+                                    {episodeMode === 'custom' ? (
+                                      <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                          <span style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                            Write your episode scenario:
+                                          </span>
+                                          <span style={{ fontSize: '10px', color: customEpisodeIdea.length > 280 ? '#ef4444' : 'var(--text-muted)', fontWeight: 600 }}>
+                                            {customEpisodeIdea.length}/300
+                                          </span>
+                                        </div>
+                                        <textarea
+                                          value={customEpisodeIdea}
+                                          onChange={e => setCustomEpisodeIdea(e.target.value.slice(0, 300))}
+                                          maxLength={300}
+                                          rows={3}
+                                          placeholder="e.g. Chhota finds an old brass key hidden inside Dadi's harmonium that matches the lock on the steel tin box..."
+                                          style={{
+                                            width: '100%', padding: '8px 10px', borderRadius: '8px',
+                                            border: customEpisodeIdea.trim() ? '1.5px solid #e11d48' : '1px solid var(--border-subtle)',
+                                            background: 'var(--bg-card)', color: 'var(--text-primary)',
+                                            fontSize: '12px', outline: 'none', resize: 'vertical',
+                                            boxSizing: 'border-box'
+                                          }}
+                                        />
+
+                                        {/* Content rules notice */}
+                                        <div style={{
+                                          padding: '7px 10px', borderRadius: '7px',
+                                          background: 'rgba(245, 158, 11, 0.08)',
+                                          border: '1px solid rgba(245, 158, 11, 0.25)',
+                                          fontSize: '10px', color: '#f59e0b', lineHeight: 1.4
+                                        }}>
+                                          ⚠️ <strong>Content Rules:</strong> The idea must follow the content rules: no real people, brands, or news; no violence against children or women as entertainment; no religious mockery; no sexual content.
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '5px', display: 'block', lineHeight: 1.4 }}>
+                                        💡 Autonomously follows the show bible Season 1 episode progression for the Pune family and the mysterious locked steel tin box.
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div style={{
+                                    padding: '6px 8px', borderRadius: '6px',
+                                    background: 'rgba(225, 29, 72, 0.08)', border: '1px solid rgba(225, 29, 72, 0.2)',
+                                    fontSize: '10.5px', color: '#e11d48'
+                                  }}>
+                                    ✨ Subtitles and background music are automatically applied from your <strong>Design Studio</strong> settings.
+                                  </div>
+                                </>
+                              )}
+
                               {!isNativeAudio && (
                                 <>
                                   {/* Voice selector */}
@@ -2672,6 +3099,18 @@ export default function TemplatesPage({
                           )}
                         </div>
 
+                        {/* Cast requirement banner for Ghar Ki Kahani */}
+                        {isGkkBlocked && (
+                          <div style={{
+                            padding: '6px 10px', borderRadius: '7px',
+                            background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)',
+                            fontSize: '11px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px'
+                          }}>
+                            <span>⚠️</span>
+                            <span>Missing required cast photos ({missingCast.map(c => c.name).join(', ')}). Expand customization above to save.</span>
+                          </div>
+                        )}
+
                         {/* Action Buttons */}
                         {isCurrentGenerating ? (
                           <div style={{ display: 'flex', gap: '8px' }}>
@@ -2751,6 +3190,23 @@ export default function TemplatesPage({
                               >
                                 <Lock size={14} />
                                 <span>Daily Limit Reached ({countdownText || 'Locked'})</span>
+                              </button>
+                            ) : isGkkBlocked ? (
+                              <button
+                                type="button"
+                                disabled
+                                style={{
+                                  flex: 1, padding: '10px 14px', borderRadius: '10px',
+                                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  color: '#f59e0b', fontSize: '12px', fontWeight: 700,
+                                  cursor: 'not-allowed',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                }}
+                                title={`Missing required cast photos: ${missingCast.map(c => c.name).join(', ')}. Expand customization above to save.`}
+                              >
+                                <Lock size={13} />
+                                <span>Save 5 Required Cast First ({missingCast.length} left)</span>
                               </button>
                             ) : (
                               <button
@@ -3511,12 +3967,13 @@ export default function TemplatesPage({
               <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>
                 Template
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
                 {[
                   { id: 'world-mysteries', emoji: '🛸', title: 'World Mysteries' },
                   { id: 'last-24-hours', emoji: '⏳', title: 'Last 24 Hours' },
                   { id: '3am-horror', emoji: '👻', title: '3-AM Horror' },
-                  { id: 'time-travel-influencer', emoji: '⏳', title: 'Time Travel' }
+                  { id: 'time-travel-influencer', emoji: '⏳', title: 'Time Travel' },
+                  { id: 'family-micro-drama', emoji: '🎭', title: 'Ghar Ki Kahani' }
                 ].map(t => {
                   const isSelected = automationConfig.templateId === t.id;
                   return (
