@@ -9,7 +9,7 @@ import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 import { getN8nConfig } from './n8n-config.js';
 
 const MODAL_SERVE_URL = 'https://cmpunktg--bangai-stock-studio-serve.modal.run';
-const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg33.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
+const N8N_YOUTUBE_WEBHOOK_URL = process.env.N8N_YOUTUBE_WEBHOOK_URL || 'https://cmpunktg34.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload';
 
 /**
  * Reconciles status and media URLs for a Stock Studio automation document by querying Modal GPU cluster.

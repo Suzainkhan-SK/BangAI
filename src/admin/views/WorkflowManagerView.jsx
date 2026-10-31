@@ -3,7 +3,7 @@ import { adminService } from '../adminService';
 
 export default function WorkflowManagerView() {
   const [workflows, setWorkflows] = useState([]);
-  const [activeHost, setActiveHost] = useState('https://cmpunktg33.app.n8n.cloud');
+  const [activeHost, setActiveHost] = useState('https://cmpunktg34.app.n8n.cloud');
   const [selectedWf, setSelectedWf] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toastMsg, setToastMsg] = useState('');
@@ -259,7 +259,7 @@ export default function WorkflowManagerView() {
       if (res.success && res.data) {
         const wfs = res.data.workflows || [];
         setWorkflows(wfs);
-        setActiveHost(res.data.activeHost || 'https://cmpunktg33.app.n8n.cloud');
+        setActiveHost(res.data.activeHost || 'https://cmpunktg34.app.n8n.cloud');
         if (wfs.length > 0) {
           if (!selectedWf) {
             setSelectedWf(wfs[0]);
@@ -2472,7 +2472,7 @@ export default function WorkflowManagerView() {
                       </span>
                     </div>
                     <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
-                      Workflows linked to <code>3lOkQxK3vL3Gb2sp</code> automatically push execution failures to BangAI, preserve user credits, and start the 5-minute retry cooldown.
+                      Workflows linked to <code>TWV1lHUTSd3rFkFK</code> automatically push execution failures to BangAI, preserve user credits, and start the 5-minute retry cooldown.
                     </p>
                   </div>
 
@@ -2592,7 +2592,7 @@ export default function WorkflowManagerView() {
                                     <span style={{ color: 'var(--admin-text-sub)' }}>○ Inactive</span>
                                   )}
                                   {w.isProtected && (
-                                    <span style={{ color: '#10b981', fontWeight: 600 }}>Linked to 3lOkQxK3vL3Gb2sp</span>
+                                    <span style={{ color: '#10b981', fontWeight: 600 }}>Linked to TWV1lHUTSd3rFkFK</span>
                                   )}
                                 </div>
                               </div>

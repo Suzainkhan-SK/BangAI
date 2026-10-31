@@ -105,7 +105,7 @@ function makeHttpRequest(options, bodyData = null) {
 
 // Helper: Call n8n Cloud MCP Server via JSON-RPC 2.0 over SSE
 async function callN8nMcp(hostUrl, token, toolName, args = {}) {
-  const cleanHost = String(hostUrl || 'https://cmpunktg33.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const cleanHost = String(hostUrl || 'https://cmpunktg34.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
   const url = `https://${cleanHost}/mcp-server/http`;
   const payload = {
     jsonrpc: '2.0',
@@ -350,7 +350,7 @@ export async function handler(event) {
         const xkiroPool = xkiroDoc?.pool || xkiroDoc?.keys || [];
         const totalKeys = j2vPool.length + elevenPool.length + thumbPool.length + xkiroPool.length;
 
-        const activeHost = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeHost = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const cleanHost = activeHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
         return {
@@ -410,7 +410,7 @@ export async function handler(event) {
 
         const cleanDestHost = String(newHost).replace(/^https?:\/\//, '').replace(/\/$/, '');
         const cleanDestBaseUrl = `https://${cleanDestHost}`;
-        const cleanSrcHost = String(currentDoc.activeInstance || 'cmpunktg33.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const cleanSrcHost = String(currentDoc.activeInstance || 'cmpunktg34.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
 
         // Snapshot current instance for instant rollback
         const previousSnapshot = {
@@ -572,7 +572,7 @@ export async function handler(event) {
                       jsonStr = jsonStr.replaceAll(cleanSrcHost, cleanDestHost);
                       jsonStr = jsonStr.replaceAll('cmpunktg1outlook', cleanDestHost);
                       jsonStr = jsonStr.replaceAll('cmpunktg29', cleanDestHost);
-                      jsonStr = jsonStr.replaceAll('cmpunktg33', cleanDestHost);
+                      jsonStr = jsonStr.replaceAll('cmpunktg34', cleanDestHost).replaceAll('cmpunktg34', cleanDestHost);
                       jsonStr = jsonStr.replaceAll('cmpunktg30', cleanDestHost);
                       jsonStr = jsonStr.replaceAll('cmpunktg31', cleanDestHost);
                       const payload = JSON.parse(jsonStr);
@@ -923,7 +923,7 @@ export async function handler(event) {
       case 'auto-detect-workflow-ids': {
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const cleanHost = activeBaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || '';
 
@@ -2015,14 +2015,14 @@ export async function handler(event) {
         const sysCol = db.collection('system_config');
         const doc = await sysCol.findOne({ _id: 'n8n_configuration' });
         const webhooks = doc?.webhooks || {
-          viralShorts: 'https://cmpunktg33.app.n8n.cloud/webhook/viral-shorts-ai',
-          storyApproval: 'https://cmpunktg33.app.n8n.cloud/webhook/story-approval',
-          youtubeUpload: 'https://cmpunktg33.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload',
-          worldMysteries: 'https://cmpunktg33.app.n8n.cloud/webhook/template-world-mysteries',
-          last24Hours: 'https://cmpunktg33.app.n8n.cloud/webhook/template-last-24-hours',
-          horror3am: 'https://cmpunktg33.app.n8n.cloud/webhook/template-3am-horror',
-          timeTravelInfluencer: 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer',
-          familyMicroDrama: 'https://cmpunktg33.app.n8n.cloud/webhook/ghar-ki-kahani'
+          viralShorts: 'https://cmpunktg34.app.n8n.cloud/webhook/viral-shorts-ai',
+          storyApproval: 'https://cmpunktg34.app.n8n.cloud/webhook/story-approval',
+          youtubeUpload: 'https://cmpunktg34.app.n8n.cloud/webhook/viral-shorts-ai-youtube-upload',
+          worldMysteries: 'https://cmpunktg34.app.n8n.cloud/webhook/template-world-mysteries',
+          last24Hours: 'https://cmpunktg34.app.n8n.cloud/webhook/template-last-24-hours',
+          horror3am: 'https://cmpunktg34.app.n8n.cloud/webhook/template-3am-horror',
+          timeTravelInfluencer: 'https://cmpunktg34.app.n8n.cloud/webhook/template-time-travel-influencer',
+          familyMicroDrama: 'https://cmpunktg34.app.n8n.cloud/webhook/ghar-ki-kahani'
         };
 
         const results = {};
@@ -2131,7 +2131,7 @@ export async function handler(event) {
           sysCol.findOne({ _id: 'workflow_node_config' })
         ]);
 
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -2445,7 +2445,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -2650,7 +2650,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
         const shouldPublish = !!publish;
@@ -2746,7 +2746,7 @@ export async function handler(event) {
       case 'auto-detect-workflow-ids': {
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
         try {
@@ -2822,7 +2822,7 @@ export async function handler(event) {
       case 'get-cloud-workflow-status': {
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -3005,7 +3005,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -3207,7 +3207,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -3429,7 +3429,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5M2U4YTMzMi0wMWQ5LTRjYjQtOWU2NS01MDk4MmRlOWM2OGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjlhZTNhYTNjLWI0YzAtNGJjNS1iOGYyLTA1ODAxM2I2ODEzZCIsImlhdCI6MTc5MTEwNDI0MH0.u-Q5eNHElQvlPoz-Al7udl1e4tXgOtcmPEc_JjwOnl8';
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -3655,7 +3655,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -3804,7 +3804,7 @@ export async function handler(event) {
         const deleteSet = new Set(keysToDelete);
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -3945,7 +3945,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -4086,7 +4086,7 @@ export async function handler(event) {
         const deleteSet = new Set(keysToDelete);
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -4227,7 +4227,7 @@ export async function handler(event) {
 
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -4368,7 +4368,7 @@ export async function handler(event) {
         const deleteSet = new Set(keysToDelete);
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
-        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
         const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN;
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'UKWYwnlKuCqTazIG';
@@ -4542,13 +4542,13 @@ export async function handler(event) {
 
         if (!tplDoc || !Array.isArray(tplDoc.templates) || tplDoc.templates.length === 0) {
           const initialTemplates = [
-            { id: 'world-mysteries', name: 'World Mysteries & Paranormal', category: 'Documentary', icon: '🛸', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-world-mysteries', active: true, tier: 'Free', promptFormula: 'Unrepeated paranormal anomalies and ancient unsolved mysteries' },
-            { id: 'last-24-hours', name: 'Last 24 Hours [True Stories]', category: 'History', icon: '⏳', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-last-24-hours', active: true, tier: 'Pro', promptFormula: 'Countdown of the poignant and dramatic final 24 hours of legendary figures' },
-            { id: '3am-horror', name: '3-AM Horror & Paranormal', category: 'Entertainment', icon: '👻', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-3am-horror', active: true, tier: 'Free', promptFormula: 'Bone-chilling psychological terror and terrifying 3 AM encounters' },
-            { id: 'ancient-history', name: 'Ancient History & Lost Civilizations', category: 'History', icon: '🏛️', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-ancient-history', active: true, tier: 'Pro', promptFormula: 'Forgotten dynasties, ancient monoliths, and lost technological wonders' },
-            { id: 'dark-psychology', name: 'Dark Psychology & Human Behavior', category: 'Science', icon: '🧠', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-dark-psychology', active: true, tier: 'Pro', promptFormula: 'Subconscious micro-signals, cognitive quirks, and psychological principles' },
-            { id: 'cosmic-space', name: 'Deep Space & Cosmic Wonders', category: 'Science', icon: '🌌', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-cosmic-space', active: false, tier: 'Pro', promptFormula: 'Black hole anomalies, quantum paradoxes, and deep cosmos discoveries' },
-            { id: 'mythical-heists', name: 'Legendary Heists & Unsolved Enigmas', category: 'Documentary', icon: '💎', webhook: 'https://cmpunktg33.app.n8n.cloud/webhook/template-mythical-heists', active: false, tier: 'Pro', promptFormula: 'Fast-paced breakdowns of impossible vaults, art heists, and unexplained escapes' }
+            { id: 'world-mysteries', name: 'World Mysteries & Paranormal', category: 'Documentary', icon: '🛸', webhook: 'https://cmpunktg34.app.n8n.cloud/webhook/template-world-mysteries', active: true, tier: 'Free', promptFormula: 'Unrepeated paranormal anomalies and ancient unsolved mysteries' },
+            { id: 'last-24-hours', name: 'Last 24 Hours [True Stories]', category: 'History', icon: '⏳', webhook: 'https://cmpunktg34.app.n8n.cloud/webhook/template-last-24-hours', active: true, tier: 'Pro', promptFormula: 'Countdown of the poignant and dramatic final 24 hours of legendary figures' },
+            { id: '3am-horror', name: '3-AM Horror & Paranormal', category: 'Entertainment', icon: '👻', webhook: 'https://cmpunktg34.app.n8n.cloud/webhook/template-3am-horror', active: true, tier: 'Free', promptFormula: 'Bone-chilling psychological terror and terrifying 3 AM encounters' },
+            { id: 'ancient-history', name: 'Ancient History & Lost Civilizations', category: 'History', icon: '🏛️', webhook: 'https://cmpunktg34.app.n8n.cloud/webhook/template-ancient-history', active: true, tier: 'Pro', promptFormula: 'Forgotten dynasties, ancient monoliths, and lost technological wonders' },
+            { id: 'dark-psychology', name: 'Dark Psychology & Human Behavior', category: 'Science', icon: '🧠', webhook: 'https://cmpunktg34.app.n8n.cloud/webhook/template-dark-psychology', active: true, tier: 'Pro', promptFormula: 'Subconscious micro-signals, cognitive quirks, and psychological principles' },
+            { id: 'cosmic-space', name: 'Deep Space & Cosmic Wonders', category: 'Science', icon: '🌌', webhook: 'https://cmpunktg34.app.n8n.cloud/webhook/template-cosmic-space', active: false, tier: 'Pro', promptFormula: 'Black hole anomalies, quantum paradoxes, and deep cosmos discoveries' },
+            { id: 'mythical-heists', name: 'Legendary Heists & Unsolved Enigmas', category: 'Documentary', icon: '💎', webhook: 'https://cmpunktg34.app.n8n.cloud/webhook/template-mythical-heists', active: false, tier: 'Pro', promptFormula: 'Fast-paced breakdowns of impossible vaults, art heists, and unexplained escapes' }
           ];
 
           await sysCol.updateOne(
@@ -5225,9 +5225,9 @@ export async function handler(event) {
         }
 
         const defaultWebhooks = {
-          'world-mysteries': 'https://cmpunktg33.app.n8n.cloud/webhook/template-world-mysteries',
-          'last-24-hours':   'https://cmpunktg33.app.n8n.cloud/webhook/template-last-24-hours',
-          '3am-horror':      'https://cmpunktg33.app.n8n.cloud/webhook/template-3am-horror'
+          'world-mysteries': 'https://cmpunktg34.app.n8n.cloud/webhook/template-world-mysteries',
+          'last-24-hours':   'https://cmpunktg34.app.n8n.cloud/webhook/template-last-24-hours',
+          '3am-horror':      'https://cmpunktg34.app.n8n.cloud/webhook/template-3am-horror'
         };
 
         const templateMeta = {
@@ -6736,10 +6736,10 @@ export async function handler(event) {
       // [17] DYNAMIC WORKFLOW ERROR SHIELD GOVERNANCE
       // ----------------------------------------------------
       case 'get-protected-workflows': {
-        const ERROR_WORKFLOW_ID = '3lOkQxK3vL3Gb2sp';
+        const ERROR_WORKFLOW_ID = n8nCfg?.errorWorkflowId || 'TWV1lHUTSd3rFkFK';
         const n8nCfg = await getN8nConfig();
-        const activeHost = (n8nCfg.activeInstance || 'https://cmpunktg33.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const adminEmail = n8nCfg.adminCredentials?.email || 'cmpunktg33@gmail.com';
+        const activeHost = (n8nCfg.activeInstance || 'https://cmpunktg34.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const adminEmail = n8nCfg.adminCredentials?.email || 'cmpunktg34@gmail.com';
         const adminPassword = n8nCfg.adminCredentials?.password || '@Suzainkhan6361';
 
         const loginRes = await fetch(`https://${activeHost}/rest/login`, {
@@ -6786,15 +6786,15 @@ export async function handler(event) {
       }
 
       case 'toggle-workflow-protection': {
-        const ERROR_WORKFLOW_ID = '3lOkQxK3vL3Gb2sp';
+        const ERROR_WORKFLOW_ID = n8nCfg?.errorWorkflowId || 'TWV1lHUTSd3rFkFK';
         const { workflowId, protect } = body;
         if (!workflowId) {
           return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'workflowId is required' }) };
         }
 
         const n8nCfg = await getN8nConfig();
-        const activeHost = (n8nCfg.activeInstance || 'https://cmpunktg33.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const adminEmail = n8nCfg.adminCredentials?.email || 'cmpunktg33@gmail.com';
+        const activeHost = (n8nCfg.activeInstance || 'https://cmpunktg34.app.n8n.cloud').replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const adminEmail = n8nCfg.adminCredentials?.email || 'cmpunktg34@gmail.com';
         const adminPassword = n8nCfg.adminCredentials?.password || '@Suzainkhan6361';
         const mcpToken = n8nCfg.mcpToken;
 

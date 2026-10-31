@@ -13,8 +13,8 @@ const TEMPLATE_WEBHOOKS = {
   'world-mysteries':        'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
   'last-24-hours':          'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
   '3am-horror':             'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror',
-  'time-travel-influencer': 'https://cmpunktg33.app.n8n.cloud/webhook/template-time-travel-influencer',
-  'family-micro-drama':     process.env.N8N_FAMILY_WEBHOOK_URL || 'https://cmpunktg33.app.n8n.cloud/webhook/ghar-ki-kahani'
+  'time-travel-influencer': 'https://cmpunktg34.app.n8n.cloud/webhook/template-time-travel-influencer',
+  'family-micro-drama':     process.env.N8N_FAMILY_WEBHOOK_URL || 'https://cmpunktg34.app.n8n.cloud/webhook/ghar-ki-kahani'
 };
 
 const TEMPLATE_META = {

@@ -23,9 +23,9 @@ async function getN8nSession() {
     if (!db) return { cookie: '', host: '' };
 
     const cfg = await db.collection('system_config').findOne({ _id: 'n8n_configuration' });
-    const instanceUrl = cfg?.activeInstance || 'https://cmpunktg33.app.n8n.cloud';
+    const instanceUrl = cfg?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
     const host = instanceUrl.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
-    const email = cfg?.adminCredentials?.email || 'cmpunktg33@gmail.com';
+    const email = cfg?.adminCredentials?.email || 'cmpunktg34@gmail.com';
     const password = cfg?.adminCredentials?.password || '@Suzainkhan6361';
 
     const loginBody = JSON.stringify({ emailOrLdapLoginId: email, password });
