@@ -34,6 +34,23 @@ export default function WorkflowManagerView() {
   const [universalToggling, setUniversalToggling] = useState(null); // 'publish' | 'unpublish' | null
   const [detectingIds, setDetectingIds] = useState(false);
   const [syncingCloud, setSyncingCloud] = useState(false);
+  const [expandedWfIds, setExpandedWfIds] = useState({});
+
+  const toggleWfExpand = (wfId) => {
+    setExpandedWfIds(prev => ({
+      ...prev,
+      [wfId]: !prev[wfId]
+    }));
+  };
+
+  const toggleExpandAll = () => {
+    const allExpanded = flagshipWorkflows.every(w => expandedWfIds[w.id]);
+    const nextState = {};
+    flagshipWorkflows.forEach(w => {
+      nextState[w.id] = !allExpanded;
+    });
+    setExpandedWfIds(nextState);
+  };
 
   const isLlm = managerCategory === 'llm';
   const isVoice = managerCategory === 'voice';
@@ -1186,6 +1203,30 @@ export default function WorkflowManagerView() {
 
             <button
               type="button"
+              onClick={toggleExpandAll}
+              className="admin-btn"
+              style={{
+                padding: '6px 12px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                borderRadius: '8px',
+                background: 'rgba(6, 182, 212, 0.12)',
+                color: 'var(--admin-accent-cyan, #06b6d4)',
+                border: '1px solid rgba(6, 182, 212, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Expand or collapse all template cards"
+            >
+              <span>{flagshipWorkflows.every(w => expandedWfIds[w.id]) ? '▲' : '▼'}</span>
+              {flagshipWorkflows.every(w => expandedWfIds[w.id]) ? 'Collapse All' : 'Expand All'}
+            </button>
+
+            <button
+              type="button"
               onClick={() => handleUniversalPublish(false)}
               disabled={!!universalToggling || syncingCloud}
               className="admin-btn"
@@ -1211,280 +1252,399 @@ export default function WorkflowManagerView() {
           </div>
         </div>
 
-        <div className="admin-grid-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {flagshipWorkflows.map((wf) => {
             const isSelected = selectedWf?.id === wf.id;
+            const isExpanded = !!expandedWfIds[wf.id];
             const isToggling = !!togglingPublish[wf.id];
             const isPublished = wf.published !== false && wf.status === 'ACTIVE';
 
             return (
               <div
                 key={wf.id}
-                onClick={() => {
-                  handleSelectWorkflow(wf);
-                  setTargetWorkflow(wf.id);
-                }}
                 className="admin-card"
                 style={{
-                  cursor: 'pointer',
-                  padding: '20px',
                   borderRadius: '14px',
-                  borderColor: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-border-glass)',
+                  borderColor: isSelected ? 'var(--admin-accent-cyan)' : (isExpanded ? 'rgba(6, 182, 212, 0.4)' : 'var(--admin-border-glass)'),
                   background: isSelected ? 'var(--admin-card-hover)' : 'var(--admin-bg-surface)',
                   boxShadow: isSelected ? '0 0 24px rgba(6, 182, 212, 0.16)' : 'var(--admin-card-shadow)',
                   transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                  position: 'relative'
+                  overflow: 'hidden'
                 }}
               >
-                {/* Top Badge Row */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <span style={{
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    background: 'var(--admin-bg-elevated)',
-                    color: 'var(--admin-text-sub)',
-                    border: '1px solid var(--admin-border-glass)'
-                  }}>
-                    {wf.category || 'Automated Pipeline'}
-                  </span>
-
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    padding: '3px 9px',
-                    borderRadius: '9999px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    background: isPublished ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                    color: isPublished ? '#10b981' : '#f59e0b',
-                    border: isPublished ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(245, 158, 11, 0.25)'
-                  }}>
-                    <span style={{
-                      width: '5px',
-                      height: '5px',
-                      borderRadius: '50%',
-                      background: isPublished ? '#10b981' : '#f59e0b',
-                      boxShadow: isPublished ? '0 0 6px #10b981' : 'none'
-                    }} />
-                    {isPublished ? 'ACTIVE' : 'DRAFT'}
-                  </span>
-                </div>
-
-                {/* Workflow Title */}
-                <h3 style={{
-                  fontSize: '15px',
-                  fontWeight: 800,
-                  margin: '0 0 10px 0',
-                  color: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
-                  lineHeight: '1.4'
-                }}>
-                  {wf.name}
-                </h3>
-
-                {/* Metadata details */}
-                <div style={{
-                  fontSize: '11.5px',
-                  color: 'var(--admin-text-sub)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                  background: 'var(--admin-bg-elevated)',
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--admin-border-glass)'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Workflow ID:</span>
-                    <code style={{ fontFamily: 'var(--admin-font-mono)', color: 'var(--admin-text-main)', fontWeight: 600 }}>{wf.id}</code>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Trigger:</span>
-                    <span style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '11px', color: 'var(--admin-accent-cyan)' }}>
-                      {wf.webhook ? (wf.webhook.split('/webhook')[1] || wf.webhook) : 'Webhook'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Node Count:</span>
-                    <span style={{ fontWeight: 600, color: 'var(--admin-text-main)' }}>{wf.nodesCount} Nodes</span>
-                  </div>
-                </div>
-
-                {/* Key Pool Counters */}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                  <div style={{
-                    flex: 1,
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    background: 'rgba(6, 182, 212, 0.08)',
-                    border: '1px solid rgba(6, 182, 212, 0.2)',
+                {/* ── Dropdown Accordion Header (Click to Expand / Collapse) ── */}
+                <div
+                  onClick={() => {
+                    toggleWfExpand(wf.id);
+                    handleSelectWorkflow(wf);
+                    setTargetWorkflow(wf.id);
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '16px 20px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Kie.ai:</span>
-                    <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>
-                      {wf.kieKeysCount ?? '?'}
-                    </span>
+                    justifyContent: 'space-between',
+                    gap: '14px',
+                    flexWrap: 'wrap',
+                    background: isExpanded ? 'rgba(6, 182, 212, 0.05)' : 'transparent',
+                    borderBottom: isExpanded ? '1px solid var(--admin-border-glass)' : 'none',
+                    userSelect: 'none',
+                    transition: 'background 0.15s ease'
+                  }}
+                >
+                  {/* Left: Indicator, Category & Workflow Title */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
+                    <div style={{
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '7px',
+                      background: isExpanded ? 'var(--admin-accent-cyan)' : 'var(--admin-bg-elevated)',
+                      color: isExpanded ? '#000' : 'var(--admin-text-sub)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: 900,
+                      transition: 'all 0.2s ease',
+                      flexShrink: 0
+                    }}>
+                      {isExpanded ? '▲' : '▼'}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.06em',
+                          padding: '2px 7px',
+                          borderRadius: '5px',
+                          background: 'var(--admin-bg-elevated)',
+                          color: 'var(--admin-text-sub)',
+                          border: '1px solid var(--admin-border-glass)'
+                        }}>
+                          {wf.category || 'Automated Pipeline'}
+                        </span>
+                        <code style={{
+                          fontFamily: 'var(--admin-font-mono)',
+                          fontSize: '10.5px',
+                          color: 'var(--admin-text-sub)',
+                          background: 'rgba(255,255,255,0.03)',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--admin-border-glass)'
+                        }}>
+                          {wf.id}
+                        </code>
+                      </div>
+
+                      <h3 style={{
+                        fontSize: '14.5px',
+                        fontWeight: 800,
+                        margin: 0,
+                        color: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
+                        lineHeight: '1.3'
+                      }}>
+                        {wf.name}
+                      </h3>
+                    </div>
                   </div>
 
-                  <div style={{
-                    flex: 1,
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    background: 'rgba(139, 92, 246, 0.08)',
-                    border: '1px solid rgba(139, 92, 246, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Backup:</span>
-                    <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-purple)' }}>
-                      {wf.backupKeysCount ?? '?'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* LLM Key Counters Row */}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                  <div style={{
-                    flex: 1,
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    border: '1px solid rgba(16, 185, 129, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Primary LLM:</span>
-                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#10b981' }}>
-                      {wf.primaryLlmCount ?? '?'}
-                    </span>
-                  </div>
-
-                  <div style={{
-                    flex: 1,
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    background: 'rgba(245, 158, 11, 0.08)',
-                    border: '1px solid rgba(245, 158, 11, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Backup LLM:</span>
-                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b' }}>
-                      {wf.backupLlmCount ?? '?'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Downstream Engine Key Counters Row */}
-                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-                  <div style={{
-                    flex: 1,
-                    padding: '5px 8px',
-                    borderRadius: '7px',
-                    background: 'rgba(236, 72, 153, 0.08)',
-                    border: '1px solid rgba(236, 72, 153, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>Voice:</span>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#ec4899' }}>
-                      {wf.j2vKeysCount ?? '?'}
-                    </span>
-                  </div>
-
-                  <div style={{
-                    flex: 1,
-                    padding: '5px 8px',
-                    borderRadius: '7px',
-                    background: 'rgba(59, 130, 246, 0.08)',
-                    border: '1px solid rgba(59, 130, 246, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>CloudConv:</span>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#3b82f6' }}>
-                      {wf.cloudConvertCount ?? '?'}
-                    </span>
-                  </div>
-
-                  <div style={{
-                    flex: 1,
-                    padding: '5px 8px',
-                    borderRadius: '7px',
-                    background: 'rgba(244, 63, 94, 0.08)',
-                    border: '1px solid rgba(244, 63, 94, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>Zvid:</span>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#f43f5e' }}>
-                      {wf.zvidCount ?? '?'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Bottom Card Actions */}
-                <div style={{
-                  display: 'flex',
-                  gap: '8px',
-                  marginTop: '14px',
-                  paddingTop: '12px',
-                  borderTop: '1px solid var(--admin-border-glass)'
-                }}>
-                  <a
-                    href={wf.n8nUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      flex: 1,
-                      textAlign: 'center',
-                      padding: '7px 10px',
-                      borderRadius: '8px',
-                      background: 'transparent',
-                      border: '1px solid var(--admin-border-glass)',
-                      color: 'var(--admin-text-main)',
-                      fontSize: '11.5px',
-                      fontWeight: 600,
-                      textDecoration: 'none',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    ↗ Cloud View
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={(e) => handleTogglePublish(e, wf)}
-                    disabled={isToggling}
-                    style={{
-                      flex: 1,
-                      padding: '7px 10px',
-                      borderRadius: '8px',
-                      border: isPublished ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
-                      background: isPublished ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                      color: isPublished ? '#ef4444' : '#10b981',
-                      fontSize: '11.5px',
+                  {/* Right: Quick Summary Pills & Status Badge */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 9px',
+                      borderRadius: '9999px',
+                      fontSize: '11px',
                       fontWeight: 700,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    {isToggling ? 'Syncing...' : (isPublished ? '⏸️ Unpublish' : '▶️ Publish')}
-                  </button>
+                      background: isPublished ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                      color: isPublished ? '#10b981' : '#f59e0b',
+                      border: isPublished ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(245, 158, 11, 0.25)'
+                    }}>
+                      <span style={{
+                        width: '5px',
+                        height: '5px',
+                        borderRadius: '50%',
+                        background: isPublished ? '#10b981' : '#f59e0b',
+                        boxShadow: isPublished ? '0 0 6px #10b981' : 'none'
+                      }} />
+                      {isPublished ? 'ACTIVE' : 'DRAFT'}
+                    </div>
+
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: 'var(--admin-bg-elevated)',
+                      color: 'var(--admin-text-sub)',
+                      border: '1px solid var(--admin-border-glass)'
+                    }}>
+                      ⚡ {wf.nodesCount} Nodes
+                    </span>
+
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: 'rgba(6, 182, 212, 0.08)',
+                      color: 'var(--admin-accent-cyan)',
+                      border: '1px solid rgba(6, 182, 212, 0.2)'
+                    }}>
+                      🎬 {wf.kieKeysCount ?? '?'}/{wf.backupKeysCount ?? '?'}
+                    </span>
+
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: 'rgba(16, 185, 129, 0.08)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.2)'
+                    }}>
+                      🧠 {(wf.primaryLlmCount || 0) + (wf.backupLlmCount || 0)}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleWfExpand(wf.id);
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        background: isExpanded ? 'rgba(6, 182, 212, 0.15)' : 'var(--admin-bg-elevated)',
+                        color: isExpanded ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
+                        border: '1px solid var(--admin-border-glass)',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {isExpanded ? 'Hide Details ▲' : 'View Details ▼'}
+                    </button>
+                  </div>
                 </div>
+
+                {/* ── Expanded Content (Revealed on Click) ── */}
+                {isExpanded && (
+                  <div style={{
+                    padding: '18px 20px 20px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    background: 'rgba(0, 0, 0, 0.15)',
+                    animation: 'adminFadeIn 0.2s ease'
+                  }}>
+                    {/* Metadata details */}
+                    <div style={{
+                      fontSize: '11.5px',
+                      color: 'var(--admin-text-sub)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      background: 'var(--admin-bg-elevated)',
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--admin-border-glass)'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Workflow ID:</span>
+                        <code style={{ fontFamily: 'var(--admin-font-mono)', color: 'var(--admin-text-main)', fontWeight: 600 }}>{wf.id}</code>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Trigger:</span>
+                        <span style={{ fontFamily: 'var(--admin-font-mono)', fontSize: '11px', color: 'var(--admin-accent-cyan)' }}>
+                          {wf.webhook ? (wf.webhook.split('/webhook')[1] || wf.webhook) : 'Webhook'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Node Count:</span>
+                        <span style={{ fontWeight: 600, color: 'var(--admin-text-main)' }}>{wf.nodesCount} Nodes</span>
+                      </div>
+                    </div>
+
+                    {/* Key Pool Counters */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(6, 182, 212, 0.08)',
+                        border: '1px solid rgba(6, 182, 212, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Kie.ai Video:</span>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>
+                          {wf.kieKeysCount ?? '?'}
+                        </span>
+                      </div>
+
+                      <div style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(139, 92, 246, 0.08)',
+                        border: '1px solid rgba(139, 92, 246, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Backup Video:</span>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-purple)' }}>
+                          {wf.backupKeysCount ?? '?'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* LLM Key Counters Row */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(16, 185, 129, 0.08)',
+                        border: '1px solid rgba(16, 185, 129, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Primary LLM:</span>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#10b981' }}>
+                          {wf.primaryLlmCount ?? '?'}
+                        </span>
+                      </div>
+
+                      <div style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(245, 158, 11, 0.08)',
+                        border: '1px solid rgba(245, 158, 11, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Backup LLM:</span>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b' }}>
+                          {wf.backupLlmCount ?? '?'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Downstream Engine Key Counters Row */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{
+                        flex: 1,
+                        padding: '7px 10px',
+                        borderRadius: '7px',
+                        background: 'rgba(236, 72, 153, 0.08)',
+                        border: '1px solid rgba(236, 72, 153, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Voice (j2v):</span>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#ec4899' }}>
+                          {wf.j2vKeysCount ?? '?'}
+                        </span>
+                      </div>
+
+                      <div style={{
+                        flex: 1,
+                        padding: '7px 10px',
+                        borderRadius: '7px',
+                        background: 'rgba(59, 130, 246, 0.08)',
+                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>CloudConvert:</span>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#3b82f6' }}>
+                          {wf.cloudConvertCount ?? '?'}
+                        </span>
+                      </div>
+
+                      <div style={{
+                        flex: 1,
+                        padding: '7px 10px',
+                        borderRadius: '7px',
+                        background: 'rgba(244, 63, 94, 0.08)',
+                        border: '1px solid rgba(244, 63, 94, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Zvid:</span>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#f43f5e' }}>
+                          {wf.zvidCount ?? '?'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bottom Card Actions */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px',
+                      marginTop: '6px',
+                      paddingTop: '12px',
+                      borderTop: '1px solid var(--admin-border-glass)'
+                    }}>
+                      <a
+                        href={wf.n8nUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          flex: 1,
+                          textAlign: 'center',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          background: 'transparent',
+                          border: '1px solid var(--admin-border-glass)',
+                          color: 'var(--admin-text-main)',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          textDecoration: 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        ↗ Open in n8n Cloud
+                      </a>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleTogglePublish(e, wf)}
+                        disabled={isToggling}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          border: isPublished ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+                          background: isPublished ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                          color: isPublished ? '#ef4444' : '#10b981',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {isToggling ? 'Syncing...' : (isPublished ? '⏸️ Unpublish (Draft)' : '▶️ Publish (Active)')}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
