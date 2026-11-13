@@ -229,6 +229,13 @@ export default function TemplatesPage({
     GUEST: ''
   });
   const [savingCastId, setSavingCastId] = useState(null);
+  // Islamic Stories (islamic-stories-hindi) specific states
+  const [islamicStoryMode, setIslamicStoryMode] = useState('random'); // 'random' | 'season' | 'series' | 'custom'
+  const [islamicSeasonTag, setIslamicSeasonTag] = useState('ramadan');
+  const [islamicSeriesId, setIslamicSeriesId] = useState('ISL-SER-001');
+  const [islamicCustomTopic, setIslamicCustomTopic] = useState('');
+  const [islamicCharImageUrl, setIslamicCharImageUrl] = useState('');
+
   const [episodeMode, setEpisodeMode] = useState('next'); // 'next' | 'custom'
   const [customEpisodeIdea, setCustomEpisodeIdea] = useState('');
 
@@ -1033,11 +1040,16 @@ export default function TemplatesPage({
           sessionId,
           selectedChannelId: targetChannelToUse,
           token,
-          showId: templateId === 'family-micro-drama' ? 'GKK-001' : undefined,
+          showId: templateId === 'family-micro-drama' ? 'GKK-001' : (templateId === 'islamic-stories-hindi' ? 'ISL-001' : undefined),
+          storyMode: templateId === 'islamic-stories-hindi' ? islamicStoryMode : (templateId === 'time-travel-influencer' ? effectiveStoryMode : undefined),
+          seasonTag: templateId === 'islamic-stories-hindi' && islamicStoryMode === 'season' ? islamicSeasonTag : undefined,
+          characterImages: templateId === 'islamic-stories-hindi' && islamicCharImageUrl ? { custom: islamicCharImageUrl } : undefined,
           episodeMode: templateId === 'family-micro-drama' ? episodeMode : undefined,
-          customEpisodeTopic: templateId === 'family-micro-drama' ? (episodeMode === 'custom' ? customEpisodeIdea.trim() : '') : undefined,
+          customEpisodeTopic: templateId === 'family-micro-drama' ? (episodeMode === 'custom' ? customEpisodeIdea.trim() : '') : (templateId === 'islamic-stories-hindi' ? (islamicStoryMode === 'custom' ? islamicCustomTopic.trim() : '') : undefined),
           prompt: templateId === 'family-micro-drama'
             ? (episodeMode === 'custom' ? customEpisodeIdea.trim() : '')
+            : templateId === 'islamic-stories-hindi'
+            ? (islamicStoryMode === 'custom' ? islamicCustomTopic.trim() : (islamicStoryMode === 'season' ? ("Season: " + islamicSeasonTag) : (islamicStoryMode === 'series' ? ("Series: " + islamicSeriesId) : 'Random Islamic Story')))
             : (isTargetNativeVoice ? (effectiveStoryMode === 'custom' ? targetTopic : '') : targetTopic),
           voiceId: isTargetNativeVoice ? '' : (activeVoiceObj?.id || voiceId),
           elevenLabsVoiceId: isTargetNativeVoice ? '' : elevenLabsVoiceId,
@@ -1050,9 +1062,8 @@ export default function TemplatesPage({
           musicVolume: videoSettings?.musicVolume ?? 0.08,
           influencerGender: templateId === 'time-travel-influencer' ? influencerGender : undefined,
           characterImageUrl: templateId === 'time-travel-influencer' ? resolvedCharUrl : undefined,
-          storyMode: templateId === 'time-travel-influencer' ? effectiveStoryMode : undefined,
           seriesMode: templateId === 'time-travel-influencer' ? effectiveSeriesMode : undefined,
-          seriesId: templateId === 'time-travel-influencer' ? effectiveSeriesId : undefined,
+          seriesId: templateId === 'islamic-stories-hindi' && islamicStoryMode === 'series' ? islamicSeriesId : (templateId === 'time-travel-influencer' ? effectiveSeriesId : undefined),
           characterMode: templateId === 'time-travel-influencer' ? effectiveCharacterMode : undefined,
           saveChannelFace: templateId === 'time-travel-influencer' ? effectiveSaveChannelFace : undefined,
           channelCharacterName: templateId === 'time-travel-influencer' ? chName : undefined,
@@ -2073,7 +2084,8 @@ export default function TemplatesPage({
                   const currentTopic = customTopics[tpl.id] || '';
                   const isTimeTravel = tpl.id === 'time-travel-influencer';
                   const isFamilyDrama = tpl.id === 'family-micro-drama';
-                  const isNativeAudio = isTimeTravel || isFamilyDrama || !!tpl.isNativeVoice;
+                  const isIslamicStories = tpl.id === 'islamic-stories-hindi';
+                  const isNativeAudio = isTimeTravel || isFamilyDrama || isIslamicStories || !!tpl.isNativeVoice;
                   const missingCast = GHAR_KI_KAHANI_CHARACTERS.filter(c => c.required && !castPhotos[c.id]);
                   const hasRequiredGkkCast = missingCast.length === 0;
                   const savedRequiredCount = GHAR_KI_KAHANI_CHARACTERS.filter(c => c.required && Boolean(castPhotos[c.id])).length;

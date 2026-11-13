@@ -14,7 +14,8 @@ const TEMPLATE_WEBHOOKS = {
   'last-24-hours':          'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
   '3am-horror':             'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror',
   'time-travel-influencer': 'https://cmpunktg34.app.n8n.cloud/webhook/template-time-travel-influencer',
-  'family-micro-drama':     process.env.N8N_FAMILY_WEBHOOK_URL || 'https://cmpunktg34.app.n8n.cloud/webhook/ghar-ki-kahani'
+  'family-micro-drama':     process.env.N8N_FAMILY_WEBHOOK_URL || 'https://cmpunktg34.app.n8n.cloud/webhook/ghar-ki-kahani',
+  'islamic-stories-hindi':  'https://cmpunktg34.app.n8n.cloud/webhook/islamic-stories-hindi'
 };
 
 const TEMPLATE_META = {
@@ -51,6 +52,13 @@ const TEMPLATE_META = {
     title: 'Ghar Ki Kahani [Family Drama]',
     musicId: 'cinematic',
     visualStyle: 'Realistic Live-Action Micro-Drama',
+    language: 'Hindi'
+  },
+  'islamic-stories-hindi': {
+    name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based',
+    title: 'Islamic Stories [1-Click]',
+    musicId: 'cinematic',
+    visualStyle: 'Cinematic Realistic Historical',
     language: 'Hindi'
   }
 };
@@ -255,7 +263,8 @@ export const handler = async (event) => {
       'last-24-hours':          n8nCfg.webhooks?.template_last_24_hours   || TEMPLATE_WEBHOOKS['last-24-hours'],
       '3am-horror':             n8nCfg.webhooks?.template_3am_horror      || TEMPLATE_WEBHOOKS['3am-horror'],
       'time-travel-influencer': n8nCfg.webhooks?.template_time_travel_influencer || n8nCfg.webhooks?.timeTravelInfluencer || TEMPLATE_WEBHOOKS['time-travel-influencer'],
-      'family-micro-drama':     process.env.N8N_FAMILY_WEBHOOK_URL || n8nCfg.webhooks?.template_family_micro_drama || n8nCfg.webhooks?.familyMicroDrama || TEMPLATE_WEBHOOKS['family-micro-drama']
+      'family-micro-drama':     process.env.N8N_FAMILY_WEBHOOK_URL || n8nCfg.webhooks?.template_family_micro_drama || n8nCfg.webhooks?.familyMicroDrama || TEMPLATE_WEBHOOKS['family-micro-drama'],
+      'islamic-stories-hindi':  n8nCfg.webhooks?.template_islamic_stories || n8nCfg.webhooks?.islamicStoriesHindi || n8nCfg.webhooks?.islamicStories || TEMPLATE_WEBHOOKS['islamic-stories-hindi']
     };
     const webhookUrl = dynamicWebhooks[templateId];
 
@@ -406,6 +415,7 @@ export const handler = async (event) => {
       '3am-horror':             n8nCfg.productionWorkflows?.horror3am            || '94IjipHAsUQWjkun',
       'time-travel-influencer': n8nCfg.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9',
       'family-micro-drama':     n8nCfg.productionWorkflows?.familyMicroDrama     || 'NymNAsVCHNff4DWs',
+      'islamic-stories-hindi':  n8nCfg.productionWorkflows?.islamicStoriesHindi  || '9ZWPyNFES5aFRLWM',
       'viral-shorts':           n8nCfg.productionWorkflows?.viralShorts          || 'UKWYwnlKuCqTazIG'
     };
     const workflowId = WORKFLOW_ID_MAP[templateId] || null;
@@ -561,6 +571,8 @@ export const handler = async (event) => {
       try {
         const generationPrompt = templateId === 'family-micro-drama'
           ? (effectiveEpisodeMode === 'custom' ? effectiveCustomTopic : 'Next Episode in Season')
+          : templateId === 'islamic-stories-hindi'
+          ? (payload.storyMode === 'custom' ? (payload.customEpisodeTopic || payload.prompt || '').trim() : `${(payload.storyMode || 'random').toUpperCase()} mode${payload.seasonTag ? ' (' + payload.seasonTag + ')' : ''}${payload.seriesId ? ' (' + payload.seriesId + ')' : ''}`)
           : (payload.prompt || '').trim();
 
         await db.collection('threads').updateOne(
@@ -644,6 +656,50 @@ export const handler = async (event) => {
         episodeMode: effectiveEpisodeMode,
         customEpisodeTopic: effectiveCustomTopic,
         characterImages
+      };
+    } else if (templateId === 'islamic-stories-hindi') {
+      const showId = payload.showId || 'ISL-001';
+      const storyMode = ['random', 'season', 'series', 'custom'].includes(payload.storyMode)
+        ? payload.storyMode
+        : 'random';
+      const seasonTag = payload.seasonTag ? String(payload.seasonTag).trim().toLowerCase() : '';
+      const seriesId = payload.seriesId ? String(payload.seriesId).trim() : '';
+      const customTopic = typeof payload.customEpisodeTopic === 'string'
+        ? payload.customEpisodeTopic.trim()
+        : (typeof payload.prompt === 'string' ? payload.prompt.trim() : '');
+
+      postPayload = {
+        templateId: 'islamic-stories-hindi',
+        templateName: meta.name,
+        showId: 'ISL-001',
+        storyMode,
+        seasonTag,
+        seriesId,
+        customEpisodeTopic: customTopic,
+        prompt: customTopic,
+        rawUserInput: customTopic,
+        userId: userId || 'anonymous',
+        userEmail: userEmail.toLowerCase(),
+        threadId,
+        sessionId,
+        callbackUrl,
+        webhookSecret,
+        autoUploadToYouTube,
+        userYouTubeAccessToken,
+        userYouTubeChannelId,
+        userYouTubeChannelTitle,
+        autoLogToSheet,
+        userSpreadsheetId,
+        userSheetAccessToken,
+        characterImages: payload.characterImages || {},
+        aspectRatio: '9:16',
+        language: 'Hindi',
+        musicId: payload.musicId || meta.musicId,
+        musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
+        musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
+        subtitleSettings: payload.subtitleSettings || null,
+        subtitleStyle: payload.subtitleStyle || payload.subtitlePreset || 'hormozi',
+        timestamp: new Date().toISOString()
       };
     } else {
       postPayload = {

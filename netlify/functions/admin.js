@@ -465,7 +465,7 @@ export async function handler(event) {
         }
 
         function extractFlagshipWorkflows(workflows) {
-          const map = { viralShorts: null, worldMysteries: null, last24Hours: null, horror3am: null, timeTravelInfluencer: null, familyMicroDrama: null };
+          const map = { viralShorts: null, worldMysteries: null, last24Hours: null, horror3am: null, timeTravelInfluencer: null, familyMicroDrama: null, islamicStoriesHindi: null };
           // Tier 1: Look specifically for 'Webhook Based' (exact production flagship pipelines)
           for (const wf of workflows) {
             const name = wf.name || '';
@@ -476,6 +476,7 @@ export async function handler(event) {
             else if (/3-?\s*am\s*horror/i.test(name) && /webhook\s*based/i.test(name)) map.horror3am = wf.id;
             else if (/time\s*travel\s*influencer/i.test(name) && /webhook\s*based/i.test(name)) map.timeTravelInfluencer = wf.id;
             else if (/ghar\s*ki\s*kahani|family\s*micro\s*drama/i.test(name) && /webhook\s*based/i.test(name)) map.familyMicroDrama = wf.id;
+            else if (/islamic\s*stories/i.test(name) && /webhook\s*based/i.test(name)) map.islamicStoriesHindi = wf.id;
           }
           // Tier 2: Fallback if no Webhook Based match found
           for (const wf of workflows) {
@@ -487,6 +488,7 @@ export async function handler(event) {
             if (!map.horror3am && /3-?\s*am\s*horror/i.test(name)) map.horror3am = wf.id;
             if (!map.timeTravelInfluencer && /time\s*travel\s*influencer/i.test(name)) map.timeTravelInfluencer = wf.id;
             if (!map.familyMicroDrama && /ghar\s*ki\s*kahani|family\s*micro\s*drama/i.test(name)) map.familyMicroDrama = wf.id;
+            if (!map.islamicStoriesHindi && /islamic\s*stories/i.test(name)) map.islamicStoriesHindi = wf.id;
           }
           return map;
         }
@@ -597,6 +599,7 @@ export async function handler(event) {
                         else if (/3-?\s*am\s*horror/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.horror3am) flagshipMap.horror3am = newWf.id;
                         else if (/time\s*travel\s*influencer/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.timeTravelInfluencer) flagshipMap.timeTravelInfluencer = newWf.id;
                         else if (/ghar\s*ki\s*kahani|family\s*micro\s*drama/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.familyMicroDrama) flagshipMap.familyMicroDrama = newWf.id;
+                        else if (/islamic\s*stories/i.test(name) && !/before|copy|draft/i.test(name) && !flagshipMap.islamicStoriesHindi) flagshipMap.islamicStoriesHindi = newWf.id;
                       } else {
                         const errText = await createRes.text().catch(() => '');
                         console.warn(`[migrate-n8n] Create ${summary.name} failed (${createRes.status}):`, errText.slice(0, 200));
@@ -698,6 +701,7 @@ export async function handler(event) {
             if (preciseMap.horror3am) flagshipMap.horror3am = preciseMap.horror3am;
             if (preciseMap.timeTravelInfluencer) flagshipMap.timeTravelInfluencer = preciseMap.timeTravelInfluencer;
             if (preciseMap.familyMicroDrama) flagshipMap.familyMicroDrama = preciseMap.familyMicroDrama;
+            if (preciseMap.islamicStoriesHindi) flagshipMap.islamicStoriesHindi = preciseMap.islamicStoriesHindi;
           }
         } catch (rescanErr) {
           console.warn('[migrate-n8n] Error during final flagship scan:', rescanErr.message);
@@ -710,7 +714,8 @@ export async function handler(event) {
           last24Hours: flagshipMap.last24Hours || currentDoc?.productionWorkflows?.last24Hours || 'PQKEFVjhD3P2yfnZ',
           horror3am: flagshipMap.horror3am || currentDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun',
           timeTravelInfluencer: flagshipMap.timeTravelInfluencer || currentDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9',
-          familyMicroDrama: flagshipMap.familyMicroDrama || currentDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs'
+          familyMicroDrama: flagshipMap.familyMicroDrama || currentDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs',
+          islamicStoriesHindi: flagshipMap.islamicStoriesHindi || currentDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM'
         };
 
         // Dual format webhooks: snake_case for generators, camelCase for UI tables
@@ -730,7 +735,10 @@ export async function handler(event) {
           template_time_travel_influencer: `${cleanDestBaseUrl}/webhook/template-time-travel-influencer`,
           timeTravelInfluencer: `${cleanDestBaseUrl}/webhook/template-time-travel-influencer`,
           template_family_micro_drama: `${cleanDestBaseUrl}/webhook/ghar-ki-kahani`,
-          familyMicroDrama: `${cleanDestBaseUrl}/webhook/ghar-ki-kahani`
+          familyMicroDrama: `${cleanDestBaseUrl}/webhook/ghar-ki-kahani`,
+          template_islamic_stories: `${cleanDestBaseUrl}/webhook/islamic-stories-hindi`,
+          islamicStoriesHindi: `${cleanDestBaseUrl}/webhook/islamic-stories-hindi`,
+          islamicStories: `${cleanDestBaseUrl}/webhook/islamic-stories-hindi`
         };
 
         // Update MongoDB configuration
@@ -854,6 +862,12 @@ export async function handler(event) {
                   id: newProductionWorkflows.familyMicroDrama,
                   url: `${cleanDestBaseUrl}/workflow/${newProductionWorkflows.familyMicroDrama}`,
                   creds: 'Google Sheets OAuth2, Kie.ai API, Zvid API, YouTube OAuth2'
+                },
+                {
+                  name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s]',
+                  id: newProductionWorkflows.islamicStoriesHindi,
+                  url: `${cleanDestBaseUrl}/workflow/${newProductionWorkflows.islamicStoriesHindi}`,
+                  creds: 'Google Sheets OAuth2, Mistral AI / Groq API, Kie.ai API, Zvid API, YouTube OAuth2'
                 }
               ]
             }
@@ -947,6 +961,8 @@ export async function handler(event) {
               detected.timeTravelInfluencer = wf.id;
             } else if (/ghar\s*ki\s*kahani|family\s*micro\s*drama/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !detected.familyMicroDrama) {
               detected.familyMicroDrama = wf.id;
+            } else if (/islamic\s*stories/i.test(name) && !/before|copy|draft|backup|test/i.test(name) && !detected.islamicStoriesHindi) {
+              detected.islamicStoriesHindi = wf.id;
             }
           }
         } catch (mcpErr) {
@@ -960,7 +976,8 @@ export async function handler(event) {
             last24Hours: detected.last24Hours || n8nDoc?.productionWorkflows?.last24Hours,
             horror3am: detected.horror3am || n8nDoc?.productionWorkflows?.horror3am,
             timeTravelInfluencer: detected.timeTravelInfluencer || n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9',
-            familyMicroDrama: detected.familyMicroDrama || n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs'
+            familyMicroDrama: detected.familyMicroDrama || n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs',
+            islamicStoriesHindi: detected.islamicStoriesHindi || n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM'
           };
 
           await sysCol.updateOne(
@@ -2022,7 +2039,8 @@ export async function handler(event) {
           last24Hours: 'https://cmpunktg34.app.n8n.cloud/webhook/template-last-24-hours',
           horror3am: 'https://cmpunktg34.app.n8n.cloud/webhook/template-3am-horror',
           timeTravelInfluencer: 'https://cmpunktg34.app.n8n.cloud/webhook/template-time-travel-influencer',
-          familyMicroDrama: 'https://cmpunktg34.app.n8n.cloud/webhook/ghar-ki-kahani'
+          familyMicroDrama: 'https://cmpunktg34.app.n8n.cloud/webhook/ghar-ki-kahani',
+          islamicStoriesHindi: 'https://cmpunktg34.app.n8n.cloud/webhook/islamic-stories-hindi'
         };
 
         const results = {};
@@ -2140,6 +2158,7 @@ export async function handler(event) {
         const horrorId = n8nDoc?.productionWorkflows?.horror3am || '94IjipHAsUQWjkun';
         const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9';
         const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs';
+        const islamicStoriesId = n8nDoc?.productionWorkflows?.islamicStoriesHindi || n8nDoc?.productionWorkflows?.islamicStories || '9ZWPyNFES5aFRLWM';
 
         const defaultWorkflows = [
           {
@@ -2212,6 +2231,18 @@ export async function handler(event) {
             nodesCount: 231,
             status: 'DRAFT',
             published: false,
+            category: 'Autonomous Niche Template'
+          },
+          {
+            id: islamicStoriesId,
+            key: 'islamicStoriesHindi',
+            slug: 'islamic-stories-hindi',
+            name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based',
+            webhook: `${activeBaseUrl}/webhook/islamic-stories-hindi`,
+            n8nUrl: `${activeBaseUrl}/workflow/${islamicStoriesId}`,
+            nodesCount: 278,
+            status: 'ACTIVE',
+            published: true,
             category: 'Autonomous Niche Template'
           },
           {
@@ -2461,7 +2492,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
           { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
         ];
 
         let targetList = [];
@@ -2669,7 +2701,8 @@ export async function handler(event) {
             { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
             { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
             { id: n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9', name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-            { id: n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs', name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+            { id: n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs', name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+            { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
           ];
 
           const results = [];
@@ -2836,7 +2869,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]', key: 'last24Hours' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]', key: 'horror3am' },
           { id: n8nDoc?.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9', name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]', key: 'timeTravelInfluencer' },
-          { id: n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs', name: 'Ghar Ki Kahani - Family Drama - Webhook Based', key: 'familyMicroDrama' }
+          { id: n8nDoc?.productionWorkflows?.familyMicroDrama || 'NymNAsVCHNff4DWs', name: 'Ghar Ki Kahani - Family Drama - Webhook Based', key: 'familyMicroDrama' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based', key: 'islamicStoriesHindi' }
         ];
 
         const statuses = {};
@@ -3021,7 +3055,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
           { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
         ];
 
         let targetList = [];
@@ -3223,7 +3258,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
           { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
         ];
 
         let targetList = [];
@@ -3445,7 +3481,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
           { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
         ];
 
         let targetList = [];
@@ -3671,7 +3708,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
           { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
         ];
 
         let targetList = [];
@@ -3820,7 +3858,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
           { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
         ];
 
         let targetList = [];
@@ -3961,7 +4000,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
           { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
         ];
 
         let targetList = [];
@@ -4102,7 +4142,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
           { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
         ];
 
         let targetList = [];
@@ -4243,7 +4284,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
           { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
         ];
 
         let targetList = [];
@@ -4384,7 +4426,8 @@ export async function handler(event) {
           { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
           { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
           { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
-          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' }
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM', name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
         ];
 
         let targetList = [];

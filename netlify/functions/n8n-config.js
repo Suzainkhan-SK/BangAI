@@ -20,7 +20,12 @@ const DEFAULT_CONFIG = {
     template_last_24_hours: 'https://cmpunktg1outlook.app.n8n.cloud/webhook/template-last-24-hours',
     template_3am_horror: 'https://cmpunktg1outlook.app.n8n.cloud/webhook/template-3am-horror',
     template_time_travel_influencer: 'https://cmpunktg34.app.n8n.cloud/webhook/template-time-travel-influencer',
-    timeTravelInfluencer: 'https://cmpunktg34.app.n8n.cloud/webhook/template-time-travel-influencer'
+    timeTravelInfluencer: 'https://cmpunktg34.app.n8n.cloud/webhook/template-time-travel-influencer',
+    template_family_micro_drama: 'https://cmpunktg34.app.n8n.cloud/webhook/ghar-ki-kahani',
+    familyMicroDrama: 'https://cmpunktg34.app.n8n.cloud/webhook/ghar-ki-kahani',
+    template_islamic_stories: 'https://cmpunktg34.app.n8n.cloud/webhook/islamic-stories-hindi',
+    islamicStories: 'https://cmpunktg34.app.n8n.cloud/webhook/islamic-stories-hindi',
+    islamicStoriesHindi: 'https://cmpunktg34.app.n8n.cloud/webhook/islamic-stories-hindi'
   }
 };
 

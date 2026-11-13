@@ -106,6 +106,24 @@ export const OFFICIAL_TEMPLATES = [
     status: 'ACTIVE'
   },
   {
+    id: 'islamic-stories-hindi',
+    emoji: '🕌',
+    title: 'Islamic Stories [Hindi]',
+    category: 'Historical Stories',
+    desc: 'Autonomous 5-scene Hindi Islamic storytelling for YouTube Shorts. Verified Quranic and Sahih Hadith sources, full honorifics, dynamic character lock with luminous sacred rules, and anti-repeat Google Sheet library integration.',
+    tagline: '75s · 5 Scenes · 1080p · Islamic Stories',
+    duration: '75s',
+    scenes: '5 Scenes',
+    resolution: '1080p',
+    videoTitle: 'हज़रत सुलेमान अलैहिस्सलाम और चींटियों की वादी',
+    aiBrain: 'Mistral Large 2512 & Kie Video',
+    n8nWorkflowId: '9ZWPyNFES5aFRLWM',
+    webhook: 'https://cmpunktg34.app.n8n.cloud/webhook/islamic-stories-hindi',
+    demoImage: '/template-islamic-stories.jpg',
+    color: '#059669',
+    status: 'ACTIVE'
+  },
+  {
     id: 'ancient-history',
     emoji: '🏛️',
     title: 'Ancient History & Lost Civilizations',
@@ -2108,7 +2126,8 @@ export default function TemplatesManagerView() {
                           'last-24-hours': '⏳ Last 24 Hours [True Stories]',
                           '3am-horror': '👻 3-AM Horror & Paranormal',
                           'time-travel-influencer': '⏳ Time Travel Influencer [Native Voice & Series]',
-                          'family-micro-drama': '🎭 Ghar Ki Kahani [Family Drama]'
+                          'family-micro-drama': '🎭 Ghar Ki Kahani [Family Drama]',
+                          'islamic-stories-hindi': '🕌 Islamic Stories [Hindi]'
                         };
                         const displayTemplate = templateTitleMap[auto.templateId] || auto.templateId || 'AI Template';
                         const completedDays = Number(auto.completedDays || 0);
@@ -2674,6 +2693,7 @@ export default function TemplatesManagerView() {
                     <option value="3am-horror">👻 3-AM Horror & Paranormal [75s+]</option>
                     <option value="time-travel-influencer">⏳ Time Travel Influencer [75s Native Voice & Series]</option>
                     <option value="family-micro-drama">🎭 Ghar Ki Kahani [Family Drama - 75s]</option>
+                    <option value="islamic-stories-hindi">🕌 Islamic Stories [Hindi - 75s]</option>
                   </select>
                 </div>
 
