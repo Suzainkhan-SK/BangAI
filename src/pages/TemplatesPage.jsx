@@ -2326,6 +2326,8 @@ export default function TemplatesPage({
                                   ? 'Customize Cast Photos & Episode'
                                   : isTimeTravel
                                   ? 'Customize Topic, Gender & Photo (Optional)'
+                                  : isIslamicStories
+                                  ? 'Customize Story Mode, Voice & Photo (Optional)'
                                   : 'Customize Topic, Voice & Speed'}
                               </span>
                             </span>

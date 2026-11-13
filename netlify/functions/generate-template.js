@@ -668,6 +668,17 @@ export const handler = async (event) => {
         ? payload.customEpisodeTopic.trim()
         : (typeof payload.prompt === 'string' ? payload.prompt.trim() : '');
 
+      let displayPrompt = '';
+      if (storyMode === 'custom' && customTopic) {
+        displayPrompt = customTopic;
+      } else if (storyMode === 'season' && seasonTag) {
+        displayPrompt = `Season: ${seasonTag}`;
+      } else if (storyMode === 'series' && seriesId) {
+        displayPrompt = `Series: ${seriesId}`;
+      } else {
+        displayPrompt = (typeof payload.prompt === 'string' && payload.prompt.trim()) || 'Random Islamic Story (Curated Library)';
+      }
+
       postPayload = {
         templateId: 'islamic-stories-hindi',
         templateName: meta.name,
@@ -676,8 +687,8 @@ export const handler = async (event) => {
         seasonTag,
         seriesId,
         customEpisodeTopic: customTopic,
-        prompt: customTopic,
-        rawUserInput: customTopic,
+        prompt: displayPrompt,
+        rawUserInput: displayPrompt,
         userId: userId || 'anonymous',
         userEmail: userEmail.toLowerCase(),
         threadId,
@@ -691,14 +702,21 @@ export const handler = async (event) => {
         autoLogToSheet,
         userSpreadsheetId,
         userSheetAccessToken,
-        characterImages: payload.characterImages || {},
-        aspectRatio: '9:16',
-        language: 'Hindi',
+        userSheetName: userSheetName || 'Production Log',
+        characterImages: (payload.characterImages && typeof payload.characterImages === 'object') ? payload.characterImages : {},
+        aspectRatio: payload.aspectRatio || '9:16',
+        language: payload.language || 'Hindi',
+        visualStyle: payload.visualStyle || meta.visualStyle || 'Cinematic Realistic Historical',
+        voiceId: payload.voiceId || 'adam',
+        elevenLabsVoiceId: payload.elevenLabsVoiceId || '',
+        voiceSpeed: payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20,
+        voiceVolume: payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0,
         musicId: payload.musicId || meta.musicId,
         musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
         musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
         subtitleSettings: payload.subtitleSettings || null,
         subtitleStyle: payload.subtitleStyle || payload.subtitlePreset || 'hormozi',
+        privacyStatus: payload.privacyStatus || 'public',
         timestamp: new Date().toISOString()
       };
     } else {
