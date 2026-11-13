@@ -1252,198 +1252,138 @@ export default function WorkflowManagerView() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="admin-grid-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
           {flagshipWorkflows.map((wf) => {
             const isSelected = selectedWf?.id === wf.id;
             const isExpanded = !!expandedWfIds[wf.id];
             const isToggling = !!togglingPublish[wf.id];
             const isPublished = wf.published !== false && wf.status === 'ACTIVE';
+            const totalActiveKeys = (wf.kieKeysCount || 0) + (wf.backupKeysCount || 0) + (wf.primaryLlmCount || 0) + (wf.backupLlmCount || 0);
 
             return (
               <div
                 key={wf.id}
                 className="admin-card"
                 style={{
-                  borderRadius: '14px',
-                  borderColor: isSelected ? 'var(--admin-accent-cyan)' : (isExpanded ? 'rgba(6, 182, 212, 0.4)' : 'var(--admin-border-glass)'),
+                  cursor: 'pointer',
+                  padding: '18px 20px',
+                  borderRadius: '16px',
+                  borderColor: isSelected ? 'var(--admin-accent-cyan)' : (isExpanded ? 'rgba(6, 182, 212, 0.45)' : 'var(--admin-border-glass)'),
                   background: isSelected ? 'var(--admin-card-hover)' : 'var(--admin-bg-surface)',
-                  boxShadow: isSelected ? '0 0 24px rgba(6, 182, 212, 0.16)' : 'var(--admin-card-shadow)',
+                  boxShadow: isSelected ? '0 0 24px rgba(6, 182, 212, 0.18)' : 'var(--admin-card-shadow)',
                   transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                  overflow: 'hidden'
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+                onClick={() => {
+                  toggleWfExpand(wf.id);
+                  handleSelectWorkflow(wf);
+                  setTargetWorkflow(wf.id);
                 }}
               >
-                {/* ── Dropdown Accordion Header (Click to Expand / Collapse) ── */}
+                {/* ── Top Badge Row ── */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'var(--admin-bg-elevated)',
+                    color: 'var(--admin-text-sub)',
+                    border: '1px solid var(--admin-border-glass)'
+                  }}>
+                    {wf.category || 'Automated Pipeline'}
+                  </span>
+
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '3px 9px',
+                    borderRadius: '9999px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    background: isPublished ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                    color: isPublished ? '#10b981' : '#f59e0b',
+                    border: isPublished ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(245, 158, 11, 0.25)'
+                  }}>
+                    <span style={{
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      background: isPublished ? '#10b981' : '#f59e0b',
+                      boxShadow: isPublished ? '0 0 6px #10b981' : 'none'
+                    }} />
+                    {isPublished ? 'ACTIVE' : 'DRAFT'}
+                  </span>
+                </div>
+
+                {/* ── Workflow Title ── */}
+                <h3 style={{
+                  fontSize: '14.5px',
+                  fontWeight: 800,
+                  margin: '4px 0 10px 0',
+                  color: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
+                  lineHeight: '1.35'
+                }}>
+                  {wf.name}
+                </h3>
+
+                {/* ── Dropdown Toggle Bar (Always Visible - Indicates Expand/Collapse) ── */}
                 <div
-                  onClick={() => {
-                    toggleWfExpand(wf.id);
-                    handleSelectWorkflow(wf);
-                    setTargetWorkflow(wf.id);
-                  }}
                   style={{
-                    cursor: 'pointer',
-                    padding: '16px 20px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '14px',
-                    flexWrap: 'wrap',
-                    background: isExpanded ? 'rgba(6, 182, 212, 0.05)' : 'transparent',
-                    borderBottom: isExpanded ? '1px solid var(--admin-border-glass)' : 'none',
-                    userSelect: 'none',
-                    transition: 'background 0.15s ease'
+                    padding: '7px 11px',
+                    borderRadius: '8px',
+                    background: isExpanded ? 'rgba(6, 182, 212, 0.10)' : 'var(--admin-bg-elevated)',
+                    border: '1px solid',
+                    borderColor: isExpanded ? 'rgba(6, 182, 212, 0.35)' : 'var(--admin-border-glass)',
+                    color: isExpanded ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
+                    transition: 'all 0.15s ease',
+                    marginTop: isExpanded ? '0' : 'auto'
                   }}
                 >
-                  {/* Left: Indicator, Category & Workflow Title */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                    <div style={{
-                      width: '26px',
-                      height: '26px',
-                      borderRadius: '7px',
-                      background: isExpanded ? 'var(--admin-accent-cyan)' : 'var(--admin-bg-elevated)',
-                      color: isExpanded ? '#000' : 'var(--admin-text-sub)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '11px',
-                      fontWeight: 900,
-                      transition: 'all 0.2s ease',
-                      flexShrink: 0
-                    }}>
-                      {isExpanded ? '▲' : '▼'}
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.06em',
-                          padding: '2px 7px',
-                          borderRadius: '5px',
-                          background: 'var(--admin-bg-elevated)',
-                          color: 'var(--admin-text-sub)',
-                          border: '1px solid var(--admin-border-glass)'
-                        }}>
-                          {wf.category || 'Automated Pipeline'}
-                        </span>
-                        <code style={{
-                          fontFamily: 'var(--admin-font-mono)',
-                          fontSize: '10.5px',
-                          color: 'var(--admin-text-sub)',
-                          background: 'rgba(255,255,255,0.03)',
-                          padding: '1px 6px',
-                          borderRadius: '4px',
-                          border: '1px solid var(--admin-border-glass)'
-                        }}>
-                          {wf.id}
-                        </code>
-                      </div>
-
-                      <h3 style={{
-                        fontSize: '14.5px',
-                        fontWeight: 800,
-                        margin: 0,
-                        color: isSelected ? 'var(--admin-accent-cyan)' : 'var(--admin-text-main)',
-                        lineHeight: '1.3'
-                      }}>
-                        {wf.name}
-                      </h3>
-                    </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
+                    <span style={{ fontWeight: 600 }}>⚡ {wf.nodesCount} Nodes</span>
+                    <span style={{ opacity: 0.5 }}>•</span>
+                    <span style={{ fontWeight: 600 }}>🔑 {totalActiveKeys} Keys</span>
                   </div>
 
-                  {/* Right: Quick Summary Pills & Status Badge */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '3px 9px',
-                      borderRadius: '9999px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      background: isPublished ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                      color: isPublished ? '#10b981' : '#f59e0b',
-                      border: isPublished ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(245, 158, 11, 0.25)'
-                    }}>
-                      <span style={{
-                        width: '5px',
-                        height: '5px',
-                        borderRadius: '50%',
-                        background: isPublished ? '#10b981' : '#f59e0b',
-                        boxShadow: isPublished ? '0 0 6px #10b981' : 'none'
-                      }} />
-                      {isPublished ? 'ACTIVE' : 'DRAFT'}
-                    </div>
-
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    fontSize: '11.5px',
+                    fontWeight: 700
+                  }}>
+                    <span>{isExpanded ? 'Hide Details' : 'Show Details'}</span>
                     <span style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      background: 'var(--admin-bg-elevated)',
-                      color: 'var(--admin-text-sub)',
-                      border: '1px solid var(--admin-border-glass)'
-                    }}>
-                      ⚡ {wf.nodesCount} Nodes
-                    </span>
-
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      background: 'rgba(6, 182, 212, 0.08)',
-                      color: 'var(--admin-accent-cyan)',
-                      border: '1px solid rgba(6, 182, 212, 0.2)'
-                    }}>
-                      🎬 {wf.kieKeysCount ?? '?'}/{wf.backupKeysCount ?? '?'}
-                    </span>
-
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      background: 'rgba(16, 185, 129, 0.08)',
-                      color: '#10b981',
-                      border: '1px solid rgba(16, 185, 129, 0.2)'
-                    }}>
-                      🧠 {(wf.primaryLlmCount || 0) + (wf.backupLlmCount || 0)}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleWfExpand(wf.id);
-                      }}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        background: isExpanded ? 'rgba(6, 182, 212, 0.15)' : 'var(--admin-bg-elevated)',
-                        color: isExpanded ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
-                        border: '1px solid var(--admin-border-glass)',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {isExpanded ? 'Hide Details ▲' : 'View Details ▼'}
-                    </button>
+                      display: 'inline-block',
+                      fontSize: '9px',
+                      transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                    }}>▼</span>
                   </div>
                 </div>
 
-                {/* ── Expanded Content (Revealed on Click) ── */}
+                {/* ── Expanded Content (Smoothly Revealed on Click) ── */}
                 {isExpanded && (
-                  <div style={{
-                    padding: '18px 20px 20px 20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '14px',
-                    background: 'rgba(0, 0, 0, 0.15)',
-                    animation: 'adminFadeIn 0.2s ease'
-                  }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      marginTop: '12px',
+                      paddingTop: '12px',
+                      borderTop: '1px solid var(--admin-border-glass)'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {/* Metadata details */}
                     <div style={{
                       fontSize: '11.5px',
@@ -1452,7 +1392,7 @@ export default function WorkflowManagerView() {
                       flexDirection: 'column',
                       gap: '6px',
                       background: 'var(--admin-bg-elevated)',
-                      padding: '12px 14px',
+                      padding: '10px 12px',
                       borderRadius: '10px',
                       border: '1px solid var(--admin-border-glass)'
                     }}>
@@ -1476,7 +1416,7 @@ export default function WorkflowManagerView() {
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <div style={{
                         flex: 1,
-                        padding: '8px 12px',
+                        padding: '6px 10px',
                         borderRadius: '8px',
                         background: 'rgba(6, 182, 212, 0.08)',
                         border: '1px solid rgba(6, 182, 212, 0.2)',
@@ -1484,7 +1424,7 @@ export default function WorkflowManagerView() {
                         alignItems: 'center',
                         justifyContent: 'space-between'
                       }}>
-                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Kie.ai Video:</span>
+                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Kie.ai:</span>
                         <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-cyan)' }}>
                           {wf.kieKeysCount ?? '?'}
                         </span>
@@ -1492,7 +1432,7 @@ export default function WorkflowManagerView() {
 
                       <div style={{
                         flex: 1,
-                        padding: '8px 12px',
+                        padding: '6px 10px',
                         borderRadius: '8px',
                         background: 'rgba(139, 92, 246, 0.08)',
                         border: '1px solid rgba(139, 92, 246, 0.2)',
@@ -1500,7 +1440,7 @@ export default function WorkflowManagerView() {
                         alignItems: 'center',
                         justifyContent: 'space-between'
                       }}>
-                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Backup Video:</span>
+                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Backup:</span>
                         <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-accent-purple)' }}>
                           {wf.backupKeysCount ?? '?'}
                         </span>
@@ -1511,7 +1451,7 @@ export default function WorkflowManagerView() {
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <div style={{
                         flex: 1,
-                        padding: '8px 12px',
+                        padding: '6px 10px',
                         borderRadius: '8px',
                         background: 'rgba(16, 185, 129, 0.08)',
                         border: '1px solid rgba(16, 185, 129, 0.2)',
@@ -1527,7 +1467,7 @@ export default function WorkflowManagerView() {
 
                       <div style={{
                         flex: 1,
-                        padding: '8px 12px',
+                        padding: '6px 10px',
                         borderRadius: '8px',
                         background: 'rgba(245, 158, 11, 0.08)',
                         border: '1px solid rgba(245, 158, 11, 0.2)',
@@ -1543,10 +1483,10 @@ export default function WorkflowManagerView() {
                     </div>
 
                     {/* Downstream Engine Key Counters Row */}
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '6px' }}>
                       <div style={{
                         flex: 1,
-                        padding: '7px 10px',
+                        padding: '5px 8px',
                         borderRadius: '7px',
                         background: 'rgba(236, 72, 153, 0.08)',
                         border: '1px solid rgba(236, 72, 153, 0.2)',
@@ -1554,15 +1494,15 @@ export default function WorkflowManagerView() {
                         alignItems: 'center',
                         justifyContent: 'space-between'
                       }}>
-                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Voice (j2v):</span>
-                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#ec4899' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>Voice:</span>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#ec4899' }}>
                           {wf.j2vKeysCount ?? '?'}
                         </span>
                       </div>
 
                       <div style={{
                         flex: 1,
-                        padding: '7px 10px',
+                        padding: '5px 8px',
                         borderRadius: '7px',
                         background: 'rgba(59, 130, 246, 0.08)',
                         border: '1px solid rgba(59, 130, 246, 0.2)',
@@ -1570,15 +1510,15 @@ export default function WorkflowManagerView() {
                         alignItems: 'center',
                         justifyContent: 'space-between'
                       }}>
-                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>CloudConvert:</span>
-                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#3b82f6' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>CloudConv:</span>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#3b82f6' }}>
                           {wf.cloudConvertCount ?? '?'}
                         </span>
                       </div>
 
                       <div style={{
                         flex: 1,
-                        padding: '7px 10px',
+                        padding: '5px 8px',
                         borderRadius: '7px',
                         background: 'rgba(244, 63, 94, 0.08)',
                         border: '1px solid rgba(244, 63, 94, 0.2)',
@@ -1586,8 +1526,8 @@ export default function WorkflowManagerView() {
                         alignItems: 'center',
                         justifyContent: 'space-between'
                       }}>
-                        <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Zvid:</span>
-                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#f43f5e' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>Zvid:</span>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#f43f5e' }}>
                           {wf.zvidCount ?? '?'}
                         </span>
                       </div>
@@ -1598,7 +1538,7 @@ export default function WorkflowManagerView() {
                       display: 'flex',
                       gap: '8px',
                       marginTop: '6px',
-                      paddingTop: '12px',
+                      paddingTop: '10px',
                       borderTop: '1px solid var(--admin-border-glass)'
                     }}>
                       <a
@@ -1609,18 +1549,18 @@ export default function WorkflowManagerView() {
                         style={{
                           flex: 1,
                           textAlign: 'center',
-                          padding: '8px 12px',
+                          padding: '7px 10px',
                           borderRadius: '8px',
                           background: 'transparent',
                           border: '1px solid var(--admin-border-glass)',
                           color: 'var(--admin-text-main)',
-                          fontSize: '12px',
+                          fontSize: '11.5px',
                           fontWeight: 600,
                           textDecoration: 'none',
                           transition: 'all 0.15s ease'
                         }}
                       >
-                        ↗ Open in n8n Cloud
+                        ↗ Cloud View
                       </a>
 
                       <button
@@ -1629,18 +1569,18 @@ export default function WorkflowManagerView() {
                         disabled={isToggling}
                         style={{
                           flex: 1,
-                          padding: '8px 12px',
+                          padding: '7px 10px',
                           borderRadius: '8px',
                           border: isPublished ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
                           background: isPublished ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
                           color: isPublished ? '#ef4444' : '#10b981',
-                          fontSize: '12px',
+                          fontSize: '11.5px',
                           fontWeight: 700,
                           cursor: 'pointer',
                           transition: 'all 0.15s ease'
                         }}
                       >
-                        {isToggling ? 'Syncing...' : (isPublished ? '⏸️ Unpublish (Draft)' : '▶️ Publish (Active)')}
+                        {isToggling ? 'Syncing...' : (isPublished ? '⏸️ Unpublish' : '▶️ Publish')}
                       </button>
                     </div>
                   </div>
