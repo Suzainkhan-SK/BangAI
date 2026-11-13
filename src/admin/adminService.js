@@ -135,6 +135,10 @@ export const adminService = {
     adminFetch('append-zvid-keys', 'POST', { workflowId, newKeys }),
   removeZvidKeys: async (workflowId, keysToRemove) =>
     adminFetch('remove-zvid-keys', 'POST', { workflowId, keysToRemove }),
+  checkKeysBalance: async (service = 'all', workflowId = 'all') =>
+    adminFetch('check-keys-balance', 'POST', { service, workflowId }),
+  deleteExhaustedKeys: async (service = 'all', keysToDelete = [], targetWorkflows = 'all') =>
+    adminFetch('delete-exhausted-keys', 'POST', { service, keysToDelete, targetWorkflows }),
   toggleWorkflowPublish: async (workflowId, publish) =>
     adminFetch('toggle-workflow-publish', 'POST', { workflowId, publish }),
   universalTogglePublish: async (publish) =>

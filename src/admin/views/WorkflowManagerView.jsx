@@ -59,6 +59,106 @@ export default function WorkflowManagerView() {
   const isVideo = managerCategory === 'video';
   const isBackup = videoProvider === 'backup';
   const isErrorRecovery = managerCategory === 'error_recovery';
+  const isBalanceChecker = managerCategory === 'balance_checker';
+
+  // Balance & Health Manager State
+  const [balanceService, setBalanceService] = useState('all');
+  const [balanceWorkflow, setBalanceWorkflow] = useState('all');
+  const [balanceResults, setBalanceResults] = useState([]);
+  const [balanceSummary, setBalanceSummary] = useState(null);
+  const [checkingBalances, setCheckingBalances] = useState(false);
+  const [balanceSearchTerm, setBalanceSearchTerm] = useState('');
+  const [balanceStatusFilter, setBalanceStatusFilter] = useState('all');
+  const [selectedKeysToDelete, setSelectedKeysToDelete] = useState(new Set());
+  const [deletingExhausted, setDeletingExhausted] = useState(false);
+  const [inspectModalData, setInspectModalData] = useState(null);
+
+  const fetchKeysBalance = async (svc = balanceService, wf = balanceWorkflow) => {
+    setCheckingBalances(true);
+    setLogs(prev => [
+      ...prev,
+      `[${new Date().toLocaleTimeString()}] 🔍 Starting real-time API Key balance & quota inspection (${svc.toUpperCase()})...`
+    ]);
+    try {
+      const res = await adminService.checkKeysBalance(svc, wf);
+      if (res && res.success) {
+        setBalanceResults(res.results || []);
+        setBalanceSummary(res.summary || null);
+        setSelectedKeysToDelete(new Set());
+        setLogs(prev => [
+          ...prev,
+          `[${new Date().toLocaleTimeString()}] ✅ Verified ${res.summary?.totalChecked || 0} API keys. Active: ${res.summary?.activeCount || 0}, Exhausted: ${res.summary?.exhaustedCount || 0}, Invalid: ${res.summary?.invalidCount || 0}`
+        ]);
+        setToastMsg(`Verified ${res.summary?.totalChecked || 0} API keys successfully!`);
+      } else {
+        setToastMsg(`⚠️ Failed: ${res?.error || 'Unknown balance query error'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    } finally {
+      setCheckingBalances(false);
+      setTimeout(() => setToastMsg(''), 5000);
+    }
+  };
+
+  const handleDeleteExhausted = async (keys, svc = balanceService, wfTarget = balanceWorkflow) => {
+    const list = Array.isArray(keys) ? keys : [keys];
+    if (list.length === 0) {
+      alert('Please select at least one key to delete.');
+      return;
+    }
+
+    const wfDesc = wfTarget === 'all' ? 'ALL 7 Flagship Workflows' : `Workflow ${wfTarget}`;
+    const confirmed = window.confirm(
+      `⚠️ CONFIRM KEY PURGE:\n\n` +
+      `Are you sure you want to permanently delete ${list.length} API key(s) from ${wfDesc} and MongoDB Atlas?\n\n` +
+      `This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingExhausted(true);
+    setLogs(prev => [
+      ...prev,
+      `[${new Date().toLocaleTimeString()}] 🗑️ Purging ${list.length} key(s) from ${wfDesc}...`
+    ]);
+
+    try {
+      const res = await adminService.deleteExhaustedKeys(svc, list, wfTarget);
+      if (res && res.success) {
+        setLogs(prev => [
+          ...prev,
+          `[${new Date().toLocaleTimeString()}] ✅ ${res.message}`
+        ]);
+        setToastMsg(`✅ Purged ${list.length} key(s) successfully!`);
+        fetchKeysBalance(balanceService, balanceWorkflow);
+        fetchWorkflows(true);
+      } else {
+        setToastMsg(`⚠️ Error: ${res?.error || 'Failed to delete keys'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    } finally {
+      setDeletingExhausted(false);
+      setTimeout(() => setToastMsg(''), 5000);
+    }
+  };
+
+  const toggleSelectKeyToDelete = (key) => {
+    setSelectedKeysToDelete(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const selectAllFilteredKeys = (filteredList) => {
+    if (selectedKeysToDelete.size === filteredList.length) {
+      setSelectedKeysToDelete(new Set());
+    } else {
+      setSelectedKeysToDelete(new Set(filteredList.map(r => r.key)));
+    }
+  };
 
   // Error & Recovery Center State
   const [errorSettings, setErrorSettings] = useState({
@@ -467,6 +567,23 @@ export default function WorkflowManagerView() {
     const term = keySearchTerm.toLowerCase().trim();
     return activeDisplayKeys.filter(k => k.toLowerCase().includes(term));
   }, [activeDisplayKeys, keySearchTerm]);
+
+  // Balance & Health Manager filtered results
+  const filteredBalanceResults = useMemo(() => {
+    return balanceResults.filter(item => {
+      if (balanceStatusFilter !== 'all' && item.status !== balanceStatusFilter) {
+        return false;
+      }
+      if (balanceSearchTerm) {
+        const q = balanceSearchTerm.toLowerCase();
+        const matchesKey = item.key?.toLowerCase().includes(q) || item.maskedKey?.toLowerCase().includes(q);
+        const matchesService = item.serviceLabel?.toLowerCase().includes(q) || item.service?.toLowerCase().includes(q);
+        const matchesWf = item.workflows?.some(w => w.toLowerCase().includes(q));
+        if (!matchesKey && !matchesService && !matchesWf) return false;
+      }
+      return true;
+    });
+  }, [balanceResults, balanceStatusFilter, balanceSearchTerm]);
 
   // Detected key counts for inputs
   const detectedAppendCount = useMemo(() => {
@@ -1846,6 +1963,48 @@ export default function WorkflowManagerView() {
               Active Shield
             </span>
           </button>
+
+          {/* Category Tab: API Keys Balance & Multi-Workflow Health Manager */}
+          <button
+            type="button"
+            onClick={() => {
+              setManagerCategory('balance_checker');
+              setKeySearchTerm('');
+              if (balanceResults.length === 0) {
+                fetchKeysBalance('all', 'all');
+              }
+            }}
+            style={{
+              flex: '1 1 200px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: isBalanceChecker ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid transparent',
+              background: isBalanceChecker
+                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(6, 182, 212, 0.18) 100%)'
+                : 'transparent',
+              color: isBalanceChecker ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '7px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '15px' }}>💳</span>
+            <span>API Balances & Deletion</span>
+            <span style={{
+              fontSize: '10.5px',
+              padding: '1px 6px',
+              borderRadius: '9999px',
+              background: isBalanceChecker ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              color: isBalanceChecker ? '#10b981' : 'var(--admin-text-sub)'
+            }}>
+              Live Health
+            </span>
+          </button>
         </div>
 
         {/* Dispatcher Sub-Header & Controls */}
@@ -2749,8 +2908,711 @@ export default function WorkflowManagerView() {
           </div>
         )}
 
-        {/* Action Controls Bar: Target Selector & Append vs Manage Tabs */}
-        {!isErrorRecovery && (
+        {/* ========================================================== */}
+        {/* [NEW CATEGORY] API KEYS BALANCE & HEALTH MANAGEMENT CENTER */}
+        {/* ========================================================== */}
+        {isBalanceChecker && (
+          <div style={{ marginTop: '10px' }}>
+            {/* Header & Subtitle */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '14px',
+              paddingBottom: '16px',
+              borderBottom: '1px solid var(--admin-border-glass)',
+              marginBottom: '18px'
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '20px' }}>💳</span>
+                  <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                    Universal API Keys Balance & Multi-Workflow Health Manager
+                  </h2>
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#10b981',
+                    fontWeight: 800,
+                    border: '1px solid rgba(16, 185, 129, 0.3)'
+                  }}>
+                    Live Probing Active
+                  </span>
+                </div>
+                <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                  Query real-time credits, token quotas, and financial balances across all 7 services. Purge zero-credit or dead keys from all workflows simultaneously.
+                </p>
+              </div>
+
+              {/* Top Action Buttons */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => fetchKeysBalance(balanceService, balanceWorkflow)}
+                  disabled={checkingBalances}
+                  className="admin-btn admin-btn-primary"
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '12.5px',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span style={{ display: 'inline-block', transform: checkingBalances ? 'rotate(360deg)' : 'none', transition: 'transform 0.8s linear' }}>
+                    {checkingBalances ? '⏳' : '🔄'}
+                  </span>
+                  <span>{checkingBalances ? 'Inspecting Balances...' : 'Check All Balances'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter & Target Controls Bar */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+              background: 'var(--admin-bg-elevated)',
+              padding: '12px 16px',
+              borderRadius: '12px',
+              border: '1px solid var(--admin-border-glass)',
+              marginBottom: '16px'
+            }}>
+              {/* Service Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
+                  Service Engine:
+                </span>
+                <select
+                  value={balanceService}
+                  onChange={(e) => {
+                    const nextSvc = e.target.value;
+                    setBalanceService(nextSvc);
+                    fetchKeysBalance(nextSvc, balanceWorkflow);
+                  }}
+                  className="admin-input"
+                  style={{ minWidth: '220px', padding: '6px 10px', fontSize: '12px', fontWeight: 600 }}
+                >
+                  <option value="all">🌐 All Services (Universal)</option>
+                  <option value="kie">⚡ Kie.ai Primary Video (1080p Veo)</option>
+                  <option value="youbot">🛡️ You.bot Backup Video (Grok Imagine)</option>
+                  <option value="xkiro">🧠 xKiro AI Primary LLM (Mistral Large)</option>
+                  <option value="rapidapi">🤖 RapidAPI Backup LLM</option>
+                  <option value="j2v">🎙️ json2video Voiceover Engine</option>
+                  <option value="cloudconvert">🔄 CloudConvert Audio Bridge</option>
+                  <option value="zvid">🎬 Zvid.io Cloud Render Engine</option>
+                </select>
+              </div>
+
+              {/* Target Workflow Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
+                  Target Workflow:
+                </span>
+                <select
+                  value={balanceWorkflow}
+                  onChange={(e) => {
+                    const nextWf = e.target.value;
+                    setBalanceWorkflow(nextWf);
+                    fetchKeysBalance(balanceService, nextWf);
+                  }}
+                  className="admin-input"
+                  style={{ minWidth: '220px', padding: '6px 10px', fontSize: '12px', fontWeight: 600 }}
+                >
+                  <option value="all">🌐 ALL 7 Flagship Workflows (Universal)</option>
+                  {flagshipWorkflows.map(wf => (
+                    <option key={wf.id} value={wf.id}>
+                      {wf.name.length > 40 ? wf.name.slice(0, 37) + '...' : wf.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Search Keys Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '200px', maxWidth: '320px' }}>
+                <input
+                  type="text"
+                  placeholder="Filter key, service, or workflow..."
+                  value={balanceSearchTerm}
+                  onChange={(e) => setBalanceSearchTerm(e.target.value)}
+                  className="admin-input"
+                  style={{ width: '100%', padding: '6px 10px', fontSize: '12px' }}
+                />
+              </div>
+            </div>
+
+            {/* Metrics Counter Cards */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gap: '10px',
+              marginBottom: '16px'
+            }}>
+              <div style={{
+                background: 'var(--admin-bg-elevated)',
+                border: '1px solid var(--admin-border-glass)',
+                padding: '12px',
+                borderRadius: '10px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Total Keys Verified</div>
+                <div style={{ fontSize: '20px', fontWeight: 900, color: 'var(--admin-text-main)', marginTop: '2px' }}>
+                  {balanceSummary?.totalChecked || balanceResults.length}
+                </div>
+              </div>
+
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                padding: '12px',
+                borderRadius: '10px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 700 }}>Active & Funded</div>
+                <div style={{ fontSize: '20px', fontWeight: 900, color: '#10b981', marginTop: '2px' }}>
+                  {balanceSummary?.activeCount || balanceResults.filter(r => r.status === 'active').length}
+                </div>
+              </div>
+
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                padding: '12px',
+                borderRadius: '10px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 700 }}>Low Quota</div>
+                <div style={{ fontSize: '20px', fontWeight: 900, color: '#f59e0b', marginTop: '2px' }}>
+                  {balanceSummary?.lowCount || balanceResults.filter(r => r.status === 'low').length}
+                </div>
+              </div>
+
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                padding: '12px',
+                borderRadius: '10px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>Exhausted (0 Credits)</div>
+                <div style={{ fontSize: '20px', fontWeight: 900, color: '#ef4444', marginTop: '2px' }}>
+                  {balanceSummary?.exhaustedCount || balanceResults.filter(r => r.status === 'exhausted').length}
+                </div>
+              </div>
+
+              <div style={{
+                background: 'rgba(168, 85, 247, 0.08)',
+                border: '1px solid rgba(168, 85, 247, 0.25)',
+                padding: '12px',
+                borderRadius: '10px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '11px', color: '#a855f7', fontWeight: 700 }}>Invalid / Expired</div>
+                <div style={{ fontSize: '20px', fontWeight: 900, color: '#a855f7', marginTop: '2px' }}>
+                  {balanceSummary?.invalidCount || balanceResults.filter(r => r.status === 'invalid').length}
+                </div>
+              </div>
+            </div>
+
+            {/* Bulk Deletion & Status Filter Bar */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              marginBottom: '12px'
+            }}>
+              {/* Status Filter Buttons */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {[
+                  { id: 'all', label: 'All Keys' },
+                  { id: 'active', label: '🟢 Active' },
+                  { id: 'low', label: '🟡 Low' },
+                  { id: 'exhausted', label: '🔴 Exhausted' },
+                  { id: 'invalid', label: '⛔ Invalid' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setBalanceStatusFilter(tab.id)}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      border: balanceStatusFilter === tab.id ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
+                      background: balanceStatusFilter === tab.id ? 'rgba(6, 182, 212, 0.2)' : 'var(--admin-bg-elevated)',
+                      color: balanceStatusFilter === tab.id ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)'
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Bulk Action Buttons */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {selectedKeysToDelete.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteExhausted(Array.from(selectedKeysToDelete), balanceService, balanceWorkflow)}
+                    disabled={deletingExhausted}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      borderRadius: '8px',
+                      border: '1px solid rgba(239, 68, 68, 0.5)',
+                      background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.85) 0%, rgba(185, 28, 28, 0.95) 100%)',
+                      color: '#fff',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🗑️ Delete Selected ({selectedKeysToDelete.size} Keys)
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const zeroKeys = balanceResults.filter(r => r.status === 'exhausted').map(r => r.key);
+                    handleDeleteExhausted(zeroKeys, balanceService, balanceWorkflow);
+                  }}
+                  disabled={deletingExhausted || balanceResults.filter(r => r.status === 'exhausted').length === 0}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    borderRadius: '8px',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    color: '#ef4444',
+                    cursor: balanceResults.filter(r => r.status === 'exhausted').length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: balanceResults.filter(r => r.status === 'exhausted').length === 0 ? 0.5 : 1
+                  }}
+                >
+                  ⚡ Purge All 0-Credit Keys ({balanceResults.filter(r => r.status === 'exhausted').length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const deadKeys = balanceResults.filter(r => r.status === 'invalid').map(r => r.key);
+                    handleDeleteExhausted(deadKeys, balanceService, balanceWorkflow);
+                  }}
+                  disabled={deletingExhausted || balanceResults.filter(r => r.status === 'invalid').length === 0}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    borderRadius: '8px',
+                    border: '1px solid rgba(168, 85, 247, 0.35)',
+                    background: 'rgba(168, 85, 247, 0.15)',
+                    color: '#a855f7',
+                    cursor: balanceResults.filter(r => r.status === 'invalid').length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: balanceResults.filter(r => r.status === 'invalid').length === 0 ? 0.5 : 1
+                  }}
+                >
+                  ⛔ Purge All Invalid Keys ({balanceResults.filter(r => r.status === 'invalid').length})
+                </button>
+              </div>
+            </div>
+
+            {/* Live Balances Data Table */}
+            <div style={{
+              background: 'var(--admin-bg-elevated)',
+              border: '1px solid var(--admin-border-glass)',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              marginBottom: '20px'
+            }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+                  <thead>
+                    <tr style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      borderBottom: '1px solid var(--admin-border-glass)',
+                      color: 'var(--admin-text-sub)',
+                      fontSize: '11px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>
+                      <th style={{ padding: '10px 14px', width: '38px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={filteredBalanceResults.length > 0 && selectedKeysToDelete.size === filteredBalanceResults.length}
+                          onChange={() => selectAllFilteredKeys(filteredBalanceResults)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </th>
+                      <th style={{ padding: '10px 14px' }}>API Key Identifier</th>
+                      <th style={{ padding: '10px 14px' }}>Service Engine</th>
+                      <th style={{ padding: '10px 14px' }}>Current Balance / Quota</th>
+                      <th style={{ padding: '10px 14px' }}>Health Status</th>
+                      <th style={{ padding: '10px 14px' }}>Active In Workflows</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {checkingBalances && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: '36px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+                          <div style={{ fontSize: '24px', marginBottom: '8px' }}>⏳</div>
+                          <div style={{ fontWeight: 700 }}>Probing live API balances across providers...</div>
+                          <div style={{ fontSize: '11.5px', marginTop: '4px' }}>Querying Kie.ai, You.bot, xKiro, Zvid, and CloudConvert</div>
+                        </td>
+                      </tr>
+                    )}
+
+                    {!checkingBalances && filteredBalanceResults.length === 0 && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: '36px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+                          <div style={{ fontSize: '22px', marginBottom: '6px' }}>🔍</div>
+                          <div style={{ fontWeight: 700 }}>No API keys found matching current filter.</div>
+                          <div style={{ fontSize: '11.5px', marginTop: '4px' }}>
+                            Click &ldquo;Check All Balances&rdquo; or select another service engine above.
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+
+                    {!checkingBalances && filteredBalanceResults.map((item, idx) => {
+                      const isSelected = selectedKeysToDelete.has(item.key);
+                      const statusColor =
+                        item.status === 'active' ? '#10b981' :
+                        item.status === 'low' ? '#f59e0b' :
+                        item.status === 'exhausted' ? '#ef4444' :
+                        item.status === 'invalid' ? '#a855f7' : 'var(--admin-text-sub)';
+
+                      const statusBg =
+                        item.status === 'active' ? 'rgba(16, 185, 129, 0.12)' :
+                        item.status === 'low' ? 'rgba(245, 158, 11, 0.12)' :
+                        item.status === 'exhausted' ? 'rgba(239, 68, 68, 0.12)' :
+                        item.status === 'invalid' ? 'rgba(168, 85, 247, 0.12)' : 'rgba(255, 255, 255, 0.05)';
+
+                      return (
+                        <tr
+                          key={`${item.service}-${item.key}-${idx}`}
+                          style={{
+                            borderBottom: '1px solid var(--admin-border-glass)',
+                            background: isSelected ? 'rgba(239, 68, 68, 0.05)' : 'transparent',
+                            transition: 'background 0.15s ease'
+                          }}
+                        >
+                          {/* Checkbox */}
+                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectKeyToDelete(item.key)}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </td>
+
+                          {/* Key & Copy */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <code style={{
+                                fontFamily: 'var(--admin-font-mono)',
+                                fontSize: '11.5px',
+                                color: 'var(--admin-text-main)',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                              }}>
+                                {item.maskedKey}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(item.key);
+                                  setCopiedKey(item.key);
+                                  setTimeout(() => setCopiedKey(''), 2000);
+                                }}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: copiedKey === item.key ? '#10b981' : 'var(--admin-text-sub)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer',
+                                  padding: '2px 4px'
+                                }}
+                                title="Copy full API key"
+                              >
+                                {copiedKey === item.key ? '✓' : '📋'}
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* Service Label */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              color: 'var(--admin-text-main)'
+                            }}>
+                              {item.serviceLabel}
+                            </span>
+                          </td>
+
+                          {/* Real-time Balance */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{
+                                fontSize: '13px',
+                                fontWeight: 800,
+                                color: item.status === 'exhausted' || item.status === 'invalid' ? '#ef4444' : '#10b981'
+                              }}>
+                                {item.balanceFormatted}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Status Tag */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              padding: '3px 8px',
+                              borderRadius: '9999px',
+                              background: statusBg,
+                              color: statusColor,
+                              border: `1px solid ${statusColor}40`,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              textTransform: 'uppercase'
+                            }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColor }}></span>
+                              {item.status}
+                            </span>
+                          </td>
+
+                          {/* Active Workflows */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '300px' }}>
+                              {(item.workflows || []).map((wfName, wIdx) => (
+                                <span
+                                  key={wIdx}
+                                  style={{
+                                    fontSize: '10.5px',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    background: 'rgba(6, 182, 212, 0.08)',
+                                    color: 'var(--admin-accent-cyan)',
+                                    border: '1px solid rgba(6, 182, 212, 0.2)',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                  title={wfName}
+                                >
+                                  {wfName.length > 22 ? wfName.slice(0, 20) + '...' : wfName}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '6px' }}>
+                              <button
+                                type="button"
+                                onClick={() => setInspectModalData(item)}
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--admin-border-glass)',
+                                  background: 'var(--admin-bg-elevated)',
+                                  color: 'var(--admin-text-main)',
+                                  cursor: 'pointer'
+                                }}
+                                title="Inspect raw balance response"
+                              >
+                                🔍 Inspect
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteExhausted([item.key], item.service, balanceWorkflow)}
+                                disabled={deletingExhausted}
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  color: '#ef4444',
+                                  cursor: 'pointer'
+                                }}
+                                title="Purge key from workflows"
+                              >
+                                🗑️ Purge
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Raw Inspect Modal Dialog */}
+            {inspectModalData && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.75)',
+                backdropFilter: 'blur(4px)',
+                zIndex: 9999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px'
+              }}>
+                <div style={{
+                  background: 'var(--admin-bg-surface)',
+                  border: '1px solid var(--admin-border-glass)',
+                  borderRadius: '14px',
+                  width: '100%',
+                  maxWidth: '560px',
+                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    padding: '14px 18px',
+                    borderBottom: '1px solid var(--admin-border-glass)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '18px' }}>🔍</span>
+                      <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                        API Key Balance Inspection
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setInspectModalData(null)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--admin-text-sub)',
+                        fontSize: '18px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div style={{ padding: '16px 18px', maxHeight: '420px', overflowY: 'auto' }}>
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Service Provider:</div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--admin-text-main)' }}>
+                        {inspectModalData.serviceLabel}
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Full API Key:</div>
+                      <div style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        fontFamily: 'var(--admin-font-mono)',
+                        fontSize: '11.5px',
+                        wordBreak: 'break-all',
+                        marginTop: '3px'
+                      }}>
+                        {inspectModalData.key}
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Real-Time Balance & Quota:</div>
+                      <div style={{ fontSize: '15px', fontWeight: 900, color: '#10b981', marginTop: '2px' }}>
+                        {inspectModalData.balanceFormatted}
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Verification Details:</div>
+                      <div style={{ fontSize: '12px', color: 'var(--admin-text-main)', marginTop: '2px' }}>
+                        {inspectModalData.details || 'Verified via live HTTPS query'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Installed Workflows:</div>
+                      <ul style={{ margin: '4px 0 0 0', paddingLeft: '18px', fontSize: '12px', color: 'var(--admin-accent-cyan)' }}>
+                        {(inspectModalData.workflows || []).map((w, wIdx) => (
+                          <li key={wIdx}>{w}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    padding: '12px 18px',
+                    borderTop: '1px solid var(--admin-border-glass)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDeleteExhausted([inspectModalData.key], inspectModalData.service, balanceWorkflow);
+                        setInspectModalData(null);
+                      }}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: 800,
+                        borderRadius: '6px',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        color: '#ef4444',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🗑️ Delete from Workflows
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInspectModalData(null)}
+                      className="admin-btn admin-btn-secondary"
+                      style={{ padding: '6px 14px', fontSize: '12px' }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action Controls Bar: Target Selector & Append vs Manage Tabs (Kept 100% Intact) */}
+        {!isErrorRecovery && !isBalanceChecker && (
           <div>
             <div style={{
               display: 'flex',

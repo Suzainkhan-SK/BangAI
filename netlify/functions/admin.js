@@ -3673,20 +3673,68 @@ export async function handler(event) {
             .filter(Boolean);
         }
 
-        const parsedNewEntries = keysToAdd.map(line => {
+        const rawEntries = keysToAdd.map(line => {
           const cleanLine = line.replace(/["'\[\]]/g, '').trim();
           if (cleanLine.includes(',')) {
             const [k, p] = cleanLine.split(',').map(s => s.trim());
-            return { apiKey: k, projectId: p || crypto.randomBytes(8).toString('hex') };
+            return { apiKey: k, projectId: p || '' };
           }
-          return { apiKey: cleanLine, projectId: crypto.randomBytes(8).toString('hex') };
+          return { apiKey: cleanLine, projectId: '' };
         }).filter(e => e.apiKey && e.apiKey.length > 5);
+
+        if (rawEntries.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please enter at least one valid json2video API key.' })
+          };
+        }
+
+        // Programmatic 1s Anchor Render: Automatically acquire genuine project IDs for all keys
+        const parsedNewEntries = [];
+        const failedKeys = [];
+        for (const entry of rawEntries) {
+          let pid = entry.projectId;
+          if (!pid) {
+            try {
+              const renderRes = await fetch('https://api.json2video.com/v2/movies', {
+                method: 'POST',
+                headers: {
+                  'x-api-key': entry.apiKey,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  comment: 'BangAI Quota Anchor',
+                  scenes: [
+                    { duration: 1, elements: [{ type: 'text', text: ' ' }] }
+                  ]
+                })
+              });
+              const rJson = await renderRes.json().catch(() => ({}));
+              if (rJson && rJson.project) {
+                pid = rJson.project;
+              } else {
+                failedKeys.push({ key: entry.apiKey, error: rJson?.message || `HTTP ${renderRes.status}` });
+                continue;
+              }
+            } catch (renderErr) {
+              failedKeys.push({ key: entry.apiKey, error: renderErr.message });
+              continue;
+            }
+          }
+          if (pid) {
+            parsedNewEntries.push({ apiKey: entry.apiKey, projectId: pid });
+          }
+        }
 
         if (parsedNewEntries.length === 0) {
           return {
             statusCode: 400,
             headers: corsHeaders,
-            body: JSON.stringify({ success: false, error: 'Please enter at least one valid json2video API key.' })
+            body: JSON.stringify({
+              success: false,
+              error: `Could not validate any json2video API keys. Preflight 1s anchor render failed: ${failedKeys.map(f => `${f.key.slice(0, 8)}... (${f.error})`).join(', ')}`
+            })
           };
         }
 
@@ -4523,6 +4571,736 @@ export async function handler(event) {
             message: `Successfully processed ${results.length} workflow(s). Purged keys from ${totalNodesUpdated} node(s) in n8n Cloud.`,
             results,
             keysRemovedCount: keysToDelete.length
+          })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [11H] API KEYS BALANCE & HEALTH CHECKER (UNIVERSAL & PER-SERVICE)
+      // ----------------------------------------------------
+      case 'check-keys-balance': {
+        const { service = 'all', workflowId = 'all' } = body;
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZjZiNDZmNi03OTZiLTQzMDItYTc1ZS1lZDVjNTJhODI0NWYiLCJpc3MiOiJuOG4iLCJqdGkiOiJiZjAwMTAxYS0xZGJjLTRmNTQtODdlYS1kZDQ5ZDFjMTNjNDYiLCJpYXQiOjE3OTM0NTk2MjQsImF1ZCI6Im1jcC1zZXJ2ZXItYXBpIn0.cKjDmcneQoshSuao5EX02iYxgR-t0g-qtZwKrS8BBOs';
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'A4s2dIVpTYjwD3lf';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'exaQpnmvc8ZUnycB';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'EZpRl12fM7boUeok';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'B0yd2hE0ktnpk80j';
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || 'qwuEcuquhRbBlzXK';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'JiFCodgENcjVEetF';
+        const islamicStoriesId = n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: islamicStoriesId, name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        // Map to collect distinct keys and which workflows they appear in:
+        // Key: `${service}:::${key}` -> { service, key, projectId, workflows: Set<string> }
+        const keyMap = new Map();
+
+        // 1. Scan target workflows in n8n Cloud
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id, detailLevel: 'full' });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) continue;
+
+            for (const node of wf.nodes) {
+              const code = node.parameters?.jsCode || '';
+
+              // A. Kie.ai Primary Video
+              if ((service === 'all' || service === 'kie') && (node.name.startsWith('Config: Primary Video Master') || node.name === 'Config: Kie Image Master')) {
+                const match = code.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                if (match) {
+                  const km = match[1].match(/["']([^"']+)["']/g);
+                  if (km) {
+                    km.map(s => s.replace(/["']/g, '').trim()).filter(k => k.length > 5).forEach(k => {
+                      const id = `kie:::${k}`;
+                      if (!keyMap.has(id)) keyMap.set(id, { service: 'kie', serviceLabel: 'Kie.ai Primary Video', key: k, workflows: new Set() });
+                      keyMap.get(id).workflows.add(target.name);
+                    });
+                  }
+                }
+              }
+
+              // B. Backup Video (You.bot)
+              if ((service === 'all' || service === 'youbot') && node.name.startsWith('Config: Backup Video Master')) {
+                const match = code.match(/const\s+backupVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                if (match) {
+                  const km = match[1].match(/["']([^"']+)["']/g);
+                  if (km) {
+                    km.map(s => s.replace(/["']/g, '').trim()).filter(k => k.length > 5).forEach(k => {
+                      const id = `youbot:::${k}`;
+                      if (!keyMap.has(id)) keyMap.set(id, { service: 'youbot', serviceLabel: 'You.bot Backup Video', key: k, workflows: new Set() });
+                      keyMap.get(id).workflows.add(target.name);
+                    });
+                  }
+                }
+              }
+
+              // C. Primary LLM (xKiro)
+              if ((service === 'all' || service === 'xkiro') && (node.name === 'Config: Primary LLM Master' || node.name === 'Config: Topic Analyzer LLM Master')) {
+                const match = code.match(/const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                if (match) {
+                  const km = match[1].match(/["']([^"']+)["']/g);
+                  if (km) {
+                    km.map(s => s.replace(/["']/g, '').trim()).filter(k => k.length > 5).forEach(k => {
+                      const id = `xkiro:::${k}`;
+                      if (!keyMap.has(id)) keyMap.set(id, { service: 'xkiro', serviceLabel: 'xKiro AI Primary LLM', key: k, workflows: new Set() });
+                      keyMap.get(id).workflows.add(target.name);
+                    });
+                  }
+                }
+              }
+
+              // D. Backup LLM (RapidAPI)
+              if ((service === 'all' || service === 'rapidapi') && (node.name === 'Config: Backup LLM Master' || node.name === 'Config: Strategy Backup LLM Master')) {
+                const match = code.match(/const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                if (match) {
+                  const km = match[1].match(/["']([^"']+)["']/g);
+                  if (km) {
+                    km.map(s => s.replace(/["']/g, '').trim()).filter(k => k.length > 5).forEach(k => {
+                      const id = `rapidapi:::${k}`;
+                      if (!keyMap.has(id)) keyMap.set(id, { service: 'rapidapi', serviceLabel: 'RapidAPI Backup LLM', key: k, workflows: new Set() });
+                      keyMap.get(id).workflows.add(target.name);
+                    });
+                  }
+                }
+              }
+
+              // E. json2video Voiceover
+              if ((service === 'all' || service === 'j2v') && node.name === 'Config: json2video Keys') {
+                const objRegex = /\{\s*json:\s*\{\s*apiKey:\s*["']([^"']+)["'](?:,\s*projectId:\s*["']([^"']+)["'])?\s*\}\s*\}/g;
+                let om;
+                while ((om = objRegex.exec(code)) !== null) {
+                  const k = om[1].trim();
+                  const p = (om[2] || '').trim();
+                  if (k.length > 5) {
+                    const id = `j2v:::${k}`;
+                    if (!keyMap.has(id)) keyMap.set(id, { service: 'j2v', serviceLabel: 'json2video Voiceover', key: k, projectId: p, workflows: new Set() });
+                    if (p && !keyMap.get(id).projectId) keyMap.get(id).projectId = p;
+                    keyMap.get(id).workflows.add(target.name);
+                  }
+                }
+              }
+
+              // F. CloudConvert Audio Bridge
+              if ((service === 'all' || service === 'cloudconvert') && node.name === 'Config: CloudConvert Master') {
+                const match = code.match(/const\s+cloudConvertTokens\s*=\s*\[([\s\S]*?)\];/);
+                if (match) {
+                  const km = match[1].match(/["']([^"']+)["']/g);
+                  if (km) {
+                    km.map(s => s.replace(/["']/g, '').trim()).filter(k => k.length > 10).forEach(k => {
+                      const id = `cloudconvert:::${k}`;
+                      if (!keyMap.has(id)) keyMap.set(id, { service: 'cloudconvert', serviceLabel: 'CloudConvert Audio Bridge', key: k, workflows: new Set() });
+                      keyMap.get(id).workflows.add(target.name);
+                    });
+                  }
+                }
+              }
+
+              // G. Zvid Cloud Render
+              if ((service === 'all' || service === 'zvid') && node.name === 'Config: Zvid Master') {
+                const match = code.match(/const\s+zvidApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                if (match) {
+                  const km = match[1].match(/["']([^"']+)["']/g);
+                  if (km) {
+                    km.map(s => s.replace(/["']/g, '').trim()).filter(k => k.length > 5).forEach(k => {
+                      const id = `zvid:::${k}`;
+                      if (!keyMap.has(id)) keyMap.set(id, { service: 'zvid', serviceLabel: 'Zvid Cloud Render Engine', key: k, workflows: new Set() });
+                      keyMap.get(id).workflows.add(target.name);
+                    });
+                  }
+                }
+              }
+            }
+          } catch (wfErr) {
+            console.warn(`[check-keys-balance] Workflow scan warning on ${target.id}:`, wfErr.message);
+          }
+        }
+
+        // 2. Also incorporate keys from MongoDB Atlas if pool exists (ensuring 100% visibility)
+        try {
+          const keysCol = db.collection('api_keys');
+          const [kieDoc, backupDoc, llmDoc, j2vDoc, ccDoc, zvidDoc] = await Promise.all([
+            (service === 'all' || service === 'kie') ? keysCol.findOne({ _id: 'kie_video_keys' }) : null,
+            (service === 'all' || service === 'youbot') ? keysCol.findOne({ _id: 'backup_video_keys' }) : null,
+            (service === 'all' || service === 'xkiro') ? keysCol.findOne({ _id: 'primary_llm_keys' }) : null,
+            (service === 'all' || service === 'j2v') ? keysCol.findOne({ _id: 'json2video_keys' }) : null,
+            (service === 'all' || service === 'cloudconvert') ? keysCol.findOne({ _id: 'cloudconvert_keys' }) : null,
+            (service === 'all' || service === 'zvid') ? keysCol.findOne({ _id: 'zvid_keys' }) : null
+          ]);
+
+          const mergeMongo = (doc, svc, label) => {
+            if (!doc) return;
+            const arr = doc.keys || doc.pool || [];
+            arr.forEach(item => {
+              const k = typeof item === 'string' ? item : item.key;
+              if (k && k.length > 5) {
+                const id = `${svc}:::${k}`;
+                if (!keyMap.has(id)) {
+                  keyMap.set(id, { service: svc, serviceLabel: label, key: k, workflows: new Set(['MongoDB Pool']) });
+                }
+              }
+            });
+          };
+
+          mergeMongo(kieDoc, 'kie', 'Kie.ai Primary Video');
+          mergeMongo(backupDoc, 'youbot', 'You.bot Backup Video');
+          mergeMongo(llmDoc, 'xkiro', 'xKiro AI Primary LLM');
+          mergeMongo(j2vDoc, 'j2v', 'json2video Voiceover');
+          mergeMongo(ccDoc, 'cloudconvert', 'CloudConvert Audio Bridge');
+          mergeMongo(zvidDoc, 'zvid', 'Zvid Cloud Render Engine');
+        } catch (dbErr) {
+          console.warn('[check-keys-balance] MongoDB pool query warning:', dbErr.message);
+        }
+
+        const entriesToCheck = Array.from(keyMap.values());
+
+        // 3. Parallel Health & Balance Check Dispatcher (Concurrency limit: 6)
+        const checkEntry = async (entry) => {
+          const k = entry.key;
+          const svc = entry.service;
+          const masked = k.length > 16 ? `${k.slice(0, 8)}...${k.slice(-6)}` : `${k.slice(0, 4)}...`;
+          const baseResult = {
+            key: k,
+            maskedKey: masked,
+            service: svc,
+            serviceLabel: entry.serviceLabel,
+            workflows: Array.from(entry.workflows),
+            balance: 0,
+            balanceFormatted: '0',
+            balanceUnit: 'credits',
+            status: 'unknown',
+            details: '',
+            lastChecked: new Date().toISOString()
+          };
+
+          try {
+            // A. Kie.ai Primary Video (GET /api/v1/chat/credit)
+            if (svc === 'kie') {
+              const res = await fetch('https://api.kie.ai/api/v1/chat/credit', {
+                headers: { 'Authorization': `Bearer ${k}` }
+              });
+              if (res.status === 200) {
+                const j = await res.json().catch(() => ({}));
+                const val = typeof j.data === 'number' ? j.data : 0;
+                baseResult.balance = val;
+                baseResult.balanceFormatted = `${val} Credits`;
+                baseResult.balanceUnit = 'credits';
+                baseResult.status = val > 5 ? 'active' : (val > 0 ? 'low' : 'exhausted');
+                baseResult.details = `Kie.ai credit balance: ${val}`;
+              } else if (res.status === 401 || res.status === 403) {
+                baseResult.status = 'invalid';
+                baseResult.details = `Authentication error (HTTP ${res.status})`;
+              } else {
+                baseResult.status = 'exhausted';
+                baseResult.details = `HTTP ${res.status}`;
+              }
+            }
+
+            // B. You.bot Backup Video (GET /api/v1/credits)
+            else if (svc === 'youbot') {
+              const res = await fetch('https://you.bot/api/v1/credits', {
+                headers: { 'Authorization': `Bearer ${k}` }
+              });
+              if (res.status === 200) {
+                const j = await res.json().catch(() => ({}));
+                const val = typeof j.credits === 'number' ? j.credits : 0;
+                baseResult.balance = val;
+                baseResult.balanceFormatted = `${val} Credits`;
+                baseResult.balanceUnit = 'credits';
+                baseResult.status = val > 5 ? 'active' : (val > 0 ? 'low' : 'exhausted');
+                baseResult.details = `You.bot credits: ${val}`;
+              } else if (res.status === 401 || res.status === 403) {
+                baseResult.status = 'invalid';
+                baseResult.details = `Authentication error (HTTP ${res.status})`;
+              } else {
+                baseResult.status = 'exhausted';
+                baseResult.details = `HTTP ${res.status}`;
+              }
+            }
+
+            // C. xKiro AI Primary LLM (GET /v1/usage)
+            else if (svc === 'xkiro') {
+              const res = await fetch('https://api.xkiro.com/v1/usage', {
+                headers: { 'Authorization': `Bearer ${k}` }
+              });
+              if (res.status === 200) {
+                const j = await res.json().catch(() => ({}));
+                const tokens = j.free_tokens?.remaining ?? 0;
+                const wallet = parseFloat(j.wallet?.balance_usd || 0);
+                baseResult.balance = wallet > 0 ? wallet : tokens;
+                baseResult.balanceFormatted = wallet > 0
+                  ? `$${wallet.toFixed(2)} USD`
+                  : `${Math.round(tokens / 1000).toLocaleString()}k free tokens`;
+                baseResult.balanceUnit = wallet > 0 ? 'USD' : 'tokens';
+                baseResult.status = (wallet > 0 || tokens > 50000) ? 'active' : (tokens > 0 ? 'low' : 'exhausted');
+                baseResult.details = `xKiro user: ${j.user?.name || 'Active'} • Daily allowance: ${tokens.toLocaleString()} tokens`;
+              } else {
+                baseResult.status = 'invalid';
+                baseResult.details = `HTTP ${res.status}`;
+              }
+            }
+
+            // D. RapidAPI Backup LLM
+            else if (svc === 'rapidapi') {
+              const res = await fetch('https://openai-sdk.p.rapidapi.com/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-rapidapi-key': k,
+                  'x-rapidapi-host': 'openai-sdk.p.rapidapi.com'
+                },
+                body: JSON.stringify({
+                  model: 'gpt-4o-mini',
+                  messages: [{ role: 'user', content: '1' }],
+                  max_tokens: 1
+                })
+              });
+              const remHeader = res.headers.get('x-ratelimit-requests-remaining');
+              if (remHeader !== null) {
+                const rem = parseInt(remHeader, 10);
+                baseResult.balance = rem;
+                baseResult.balanceFormatted = `${rem} req remaining`;
+                baseResult.balanceUnit = 'requests';
+                baseResult.status = rem > 10 ? 'active' : (rem > 0 ? 'low' : 'exhausted');
+                baseResult.details = `RapidAPI Quota Limit: ${res.headers.get('x-ratelimit-requests-limit') || 'Standard'}`;
+              } else if (res.status === 200) {
+                baseResult.balance = 1000;
+                baseResult.balanceFormatted = 'Active';
+                baseResult.status = 'active';
+              } else {
+                baseResult.status = (res.status === 401 || res.status === 403) ? 'invalid' : 'exhausted';
+                baseResult.details = `HTTP ${res.status}`;
+              }
+            }
+
+            // E. json2video Voiceover (Check project or 1s anchor render)
+            else if (svc === 'j2v') {
+              let isLive = false;
+              if (entry.projectId) {
+                const pRes = await fetch(`https://api.json2video.com/v2/movies?project=${entry.projectId}`, {
+                  headers: { 'x-api-key': k }
+                });
+                if (pRes.status === 200) {
+                  const pJson = await pRes.json().catch(() => ({}));
+                  if (pJson && pJson.movie) {
+                    isLive = true;
+                    baseResult.balance = 100;
+                    baseResult.balanceFormatted = `Active (PID: ${entry.projectId})`;
+                    baseResult.status = 'active';
+                    baseResult.details = `Verified active project: ${entry.projectId} (Status: ${pJson.movie.status || 'done'})`;
+                  }
+                }
+              }
+
+              if (!isLive) {
+                // Preflight probe 1s render to check validity & credits
+                const renderRes = await fetch('https://api.json2video.com/v2/movies', {
+                  method: 'POST',
+                  headers: {
+                    'x-api-key': k,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    comment: 'BangAI Balance Check Anchor',
+                    scenes: [{ duration: 1, elements: [{ type: 'text', text: ' ' }] }]
+                  })
+                });
+                const rJson = await renderRes.json().catch(() => ({}));
+                if (renderRes.status === 200 && rJson.project) {
+                  baseResult.balance = 100;
+                  baseResult.balanceFormatted = `Active (Verified: ${rJson.project})`;
+                  baseResult.status = 'active';
+                  baseResult.details = `Render test passed. Anchor Project: ${rJson.project}`;
+                } else if (renderRes.status === 401) {
+                  baseResult.status = 'invalid';
+                  baseResult.details = 'Invalid API Key (HTTP 401)';
+                } else {
+                  baseResult.status = 'exhausted';
+                  baseResult.balanceFormatted = '0 Credits';
+                  baseResult.details = rJson.message || `Render check failed (HTTP ${renderRes.status})`;
+                }
+              }
+            }
+
+            // F. CloudConvert Audio Bridge (GET /v2/users/me)
+            else if (svc === 'cloudconvert') {
+              const res = await fetch('https://api.cloudconvert.com/v2/users/me', {
+                headers: { 'Authorization': `Bearer ${k}` }
+              });
+              if (res.status === 200) {
+                const j = await res.json().catch(() => ({}));
+                const val = typeof j.data?.credits === 'number' ? j.data.credits : 0;
+                baseResult.balance = val;
+                baseResult.balanceFormatted = `${val} Credits`;
+                baseResult.balanceUnit = 'credits';
+                baseResult.status = val > 5 ? 'active' : (val > 0 ? 'low' : 'exhausted');
+                baseResult.details = `Account: ${j.data?.email || j.data?.username || 'CloudConvert User'}`;
+              } else if (res.status === 401 || res.status === 403) {
+                baseResult.status = 'invalid';
+                baseResult.balanceFormatted = 'Expired / Unauthenticated';
+                baseResult.details = `Token expired or revoked (HTTP ${res.status})`;
+              } else {
+                baseResult.status = 'exhausted';
+                baseResult.details = `HTTP ${res.status}`;
+              }
+            }
+
+            // G. Zvid Cloud Render Engine (GET /api/credits/balance)
+            else if (svc === 'zvid') {
+              const res = await fetch('https://api.zvid.io/api/credits/balance', {
+                headers: { 'x-api-key': k }
+              });
+              if (res.status === 200) {
+                const j = await res.json().catch(() => ({}));
+                const val = j.balance ?? j.subscriptionCredits ?? 0;
+                baseResult.balance = val;
+                baseResult.balanceFormatted = `${val} Credits`;
+                baseResult.balanceUnit = 'credits';
+                baseResult.status = val > 50 ? 'active' : (val > 0 ? 'low' : 'exhausted');
+                baseResult.details = `Zvid Subscription Credits: ${val}`;
+              } else if (res.status === 401 || res.status === 403) {
+                baseResult.status = 'invalid';
+                baseResult.details = `Authentication error (HTTP ${res.status})`;
+              } else {
+                baseResult.status = 'exhausted';
+                baseResult.details = `HTTP ${res.status}`;
+              }
+            }
+          } catch (err) {
+            baseResult.status = 'unknown';
+            baseResult.details = `Connection error: ${err.message}`;
+          }
+
+          return baseResult;
+        };
+
+        // Chunking runner to avoid rate limits
+        const results = [];
+        const chunkSize = 5;
+        for (let i = 0; i < entriesToCheck.length; i += chunkSize) {
+          const chunk = entriesToCheck.slice(i, i + chunkSize);
+          const chunkRes = await Promise.all(chunk.map(checkEntry));
+          results.push(...chunkRes);
+        }
+
+        const summary = {
+          totalChecked: results.length,
+          activeCount: results.filter(r => r.status === 'active').length,
+          lowCount: results.filter(r => r.status === 'low').length,
+          exhaustedCount: results.filter(r => r.status === 'exhausted').length,
+          invalidCount: results.filter(r => r.status === 'invalid').length
+        };
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            service,
+            summary,
+            results
+          })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [11I] DELETE EXHAUSTED & DEAD KEYS (MULTI-WORKFLOW OR UNIVERSAL)
+      // ----------------------------------------------------
+      case 'delete-exhausted-keys': {
+        const { service, keysToDelete, targetWorkflows = 'all' } = body;
+
+        let cleanKeys = [];
+        if (Array.isArray(keysToDelete)) {
+          cleanKeys = keysToDelete.map(k => String(k).replace(/["'\[\]]/g, '').trim()).filter(k => k.length > 5);
+        } else if (typeof keysToDelete === 'string') {
+          cleanKeys = keysToDelete
+            .split(/[\r\n,;\s]+/)
+            .map(k => k.replace(/["'\[\]]/g, '').trim())
+            .filter(k => k.length > 5);
+        }
+
+        if (cleanKeys.length === 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: 'Please provide at least one valid API key to delete.' })
+          };
+        }
+
+        const keysToDeleteSet = new Set(cleanKeys);
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg34.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZjZiNDZmNi03OTZiLTQzMDItYTc1ZS1lZDVjNTJhODI0NWYiLCJpc3MiOiJuOG4iLCJqdGkiOiJiZjAwMTAxYS0xZGJjLTRmNTQtODdlYS1kZDQ5ZDFjMTNjNDYiLCJpYXQiOjE3OTM0NTk2MjQsImF1ZCI6Im1jcC1zZXJ2ZXItYXBpIn0.cKjDmcneQoshSuao5EX02iYxgR-t0g-qtZwKrS8BBOs';
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'A4s2dIVpTYjwD3lf';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'exaQpnmvc8ZUnycB';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'EZpRl12fM7boUeok';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'B0yd2hE0ktnpk80j';
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || 'qwuEcuquhRbBlzXK';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'JiFCodgENcjVEetF';
+        const islamicStoriesId = n8nDoc?.productionWorkflows?.islamicStoriesHindi || '9ZWPyNFES5aFRLWM';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: islamicStoriesId, name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
+        ];
+
+        let targetList = [];
+        if (!targetWorkflows || targetWorkflows === 'all') {
+          targetList = flagshipWorkflows;
+        } else if (Array.isArray(targetWorkflows)) {
+          targetList = flagshipWorkflows.filter(w => targetWorkflows.includes(w.id));
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === targetWorkflows);
+          targetList = found ? [found] : [{ id: targetWorkflows, name: `Workflow ${targetWorkflows}` }];
+        }
+
+        const results = [];
+        let totalNodesUpdated = 0;
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id, detailLevel: 'full' });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) throw new Error('Failed to load workflow nodes from n8n Cloud');
+
+            const operations = [];
+
+            // A. Kie.ai Primary Video
+            if (service === 'all' || service === 'kie') {
+              for (let s = 1; s <= 5; s++) {
+                const nodeName = `Config: Primary Video Master${s}`;
+                const n = wf.nodes.find(nd => nd.name === nodeName);
+                if (n && n.parameters?.jsCode) {
+                  const match = n.parameters.jsCode.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (match) {
+                    const strMatches = match[1].match(/["']([^"']+)["']/g) || [];
+                    const currentKeys = strMatches.map(str => str.replace(/["']/g, '').trim()).filter(Boolean);
+                    const remainingKeys = currentKeys.filter(k => !keysToDeleteSet.has(k));
+                    if (remainingKeys.length !== currentKeys.length) {
+                      const rep = `const primaryVideoApiKeys = ${JSON.stringify(remainingKeys, null, 2)};`;
+                      operations.push({
+                        type: 'updateNodeParameters',
+                        nodeName,
+                        parameters: { jsCode: n.parameters.jsCode.replace(/const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/, rep) }
+                      });
+                    }
+                  }
+                }
+              }
+            }
+
+            // B. Backup Video (You.bot)
+            if (service === 'all' || service === 'youbot') {
+              for (let s = 1; s <= 5; s++) {
+                const nodeName = `Config: Backup Video Master${s}`;
+                const n = wf.nodes.find(nd => nd.name === nodeName);
+                if (n && n.parameters?.jsCode) {
+                  const match = n.parameters.jsCode.match(/const\s+backupVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (match) {
+                    const strMatches = match[1].match(/["']([^"']+)["']/g) || [];
+                    const currentKeys = strMatches.map(str => str.replace(/["']/g, '').trim()).filter(Boolean);
+                    const remainingKeys = currentKeys.filter(k => !keysToDeleteSet.has(k));
+                    if (remainingKeys.length !== currentKeys.length) {
+                      const rep = `const backupVideoApiKeys = ${JSON.stringify(remainingKeys, null, 2)};`;
+                      operations.push({
+                        type: 'updateNodeParameters',
+                        nodeName,
+                        parameters: { jsCode: n.parameters.jsCode.replace(/const\s+backupVideoApiKeys\s*=\s*\[[\s\S]*?\];/, rep) }
+                      });
+                    }
+                  }
+                }
+              }
+            }
+
+            // C. Primary LLM (xKiro)
+            if (service === 'all' || service === 'xkiro') {
+              const llmNodeNames = ['Config: Primary LLM Master', 'Config: Topic Analyzer LLM Master'];
+              for (const nodeName of llmNodeNames) {
+                const n = wf.nodes.find(nd => nd.name === nodeName);
+                if (n && n.parameters?.jsCode) {
+                  const match = n.parameters.jsCode.match(/const\s+primaryLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (match) {
+                    const strMatches = match[1].match(/["']([^"']+)["']/g) || [];
+                    const currentKeys = strMatches.map(str => str.replace(/["']/g, '').trim()).filter(Boolean);
+                    const remainingKeys = currentKeys.filter(k => !keysToDeleteSet.has(k));
+                    if (remainingKeys.length !== currentKeys.length) {
+                      const rep = `const primaryLlmApiKeys = ${JSON.stringify(remainingKeys, null, 2)};`;
+                      operations.push({
+                        type: 'updateNodeParameters',
+                        nodeName,
+                        parameters: { jsCode: n.parameters.jsCode.replace(/const\s+primaryLlmApiKeys\s*=\s*\[[\s\S]*?\];/, rep) }
+                      });
+                    }
+                  }
+                }
+              }
+            }
+
+            // D. json2video Voiceover
+            if (service === 'all' || service === 'j2v') {
+              const j2vNode = wf.nodes.find(nd => nd.name === 'Config: json2video Keys');
+              if (j2vNode && j2vNode.parameters?.jsCode) {
+                const existingEntries = [];
+                const objRegex = /\{\s*json:\s*\{\s*apiKey:\s*["']([^"']+)["'](?:,\s*projectId:\s*["']([^"']+)["'])?\s*\}\s*\}/g;
+                let om;
+                while ((om = objRegex.exec(j2vNode.parameters.jsCode)) !== null) {
+                  existingEntries.push({ apiKey: om[1], projectId: om[2] || '' });
+                }
+                const remainingEntries = existingEntries.filter(e => !keysToDeleteSet.has(e.apiKey));
+                if (remainingEntries.length !== existingEntries.length) {
+                  const rep = `return [\n${remainingEntries.map(e => `  { json: { apiKey: "${e.apiKey}", projectId: "${e.projectId}" } }`).join(',\n')}\n];`;
+                  operations.push({
+                    type: 'updateNodeParameters',
+                    nodeName: 'Config: json2video Keys',
+                    parameters: { jsCode: rep }
+                  });
+                }
+              }
+            }
+
+            // E. CloudConvert Audio Bridge
+            if (service === 'all' || service === 'cloudconvert') {
+              const ccNode = wf.nodes.find(nd => nd.name === 'Config: CloudConvert Master');
+              if (ccNode && ccNode.parameters?.jsCode) {
+                const match = ccNode.parameters.jsCode.match(/const\s+cloudConvertTokens\s*=\s*\[([\s\S]*?)\];/);
+                if (match) {
+                  const strMatches = match[1].match(/["']([^"']+)["']/g) || [];
+                  const currentKeys = strMatches.map(str => str.replace(/["']/g, '').trim()).filter(Boolean);
+                  const remainingKeys = currentKeys.filter(k => !keysToDeleteSet.has(k));
+                  if (remainingKeys.length !== currentKeys.length) {
+                    const rep = `const cloudConvertTokens = ${JSON.stringify(remainingKeys, null, 2)};`;
+                    operations.push({
+                      type: 'updateNodeParameters',
+                      nodeName: 'Config: CloudConvert Master',
+                      parameters: { jsCode: ccNode.parameters.jsCode.replace(/const\s+cloudConvertTokens\s*=\s*\[[\s\S]*?\];/, rep) }
+                    });
+                  }
+                }
+              }
+            }
+
+            // F. Zvid Cloud Render
+            if (service === 'all' || service === 'zvid') {
+              const zNode = wf.nodes.find(nd => nd.name === 'Config: Zvid Master');
+              if (zNode && zNode.parameters?.jsCode) {
+                const match = zNode.parameters.jsCode.match(/const\s+zvidApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                if (match) {
+                  const strMatches = match[1].match(/["']([^"']+)["']/g) || [];
+                  const currentKeys = strMatches.map(str => str.replace(/["']/g, '').trim()).filter(Boolean);
+                  const remainingKeys = currentKeys.filter(k => !keysToDeleteSet.has(k));
+                  if (remainingKeys.length !== currentKeys.length) {
+                    const rep = `const zvidApiKeys = ${JSON.stringify(remainingKeys, null, 2)};`;
+                    operations.push({
+                      type: 'updateNodeParameters',
+                      nodeName: 'Config: Zvid Master',
+                      parameters: { jsCode: zNode.parameters.jsCode.replace(/const\s+zvidApiKeys\s*=\s*\[[\s\S]*?\];/, rep) }
+                    });
+                  }
+                }
+              }
+            }
+
+            if (operations.length > 0) {
+              await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+                workflowId: target.id,
+                versionName: `Purged Exhausted Keys (${cleanKeys.length} removed)`,
+                versionDescription: `Deleted exhausted/invalid API keys across ${operations.length} nodes via Balance Manager.`,
+                operations
+              });
+              totalNodesUpdated += operations.length;
+            }
+
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: true,
+              nodesUpdated: operations.length
+            });
+          } catch (wfErr) {
+            results.push({
+              workflowId: target.id,
+              name: target.name,
+              success: false,
+              error: wfErr.message
+            });
+          }
+        }
+
+        // Also purge keys from MongoDB Atlas collections
+        try {
+          const keysCol = db.collection('api_keys');
+          const mongoUpdates = [];
+
+          if (service === 'all' || service === 'kie') {
+            mongoUpdates.push(keysCol.updateOne({ _id: 'kie_video_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
+          }
+          if (service === 'all' || service === 'youbot') {
+            mongoUpdates.push(keysCol.updateOne({ _id: 'backup_video_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
+          }
+          if (service === 'all' || service === 'xkiro') {
+            mongoUpdates.push(keysCol.updateOne({ _id: 'primary_llm_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
+          }
+          if (service === 'all' || service === 'j2v') {
+            mongoUpdates.push(keysCol.updateOne({ _id: 'json2video_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
+          }
+          if (service === 'all' || service === 'cloudconvert') {
+            mongoUpdates.push(keysCol.updateOne({ _id: 'cloudconvert_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
+          }
+          if (service === 'all' || service === 'zvid') {
+            mongoUpdates.push(keysCol.updateOne({ _id: 'zvid_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
+          }
+
+          await Promise.allSettled(mongoUpdates);
+        } catch (dbErr) {
+          console.warn('[delete-exhausted-keys] MongoDB purge warning:', dbErr.message);
+        }
+
+        await logAdminAction(db, 'DELETE_EXHAUSTED_KEYS', {
+          service,
+          keysDeletedCount: cleanKeys.length,
+          targetWorkflows,
+          totalNodesUpdated
+        }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: results.some(r => r.success),
+            message: `Successfully processed ${results.length} workflow(s). Purged ${cleanKeys.length} exhausted key(s) from ${totalNodesUpdated} node(s) in n8n Cloud and MongoDB.`,
+            keysDeletedCount: cleanKeys.length,
+            totalNodesUpdated,
+            results
           })
         };
       }
