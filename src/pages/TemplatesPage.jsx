@@ -132,6 +132,29 @@ export const ACTIVE_TEMPLATES = [
     sampleLine: 'Ek Pune ka parivaar. Ek steel ki dibbi. Ek purani gayika.',
     youtubeUrl: 'https://www.youtube.com/shorts/Xt0hPq-z7Dk',
     youtubeId: 'Xt0hPq-z7Dk'
+  },
+  {
+    id: 'islamic-stories-hindi',
+    emoji: '🕌',
+    title: 'Islamic Stories [Hindi]',
+    category: 'islamic',
+    label: 'Islamic Stories',
+    desc: 'Autonomous 5-scene Hindi Islamic storytelling for YouTube Shorts. Verified Quranic and Sahih Hadith sources, full honorifics, dynamic character lock with luminous sacred rules, and anti-repeat Google Sheet library integration.',
+    tagline: '75s · 5 Scenes · 1080p · Islamic Stories',
+    duration: '75s',
+    scenes: '5 Scenes',
+    resolution: '1080p',
+    demoImage: '/template-islamic-stories.jpg',
+    videoTitle: 'हज़रत सुलेमान अलैहिस्सलाम और चींटियों की वादी',
+    specs: '75s Direct Video · 9:16 Vertical · Pure Hindi Dialogue · Character & Luminous Lock',
+    color: '#059669',
+    aiBrain: 'Mistral Large 2512 & Kie Video',
+    badge: '🕌 ISLAMIC STORIES',
+    isIslamicStories: true,
+    badges: ['Pure Devanagari', 'Verified Sources', 'Luminous Sacred Rule', 'Character Lock', '9:16', '75s'],
+    sampleLine: 'हज़रत सुलेमान अलैहिस्सलाम और चींटियों की वादी का अज़ीम वाक़िया',
+    youtubeUrl: 'https://youtube.com/shorts/r3LTM0G7BTc',
+    youtubeId: 'r3LTM0G7BTc'
   }
 ];
 
@@ -154,6 +177,7 @@ export const UPCOMING_TEMPLATES = [
 
 export const CATEGORIES = [
   { id: 'all', label: 'All Templates' },
+  { id: 'islamic', label: 'Islamic Stories' },
   { id: 'mysteries', label: 'World Mysteries' },
   { id: 'history', label: 'True Stories' },
   { id: 'psychology', label: 'Horror & Paranormal' },
