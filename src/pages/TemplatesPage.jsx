@@ -2109,7 +2109,7 @@ export default function TemplatesPage({
                   const isTimeTravel = tpl.id === 'time-travel-influencer';
                   const isFamilyDrama = tpl.id === 'family-micro-drama';
                   const isIslamicStories = tpl.id === 'islamic-stories-hindi';
-                  const isNativeAudio = isTimeTravel || isFamilyDrama || isIslamicStories || !!tpl.isNativeVoice;
+                  const isNativeAudio = isTimeTravel || isFamilyDrama || !!tpl.isNativeVoice;
                   const missingCast = GHAR_KI_KAHANI_CHARACTERS.filter(c => c.required && !castPhotos[c.id]);
                   const hasRequiredGkkCast = missingCast.length === 0;
                   const savedRequiredCount = GHAR_KI_KAHANI_CHARACTERS.filter(c => c.required && Boolean(castPhotos[c.id])).length;
@@ -2340,7 +2340,7 @@ export default function TemplatesPage({
                               display: 'flex', flexDirection: 'column', gap: '10px'
                             }}>
                               {/* Custom Topic Input (For standard narration templates only) */}
-                              {!isNativeAudio && (
+                              {!isNativeAudio && !isIslamicStories && (
                                 <div>
                                   <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', textTransform: 'uppercase' }}>
                                     <Type size={11} /> Specific Topic (Optional)
@@ -2360,6 +2360,158 @@ export default function TemplatesPage({
                                 </div>
                               )}
 
+                              {isIslamicStories && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  {/* 1. STORY MODE SELECTION */}
+                                  <div>
+                                    <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                      <span>🕌</span> Story Mode
+                                    </label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                      {[
+                                        { id: 'random', label: '🎲 Random Library', sub: '100 Curated Stories' },
+                                        { id: 'season', label: '🌙 Festive Season', sub: 'Ramadan, Eid, Hajj...' },
+                                        { id: 'series', label: '📖 Multi-Part Series', sub: '20-Part Epic Arcs' },
+                                        { id: 'custom', label: '✍️ Custom Topic', sub: 'Your Own Episode Idea' }
+                                      ].map(m => (
+                                        <button
+                                          key={m.id}
+                                          type="button"
+                                          onClick={() => {
+                                            if (typeof audioEngine !== 'undefined') audioEngine.playSfx('click');
+                                            setIslamicStoryMode(m.id);
+                                          }}
+                                          style={{
+                                            padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                                            background: islamicStoryMode === m.id ? 'rgba(5, 150, 105, 0.15)' : 'var(--bg-card)',
+                                            border: islamicStoryMode === m.id ? '1.5px solid #059669' : '1px solid var(--border-subtle)',
+                                            color: islamicStoryMode === m.id ? '#059669' : 'var(--text-secondary)',
+                                            fontSize: '11px', fontWeight: islamicStoryMode === m.id ? 700 : 500,
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                                            transition: 'all 0.15s ease'
+                                          }}
+                                        >
+                                          <span>{m.label}</span>
+                                          <span style={{ fontSize: '9px', opacity: 0.8 }}>{m.sub}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* 2. MODE SPECIFIC CONTROLS */}
+                                  {islamicStoryMode === 'season' && (
+                                    <div>
+                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>
+                                        🌙 Select Festive Season
+                                      </label>
+                                      <select
+                                        value={islamicSeasonTag}
+                                        onChange={e => setIslamicSeasonTag(e.target.value)}
+                                        style={{
+                                          width: '100%', padding: '8px 10px', borderRadius: '8px',
+                                          background: 'var(--bg-card)', color: 'var(--text-primary)',
+                                          border: '1px solid var(--border-subtle)', fontSize: '12px',
+                                          outline: 'none'
+                                        }}
+                                      >
+                                        <option value="ramadan">🌙 Ramadan (रमाज़ानुल मुबारक)</option>
+                                        <option value="eid_ul_fitr">🎉 Eid-ul-Fitr (ईद-उल-फ़ित्र)</option>
+                                        <option value="bakrid">🐑 Eid-ul-Adha / Bakrid (ईद-उल-अज़हा)</option>
+                                        <option value="hajj">🕋 Hajj & Makkah (हज-ए-बैतुल्लाह)</option>
+                                        <option value="laylatul_qadr">✨ Laylat-ul-Qadr (शब-ए-क़द्र)</option>
+                                        <option value="eid_milad">🌹 Eid Milad-un-Nabi (ईद मिलादुन्नबी)</option>
+                                        <option value="shab_e_barat">🤲 Shab-e-Barat (शब-ए-बरात)</option>
+                                        <option value="muharram">🚩 Muharram & Ashura (मुहर्रम व आशूरा)</option>
+                                      </select>
+                                    </div>
+                                  )}
+
+                                  {islamicStoryMode === 'series' && (
+                                    <div>
+                                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>
+                                        📖 Select 20-Part Epic Series
+                                      </label>
+                                      <select
+                                        value={islamicSeriesId}
+                                        onChange={e => setIslamicSeriesId(e.target.value)}
+                                        style={{
+                                          width: '100%', padding: '8px 10px', borderRadius: '8px',
+                                          background: 'var(--bg-card)', color: 'var(--text-primary)',
+                                          border: '1px solid var(--border-subtle)', fontSize: '12px',
+                                          outline: 'none'
+                                        }}
+                                      >
+                                        <option value="ISL-SER-001">👑 Hazrat Yusuf AS (20 Parts) - हज़रत यूसुफ़ अलैहिस्सलाम</option>
+                                        <option value="ISL-SER-002">🌊 Hazrat Musa AS (20 Parts) - हज़रत मूसा अलैहिस्सलाम</option>
+                                        <option value="ISL-SER-003">🔥 Hazrat Ibrahim AS (20 Parts) - हज़रत इब्राहीम अलैहिस्सलाम</option>
+                                        <option value="ISL-SER-004">🌹 Khwaja Gharib Nawaz (20 Parts) - ख़्वाजा मुईनुद्दीन चिश्ती</option>
+                                        <option value="ISL-SER-005">🚩 Waqia-e-Karbala (20 Parts) - वाक़िया-ए-कर्बला</option>
+                                      </select>
+                                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                                        ⚡ BangAI automatically tracks your account progress and generates your next sequential part!
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {islamicStoryMode === 'custom' && (
+                                    <div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                        <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                                          ✍️ Custom Islamic Episode Topic
+                                        </label>
+                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                                          {islamicCustomTopic.length}/300
+                                        </span>
+                                      </div>
+                                      <textarea
+                                        value={islamicCustomTopic}
+                                        onChange={e => setIslamicCustomTopic(e.target.value.slice(0, 300))}
+                                        maxLength={300}
+                                        rows={3}
+                                        placeholder="e.g. हज़रत यूनुस अलैहिस्सलाम और मछली के पेट में दुआ, या कोई मुक़द्दस वाक़िया..."
+                                        style={{
+                                          width: '100%', padding: '8px 10px', borderRadius: '8px',
+                                          border: islamicCustomTopic.trim() ? '1.5px solid #059669' : '1px solid var(--border-subtle)',
+                                          background: 'var(--bg-card)', color: 'var(--text-primary)',
+                                          fontSize: '12px', outline: 'none', resize: 'vertical',
+                                          boxSizing: 'border-box'
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* Optional Character Reference Image */}
+                                  <div>
+                                    <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                                      <span>🖼️</span> Custom Character Photo (Optional)
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={islamicCharImageUrl}
+                                      onChange={e => setIslamicCharImageUrl(e.target.value)}
+                                      placeholder="https://example.com/character.jpg (optional)"
+                                      style={{
+                                        width: '100%', padding: '8px 10px', borderRadius: '8px',
+                                        background: 'var(--bg-card)', color: 'var(--text-primary)',
+                                        border: '1px solid var(--border-subtle)', fontSize: '12px',
+                                        boxSizing: 'border-box', outline: 'none'
+                                      }}
+                                    />
+                                    <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', marginTop: '3px', display: 'block' }}>
+                                      ✨ If left blank, character outfit & luminous sacred face rule are automatically resolved from the master 110-character library.
+                                    </span>
+                                  </div>
+
+                                  <div style={{
+                                    padding: '6px 8px', borderRadius: '6px',
+                                    background: 'rgba(5, 150, 105, 0.08)', border: '1px solid rgba(5, 150, 105, 0.2)',
+                                    fontSize: '10.5px', color: '#059669'
+                                  }}>
+                                    ✨ 100% Devanagari Hindi narration, authentic Quran & Sahih Hadith sources, and luminous white-light rule for sacred figures.
+                                  </div>
+                                </div>
+                              )}
+                              
                               {isTimeTravel && (
                                 <>
                                   {/* 1. STORY MODE */}
