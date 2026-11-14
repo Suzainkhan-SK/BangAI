@@ -4751,9 +4751,9 @@ export async function handler(event) {
 
           const mergeMongo = (doc, svc, label) => {
             if (!doc) return;
-            const arr = doc.keys || doc.pool || [];
+            const arr = Array.isArray(doc.keys) && doc.keys.length > 0 ? doc.keys : (Array.isArray(doc.pool) ? doc.pool : []);
             arr.forEach(item => {
-              const k = typeof item === 'string' ? item : item.key;
+              const k = typeof item === 'string' ? item : item?.key;
               if (k && k.length > 5) {
                 const id = `${svc}:::${k}`;
                 if (!keyMap.has(id)) {
@@ -4763,12 +4763,14 @@ export async function handler(event) {
             });
           };
 
-          mergeMongo(kieDoc, 'kie', 'Kie.ai Primary Video');
-          mergeMongo(backupDoc, 'youbot', 'You.bot Backup Video');
-          mergeMongo(llmDoc, 'xkiro', 'xKiro AI Primary LLM');
-          mergeMongo(j2vDoc, 'j2v', 'json2video Voiceover');
-          mergeMongo(ccDoc, 'cloudconvert', 'CloudConvert Audio Bridge');
-          mergeMongo(zvidDoc, 'zvid', 'Zvid Cloud Render Engine');
+          if (!workflowId || workflowId === 'all') {
+            mergeMongo(kieDoc, 'kie', 'Kie.ai Primary Video');
+            mergeMongo(backupDoc, 'youbot', 'You.bot Backup Video');
+            mergeMongo(llmDoc, 'xkiro', 'xKiro AI Primary LLM');
+            mergeMongo(j2vDoc, 'j2v', 'json2video Voiceover');
+            mergeMongo(ccDoc, 'cloudconvert', 'CloudConvert Audio Bridge');
+            mergeMongo(zvidDoc, 'zvid', 'Zvid Cloud Render Engine');
+          }
         } catch (dbErr) {
           console.warn('[check-keys-balance] MongoDB pool query warning:', dbErr.message);
         }
@@ -4894,51 +4896,81 @@ export async function handler(event) {
               }
             }
 
-            // E. json2video Voiceover (Check project or 1s anchor render)
+            // E. json2video Voiceover (Check project or 1s anchor render for exact credit balance)
             else if (svc === 'j2v') {
-              let isLive = false;
-              if (entry.projectId) {
-                const pRes = await fetch(`https://api.json2video.com/v2/movies?project=${entry.projectId}`, {
-                  headers: { 'x-api-key': k }
-                });
-                if (pRes.status === 200) {
-                  const pJson = await pRes.json().catch(() => ({}));
-                  if (pJson && pJson.movie) {
-                    isLive = true;
-                    baseResult.balance = 100;
-                    baseResult.balanceFormatted = `Active (PID: ${entry.projectId})`;
-                    baseResult.status = 'active';
-                    baseResult.details = `Verified active project: ${entry.projectId} (Status: ${pJson.movie.status || 'done'})`;
+              let verified = false;
+              let targetProjectId = entry.projectId;
+
+              if (targetProjectId) {
+                try {
+                  const pRes = await fetch(`https://api.json2video.com/v2/movies?project=${targetProjectId}`, {
+                    headers: { 'x-api-key': k }
+                  });
+                  if (pRes.status === 200) {
+                    const pJson = await pRes.json().catch(() => ({}));
+                    if (pJson && pJson.remaining_quota && typeof pJson.remaining_quota.time === 'number') {
+                      verified = true;
+                      const remSeconds = pJson.remaining_quota.time;
+                      baseResult.balance = remSeconds;
+                      baseResult.balanceFormatted = `${remSeconds}s (${remSeconds} Credits)`;
+                      baseResult.balanceUnit = 'seconds';
+                      baseResult.status = remSeconds >= 80 ? 'active' : (remSeconds > 0 ? 'low' : 'exhausted');
+                      baseResult.details = `Render quota: ${remSeconds}s • Project: ${targetProjectId} (${pJson.movie?.status || 'verified'})`;
+                    }
+                  } else if (pRes.status === 401 || pRes.status === 403) {
+                    verified = true;
+                    baseResult.status = 'invalid';
+                    baseResult.balance = 0;
+                    baseResult.balanceFormatted = 'Invalid API Key';
+                    baseResult.details = `Authentication failed (HTTP ${pRes.status})`;
                   }
+                } catch (pErr) {
+                  // Fall through to probe render
                 }
               }
 
-              if (!isLive) {
-                // Preflight probe 1s render to check validity & credits
-                const renderRes = await fetch('https://api.json2video.com/v2/movies', {
-                  method: 'POST',
-                  headers: {
-                    'x-api-key': k,
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    comment: 'BangAI Balance Check Anchor',
-                    scenes: [{ duration: 1, elements: [{ type: 'text', text: ' ' }] }]
-                  })
-                });
-                const rJson = await renderRes.json().catch(() => ({}));
-                if (renderRes.status === 200 && rJson.project) {
-                  baseResult.balance = 100;
-                  baseResult.balanceFormatted = `Active (Verified: ${rJson.project})`;
-                  baseResult.status = 'active';
-                  baseResult.details = `Render test passed. Anchor Project: ${rJson.project}`;
-                } else if (renderRes.status === 401) {
-                  baseResult.status = 'invalid';
-                  baseResult.details = 'Invalid API Key (HTTP 401)';
-                } else {
-                  baseResult.status = 'exhausted';
-                  baseResult.balanceFormatted = '0 Credits';
-                  baseResult.details = rJson.message || `Render check failed (HTTP ${renderRes.status})`;
+              if (!verified) {
+                try {
+                  // Preflight probe 1s render to check validity & credits
+                  const renderRes = await fetch('https://api.json2video.com/v2/movies', {
+                    method: 'POST',
+                    headers: {
+                      'x-api-key': k,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      comment: 'BangAI Balance Check Anchor',
+                      scenes: [{ duration: 1, elements: [{ type: 'text', text: ' ' }] }]
+                    })
+                  });
+                  const rJson = await renderRes.json().catch(() => ({}));
+                  if (renderRes.status === 200 && rJson.project) {
+                    const qRes = await fetch(`https://api.json2video.com/v2/movies?project=${rJson.project}`, {
+                      headers: { 'x-api-key': k }
+                    });
+                    const qJson = await qRes.json().catch(() => ({}));
+                    const remSeconds = qJson?.remaining_quota?.time ?? 0;
+                    baseResult.balance = remSeconds;
+                    baseResult.balanceFormatted = `${remSeconds}s (${remSeconds} Credits)`;
+                    baseResult.balanceUnit = 'seconds';
+                    baseResult.status = remSeconds >= 80 ? 'active' : (remSeconds > 0 ? 'low' : 'exhausted');
+                    baseResult.details = `Anchor Project: ${rJson.project} • Remaining quota: ${remSeconds}s`;
+                  } else if (renderRes.status === 401 || renderRes.status === 403) {
+                    baseResult.status = 'invalid';
+                    baseResult.balance = 0;
+                    baseResult.balanceFormatted = 'Invalid API Key';
+                    baseResult.details = `Invalid API Key (HTTP ${renderRes.status})`;
+                  } else {
+                    baseResult.status = 'exhausted';
+                    baseResult.balance = 0;
+                    baseResult.balanceFormatted = '0s (Exhausted)';
+                    baseResult.details = rJson.message || `Render check failed (HTTP ${renderRes.status})`;
+                  }
+                } catch (rErr) {
+                  baseResult.status = 'unknown';
+                  baseResult.balance = 0;
+                  baseResult.balanceFormatted = '0s';
+                  baseResult.details = `Probe error: ${rErr.message}`;
                 }
               }
             }
@@ -5116,6 +5148,25 @@ export async function handler(event) {
                   }
                 }
               }
+
+              // Also purge from Config: Kie Image Master
+              const kieImgNode = wf.nodes.find(nd => nd.name === 'Config: Kie Image Master');
+              if (kieImgNode && kieImgNode.parameters?.jsCode) {
+                const match = kieImgNode.parameters.jsCode.match(/const\s+primaryVideoApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                if (match) {
+                  const strMatches = match[1].match(/["']([^"']+)["']/g) || [];
+                  const currentKeys = strMatches.map(str => str.replace(/["']/g, '').trim()).filter(Boolean);
+                  const remainingKeys = currentKeys.filter(k => !keysToDeleteSet.has(k));
+                  if (remainingKeys.length !== currentKeys.length) {
+                    const rep = `const primaryVideoApiKeys = ${JSON.stringify(remainingKeys, null, 2)};`;
+                    operations.push({
+                      type: 'updateNodeParameters',
+                      nodeName: 'Config: Kie Image Master',
+                      parameters: { jsCode: kieImgNode.parameters.jsCode.replace(/const\s+primaryVideoApiKeys\s*=\s*\[[\s\S]*?\];/, rep) }
+                    });
+                  }
+                }
+              }
             }
 
             // B. Backup Video (You.bot)
@@ -5166,7 +5217,31 @@ export async function handler(event) {
               }
             }
 
-            // D. json2video Voiceover
+            // D. Backup LLM (RapidAPI)
+            if (service === 'all' || service === 'rapidapi') {
+              const rapidNodeNames = ['Config: Backup LLM Master', 'Config: Strategy Backup LLM Master'];
+              for (const nodeName of rapidNodeNames) {
+                const n = wf.nodes.find(nd => nd.name === nodeName);
+                if (n && n.parameters?.jsCode) {
+                  const match = n.parameters.jsCode.match(/const\s+backupLlmApiKeys\s*=\s*\[([\s\S]*?)\];/);
+                  if (match) {
+                    const strMatches = match[1].match(/["']([^"']+)["']/g) || [];
+                    const currentKeys = strMatches.map(str => str.replace(/["']/g, '').trim()).filter(Boolean);
+                    const remainingKeys = currentKeys.filter(k => !keysToDeleteSet.has(k));
+                    if (remainingKeys.length !== currentKeys.length) {
+                      const rep = `const backupLlmApiKeys = ${JSON.stringify(remainingKeys, null, 2)};`;
+                      operations.push({
+                        type: 'updateNodeParameters',
+                        nodeName,
+                        parameters: { jsCode: n.parameters.jsCode.replace(/const\s+backupLlmApiKeys\s*=\s*\[[\s\S]*?\];/, rep) }
+                      });
+                    }
+                  }
+                }
+              }
+            }
+
+            // E. json2video Voiceover
             if (service === 'all' || service === 'j2v') {
               const j2vNode = wf.nodes.find(nd => nd.name === 'Config: json2video Keys');
               if (j2vNode && j2vNode.parameters?.jsCode) {
@@ -5188,7 +5263,7 @@ export async function handler(event) {
               }
             }
 
-            // E. CloudConvert Audio Bridge
+            // F. CloudConvert Audio Bridge
             if (service === 'all' || service === 'cloudconvert') {
               const ccNode = wf.nodes.find(nd => nd.name === 'Config: CloudConvert Master');
               if (ccNode && ccNode.parameters?.jsCode) {
@@ -5209,7 +5284,7 @@ export async function handler(event) {
               }
             }
 
-            // F. Zvid Cloud Render
+            // G. Zvid Cloud Render
             if (service === 'all' || service === 'zvid') {
               const zNode = wf.nodes.find(nd => nd.name === 'Config: Zvid Master');
               if (zNode && zNode.parameters?.jsCode) {
@@ -5256,31 +5331,41 @@ export async function handler(event) {
           }
         }
 
-        // Also purge keys from MongoDB Atlas collections
+        // Also purge keys from MongoDB Atlas collections (safely handling both string pools and object pools)
         try {
           const keysCol = db.collection('api_keys');
-          const mongoUpdates = [];
+          const cleanKeysSet = new Set(cleanKeys);
 
-          if (service === 'all' || service === 'kie') {
-            mongoUpdates.push(keysCol.updateOne({ _id: 'kie_video_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
-          }
-          if (service === 'all' || service === 'youbot') {
-            mongoUpdates.push(keysCol.updateOne({ _id: 'backup_video_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
-          }
-          if (service === 'all' || service === 'xkiro') {
-            mongoUpdates.push(keysCol.updateOne({ _id: 'primary_llm_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
-          }
-          if (service === 'all' || service === 'j2v') {
-            mongoUpdates.push(keysCol.updateOne({ _id: 'json2video_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
-          }
-          if (service === 'all' || service === 'cloudconvert') {
-            mongoUpdates.push(keysCol.updateOne({ _id: 'cloudconvert_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
-          }
-          if (service === 'all' || service === 'zvid') {
-            mongoUpdates.push(keysCol.updateOne({ _id: 'zvid_keys' }, { $pull: { keys: { $in: cleanKeys }, pool: { $in: cleanKeys } } }));
-          }
+          const purgeDoc = async (docId) => {
+            const doc = await keysCol.findOne({ _id: docId });
+            if (!doc) return;
+            const filterItem = (item) => {
+              const k = typeof item === 'string' ? item : item?.key;
+              return k && !cleanKeysSet.has(k);
+            };
+            const updateObj = {};
+            if (Array.isArray(doc.keys)) {
+              updateObj.keys = doc.keys.filter(filterItem);
+            }
+            if (Array.isArray(doc.pool)) {
+              updateObj.pool = doc.pool.filter(filterItem);
+            }
+            if (Object.keys(updateObj).length > 0) {
+              updateObj.updatedAt = new Date().toISOString();
+              await keysCol.updateOne({ _id: docId }, { $set: updateObj });
+            }
+          };
 
-          await Promise.allSettled(mongoUpdates);
+          const targetDocIds = [];
+          if (service === 'all' || service === 'kie') targetDocIds.push('kie_video_keys');
+          if (service === 'all' || service === 'youbot') targetDocIds.push('backup_video_keys');
+          if (service === 'all' || service === 'xkiro') targetDocIds.push('primary_llm_keys');
+          if (service === 'all' || service === 'rapidapi') targetDocIds.push('backup_llm_keys');
+          if (service === 'all' || service === 'j2v') targetDocIds.push('json2video_keys');
+          if (service === 'all' || service === 'cloudconvert') targetDocIds.push('cloudconvert_keys');
+          if (service === 'all' || service === 'zvid') targetDocIds.push('zvid_keys');
+
+          await Promise.allSettled(targetDocIds.map(id => purgeDoc(id)));
         } catch (dbErr) {
           console.warn('[delete-exhausted-keys] MongoDB purge warning:', dbErr.message);
         }

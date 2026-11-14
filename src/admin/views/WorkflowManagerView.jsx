@@ -122,6 +122,22 @@ export default function WorkflowManagerView() {
       `[${new Date().toLocaleTimeString()}] 🗑️ Purging ${list.length} key(s) from ${wfDesc}...`
     ]);
 
+    // Optimistically remove deleted keys from local state immediately so UI table updates instantly
+    const listSet = new Set(list);
+    setBalanceResults(prev => prev.filter(item => !listSet.has(item.key)));
+    setSelectedKeysToDelete(prev => {
+      const next = new Set(prev);
+      list.forEach(k => next.delete(k));
+      return next;
+    });
+    setBalanceSummary(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        totalChecked: Math.max(0, prev.totalChecked - list.length)
+      };
+    });
+
     try {
       const res = await adminService.deleteExhaustedKeys(svc, list, wfTarget);
       if (res && res.success) {
@@ -134,9 +150,12 @@ export default function WorkflowManagerView() {
         fetchWorkflows(true);
       } else {
         setToastMsg(`⚠️ Error: ${res?.error || 'Failed to delete keys'}`);
+        // Restore actual server state if delete failed
+        fetchKeysBalance(balanceService, balanceWorkflow);
       }
     } catch (err) {
       setToastMsg(`⚠️ Error: ${err.message}`);
+      fetchKeysBalance(balanceService, balanceWorkflow);
     } finally {
       setDeletingExhausted(false);
       setTimeout(() => setToastMsg(''), 5000);
@@ -852,6 +871,7 @@ export default function WorkflowManagerView() {
         if (sourceLabel === 'bulk') {
           setRemoveKeysInput('');
         }
+        setBalanceResults(prev => prev.filter(item => !cleanKeys.includes(item.key)));
         fetchWorkflows(true);
       } else {
         setLogs(prev => [
@@ -3372,7 +3392,7 @@ export default function WorkflowManagerView() {
                               <span style={{
                                 fontSize: '13px',
                                 fontWeight: 800,
-                                color: item.status === 'exhausted' || item.status === 'invalid' ? '#ef4444' : '#10b981'
+                                color: item.status === 'exhausted' || item.status === 'invalid' ? '#ef4444' : (item.status === 'low' ? '#f59e0b' : '#10b981')
                               }}>
                                 {item.balanceFormatted}
                               </span>
