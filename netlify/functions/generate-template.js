@@ -13,9 +13,9 @@ const TEMPLATE_WEBHOOKS = {
   'world-mysteries':        'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
   'last-24-hours':          'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
   '3am-horror':             'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror',
-  'time-travel-influencer': 'https://cmpunktg34.app.n8n.cloud/webhook/template-time-travel-influencer',
-  'family-micro-drama':     process.env.N8N_FAMILY_WEBHOOK_URL || 'https://cmpunktg34.app.n8n.cloud/webhook/ghar-ki-kahani',
-  'islamic-stories-hindi':  'https://cmpunktg34.app.n8n.cloud/webhook/islamic-stories-hindi'
+  'time-travel-influencer': 'https://cmpunktg35.app.n8n.cloud/webhook/template-time-travel-influencer',
+  'family-micro-drama':     process.env.N8N_FAMILY_WEBHOOK_URL || 'https://cmpunktg35.app.n8n.cloud/webhook/ghar-ki-kahani',
+  'islamic-stories-hindi':  'https://cmpunktg35.app.n8n.cloud/webhook/islamic-stories-hindi'
 };
 
 const TEMPLATE_META = {
@@ -415,7 +415,7 @@ export const handler = async (event) => {
       '3am-horror':             n8nCfg.productionWorkflows?.horror3am            || '94IjipHAsUQWjkun',
       'time-travel-influencer': n8nCfg.productionWorkflows?.timeTravelInfluencer || '0IxJ385ACJjVJ2o9',
       'family-micro-drama':     n8nCfg.productionWorkflows?.familyMicroDrama     || 'NymNAsVCHNff4DWs',
-      'islamic-stories-hindi':  n8nCfg.productionWorkflows?.islamicStoriesHindi  || '9ZWPyNFES5aFRLWM',
+      'islamic-stories-hindi':  n8nCfg.productionWorkflows?.islamicStoriesHindi  || 'Hz1yIP2AEO9iq7Bu',
       'viral-shorts':           n8nCfg.productionWorkflows?.viralShorts          || 'UKWYwnlKuCqTazIG'
     };
     const workflowId = WORKFLOW_ID_MAP[templateId] || null;
