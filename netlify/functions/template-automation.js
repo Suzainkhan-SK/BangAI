@@ -9,9 +9,12 @@ import { getN8nConfig } from './n8n-config.js';
 
 // Default n8n Cloud Webhook endpoints for autonomous templates
 const TEMPLATE_WEBHOOKS = {
-  'world-mysteries': 'https://cmpunktg29.app.n8n.cloud/webhook/template-world-mysteries',
-  'last-24-hours':   'https://cmpunktg29.app.n8n.cloud/webhook/template-last-24-hours',
-  '3am-horror':      'https://cmpunktg29.app.n8n.cloud/webhook/template-3am-horror'
+  'world-mysteries': 'https://cmpunktg35.app.n8n.cloud/webhook/template-world-mysteries',
+  'last-24-hours':   'https://cmpunktg35.app.n8n.cloud/webhook/template-last-24-hours',
+  '3am-horror':      'https://cmpunktg35.app.n8n.cloud/webhook/template-3am-horror',
+  'time-travel-influencer': 'https://cmpunktg35.app.n8n.cloud/webhook/template-time-travel-influencer',
+  'family-micro-drama': 'https://cmpunktg35.app.n8n.cloud/webhook/ghar-ki-kahani',
+  'islamic-stories-hindi': 'https://cmpunktg35.app.n8n.cloud/webhook/islamic-stories-hindi'
 };
 
 const TEMPLATE_META = {
@@ -35,6 +38,27 @@ const TEMPLATE_META = {
     musicId: 'mystery2',
     visualStyle: 'Dark Horror Cinematic',
     language: 'Hinglish'
+  },
+  'time-travel-influencer': {
+    name: 'Time Travel Influencer [5 Direct Video Scenes - 75s]',
+    title: 'Time Travel Influencer [Autopilot]',
+    musicId: 'cinematic',
+    visualStyle: 'Cinematic Realistic',
+    language: 'Hindi'
+  },
+  'family-micro-drama': {
+    name: 'Ghar Ki Kahani - Family Drama - Webhook Based',
+    title: 'Ghar Ki Kahani [Autopilot]',
+    musicId: 'cinematic',
+    visualStyle: 'Realistic Live-Action Micro-Drama',
+    language: 'Hindi'
+  },
+  'islamic-stories-hindi': {
+    name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based',
+    title: 'Islamic Stories [Autopilot]',
+    musicId: 'cinematic',
+    visualStyle: 'Cinematic Realistic Historical',
+    language: 'Hindi'
   }
 };
 
@@ -51,7 +75,10 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
   const dynamicWebhooks = {
     'world-mysteries': n8nCfg.webhooks?.template_world_mysteries || TEMPLATE_WEBHOOKS['world-mysteries'],
     'last-24-hours':   n8nCfg.webhooks?.template_last_24_hours   || TEMPLATE_WEBHOOKS['last-24-hours'],
-    '3am-horror':      n8nCfg.webhooks?.template_3am_horror      || TEMPLATE_WEBHOOKS['3am-horror']
+    '3am-horror':      n8nCfg.webhooks?.template_3am_horror      || TEMPLATE_WEBHOOKS['3am-horror'],
+    'time-travel-influencer': n8nCfg.webhooks?.template_time_travel_influencer || n8nCfg.webhooks?.timeTravelInfluencer || TEMPLATE_WEBHOOKS['time-travel-influencer'],
+    'family-micro-drama': n8nCfg.webhooks?.template_family_micro_drama || n8nCfg.webhooks?.familyMicroDrama || TEMPLATE_WEBHOOKS['family-micro-drama'],
+    'islamic-stories-hindi': n8nCfg.webhooks?.template_islamic_stories || n8nCfg.webhooks?.islamicStoriesHindi || n8nCfg.webhooks?.islamicStories || TEMPLATE_WEBHOOKS['islamic-stories-hindi']
   };
   const webhookUrl = dynamicWebhooks[templateId];
 
@@ -149,7 +176,7 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
   const chosenVoiceId = automation.voiceId || 'adam';
   const chosenElevenLabsVoiceId = automation.elevenLabsVoiceId || NATIVE_ELEVENLABS_VOICE_MAP[chosenVoiceId] || chosenVoiceId;
 
-  // 3. Pick Next Topic (User's optional topic, queue, or AI auto-research if empty)
+  // 3. Pick Next Topic & Resolve Mode-Specific Prompts
   let nextTopic = '';
   let updatedUpcomingTopics = [...(automation.upcomingTopics || [])];
 
@@ -157,6 +184,29 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
     nextTopic = updatedUpcomingTopics.shift().trim();
   } else if (automation.topic && String(automation.topic).trim()) {
     nextTopic = String(automation.topic).trim();
+  }
+
+  const isIslamic = templateId === 'islamic-stories-hindi';
+  const islamicStoryMode = ['random', 'season', 'series', 'custom'].includes(automation.islamicStoryMode)
+    ? automation.islamicStoryMode
+    : 'random';
+  const islamicSeasonTag = automation.islamicSeasonTag ? String(automation.islamicSeasonTag).trim().toLowerCase() : 'ramadan';
+  const islamicSeriesId = automation.islamicSeriesId ? String(automation.islamicSeriesId).trim() : 'ISL-SER-001';
+  const islamicCustomTopic = typeof automation.islamicCustomTopic === 'string' && automation.islamicCustomTopic.trim()
+    ? automation.islamicCustomTopic.trim()
+    : (nextTopic || '');
+
+  let displayPrompt = nextTopic;
+  if (isIslamic) {
+    if (islamicStoryMode === 'custom' && islamicCustomTopic) {
+      displayPrompt = islamicCustomTopic;
+    } else if (islamicStoryMode === 'season' && islamicSeasonTag) {
+      displayPrompt = `Season: ${islamicSeasonTag}`;
+    } else if (islamicStoryMode === 'series' && islamicSeriesId) {
+      displayPrompt = `Series: ${islamicSeriesId}`;
+    } else {
+      displayPrompt = nextTopic || 'Random Islamic Story (Curated Library)';
+    }
   }
 
   const completedDays = Number(automation.completedDays || 0) + 1;
@@ -169,10 +219,10 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
   const callbackUrl = `https://${hostHeader}/.netlify/functions/story-approval`;
   const meta = TEMPLATE_META[templateId] || TEMPLATE_META['world-mysteries'];
 
-  const postData = JSON.stringify({
+  let postPayload = {
     templateId,
     templateName: meta.name,
-    prompt: nextTopic,
+    prompt: displayPrompt,
     callbackUrl,
     threadId,
     sessionId,
@@ -206,7 +256,28 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
     isAutomatedDailyRun: true,
     dayNumber: completedDays,
     timestamp: new Date().toISOString()
-  });
+  };
+
+  if (isIslamic) {
+    const characterImages = automation.islamicCharImageUrl && String(automation.islamicCharImageUrl).trim()
+      ? { custom: String(automation.islamicCharImageUrl).trim() }
+      : {};
+
+    postPayload = {
+      ...postPayload,
+      showId: 'ISL-001',
+      storyMode: islamicStoryMode,
+      seasonTag: islamicSeasonTag,
+      seriesId: islamicSeriesId,
+      customEpisodeTopic: islamicCustomTopic,
+      rawUserInput: displayPrompt,
+      characterImages,
+      characterImageUrl: automation.islamicCharImageUrl ? String(automation.islamicCharImageUrl).trim() : '',
+      privacyStatus: 'public'
+    };
+  }
+
+  const postData = JSON.stringify(postPayload);
 
   // 5. Record initial thread & generation
   try {
@@ -411,6 +482,11 @@ export const handler = async (event) => {
           musicVolume: 0.08,
           selectedChannelId: primaryChannel?.channelId || '',
           autoUploadToYouTube: true,
+          islamicStoryMode: 'random',
+          islamicSeasonTag: 'ramadan',
+          islamicSeriesId: 'ISL-SER-001',
+          islamicCustomTopic: '',
+          islamicCharImageUrl: '',
           topicsHistory: [],
           executionLogs: [],
           createdAt: new Date(),
@@ -561,6 +637,13 @@ export const handler = async (event) => {
         const autoUploadToYouTube = payload.autoUploadToYouTube !== false;
         const requestedStatus = payload.status || autoDoc?.status || 'ACTIVE';
 
+        // Islamic Stories specific configurations
+        const islamicStoryMode = payload.islamicStoryMode || autoDoc?.islamicStoryMode || 'random';
+        const islamicSeasonTag = payload.islamicSeasonTag || autoDoc?.islamicSeasonTag || 'ramadan';
+        const islamicSeriesId = payload.islamicSeriesId || autoDoc?.islamicSeriesId || 'ISL-SER-001';
+        const islamicCustomTopic = payload.islamicCustomTopic !== undefined ? String(payload.islamicCustomTopic || '') : (autoDoc?.islamicCustomTopic || '');
+        const islamicCharImageUrl = payload.islamicCharImageUrl !== undefined ? String(payload.islamicCharImageUrl || '') : (autoDoc?.islamicCharImageUrl || '');
+
         const now = new Date();
         let nextRunAt = autoDoc?.nextRunAt;
 
@@ -590,6 +673,11 @@ export const handler = async (event) => {
           musicVolume,
           selectedChannelId,
           autoUploadToYouTube,
+          islamicStoryMode,
+          islamicSeasonTag,
+          islamicSeriesId,
+          islamicCustomTopic,
+          islamicCharImageUrl,
           status: requestedStatus,
           nextRunAt: requestedStatus === 'ACTIVE' ? nextRunAt : (autoDoc?.nextRunAt || null),
           updatedAt: now
@@ -727,9 +815,17 @@ export const handler = async (event) => {
         console.log(`[template-automation] User ${userEmail} triggered immediate run.`);
         const runDoc = {
           ...autoDoc,
+          templateId: payload.templateId || autoDoc.templateId,
           topic: payload.topic !== undefined ? payload.topic : (payload.prompt || autoDoc.topic || ''),
+          islamicStoryMode: payload.islamicStoryMode || autoDoc.islamicStoryMode || 'random',
+          islamicSeasonTag: payload.islamicSeasonTag || autoDoc.islamicSeasonTag || 'ramadan',
+          islamicSeriesId: payload.islamicSeriesId || autoDoc.islamicSeriesId || 'ISL-SER-001',
+          islamicCustomTopic: payload.islamicCustomTopic !== undefined ? payload.islamicCustomTopic : (autoDoc.islamicCustomTopic || ''),
+          islamicCharImageUrl: payload.islamicCharImageUrl !== undefined ? payload.islamicCharImageUrl : (autoDoc.islamicCharImageUrl || ''),
           voiceId: payload.voiceId || autoDoc.voiceId,
-          elevenLabsVoiceId: payload.elevenLabsVoiceId || autoDoc.elevenLabsVoiceId
+          elevenLabsVoiceId: payload.elevenLabsVoiceId || autoDoc.elevenLabsVoiceId,
+          selectedChannelId: payload.selectedChannelId !== undefined ? payload.selectedChannelId : autoDoc.selectedChannelId,
+          autoUploadToYouTube: payload.autoUploadToYouTube !== undefined ? payload.autoUploadToYouTube : autoDoc.autoUploadToYouTube
         };
         const runResult = await executeAutonomousRun(db, runDoc, true, hostHeader);
 

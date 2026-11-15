@@ -362,6 +362,11 @@ export default function TemplatesPage({
     musicVolume: 0.08,
     selectedChannelId: '',
     autoUploadToYouTube: true,
+    islamicStoryMode: 'random',
+    islamicSeasonTag: 'ramadan',
+    islamicSeriesId: 'ISL-SER-001',
+    islamicCustomTopic: '',
+    islamicCharImageUrl: '',
     nextRunAt: null,
     lastRunAt: null,
     topicsHistory: []
@@ -389,6 +394,11 @@ export default function TemplatesPage({
           setAutomationConfig({
             ...data.automation,
             topic: data.automation.topic || '',
+            islamicStoryMode: data.automation.islamicStoryMode || 'random',
+            islamicSeasonTag: data.automation.islamicSeasonTag || 'ramadan',
+            islamicSeriesId: data.automation.islamicSeriesId || 'ISL-SER-001',
+            islamicCustomTopic: data.automation.islamicCustomTopic || '',
+            islamicCharImageUrl: data.automation.islamicCharImageUrl || '',
             voiceId: resolvedVoiceId,
             elevenLabsVoiceId: resolvedElVoiceId
           });
@@ -488,6 +498,10 @@ export default function TemplatesPage({
       const token = getAuthToken() || '';
       const chosenVoiceId = voiceId || activeVoiceObj?.id || 'adam';
       const chosenElVoiceId = videoSettings?.elevenLabsVoiceId || activeVoiceObj?.elevenLabsId || '';
+      const isIslamic = automationConfig.templateId === 'islamic-stories-hindi';
+      const runTopic = isIslamic && automationConfig.islamicStoryMode === 'custom'
+        ? (automationConfig.islamicCustomTopic || automationConfig.topic || '')
+        : (automationConfig.topic || '');
       const res = await fetch('/.netlify/functions/template-automation', {
         method: 'POST',
         headers: {
@@ -496,10 +510,18 @@ export default function TemplatesPage({
         },
         body: JSON.stringify({
           action: 'run-now',
-          topic: automationConfig.topic || '',
-          prompt: automationConfig.topic || '',
+          templateId: automationConfig.templateId,
+          topic: runTopic,
+          prompt: runTopic,
+          islamicStoryMode: automationConfig.islamicStoryMode || 'random',
+          islamicSeasonTag: automationConfig.islamicSeasonTag || 'ramadan',
+          islamicSeriesId: automationConfig.islamicSeriesId || 'ISL-SER-001',
+          islamicCustomTopic: automationConfig.islamicCustomTopic || '',
+          islamicCharImageUrl: automationConfig.islamicCharImageUrl || '',
           voiceId: chosenVoiceId,
-          elevenLabsVoiceId: chosenElVoiceId
+          elevenLabsVoiceId: chosenElVoiceId,
+          selectedChannelId: automationTargetChannel?.channelId || selectedChannel?.channelId || automationConfig.selectedChannelId || '',
+          autoUploadToYouTube: automationConfig.autoUploadToYouTube !== false
         })
       });
       const data = await res.json();
@@ -3434,6 +3456,38 @@ export default function TemplatesPage({
                             >
                               <Eye size={14} />
                             </button>
+
+                            {user && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  audioEngine.playSfx('click');
+                                  setAutomationConfig(prev => ({
+                                    ...prev,
+                                    templateId: tpl.id,
+                                    ...(tpl.id === 'islamic-stories-hindi' ? {
+                                      islamicStoryMode: islamicStoryMode || prev.islamicStoryMode || 'random',
+                                      islamicSeasonTag: islamicSeasonTag || prev.islamicSeasonTag || 'ramadan',
+                                      islamicSeriesId: islamicSeriesId || prev.islamicSeriesId || 'ISL-SER-001',
+                                      islamicCustomTopic: islamicCustomTopic || prev.islamicCustomTopic || '',
+                                      islamicCharImageUrl: islamicCharImageUrl || prev.islamicCharImageUrl || ''
+                                    } : {})
+                                  }));
+                                  setShowAutomateModal(true);
+                                }}
+                                style={{
+                                  padding: '10px 12px', borderRadius: '10px',
+                                  border: tpl.id === 'islamic-stories-hindi' ? '1px solid rgba(5, 150, 105, 0.4)' : '1px solid rgba(255, 79, 0, 0.35)',
+                                  background: tpl.id === 'islamic-stories-hindi' ? 'rgba(5, 150, 105, 0.1)' : 'rgba(255, 79, 0, 0.08)',
+                                  color: tpl.id === 'islamic-stories-hindi' ? '#059669' : 'var(--accent-primary, #ff4f00)',
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px'
+                                }}
+                                title={`Automate 24h Autopilot for ${tpl.title}`}
+                              >
+                                <Zap size={13} />
+                                <span style={{ fontSize: '11px', fontWeight: 700 }}>24h</span>
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -4163,7 +4217,8 @@ export default function TemplatesPage({
                   { id: 'last-24-hours', emoji: '⏳', title: 'Last 24 Hours' },
                   { id: '3am-horror', emoji: '👻', title: '3-AM Horror' },
                   { id: 'time-travel-influencer', emoji: '⏳', title: 'Time Travel' },
-                  { id: 'family-micro-drama', emoji: '🎭', title: 'Ghar Ki Kahani' }
+                  { id: 'family-micro-drama', emoji: '🎭', title: 'Ghar Ki Kahani' },
+                  { id: 'islamic-stories-hindi', emoji: '🕌', title: 'Islamic Stories' }
                 ].map(t => {
                   const isSelected = automationConfig.templateId === t.id;
                   return (
@@ -4173,8 +4228,8 @@ export default function TemplatesPage({
                       onClick={() => setAutomationConfig(prev => ({ ...prev, templateId: t.id }))}
                       style={{
                         padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
-                        background: isSelected ? 'rgba(255, 79, 0, 0.08)' : 'var(--bg-elevated)',
-                        border: isSelected ? '1.5px solid var(--accent-primary, #ff4f00)' : '1px solid var(--border-subtle)',
+                        background: isSelected ? (t.id === 'islamic-stories-hindi' ? 'rgba(5, 150, 105, 0.12)' : 'rgba(255, 79, 0, 0.08)') : 'var(--bg-elevated)',
+                        border: isSelected ? (t.id === 'islamic-stories-hindi' ? '1.5px solid #059669' : '1.5px solid var(--accent-primary, #ff4f00)') : '1px solid var(--border-subtle)',
                         color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                         textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px',
                         transition: 'all 0.15s ease'
@@ -4212,42 +4267,237 @@ export default function TemplatesPage({
               )}
             </div>
 
-            {/* Specific Topic (Optional - Starts Empty, No Prefilled Topics) */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Type size={12} /> Specific Topic <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--text-muted)' }}>(Optional)</span>
-                </label>
-                {automationConfig.topic ? (
-                  <button
-                    type="button"
-                    onClick={() => setAutomationConfig(prev => ({ ...prev, topic: '' }))}
-                    style={{ background: 'none', border: 'none', color: 'var(--accent-primary, #ff4f00)', fontSize: '10.5px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
-                  >
-                    Clear Topic
-                  </button>
-                ) : (
-                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Auto-researched by AI</span>
+            {/* Template Specific Customization & Topic Section */}
+            {automationConfig.templateId === 'islamic-stories-hindi' ? (
+              <div style={{
+                padding: '14px', borderRadius: '12px',
+                background: 'rgba(5, 150, 105, 0.04)', border: '1px solid rgba(5, 150, 105, 0.25)',
+                display: 'flex', flexDirection: 'column', gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#059669', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🕌</span> Islamic Stories Autopilot Customizations
+                  </span>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#059669', background: 'rgba(5, 150, 105, 0.12)', padding: '2px 8px', borderRadius: '99px', border: '1px solid rgba(5, 150, 105, 0.3)' }}>
+                    Verified Hadith & Quran
+                  </span>
+                </div>
+
+                {/* 1. STORY MODE SELECTION */}
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', textTransform: 'uppercase' }}>
+                    <span>🕌</span> Story Mode
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '6px' }}>
+                    {[
+                      { id: 'random', label: '🎲 Random Library', sub: '100 Curated Stories' },
+                      { id: 'season', label: '🌙 Festive Season', sub: 'Ramadan, Eid, Hajj...' },
+                      { id: 'series', label: '📖 Multi-Part Series', sub: '20-Part Epic Arcs' },
+                      { id: 'custom', label: '✍️ Custom Topic', sub: 'Your Own Episode Idea' }
+                    ].map(m => {
+                      const isModeSel = (automationConfig.islamicStoryMode || 'random') === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            if (typeof audioEngine !== 'undefined') audioEngine.playSfx('click');
+                            setAutomationConfig(prev => ({ ...prev, islamicStoryMode: m.id }));
+                          }}
+                          style={{
+                            padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                            background: isModeSel ? 'rgba(5, 150, 105, 0.15)' : 'var(--bg-elevated)',
+                            border: isModeSel ? '1.5px solid #059669' : '1px solid var(--border-subtle)',
+                            color: isModeSel ? '#059669' : 'var(--text-secondary)',
+                            fontSize: '11px', fontWeight: isModeSel ? 700 : 500,
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                            transition: 'all 0.15s ease', textAlign: 'center'
+                          }}
+                        >
+                          <span>{m.label}</span>
+                          <span style={{ fontSize: '9px', opacity: 0.8 }}>{m.sub}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. MODE SPECIFIC CONTROLS */}
+                {automationConfig.islamicStoryMode === 'season' && (
+                  <div>
+                    <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>
+                      🌙 Select Festive Season
+                    </label>
+                    <select
+                      value={automationConfig.islamicSeasonTag || 'ramadan'}
+                      onChange={e => setAutomationConfig(prev => ({ ...prev, islamicSeasonTag: e.target.value }))}
+                      style={{
+                        width: '100%', padding: '8px 10px', borderRadius: '8px',
+                        background: 'var(--bg-input)', color: 'var(--text-primary)',
+                        border: '1px solid var(--border-medium)', fontSize: '12px',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="ramadan">🌙 Ramadan (रमाज़ानुल मुबारक)</option>
+                      <option value="eid_ul_fitr">🎉 Eid-ul-Fitr (ईद-उल-फ़ित्र)</option>
+                      <option value="bakrid">🐑 Eid-ul-Adha / Bakrid (ईद-उल-अज़हा)</option>
+                      <option value="hajj">🕋 Hajj & Makkah (हज-ए-बैतुल्लाह)</option>
+                      <option value="laylatul_qadr">✨ Laylat-ul-Qadr (शब-ए-क़द्र)</option>
+                      <option value="eid_milad">🌹 Eid Milad-un-Nabi (ईद मिलादुन्नबी)</option>
+                      <option value="shab_e_barat">🤲 Shab-e-Barat (शब-ए-बरात)</option>
+                      <option value="muharram">🚩 Muharram & Ashura (मुहर्रम व आशूरा)</option>
+                    </select>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                      ✨ Every 24h run will autonomously generate a fresh festive story tailored to this Islamic season!
+                    </span>
+                  </div>
                 )}
+
+                {automationConfig.islamicStoryMode === 'series' && (
+                  <div>
+                    <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>
+                      📖 Select 20-Part Epic Series
+                    </label>
+                    <select
+                      value={automationConfig.islamicSeriesId || 'ISL-SER-001'}
+                      onChange={e => setAutomationConfig(prev => ({ ...prev, islamicSeriesId: e.target.value }))}
+                      style={{
+                        width: '100%', padding: '8px 10px', borderRadius: '8px',
+                        background: 'var(--bg-input)', color: 'var(--text-primary)',
+                        border: '1px solid var(--border-medium)', fontSize: '12px',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="ISL-SER-001">👑 Hazrat Yusuf AS (20 Parts) - हज़रत यूसुफ़ अलैहिस्सलाम</option>
+                      <option value="ISL-SER-002">🌊 Hazrat Musa AS (20 Parts) - हज़रत मूसा अलैहिस्सलाम</option>
+                      <option value="ISL-SER-003">🔥 Hazrat Ibrahim AS (20 Parts) - हज़रत इब्राहीम अलैहिस्सलाम</option>
+                      <option value="ISL-SER-004">🌹 Khwaja Gharib Nawaz (20 Parts) - ख़्वाजा मुईनुद्दीन चिश्ती</option>
+                      <option value="ISL-SER-005">🚩 Waqia-e-Karbala (20 Parts) - वाक़िया-ए-कर्बला</option>
+                    </select>
+                    <span style={{ fontSize: '10px', color: '#059669', marginTop: '4px', display: 'block', fontWeight: 600 }}>
+                      ⚡ BangAI automatically tracks your account progress and generates each sequential episode on autopilot!
+                    </span>
+                  </div>
+                )}
+
+                {automationConfig.islamicStoryMode === 'custom' && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                        ✍️ Custom Islamic Episode Topic
+                      </label>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                        {(automationConfig.islamicCustomTopic || '').length}/300
+                      </span>
+                    </div>
+                    <textarea
+                      value={automationConfig.islamicCustomTopic || ''}
+                      onChange={e => setAutomationConfig(prev => ({ ...prev, islamicCustomTopic: e.target.value.slice(0, 300) }))}
+                      maxLength={300}
+                      rows={3}
+                      placeholder="e.g. हज़रत यूनुस अलैहिस्सलाम और मछली के पेट में दुआ, या कोई मुक़द्दस वाक़िया..."
+                      style={{
+                        width: '100%', padding: '8px 10px', borderRadius: '8px',
+                        border: (automationConfig.islamicCustomTopic || '').trim() ? '1.5px solid #059669' : '1px solid var(--border-medium)',
+                        background: 'var(--bg-input)', color: 'var(--text-primary)',
+                        fontSize: '12px', outline: 'none', resize: 'vertical',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                )}
+
+                {(!automationConfig.islamicStoryMode || automationConfig.islamicStoryMode === 'random') && (
+                  <div style={{
+                    padding: '8px 10px', borderRadius: '8px',
+                    background: 'rgba(5, 150, 105, 0.08)', border: '1px solid rgba(5, 150, 105, 0.2)',
+                    fontSize: '11px', color: '#059669', lineHeight: 1.4
+                  }}>
+                    🎲 <strong>Curated 100-Story Library:</strong> The 24h engine will automatically select a fresh, unrepeated verified Islamic story from your library on each daily autopilot cycle.
+                  </div>
+                )}
+
+                {/* Optional Custom Character Photo */}
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                    <span>🖼️</span> Custom Character Photo (Optional)
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={automationConfig.islamicCharImageUrl || ''}
+                      onChange={e => setAutomationConfig(prev => ({ ...prev, islamicCharImageUrl: e.target.value }))}
+                      placeholder="https://i.ibb.co/...jpg (optional direct image URL)"
+                      style={{
+                        flex: 1, padding: '8px 10px', borderRadius: '8px',
+                        background: 'var(--bg-input)', color: 'var(--text-primary)',
+                        border: (automationConfig.islamicCharImageUrl || '').trim() ? '1.5px solid #059669' : '1px solid var(--border-medium)',
+                        fontSize: '12px', outline: 'none'
+                      }}
+                    />
+                    {(automationConfig.islamicCharImageUrl || '').trim() && (
+                      <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', border: '1.5px solid #059669', flexShrink: 0 }}>
+                        <img
+                          src={automationConfig.islamicCharImageUrl.trim()}
+                          alt="Preview"
+                          onError={e => { e.currentTarget.style.display = 'none'; }}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', marginTop: '3px', display: 'block' }}>
+                    ✨ If left blank, character outfit & luminous sacred face rule are automatically resolved from the master 110-character library.
+                  </span>
+                </div>
+
+                <div style={{
+                  padding: '6px 10px', borderRadius: '6px',
+                  background: 'rgba(5, 150, 105, 0.08)', border: '1px solid rgba(5, 150, 105, 0.2)',
+                  fontSize: '10.5px', color: '#059669', display: 'flex', alignItems: 'center', gap: '6px'
+                }}>
+                  <span>✨</span>
+                  <span>100% Devanagari Hindi narration, authentic Quran & Sahih Hadith sources, and luminous white-light rule for sacred figures.</span>
+                </div>
               </div>
-              <input
-                type="text"
-                value={automationConfig.topic || ''}
-                onChange={(e) => setAutomationConfig(prev => ({ ...prev, topic: e.target.value }))}
-                placeholder={`e.g. ${selectedAutomationTpl?.videoTitle || 'Bermuda Triangle'} (or leave blank for autonomous AI research)`}
-                style={{
-                  width: '100%', padding: '9px 12px', borderRadius: '8px',
-                  background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
-                  color: 'var(--text-primary)', fontSize: '12px', outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {automationConfig.topic
-                  ? `AI will generate today's video specifically focused on "${automationConfig.topic}".`
-                  : 'Leave blank to let the AI automatically brainstorm trending topics every day.'}
+            ) : (
+              /* Specific Topic (Optional - Starts Empty, No Prefilled Topics) */
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Type size={12} /> Specific Topic <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--text-muted)' }}>(Optional)</span>
+                  </label>
+                  {automationConfig.topic ? (
+                    <button
+                      type="button"
+                      onClick={() => setAutomationConfig(prev => ({ ...prev, topic: '' }))}
+                      style={{ background: 'none', border: 'none', color: 'var(--accent-primary, #ff4f00)', fontSize: '10.5px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                    >
+                      Clear Topic
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Auto-researched by AI</span>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={automationConfig.topic || ''}
+                  onChange={(e) => setAutomationConfig(prev => ({ ...prev, topic: e.target.value }))}
+                  placeholder={`e.g. ${selectedAutomationTpl?.videoTitle || 'Bermuda Triangle'} (or leave blank for autonomous AI research)`}
+                  style={{
+                    width: '100%', padding: '9px 12px', borderRadius: '8px',
+                    background: 'var(--bg-input)', border: '1px solid var(--border-medium)',
+                    color: 'var(--text-primary)', fontSize: '12px', outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {automationConfig.topic
+                    ? `AI will generate today's video specifically focused on "${automationConfig.topic}".`
+                    : 'Leave blank to let the AI automatically brainstorm trending topics every day.'}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Duration (Pills) */}
             <div>

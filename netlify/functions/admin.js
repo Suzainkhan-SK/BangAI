@@ -6133,13 +6133,19 @@ export async function handler(event) {
         const defaultWebhooks = {
           'world-mysteries': 'https://cmpunktg35.app.n8n.cloud/webhook/template-world-mysteries',
           'last-24-hours':   'https://cmpunktg35.app.n8n.cloud/webhook/template-last-24-hours',
-          '3am-horror':      'https://cmpunktg35.app.n8n.cloud/webhook/template-3am-horror'
+          '3am-horror':      'https://cmpunktg35.app.n8n.cloud/webhook/template-3am-horror',
+          'time-travel-influencer': 'https://cmpunktg35.app.n8n.cloud/webhook/template-time-travel-influencer',
+          'family-micro-drama': 'https://cmpunktg35.app.n8n.cloud/webhook/ghar-ki-kahani',
+          'islamic-stories-hindi': 'https://cmpunktg35.app.n8n.cloud/webhook/islamic-stories-hindi'
         };
 
         const templateMeta = {
           'world-mysteries': { name: 'World Mysteries & Paranormal [5 Direct Video Scenes - 75s]', title: 'World Mysteries & Paranormal', visualStyle: 'Dark Cinematic Mystery', language: 'English' },
           'last-24-hours':   { name: 'Last 24 Hours [5 Direct Video Scenes - 75s]', title: 'Last 24 Hours', visualStyle: 'Cinematic Realistic', language: 'Hinglish' },
-          '3am-horror':      { name: '3-AM Horror [5 Direct Video Scenes - 75s]', title: '3-AM Horror', visualStyle: 'Dark Horror Cinematic', language: 'Hinglish' }
+          '3am-horror':      { name: '3-AM Horror [5 Direct Video Scenes - 75s]', title: '3-AM Horror', visualStyle: 'Dark Horror Cinematic', language: 'Hinglish' },
+          'time-travel-influencer': { name: 'Time Travel Influencer [5 Direct Video Scenes - 75s]', title: 'Time Travel Influencer', visualStyle: 'Cinematic Realistic', language: 'Hindi' },
+          'family-micro-drama': { name: 'Ghar Ki Kahani - Family Drama - Webhook Based', title: 'Ghar Ki Kahani [Family Drama]', visualStyle: 'Realistic Live-Action Micro-Drama', language: 'Hindi' },
+          'islamic-stories-hindi': { name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based', title: 'Islamic Stories [Hindi]', visualStyle: 'Cinematic Realistic Historical', language: 'Hindi' }
         };
 
         const templateId = current.templateId || 'world-mysteries';
@@ -6147,7 +6153,10 @@ export async function handler(event) {
         const dynamicWebhooks = {
           'world-mysteries': n8nCfg.webhooks?.template_world_mysteries || defaultWebhooks['world-mysteries'],
           'last-24-hours':   n8nCfg.webhooks?.template_last_24_hours   || defaultWebhooks['last-24-hours'],
-          '3am-horror':      n8nCfg.webhooks?.template_3am_horror      || defaultWebhooks['3am-horror']
+          '3am-horror':      n8nCfg.webhooks?.template_3am_horror      || defaultWebhooks['3am-horror'],
+          'time-travel-influencer': n8nCfg.webhooks?.template_time_travel_influencer || n8nCfg.webhooks?.timeTravelInfluencer || defaultWebhooks['time-travel-influencer'],
+          'family-micro-drama': n8nCfg.webhooks?.template_family_micro_drama || n8nCfg.webhooks?.familyMicroDrama || defaultWebhooks['family-micro-drama'],
+          'islamic-stories-hindi': n8nCfg.webhooks?.template_islamic_stories || n8nCfg.webhooks?.islamicStoriesHindi || n8nCfg.webhooks?.islamicStories || defaultWebhooks['islamic-stories-hindi']
         };
         const webhookUrl = dynamicWebhooks[templateId];
 
@@ -6241,10 +6250,33 @@ export async function handler(event) {
         const callbackUrl = `https://${host}/.netlify/functions/story-approval`;
         const meta = templateMeta[templateId] || templateMeta['world-mysteries'];
 
-        const postData = JSON.stringify({
+        const isIslamic = templateId === 'islamic-stories-hindi';
+        const islamicStoryMode = ['random', 'season', 'series', 'custom'].includes(current.islamicStoryMode)
+          ? current.islamicStoryMode
+          : 'random';
+        const islamicSeasonTag = current.islamicSeasonTag ? String(current.islamicSeasonTag).trim().toLowerCase() : 'ramadan';
+        const islamicSeriesId = current.islamicSeriesId ? String(current.islamicSeriesId).trim() : 'ISL-SER-001';
+        const islamicCustomTopic = typeof current.islamicCustomTopic === 'string' && current.islamicCustomTopic.trim()
+          ? current.islamicCustomTopic.trim()
+          : (nextTopic || '');
+
+        let displayPrompt = nextTopic;
+        if (isIslamic) {
+          if (islamicStoryMode === 'custom' && islamicCustomTopic) {
+            displayPrompt = islamicCustomTopic;
+          } else if (islamicStoryMode === 'season' && islamicSeasonTag) {
+            displayPrompt = `Season: ${islamicSeasonTag}`;
+          } else if (islamicStoryMode === 'series' && islamicSeriesId) {
+            displayPrompt = `Series: ${islamicSeriesId}`;
+          } else {
+            displayPrompt = nextTopic || 'Random Islamic Story (Curated Library)';
+          }
+        }
+
+        let adminPostPayload = {
           templateId,
           templateName: meta.name,
-          prompt: nextTopic,
+          prompt: displayPrompt,
           callbackUrl,
           threadId,
           sessionId,
@@ -6271,14 +6303,34 @@ export async function handler(event) {
           aspectRatio: '9:16',
           subtitleSettings: null,
           subtitleStyle: 'hormozi',
-          musicId: current.musicId || 'mystery2',
+          musicId: current.musicId || 'cinematic',
           musicTrackUrl: '',
           musicVolume: current.musicVolume !== undefined ? Number(current.musicVolume) : 0.08,
           // Automation metadata
           isAutomatedDailyRun: true,
           dayNumber: completedDays,
           timestamp: new Date().toISOString()
-        });
+        };
+
+        if (isIslamic) {
+          const characterImages = current.islamicCharImageUrl && String(current.islamicCharImageUrl).trim()
+            ? { custom: String(current.islamicCharImageUrl).trim() }
+            : {};
+          adminPostPayload = {
+            ...adminPostPayload,
+            showId: 'ISL-001',
+            storyMode: islamicStoryMode,
+            seasonTag: islamicSeasonTag,
+            seriesId: islamicSeriesId,
+            customEpisodeTopic: islamicCustomTopic,
+            rawUserInput: displayPrompt,
+            characterImages,
+            characterImageUrl: current.islamicCharImageUrl ? String(current.islamicCharImageUrl).trim() : '',
+            privacyStatus: 'public'
+          };
+        }
+
+        const postData = JSON.stringify(adminPostPayload);
 
         // Record thread
         await db.collection('threads').updateOne(
