@@ -6004,7 +6004,24 @@ export async function handler(event) {
         const autoCol = db.collection('template_automations');
         const usersCol = db.collection('users');
 
-        const automations = await autoCol.find({}).sort({ updatedAt: -1, createdAt: -1 }).toArray();
+        let automations = await autoCol.find({}).sort({ updatedAt: -1, createdAt: -1 }).toArray();
+
+        // Background auto-trigger for any due 24h template automations
+        const now = new Date();
+        const dueAutomations = automations.filter(a => a.status === 'ACTIVE' && a.nextRunAt && new Date(a.nextRunAt) <= now);
+        if (dueAutomations.length > 0) {
+          const { executeAutonomousRun } = await import('./template-automation.js');
+          const host = event.headers.host || 'bangai.netlify.app';
+          for (const item of dueAutomations) {
+            try {
+              await executeAutonomousRun(db, item, false, host);
+            } catch (dueErr) {
+              console.error('[admin.js] Auto-trigger due automation error:', dueErr.message);
+            }
+          }
+          // Reload updated automations
+          automations = await autoCol.find({}).sort({ updatedAt: -1, createdAt: -1 }).toArray();
+        }
 
         // Enrich with user information & connected YouTube channel details
         const userEmails = [...new Set(automations.map(a => a.userEmail).filter(Boolean))];

@@ -9,6 +9,7 @@ import {
   Pause, Trash2, Edit3, Zap, Calendar, ListOrdered
 } from 'lucide-react';
 import { adminService } from '../adminService';
+import { VOICES } from '../../data/voices';
 
 // Real BangAI Templates matching TemplatesPage.jsx
 export const OFFICIAL_TEMPLATES = [
@@ -451,6 +452,15 @@ export default function TemplatesManagerView() {
     }, autoRefreshInterval * 1000);
     return () => clearInterval(interval);
   }, [autoRefreshInterval]);
+
+  // Active poller for automations tab: auto-checks and executes due schedules every 15s
+  useEffect(() => {
+    if (activeTab !== 'automations') return;
+    const interval = setInterval(() => {
+      fetchAutomations(true);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   const handleSaveGovernance = async () => {
     setSaving(true);
@@ -2863,63 +2873,35 @@ export default function TemplatesManagerView() {
                   </div>
                 </div>
 
-                {/* Quick Schedule Presets */}
-                <div>
-                  <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
-                    Quick Trigger Time Presets:
+                {/* Quick Schedule Trigger */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditAutoModal(prev => ({
+                        ...prev,
+                        data: {
+                          ...prev.data,
+                          nextRunAt: new Date(Date.now() - 60000).toISOString()
+                        }
+                      }));
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      color: 'var(--admin-accent-green)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ⚡ Set Due Now
+                  </button>
+                  <span style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}>
+                    Sets nextRunAt to current time for immediate trigger
                   </span>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {[
-                      { label: '⚡ Due Now', type: 'now', color: '#10b981' },
-                      { label: '+1 Hour', type: '+1h' },
-                      { label: '+6 Hours', type: '+6h' },
-                      { label: '+12 Hours', type: '+12h' },
-                      { label: '+24 Hours', type: '+24h' },
-                      { label: 'Tomorrow 9 AM', type: 'tomorrow9am' }
-                    ].map(preset => (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => {
-                          const now = new Date();
-                          let target = new Date();
-                          if (preset.type === 'now') {
-                            target = new Date(now.getTime() - 60000);
-                          } else if (preset.type === '+1h') {
-                            target = new Date(now.getTime() + 1 * 3600000);
-                          } else if (preset.type === '+6h') {
-                            target = new Date(now.getTime() + 6 * 3600000);
-                          } else if (preset.type === '+12h') {
-                            target = new Date(now.getTime() + 12 * 3600000);
-                          } else if (preset.type === '+24h') {
-                            target = new Date(now.getTime() + 24 * 3600000);
-                          } else if (preset.type === 'tomorrow9am') {
-                            target.setDate(target.getDate() + 1);
-                            target.setHours(9, 0, 0, 0);
-                          }
-                          setEditAutoModal(prev => ({
-                            ...prev,
-                            data: {
-                              ...prev.data,
-                              nextRunAt: target.toISOString()
-                            }
-                          }));
-                        }}
-                        style={{
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          border: '1px solid var(--admin-border-glass)',
-                          background: 'var(--admin-bg-dark)',
-                          color: preset.color || 'var(--admin-text-main)',
-                          fontSize: '10.5px',
-                          fontWeight: 700,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
 
@@ -2964,22 +2946,38 @@ export default function TemplatesManagerView() {
               <div className="admin-grid-2">
                 <div>
                   <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
-                    Narration Voice ID
+                    Narration Voice
                   </label>
                   <select
                     value={editAutoModal.data.voiceId || 'adam'}
                     onChange={(e) => setEditAutoModal(prev => ({
                       ...prev,
-                      data: { ...prev.data, voiceId: e.target.value }
+                      data: { ...prev.data, voiceId: e.target.value, elevenLabsVoiceId: e.target.value }
                     }))}
                     className="admin-select"
                   >
-                    <option value="adam">Adam (Deep Narrative)</option>
-                    <option value="marcus">Marcus (Authoritative Mystery)</option>
-                    <option value="sarah">Sarah (Engaging Viral)</option>
-                    <option value="liam">Liam (Dramatic Suspense)</option>
-                    <option value="george">George (Warm British)</option>
+                    {editAutoModal.data.voiceId && !VOICES.some(v => v.id === editAutoModal.data.voiceId || v.elevenLabsId === editAutoModal.data.voiceId) && (
+                      <option value={editAutoModal.data.voiceId}>
+                        🎙️ Current Voice: {editAutoModal.data.voiceId}
+                      </option>
+                    )}
+                    {VOICES.map(v => (
+                      <option key={v.id} value={v.elevenLabsId || v.id}>
+                        🎙️ {v.name} ({v.gender || 'Narrator'})
+                      </option>
+                    ))}
                   </select>
+                  <input
+                    type="text"
+                    value={editAutoModal.data.voiceId || ''}
+                    onChange={(e) => setEditAutoModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, voiceId: e.target.value.trim(), elevenLabsVoiceId: e.target.value.trim() }
+                    }))}
+                    placeholder="Custom Voice / ElevenLabs Voice ID"
+                    className="admin-input"
+                    style={{ marginTop: '4px', fontSize: '11px', fontFamily: 'monospace' }}
+                  />
                 </div>
 
                 <div>
@@ -3106,7 +3104,7 @@ export default function TemplatesManagerView() {
                           ...prev,
                           data: { ...prev.data, islamicCustomTopic: e.target.value }
                         }))}
-                        placeholder="e.g. हज़रत यूनुस अलैहिस्सलाम और मछली का वाक़िया"
+                        placeholder="Enter custom story or miracle topic..."
                         className="admin-input"
                         style={{ fontSize: '12px' }}
                       />
@@ -3124,7 +3122,7 @@ export default function TemplatesManagerView() {
                         ...prev,
                         data: { ...prev.data, islamicCharImageUrl: e.target.value }
                       }))}
-                      placeholder="https://... (Optional anchor face for consistent visuals across 5 scenes)"
+                      placeholder="Enter storyteller character photo URL..."
                       className="admin-input"
                       style={{ fontSize: '12px' }}
                     />
@@ -3212,7 +3210,7 @@ export default function TemplatesManagerView() {
                           ...prev,
                           data: { ...prev.data, timeTravelTopic: e.target.value }
                         }))}
-                        placeholder="e.g. Ancient Rome 44 BC, Mughal Court 1632, Indus Valley 2500 BC"
+                        placeholder="Enter custom historical destination or era..."
                         className="admin-input"
                         style={{ fontSize: '12px' }}
                       />
@@ -3231,7 +3229,7 @@ export default function TemplatesManagerView() {
                           ...prev,
                           data: { ...prev.data, timeTravelSeriesId: e.target.value }
                         }))}
-                        placeholder="e.g. TT-SERIES-01"
+                        placeholder="Enter series ID code..."
                         className="admin-input"
                         style={{ fontSize: '12px' }}
                       />
@@ -3289,7 +3287,7 @@ export default function TemplatesManagerView() {
                           ...prev,
                           data: { ...prev.data, timeTravelCharImageUrl: e.target.value }
                         }))}
-                        placeholder="https://... Host face reference used in all 5 video scenes"
+                        placeholder="Enter host face image URL..."
                         className="admin-input"
                         style={{ fontSize: '12px' }}
                       />
@@ -3358,7 +3356,7 @@ export default function TemplatesManagerView() {
                           ...prev,
                           data: { ...prev.data, familyCustomTopic: e.target.value }
                         }))}
-                        placeholder="e.g. Papa's surprise retirement party leads to unexpected revelation from Chhota..."
+                        placeholder="Enter custom family scenario brief..."
                         className="admin-textarea"
                         style={{ fontSize: '12px' }}
                       />
@@ -3376,7 +3374,7 @@ export default function TemplatesManagerView() {
                         ...prev,
                         data: { ...prev.data, familyCastPhotoUrl: e.target.value }
                       }))}
-                      placeholder="https://... Optional family photo to lock Indian household look across scenes"
+                      placeholder="Enter family cast portrait image URL..."
                       className="admin-input"
                       style={{ fontSize: '12px' }}
                     />
@@ -3421,41 +3419,10 @@ export default function TemplatesManagerView() {
                       ...prev,
                       data: { ...prev.data, topic: e.target.value }
                     }))}
-                    placeholder="Leave empty for AI auto-brainstorming, or specify a topic..."
+                    placeholder="Enter custom topic (leave blank for AI auto-research)..."
                     className="admin-input"
                     style={{ fontSize: '12px' }}
                   />
-
-                  {/* Suggestion pills */}
-                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '2px' }}>
-                    {(editAutoModal.data.templateId === 'world-mysteries'
-                      ? ['Bermuda Triangle', 'Voynich Manuscript', 'Area 51 Hangar S4', 'Oak Island Money Pit']
-                      : editAutoModal.data.templateId === 'last-24-hours'
-                        ? ['Princess Diana', 'Titanic: The Last Night', 'Subhas Chandra Bose', 'Julius Caesar']
-                        : ['Dyatlov Pass Anomaly', 'The Backrooms Level 0', 'Midnight Caller', 'Shimla Tunnel 103']
-                    ).map(suggestion => (
-                      <button
-                        key={suggestion}
-                        type="button"
-                        onClick={() => setEditAutoModal(prev => ({
-                          ...prev,
-                          data: { ...prev.data, topic: suggestion }
-                        }))}
-                        style={{
-                          padding: '2px 7px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(139, 92, 246, 0.3)',
-                          background: 'rgba(139, 92, 246, 0.1)',
-                          color: '#c084fc',
-                          fontSize: '10px',
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        + {suggestion}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
 

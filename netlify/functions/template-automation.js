@@ -480,6 +480,17 @@ export const handler = async (event) => {
         ]
       });
 
+      // Auto-trigger if this user's schedule is active and due right now
+      const now = new Date();
+      if (autoDoc && autoDoc.status === 'ACTIVE' && autoDoc.nextRunAt && new Date(autoDoc.nextRunAt) <= now) {
+        try {
+          await executeAutonomousRun(db, autoDoc, false, hostHeader);
+          autoDoc = await autoCol.findOne({ _id: autoDoc._id });
+        } catch (autoErr) {
+          console.warn('[template-automation] Auto-run error on GET:', autoErr.message);
+        }
+      }
+
       // Find user channels
       const userDoc = await db.collection('users').findOne({
         $or: [

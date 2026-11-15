@@ -446,6 +446,33 @@ export default function TemplatesPage({
     }
   }, [user]);
 
+  // Background poller: automatically triggers execution when due time arrives
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(async () => {
+      if (automationConfig.status === 'ACTIVE' && automationConfig.nextRunAt) {
+        const diff = new Date(automationConfig.nextRunAt).getTime() - Date.now();
+        if (diff <= 0) {
+          try {
+            const token = localStorage.getItem('token') || '';
+            const res = await fetch('/.netlify/functions/template-automation', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({ action: 'process-due' })
+            });
+            if (res.ok) {
+              fetchAutomationConfig();
+            }
+          } catch (_) {}
+        }
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [user, automationConfig.status, automationConfig.nextRunAt]);
+
   const handleSaveAutomation = async (overrides = {}) => {
     setSavingAutomation(true);
     setAutoStatusMessage('');
