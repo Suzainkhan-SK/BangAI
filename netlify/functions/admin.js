@@ -6328,6 +6328,32 @@ export async function handler(event) {
             characterImageUrl: current.islamicCharImageUrl ? String(current.islamicCharImageUrl).trim() : '',
             privacyStatus: 'public'
           };
+        } else if (templateId === 'time-travel-influencer') {
+          const isCustomStory = current.timeTravelStoryMode === 'custom' && (current.timeTravelTopic || nextTopic);
+          const storyPrompt = isCustomStory ? (current.timeTravelTopic || nextTopic) : '';
+          adminPostPayload = {
+            ...adminPostPayload,
+            storyMode: isCustomStory ? 'custom' : 'library',
+            prompt: storyPrompt,
+            rawUserInput: storyPrompt || 'Random Time Travel Adventure',
+            seriesMode: current.timeTravelSeriesMode || 'new',
+            seriesId: current.timeTravelSeriesId || null,
+            characterMode: current.timeTravelCharacterMode || (current.timeTravelCharImageUrl ? 'upload' : 'random'),
+            characterImageUrl: current.timeTravelCharImageUrl ? String(current.timeTravelCharImageUrl).trim() : '',
+            influencerGender: current.timeTravelGender || 'auto'
+          };
+        } else if (templateId === 'family-micro-drama') {
+          const isCustomEpisode = current.familyEpisodeMode === 'custom' && (current.familyCustomTopic || nextTopic);
+          const episodePrompt = isCustomEpisode ? (current.familyCustomTopic || nextTopic) : (nextTopic || 'Ghar Ki Kahani - Family Drama Episode');
+          adminPostPayload = {
+            ...adminPostPayload,
+            showId: 'GKK-001',
+            episodeMode: current.familyEpisodeMode || 'next',
+            customEpisodeTopic: isCustomEpisode ? episodePrompt : '',
+            prompt: episodePrompt,
+            rawUserInput: episodePrompt,
+            characterImages: current.familyCastPhotos || (current.familyCastPhotoUrl ? { custom: String(current.familyCastPhotoUrl).trim() } : {})
+          };
         }
 
         const postData = JSON.stringify(adminPostPayload);
@@ -6437,10 +6463,22 @@ export async function handler(event) {
           query = { $or: [{ _id: automationId }, { userEmail: String(automationId).toLowerCase() }] };
         }
 
-        const validFields = ['templateId', 'totalDays', 'completedDays', 'voiceId', 'voiceSpeed', 'musicId', 'musicVolume', 'status', 'upcomingTopics'];
+        const validFields = [
+          'templateId', 'totalDays', 'completedDays', 'voiceId', 'voiceSpeed', 'musicId', 'musicVolume',
+          'status', 'upcomingTopics', 'topic', 'intervalHours', 'selectedChannelId', 'autoUploadToYouTube',
+          // Islamic Stories
+          'islamicStoryMode', 'islamicSeasonTag', 'islamicSeriesId', 'islamicCustomTopic', 'islamicCharImageUrl',
+          // Time Travel Influencer
+          'timeTravelStoryMode', 'timeTravelTopic', 'timeTravelSeriesMode', 'timeTravelSeriesId', 'timeTravelCharacterMode', 'timeTravelCharImageUrl', 'timeTravelGender',
+          // Ghar Ki Kahani
+          'familyEpisodeMode', 'familyCustomTopic', 'familyCastPhotoUrl'
+        ];
         const sanitized = {};
         for (const k of validFields) {
           if (updates && updates[k] !== undefined) sanitized[k] = updates[k];
+        }
+        if (updates && updates.nextRunAt !== undefined) {
+          sanitized.nextRunAt = updates.nextRunAt ? new Date(updates.nextRunAt) : null;
         }
         sanitized.updatedAt = new Date();
 
@@ -6451,7 +6489,7 @@ export async function handler(event) {
               $each: [{
                 timestamp: new Date(),
                 status: 'admin_action',
-                message: `Master Admin updated automation parameters.`
+                message: `Master Admin updated automation parameters & schedule timings.`
               }],
               $slice: -30
             }
@@ -6464,6 +6502,40 @@ export async function handler(event) {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({ success: true, message: 'Automation settings updated successfully.' })
+        };
+      }
+
+      case 'admin-trigger-cron': {
+        const autoCol = db.collection('template_automations');
+        const now = new Date();
+        const dueAutomations = await autoCol.find({
+          status: 'ACTIVE',
+          nextRunAt: { $lte: now }
+        }).toArray();
+
+        const host = event.headers.host || 'bangai.netlify.app';
+        const results = [];
+        const { executeAutonomousRun } = await import('./template-automation.js');
+
+        for (const item of dueAutomations) {
+          try {
+            const res = await executeAutonomousRun(db, item, false, host);
+            results.push({ id: item._id, email: item.userEmail, success: true, res });
+          } catch (itemErr) {
+            results.push({ id: item._id, email: item.userEmail, success: false, error: itemErr.message });
+          }
+        }
+
+        await logAdminAction(db, 'ADMIN_TRIGGER_CRON', { count: dueAutomations.length, results }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            processedCount: dueAutomations.length,
+            results
+          })
         };
       }
 

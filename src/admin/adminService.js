@@ -184,6 +184,8 @@ export const adminService = {
     adminFetch('admin-update-automation', 'POST', { automationId, updates }),
   adminDeleteAutomation: async (automationId) =>
     adminFetch('admin-delete-automation', 'POST', { automationId }),
+  adminTriggerCron: async () =>
+    adminFetch('admin-trigger-cron', 'POST'),
 
   // 9. Users & Quotas
   getUsers: async (limit = 100) => adminFetch('get-users', 'GET', null, { limit }),

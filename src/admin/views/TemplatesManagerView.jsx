@@ -350,31 +350,87 @@ export default function TemplatesManagerView() {
     }
   };
 
+  const toDatetimeLocal = (dateVal) => {
+    if (!dateVal) return '';
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return '';
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } catch (_) {
+      return '';
+    }
+  };
+
+  const [triggeringCron, setTriggeringCron] = useState(false);
+
+  const handleAdminTriggerCron = async () => {
+    setTriggeringCron(true);
+    showToast('⏳ Processing all due automations now...');
+    try {
+      const res = await adminService.adminTriggerCron();
+      if (res && res.success) {
+        showToast(`⚡ Processed ${res.processedCount} due automations!`);
+        fetchAutomations(true);
+      } else {
+        showToast(`❌ Trigger failed: ${res?.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      showToast(`❌ Error: ${e.message}`);
+    } finally {
+      setTriggeringCron(false);
+    }
+  };
+
   const handleSaveEditAutomation = async (e) => {
     e.preventDefault();
     if (!editAutoModal.data) return;
-    const { id, templateId, totalDays, completedDays, voiceId, voiceSpeed, musicId, status, upcomingTopicsText } = editAutoModal.data;
-    const topicsArr = typeof upcomingTopicsText === 'string'
-      ? upcomingTopicsText.split('\n').map(t => t.trim()).filter(Boolean)
-      : (editAutoModal.data.upcomingTopics || []);
+    const d = editAutoModal.data;
+    const autoId = d.id || d._id;
+    const topicsArr = typeof d.upcomingTopicsText === 'string'
+      ? d.upcomingTopicsText.split('\n').map(t => t.trim()).filter(Boolean)
+      : (d.upcomingTopics || []);
 
     try {
-      const res = await adminService.adminUpdateAutomation(id, {
-        templateId,
-        totalDays: Number(totalDays),
-        completedDays: Number(completedDays),
-        voiceId,
-        voiceSpeed: Number(voiceSpeed),
-        musicId,
-        status,
-        upcomingTopics: topicsArr
+      const res = await adminService.adminUpdateAutomation(autoId, {
+        templateId: d.templateId,
+        totalDays: Number(d.totalDays ?? 7),
+        completedDays: Number(d.completedDays ?? 0),
+        voiceId: d.voiceId || 'adam',
+        voiceSpeed: Number(d.voiceSpeed || 1.20),
+        musicId: d.musicId || 'cinematic',
+        status: d.status || 'ACTIVE',
+        intervalHours: Number(d.intervalHours || 24),
+        nextRunAt: d.nextRunAt || null,
+        topic: d.topic || '',
+        autoUploadToYouTube: d.autoUploadToYouTube !== false,
+        selectedChannelId: d.selectedChannelId || '',
+        upcomingTopics: topicsArr,
+        // Islamic Stories
+        islamicStoryMode: d.islamicStoryMode || 'random',
+        islamicSeasonTag: d.islamicSeasonTag || 'ramadan',
+        islamicSeriesId: d.islamicSeriesId || 'ISL-SER-001',
+        islamicCustomTopic: d.islamicCustomTopic || '',
+        islamicCharImageUrl: d.islamicCharImageUrl || '',
+        // Time Travel Influencer
+        timeTravelStoryMode: d.timeTravelStoryMode || 'library',
+        timeTravelTopic: d.timeTravelTopic || '',
+        timeTravelSeriesMode: d.timeTravelSeriesMode || 'new',
+        timeTravelSeriesId: d.timeTravelSeriesId || '',
+        timeTravelCharacterMode: d.timeTravelCharacterMode || 'random',
+        timeTravelCharImageUrl: d.timeTravelCharImageUrl || '',
+        timeTravelGender: d.timeTravelGender || 'auto',
+        // Ghar Ki Kahani
+        familyEpisodeMode: d.familyEpisodeMode || 'next',
+        familyCustomTopic: d.familyCustomTopic || '',
+        familyCastPhotoUrl: d.familyCastPhotoUrl || ''
       });
       if (res && res.success) {
-        showToast('✅ Automation parameters updated!');
+        showToast('✅ Automation parameters & timing updated!');
         setEditAutoModal({ open: false, data: null });
         fetchAutomations(true);
       } else {
-        showToast(`❌ Update failed: ${res?.error}`);
+        showToast(`❌ Update failed: ${res?.error || 'Unknown error'}`);
       }
     } catch (err) {
       showToast(`❌ Error: ${err.message}`);
@@ -2064,6 +2120,29 @@ export default function TemplatesManagerView() {
                   ))}
                 </div>
 
+                {/* Run Due Schedules */}
+                <button
+                  type="button"
+                  onClick={handleAdminTriggerCron}
+                  disabled={triggeringCron || loadingAutomations}
+                  className="admin-btn admin-btn-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    height: '32px',
+                    fontSize: '12px',
+                    background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                    border: 'none',
+                    color: '#000',
+                    fontWeight: 700
+                  }}
+                  title="Scan and immediately execute all automations whose schedule is due (nextRunAt <= now)"
+                >
+                  <Zap size={13} className={triggeringCron ? 'animate-spin' : ''} />
+                  {triggeringCron ? 'Processing Due...' : '⚡ Run Due Schedules'}
+                </button>
+
                 {/* Refresh */}
                 <button
                   type="button"
@@ -2269,6 +2348,9 @@ export default function TemplatesManagerView() {
                             <td>
                               <div style={{ fontSize: '11.5px', fontWeight: 700, color: isDue ? 'var(--admin-accent-green)' : 'var(--admin-text-main)' }}>
                                 {nextRunText}
+                              </div>
+                              <div style={{ fontSize: '10.5px', color: 'var(--admin-accent-cyan)', fontWeight: 600 }}>
+                                ↻ Every {auto.intervalHours || 24}h
                               </div>
                               {auto.lastRunAt && (
                                 <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>
@@ -2675,10 +2757,11 @@ export default function TemplatesManagerView() {
             </div>
 
             <form onSubmit={handleSaveEditAutomation} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Template & Status */}
               <div className="admin-grid-2">
                 <div>
                   <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
-                    Active Template
+                    Active Template Pipeline
                   </label>
                   <select
                     value={editAutoModal.data.templateId || 'world-mysteries'}
@@ -2699,7 +2782,7 @@ export default function TemplatesManagerView() {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
-                    Status
+                    Automation Status
                   </label>
                   <select
                     value={editAutoModal.data.status || 'ACTIVE'}
@@ -2709,13 +2792,138 @@ export default function TemplatesManagerView() {
                     }))}
                     className="admin-select"
                   >
-                    <option value="ACTIVE">ACTIVE (Running every 24h)</option>
-                    <option value="PAUSED">PAUSED</option>
-                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="ACTIVE">ACTIVE (Running on schedule)</option>
+                    <option value="PAUSED">PAUSED (Do not execute)</option>
+                    <option value="COMPLETED">COMPLETED (Finished run)</option>
                   </select>
                 </div>
               </div>
 
+              {/* Master Timing & Autonomous Scheduling Controls */}
+              <div style={{
+                background: 'rgba(6, 182, 212, 0.05)',
+                border: '1px solid rgba(6, 182, 212, 0.25)',
+                borderRadius: '8px',
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Clock size={14} color="var(--admin-accent-cyan)" />
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--admin-accent-cyan)', textTransform: 'uppercase' }}>
+                      Master Timing & Schedule Controls
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}>
+                    Triggering Engine: MongoDB / n8n
+                  </span>
+                </div>
+
+                <div className="admin-grid-2">
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                      Execution Interval (Frequency)
+                    </label>
+                    <select
+                      value={editAutoModal.data.intervalHours || 24}
+                      onChange={(e) => setEditAutoModal(prev => ({
+                        ...prev,
+                        data: { ...prev.data, intervalHours: parseInt(e.target.value) || 24 }
+                      }))}
+                      className="admin-select"
+                      style={{ fontSize: '12px' }}
+                    >
+                      <option value={24}>Every 24 Hours (Once Daily - Standard)</option>
+                      <option value={12}>Every 12 Hours (Twice Daily)</option>
+                      <option value={6}>Every 6 Hours (4x Daily)</option>
+                      <option value={2}>Every 2 Hours (High Frequency)</option>
+                      <option value={1}>Every 1 Hour (Test / Hourly Frequency)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                      Next Scheduled Run Time (Local)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={toDatetimeLocal(editAutoModal.data.nextRunAt)}
+                      onChange={(e) => setEditAutoModal(prev => ({
+                        ...prev,
+                        data: {
+                          ...prev.data,
+                          nextRunAt: e.target.value ? new Date(e.target.value).toISOString() : null
+                        }
+                      }))}
+                      className="admin-input"
+                      style={{ fontSize: '12px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Schedule Presets */}
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                    Quick Trigger Time Presets:
+                  </span>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[
+                      { label: '⚡ Due Now', type: 'now', color: '#10b981' },
+                      { label: '+1 Hour', type: '+1h' },
+                      { label: '+6 Hours', type: '+6h' },
+                      { label: '+12 Hours', type: '+12h' },
+                      { label: '+24 Hours', type: '+24h' },
+                      { label: 'Tomorrow 9 AM', type: 'tomorrow9am' }
+                    ].map(preset => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          const now = new Date();
+                          let target = new Date();
+                          if (preset.type === 'now') {
+                            target = new Date(now.getTime() - 60000);
+                          } else if (preset.type === '+1h') {
+                            target = new Date(now.getTime() + 1 * 3600000);
+                          } else if (preset.type === '+6h') {
+                            target = new Date(now.getTime() + 6 * 3600000);
+                          } else if (preset.type === '+12h') {
+                            target = new Date(now.getTime() + 12 * 3600000);
+                          } else if (preset.type === '+24h') {
+                            target = new Date(now.getTime() + 24 * 3600000);
+                          } else if (preset.type === 'tomorrow9am') {
+                            target.setDate(target.getDate() + 1);
+                            target.setHours(9, 0, 0, 0);
+                          }
+                          setEditAutoModal(prev => ({
+                            ...prev,
+                            data: {
+                              ...prev.data,
+                              nextRunAt: target.toISOString()
+                            }
+                          }));
+                        }}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--admin-border-glass)',
+                          background: 'var(--admin-bg-dark)',
+                          color: preset.color || 'var(--admin-text-main)',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Duration & Progress */}
               <div className="admin-grid-2">
                 <div>
                   <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
@@ -2752,6 +2960,7 @@ export default function TemplatesManagerView() {
                 </div>
               </div>
 
+              {/* Narration Voice & Speed */}
               <div className="admin-grid-2">
                 <div>
                   <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
@@ -2796,6 +3005,493 @@ export default function TemplatesManagerView() {
                 </div>
               </div>
 
+              {/* Dynamic Template-Specific Customizations */}
+              {editAutoModal.data.templateId === 'islamic-stories-hindi' && (
+                <div style={{
+                  background: 'rgba(16, 185, 129, 0.05)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '14px' }}>🕌</span>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--admin-accent-green)', textTransform: 'uppercase' }}>
+                      Islamic Stories Pipeline Customizations
+                    </span>
+                  </div>
+
+                  <div className="admin-grid-2">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                        Story Mode
+                      </label>
+                      <select
+                        value={editAutoModal.data.islamicStoryMode || 'random'}
+                        onChange={(e) => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, islamicStoryMode: e.target.value }
+                        }))}
+                        className="admin-select"
+                        style={{ fontSize: '12px' }}
+                      >
+                        <option value="random">🎲 Daily Auto-Curated Library (60+ Stories)</option>
+                        <option value="season">🌙 Festive Islamic Seasons</option>
+                        <option value="series">📖 Multi-Part Sacred Storyline</option>
+                        <option value="custom">✍️ Custom Miracle / Story Topic</option>
+                      </select>
+                    </div>
+
+                    {editAutoModal.data.islamicStoryMode === 'season' && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                          Festive Season Theme
+                        </label>
+                        <select
+                          value={editAutoModal.data.islamicSeasonTag || 'ramadan'}
+                          onChange={(e) => setEditAutoModal(prev => ({
+                            ...prev,
+                            data: { ...prev.data, islamicSeasonTag: e.target.value }
+                          }))}
+                          className="admin-select"
+                          style={{ fontSize: '12px' }}
+                        >
+                          <option value="ramadan">🌙 Ramadan Reflections</option>
+                          <option value="laylatul_qadr">✨ Laylatul Qadr Miracles</option>
+                          <option value="prophet_miracles">📜 Miracles of the Prophets</option>
+                          <option value="sahaba_stories">⚔️ Companion Chronicles (Sahaba)</option>
+                          <option value="sacred_battles">🛡️ Sacred Historic Battles</option>
+                          <option value="friday_special">🕌 Jummah Virtues</option>
+                          <option value="golden_age">🔬 Islamic Golden Age</option>
+                          <option value="seerah_ethics">❤️ Character of Rasulullah ﷺ</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {editAutoModal.data.islamicStoryMode === 'series' && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                          Multi-Part Series
+                        </label>
+                        <select
+                          value={editAutoModal.data.islamicSeriesId || 'ISL-SER-001'}
+                          onChange={(e) => setEditAutoModal(prev => ({
+                            ...prev,
+                            data: { ...prev.data, islamicSeriesId: e.target.value }
+                          }))}
+                          className="admin-select"
+                          style={{ fontSize: '12px' }}
+                        >
+                          <option value="ISL-SER-001">Ashab al-Kahf (People of the Cave - 20 Parts)</option>
+                          <option value="ISL-SER-002">Prophet Yusuf (AS): Patience to King (20 Parts)</option>
+                          <option value="ISL-SER-003">Prophet Musa (AS) vs Pharaoh (20 Parts)</option>
+                          <option value="ISL-SER-004">Maryam (AS) & Prophet Isa (AS) (20 Parts)</option>
+                          <option value="ISL-SER-005">Al-Isra wal-Miraj Journey (20 Parts)</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {editAutoModal.data.islamicStoryMode === 'custom' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                        Custom Story Topic or Miracle
+                      </label>
+                      <input
+                        type="text"
+                        value={editAutoModal.data.islamicCustomTopic || ''}
+                        onChange={(e) => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, islamicCustomTopic: e.target.value }
+                        }))}
+                        placeholder="e.g. हज़रत यूनुस अलैहिस्सलाम और मछली का वाक़िया"
+                        className="admin-input"
+                        style={{ fontSize: '12px' }}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                      Storyteller Character Face Image URL (Optional Anchor Reference)
+                    </label>
+                    <input
+                      type="url"
+                      value={editAutoModal.data.islamicCharImageUrl || ''}
+                      onChange={(e) => setEditAutoModal(prev => ({
+                        ...prev,
+                        data: { ...prev.data, islamicCharImageUrl: e.target.value }
+                      }))}
+                      placeholder="https://... (Optional anchor face for consistent visuals across 5 scenes)"
+                      className="admin-input"
+                      style={{ fontSize: '12px' }}
+                    />
+                    {editAutoModal.data.islamicCharImageUrl && (
+                      <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <img
+                          src={editAutoModal.data.islamicCharImageUrl}
+                          alt="Character preview"
+                          style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', border: '1px solid rgba(16,185,129,0.4)' }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                        <span style={{ fontSize: '10.5px', color: 'var(--admin-accent-green)' }}>
+                          ✓ Storyteller anchor face active
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {editAutoModal.data.templateId === 'time-travel-influencer' && (
+                <div style={{
+                  background: 'rgba(99, 102, 241, 0.05)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '14px' }}>⏳</span>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#818cf8', textTransform: 'uppercase' }}>
+                      Time Travel Influencer Customizations
+                    </span>
+                  </div>
+
+                  <div className="admin-grid-2">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                        Story Mode
+                      </label>
+                      <select
+                        value={editAutoModal.data.timeTravelStoryMode || 'library'}
+                        onChange={(e) => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, timeTravelStoryMode: e.target.value }
+                        }))}
+                        className="admin-select"
+                        style={{ fontSize: '12px' }}
+                      >
+                        <option value="library">🏛️ Curated Historical Library</option>
+                        <option value="custom">✍️ Custom Historical Era / Destination</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                        Series Continuity Mode
+                      </label>
+                      <select
+                        value={editAutoModal.data.timeTravelSeriesMode || 'new'}
+                        onChange={(e) => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, timeTravelSeriesMode: e.target.value }
+                        }))}
+                        className="admin-select"
+                        style={{ fontSize: '12px' }}
+                      >
+                        <option value="new">🆕 Standalone Episode</option>
+                        <option value="continue">📺 Continue Multi-Part Series</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {editAutoModal.data.timeTravelStoryMode === 'custom' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                        Custom Era / Time Travel Destination
+                      </label>
+                      <input
+                        type="text"
+                        value={editAutoModal.data.timeTravelTopic || ''}
+                        onChange={(e) => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, timeTravelTopic: e.target.value }
+                        }))}
+                        placeholder="e.g. Ancient Rome 44 BC, Mughal Court 1632, Indus Valley 2500 BC"
+                        className="admin-input"
+                        style={{ fontSize: '12px' }}
+                      />
+                    </div>
+                  )}
+
+                  {editAutoModal.data.timeTravelSeriesMode === 'continue' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                        Series ID / Identifier
+                      </label>
+                      <input
+                        type="text"
+                        value={editAutoModal.data.timeTravelSeriesId || ''}
+                        onChange={(e) => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, timeTravelSeriesId: e.target.value }
+                        }))}
+                        placeholder="e.g. TT-SERIES-01"
+                        className="admin-input"
+                        style={{ fontSize: '12px' }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="admin-grid-2">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                        Influencer Gender
+                      </label>
+                      <select
+                        value={editAutoModal.data.timeTravelGender || 'auto'}
+                        onChange={(e) => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, timeTravelGender: e.target.value }
+                        }))}
+                        className="admin-select"
+                        style={{ fontSize: '12px' }}
+                      >
+                        <option value="auto">Auto / Match Voice</option>
+                        <option value="female">Female Host</option>
+                        <option value="male">Male Host</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                        Character Face Mode
+                      </label>
+                      <select
+                        value={editAutoModal.data.timeTravelCharacterMode || 'random'}
+                        onChange={(e) => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, timeTravelCharacterMode: e.target.value }
+                        }))}
+                        className="admin-select"
+                        style={{ fontSize: '12px' }}
+                      >
+                        <option value="random">🎲 AI Generated Influencer Face</option>
+                        <option value="upload">📸 Custom Host Image Reference</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {editAutoModal.data.timeTravelCharacterMode === 'upload' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                        Influencer Face Image URL
+                      </label>
+                      <input
+                        type="url"
+                        value={editAutoModal.data.timeTravelCharImageUrl || ''}
+                        onChange={(e) => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, timeTravelCharImageUrl: e.target.value }
+                        }))}
+                        placeholder="https://... Host face reference used in all 5 video scenes"
+                        className="admin-input"
+                        style={{ fontSize: '12px' }}
+                      />
+                      {editAutoModal.data.timeTravelCharImageUrl && (
+                        <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <img
+                            src={editAutoModal.data.timeTravelCharImageUrl}
+                            alt="Influencer preview"
+                            style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', border: '1px solid rgba(99,102,241,0.4)' }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                          <span style={{ fontSize: '10.5px', color: '#818cf8' }}>
+                            ✓ Host face anchor active
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {editAutoModal.data.templateId === 'family-micro-drama' && (
+                <div style={{
+                  background: 'rgba(236, 72, 153, 0.05)',
+                  border: '1px solid rgba(236, 72, 153, 0.25)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '14px' }}>🎭</span>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#f472b6', textTransform: 'uppercase' }}>
+                      Ghar Ki Kahani (Family Drama) Customizations
+                    </span>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                      Episode Progression Mode
+                    </label>
+                    <select
+                      value={editAutoModal.data.familyEpisodeMode || 'next'}
+                      onChange={(e) => setEditAutoModal(prev => ({
+                        ...prev,
+                        data: { ...prev.data, familyEpisodeMode: e.target.value }
+                      }))}
+                      className="admin-select"
+                      style={{ fontSize: '12px' }}
+                    >
+                      <option value="next">📺 Auto-Advance Season 1 (Episodic Arc)</option>
+                      <option value="custom">✍️ Custom Family Drama Scenario</option>
+                    </select>
+                  </div>
+
+                  {editAutoModal.data.familyEpisodeMode === 'custom' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                        Custom Family Drama Scenario Brief
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={editAutoModal.data.familyCustomTopic || ''}
+                        onChange={(e) => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, familyCustomTopic: e.target.value }
+                        }))}
+                        placeholder="e.g. Papa's surprise retirement party leads to unexpected revelation from Chhota..."
+                        className="admin-textarea"
+                        style={{ fontSize: '12px' }}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                      Family Cast Portrait Photo URL (Optional Anchor Reference)
+                    </label>
+                    <input
+                      type="url"
+                      value={editAutoModal.data.familyCastPhotoUrl || ''}
+                      onChange={(e) => setEditAutoModal(prev => ({
+                        ...prev,
+                        data: { ...prev.data, familyCastPhotoUrl: e.target.value }
+                      }))}
+                      placeholder="https://... Optional family photo to lock Indian household look across scenes"
+                      className="admin-input"
+                      style={{ fontSize: '12px' }}
+                    />
+                    {editAutoModal.data.familyCastPhotoUrl && (
+                      <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <img
+                          src={editAutoModal.data.familyCastPhotoUrl}
+                          alt="Family cast preview"
+                          style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', border: '1px solid rgba(236,72,153,0.4)' }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                        <span style={{ fontSize: '10.5px', color: '#f472b6' }}>
+                          ✓ Family cast anchor active
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {['world-mysteries', 'last-24-hours', '3am-horror'].includes(editAutoModal.data.templateId) && (
+                <div style={{
+                  background: 'rgba(139, 92, 246, 0.05)',
+                  border: '1px solid rgba(139, 92, 246, 0.25)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '14px' }}>🔍</span>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#c084fc', textTransform: 'uppercase' }}>
+                      Specific Topic or Focus Angle (Optional)
+                    </span>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={editAutoModal.data.topic || ''}
+                    onChange={(e) => setEditAutoModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, topic: e.target.value }
+                    }))}
+                    placeholder="Leave empty for AI auto-brainstorming, or specify a topic..."
+                    className="admin-input"
+                    style={{ fontSize: '12px' }}
+                  />
+
+                  {/* Suggestion pills */}
+                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '2px' }}>
+                    {(editAutoModal.data.templateId === 'world-mysteries'
+                      ? ['Bermuda Triangle', 'Voynich Manuscript', 'Area 51 Hangar S4', 'Oak Island Money Pit']
+                      : editAutoModal.data.templateId === 'last-24-hours'
+                        ? ['Princess Diana', 'Titanic: The Last Night', 'Subhas Chandra Bose', 'Julius Caesar']
+                        : ['Dyatlov Pass Anomaly', 'The Backrooms Level 0', 'Midnight Caller', 'Shimla Tunnel 103']
+                    ).map(suggestion => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => setEditAutoModal(prev => ({
+                          ...prev,
+                          data: { ...prev.data, topic: suggestion }
+                        }))}
+                        style={{
+                          padding: '2px 7px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(139, 92, 246, 0.3)',
+                          background: 'rgba(139, 92, 246, 0.1)',
+                          color: '#c084fc',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* YouTube Auto-Upload & Target Channel */}
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.05)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: '8px',
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                    <input
+                      type="checkbox"
+                      checked={editAutoModal.data.autoUploadToYouTube !== false}
+                      onChange={(e) => setEditAutoModal(prev => ({
+                        ...prev,
+                        data: { ...prev.data, autoUploadToYouTube: e.target.checked }
+                      }))}
+                      style={{ width: '16px', height: '16px', accentColor: '#ef4444' }}
+                    />
+                    Auto-Upload to YouTube Shorts directly after generation
+                  </label>
+                  <span style={{ fontSize: '10.5px', color: editAutoModal.data.tokenValid ? 'var(--admin-accent-green)' : 'var(--admin-accent-amber)', fontWeight: 700 }}>
+                    {editAutoModal.data.tokenValid ? '● YT OAuth Valid' : '● Re-Auth Required'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                  Target Channel: <strong>{editAutoModal.data.channelTitle || 'No Channel Attached'}</strong> ({editAutoModal.data.selectedChannelId || editAutoModal.data.userEmail})
+                </div>
+              </div>
+
+              {/* Upcoming Topics Queue */}
               <div>
                 <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
                   Upcoming Topics Queue (One topic per line)
@@ -2818,7 +3514,7 @@ export default function TemplatesManagerView() {
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
                 <button type="submit" className="admin-btn admin-btn-primary" style={{ flex: 1 }}>
-                  Save Schedule Changes
+                  Save Schedule & Customizations
                 </button>
                 <button
                   type="button"

@@ -275,6 +275,32 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
       characterImageUrl: automation.islamicCharImageUrl ? String(automation.islamicCharImageUrl).trim() : '',
       privacyStatus: 'public'
     };
+  } else if (templateId === 'time-travel-influencer') {
+    const isCustomStory = automation.timeTravelStoryMode === 'custom' && (automation.timeTravelTopic || nextTopic);
+    const storyPrompt = isCustomStory ? (automation.timeTravelTopic || nextTopic) : '';
+    postPayload = {
+      ...postPayload,
+      storyMode: isCustomStory ? 'custom' : 'library',
+      prompt: storyPrompt,
+      rawUserInput: storyPrompt || 'Random Time Travel Adventure',
+      seriesMode: automation.timeTravelSeriesMode || 'new',
+      seriesId: automation.timeTravelSeriesId || null,
+      characterMode: automation.timeTravelCharacterMode || (automation.timeTravelCharImageUrl ? 'upload' : 'random'),
+      characterImageUrl: automation.timeTravelCharImageUrl ? String(automation.timeTravelCharImageUrl).trim() : '',
+      influencerGender: automation.timeTravelGender || 'auto'
+    };
+  } else if (templateId === 'family-micro-drama') {
+    const isCustomEpisode = automation.familyEpisodeMode === 'custom' && (automation.familyCustomTopic || nextTopic);
+    const episodePrompt = isCustomEpisode ? (automation.familyCustomTopic || nextTopic) : (nextTopic || 'Ghar Ki Kahani - Family Drama Episode');
+    postPayload = {
+      ...postPayload,
+      showId: 'GKK-001',
+      episodeMode: automation.familyEpisodeMode || 'next',
+      customEpisodeTopic: isCustomEpisode ? episodePrompt : '',
+      prompt: episodePrompt,
+      rawUserInput: episodePrompt,
+      characterImages: automation.familyCastPhotos || (automation.familyCastPhotoUrl ? { custom: String(automation.familyCastPhotoUrl).trim() } : {})
+    };
   }
 
   const postData = JSON.stringify(postPayload);
@@ -341,9 +367,10 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
   const respText = await res.text();
   console.log(`[template-automation] n8n response: ${res.status} ${respText.slice(0, 100)}`);
 
-  // 7. Calculate Next Run (Exactly 24 hours from now)
+  // 7. Calculate Next Run (respects custom intervalHours or default 24h)
   const now = new Date();
-  const nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const intervalHours = Number(automation.intervalHours) || 24;
+  const nextRunAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
   const isFinished = totalDays > 0 && completedDays >= totalDays;
   const newStatus = isFinished ? 'COMPLETED' : automation.status;
 
@@ -482,11 +509,25 @@ export const handler = async (event) => {
           musicVolume: 0.08,
           selectedChannelId: primaryChannel?.channelId || '',
           autoUploadToYouTube: true,
+          intervalHours: 24,
+          // Islamic Stories
           islamicStoryMode: 'random',
           islamicSeasonTag: 'ramadan',
           islamicSeriesId: 'ISL-SER-001',
           islamicCustomTopic: '',
           islamicCharImageUrl: '',
+          // Time Travel Influencer
+          timeTravelStoryMode: 'library',
+          timeTravelTopic: '',
+          timeTravelSeriesMode: 'new',
+          timeTravelSeriesId: '',
+          timeTravelCharacterMode: 'random',
+          timeTravelCharImageUrl: '',
+          timeTravelGender: 'auto',
+          // Ghar Ki Kahani (Family Drama)
+          familyEpisodeMode: 'next',
+          familyCustomTopic: '',
+          familyCastPhotoUrl: '',
           topicsHistory: [],
           executionLogs: [],
           createdAt: new Date(),
@@ -644,19 +685,34 @@ export const handler = async (event) => {
         const islamicCustomTopic = payload.islamicCustomTopic !== undefined ? String(payload.islamicCustomTopic || '') : (autoDoc?.islamicCustomTopic || '');
         const islamicCharImageUrl = payload.islamicCharImageUrl !== undefined ? String(payload.islamicCharImageUrl || '') : (autoDoc?.islamicCharImageUrl || '');
 
+        // Time Travel Influencer specific configurations
+        const timeTravelStoryMode = payload.timeTravelStoryMode || autoDoc?.timeTravelStoryMode || 'library';
+        const timeTravelTopic = payload.timeTravelTopic !== undefined ? String(payload.timeTravelTopic || '') : (autoDoc?.timeTravelTopic || '');
+        const timeTravelSeriesMode = payload.timeTravelSeriesMode || autoDoc?.timeTravelSeriesMode || 'new';
+        const timeTravelSeriesId = payload.timeTravelSeriesId || autoDoc?.timeTravelSeriesId || '';
+        const timeTravelCharacterMode = payload.timeTravelCharacterMode || autoDoc?.timeTravelCharacterMode || 'random';
+        const timeTravelCharImageUrl = payload.timeTravelCharImageUrl !== undefined ? String(payload.timeTravelCharImageUrl || '') : (autoDoc?.timeTravelCharImageUrl || '');
+        const timeTravelGender = payload.timeTravelGender || autoDoc?.timeTravelGender || 'auto';
+
+        // Ghar Ki Kahani (Family Drama) specific configurations
+        const familyEpisodeMode = payload.familyEpisodeMode || autoDoc?.familyEpisodeMode || 'next';
+        const familyCustomTopic = payload.familyCustomTopic !== undefined ? String(payload.familyCustomTopic || '') : (autoDoc?.familyCustomTopic || '');
+        const familyCastPhotoUrl = payload.familyCastPhotoUrl !== undefined ? String(payload.familyCastPhotoUrl || '') : (autoDoc?.familyCastPhotoUrl || '');
+
+        // Schedule Timing & Frequency
+        const intervalHours = Number(payload.intervalHours || autoDoc?.intervalHours || 24);
+
         const now = new Date();
         let nextRunAt = autoDoc?.nextRunAt;
 
-        // If activating and no future nextRunAt scheduled yet
-        if (requestedStatus === 'ACTIVE' && (!nextRunAt || new Date(nextRunAt) <= now)) {
-          // Schedule first automated run for 24 hours from activation, or right now if specified
+        if (payload.nextRunAt) {
+          nextRunAt = new Date(payload.nextRunAt);
+        } else if (requestedStatus === 'ACTIVE' && (!nextRunAt || new Date(nextRunAt) <= now)) {
           if (payload.scheduleImmediate) {
             nextRunAt = now;
           } else {
-            nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            nextRunAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
           }
-        } else if (requestedStatus === 'PAUSED') {
-          // Keep nextRunAt or pause
         }
 
         const updateData = {
@@ -673,11 +729,22 @@ export const handler = async (event) => {
           musicVolume,
           selectedChannelId,
           autoUploadToYouTube,
+          intervalHours,
           islamicStoryMode,
           islamicSeasonTag,
           islamicSeriesId,
           islamicCustomTopic,
           islamicCharImageUrl,
+          timeTravelStoryMode,
+          timeTravelTopic,
+          timeTravelSeriesMode,
+          timeTravelSeriesId,
+          timeTravelCharacterMode,
+          timeTravelCharImageUrl,
+          timeTravelGender,
+          familyEpisodeMode,
+          familyCustomTopic,
+          familyCastPhotoUrl,
           status: requestedStatus,
           nextRunAt: requestedStatus === 'ACTIVE' ? nextRunAt : (autoDoc?.nextRunAt || null),
           updatedAt: now
@@ -822,6 +889,18 @@ export const handler = async (event) => {
           islamicSeriesId: payload.islamicSeriesId || autoDoc.islamicSeriesId || 'ISL-SER-001',
           islamicCustomTopic: payload.islamicCustomTopic !== undefined ? payload.islamicCustomTopic : (autoDoc.islamicCustomTopic || ''),
           islamicCharImageUrl: payload.islamicCharImageUrl !== undefined ? payload.islamicCharImageUrl : (autoDoc.islamicCharImageUrl || ''),
+          // Time Travel Influencer
+          timeTravelStoryMode: payload.timeTravelStoryMode || autoDoc.timeTravelStoryMode || 'library',
+          timeTravelTopic: payload.timeTravelTopic !== undefined ? payload.timeTravelTopic : (autoDoc.timeTravelTopic || ''),
+          timeTravelSeriesMode: payload.timeTravelSeriesMode || autoDoc.timeTravelSeriesMode || 'new',
+          timeTravelSeriesId: payload.timeTravelSeriesId || autoDoc.timeTravelSeriesId || '',
+          timeTravelCharacterMode: payload.timeTravelCharacterMode || autoDoc.timeTravelCharacterMode || 'random',
+          timeTravelCharImageUrl: payload.timeTravelCharImageUrl !== undefined ? payload.timeTravelCharImageUrl : (autoDoc.timeTravelCharImageUrl || ''),
+          timeTravelGender: payload.timeTravelGender || autoDoc.timeTravelGender || 'auto',
+          // Ghar Ki Kahani
+          familyEpisodeMode: payload.familyEpisodeMode || autoDoc.familyEpisodeMode || 'next',
+          familyCustomTopic: payload.familyCustomTopic !== undefined ? payload.familyCustomTopic : (autoDoc.familyCustomTopic || ''),
+          familyCastPhotoUrl: payload.familyCastPhotoUrl !== undefined ? payload.familyCastPhotoUrl : (autoDoc.familyCastPhotoUrl || ''),
           voiceId: payload.voiceId || autoDoc.voiceId,
           elevenLabsVoiceId: payload.elevenLabsVoiceId || autoDoc.elevenLabsVoiceId,
           selectedChannelId: payload.selectedChannelId !== undefined ? payload.selectedChannelId : autoDoc.selectedChannelId,

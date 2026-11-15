@@ -362,11 +362,25 @@ export default function TemplatesPage({
     musicVolume: 0.08,
     selectedChannelId: '',
     autoUploadToYouTube: true,
+    intervalHours: 24,
+    // Islamic Stories
     islamicStoryMode: 'random',
     islamicSeasonTag: 'ramadan',
     islamicSeriesId: 'ISL-SER-001',
     islamicCustomTopic: '',
     islamicCharImageUrl: '',
+    // Time Travel Influencer
+    timeTravelStoryMode: 'library',
+    timeTravelTopic: '',
+    timeTravelSeriesMode: 'new',
+    timeTravelSeriesId: '',
+    timeTravelCharacterMode: 'random',
+    timeTravelCharImageUrl: '',
+    timeTravelGender: 'auto',
+    // Ghar Ki Kahani (Family Drama)
+    familyEpisodeMode: 'next',
+    familyCustomTopic: '',
+    familyCastPhotoUrl: '',
     nextRunAt: null,
     lastRunAt: null,
     topicsHistory: []
@@ -394,11 +408,22 @@ export default function TemplatesPage({
           setAutomationConfig({
             ...data.automation,
             topic: data.automation.topic || '',
+            intervalHours: data.automation.intervalHours || 24,
             islamicStoryMode: data.automation.islamicStoryMode || 'random',
             islamicSeasonTag: data.automation.islamicSeasonTag || 'ramadan',
             islamicSeriesId: data.automation.islamicSeriesId || 'ISL-SER-001',
             islamicCustomTopic: data.automation.islamicCustomTopic || '',
             islamicCharImageUrl: data.automation.islamicCharImageUrl || '',
+            timeTravelStoryMode: data.automation.timeTravelStoryMode || 'library',
+            timeTravelTopic: data.automation.timeTravelTopic || '',
+            timeTravelSeriesMode: data.automation.timeTravelSeriesMode || 'new',
+            timeTravelSeriesId: data.automation.timeTravelSeriesId || '',
+            timeTravelCharacterMode: data.automation.timeTravelCharacterMode || 'random',
+            timeTravelCharImageUrl: data.automation.timeTravelCharImageUrl || '',
+            timeTravelGender: data.automation.timeTravelGender || 'auto',
+            familyEpisodeMode: data.automation.familyEpisodeMode || 'next',
+            familyCustomTopic: data.automation.familyCustomTopic || '',
+            familyCastPhotoUrl: data.automation.familyCastPhotoUrl || '',
             voiceId: resolvedVoiceId,
             elevenLabsVoiceId: resolvedElVoiceId
           });
@@ -499,9 +524,18 @@ export default function TemplatesPage({
       const chosenVoiceId = voiceId || activeVoiceObj?.id || 'adam';
       const chosenElVoiceId = videoSettings?.elevenLabsVoiceId || activeVoiceObj?.elevenLabsId || '';
       const isIslamic = automationConfig.templateId === 'islamic-stories-hindi';
-      const runTopic = isIslamic && automationConfig.islamicStoryMode === 'custom'
-        ? (automationConfig.islamicCustomTopic || automationConfig.topic || '')
-        : (automationConfig.topic || '');
+      const isTimeTravel = automationConfig.templateId === 'time-travel-influencer';
+      const isFamilyDrama = automationConfig.templateId === 'family-micro-drama';
+
+      let runTopic = automationConfig.topic || '';
+      if (isIslamic && automationConfig.islamicStoryMode === 'custom') {
+        runTopic = automationConfig.islamicCustomTopic || automationConfig.topic || '';
+      } else if (isTimeTravel && automationConfig.timeTravelStoryMode === 'custom') {
+        runTopic = automationConfig.timeTravelTopic || automationConfig.topic || '';
+      } else if (isFamilyDrama && automationConfig.familyEpisodeMode === 'custom') {
+        runTopic = automationConfig.familyCustomTopic || automationConfig.topic || '';
+      }
+
       const res = await fetch('/.netlify/functions/template-automation', {
         method: 'POST',
         headers: {
@@ -513,11 +547,25 @@ export default function TemplatesPage({
           templateId: automationConfig.templateId,
           topic: runTopic,
           prompt: runTopic,
+          intervalHours: automationConfig.intervalHours || 24,
+          // Islamic Stories
           islamicStoryMode: automationConfig.islamicStoryMode || 'random',
           islamicSeasonTag: automationConfig.islamicSeasonTag || 'ramadan',
           islamicSeriesId: automationConfig.islamicSeriesId || 'ISL-SER-001',
           islamicCustomTopic: automationConfig.islamicCustomTopic || '',
           islamicCharImageUrl: automationConfig.islamicCharImageUrl || '',
+          // Time Travel Influencer
+          timeTravelStoryMode: automationConfig.timeTravelStoryMode || 'library',
+          timeTravelTopic: automationConfig.timeTravelTopic || '',
+          timeTravelSeriesMode: automationConfig.timeTravelSeriesMode || 'new',
+          timeTravelSeriesId: automationConfig.timeTravelSeriesId || '',
+          timeTravelCharacterMode: automationConfig.timeTravelCharacterMode || 'random',
+          timeTravelCharImageUrl: automationConfig.timeTravelCharImageUrl || '',
+          timeTravelGender: automationConfig.timeTravelGender || 'auto',
+          // Ghar Ki Kahani
+          familyEpisodeMode: automationConfig.familyEpisodeMode || 'next',
+          familyCustomTopic: automationConfig.familyCustomTopic || '',
+          familyCastPhotoUrl: automationConfig.familyCastPhotoUrl || '',
           voiceId: chosenVoiceId,
           elevenLabsVoiceId: chosenElVoiceId,
           selectedChannelId: automationTargetChannel?.channelId || selectedChannel?.channelId || automationConfig.selectedChannelId || '',
@@ -4460,12 +4508,302 @@ export default function TemplatesPage({
                   <span>100% Devanagari Hindi narration, authentic Quran & Sahih Hadith sources, and luminous white-light rule for sacred figures.</span>
                 </div>
               </div>
+            ) : automationConfig.templateId === 'time-travel-influencer' ? (
+              <div style={{
+                padding: '14px', borderRadius: '12px',
+                background: 'rgba(16, 185, 129, 0.04)', border: '1px solid rgba(16, 185, 129, 0.25)',
+                display: 'flex', flexDirection: 'column', gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>⏳</span> Time Travel Influencer Autopilot Customizations
+                  </span>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#10b981', background: 'rgba(16, 185, 129, 0.12)', padding: '2px 8px', borderRadius: '99px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                    Native Voice · Lip-Sync
+                  </span>
+                </div>
+
+                {/* 1. STORY MODE */}
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', textTransform: 'uppercase' }}>
+                    <span>⏳</span> Story Mode
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {[
+                      { id: 'library', label: '🎲 Library Era', sub: 'Fresh Viral Era Every 24h' },
+                      { id: 'custom', label: '✍️ Custom Era Idea', sub: 'Your Own Travel Prompt' }
+                    ].map(m => {
+                      const isModeSel = (automationConfig.timeTravelStoryMode || 'library') === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            if (typeof audioEngine !== 'undefined') audioEngine.playSfx('click');
+                            setAutomationConfig(prev => ({ ...prev, timeTravelStoryMode: m.id }));
+                          }}
+                          style={{
+                            padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                            background: isModeSel ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-elevated)',
+                            border: isModeSel ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                            color: isModeSel ? '#10b981' : 'var(--text-secondary)',
+                            fontSize: '11px', fontWeight: isModeSel ? 700 : 500,
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                            transition: 'all 0.15s ease', textAlign: 'center'
+                          }}
+                        >
+                          <span>{m.label}</span>
+                          <span style={{ fontSize: '9px', opacity: 0.8 }}>{m.sub}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {automationConfig.timeTravelStoryMode === 'custom' ? (
+                    <div style={{ marginTop: '8px' }}>
+                      <input
+                        type="text"
+                        value={automationConfig.timeTravelTopic || ''}
+                        onChange={e => setAutomationConfig(prev => ({ ...prev, timeTravelTopic: e.target.value }))}
+                        placeholder="e.g. Stepping out of a mall elevator into dinosaur era, or saving Emperor Akbar from a tiger"
+                        style={{
+                          width: '100%', padding: '8px 10px', borderRadius: '8px',
+                          border: (automationConfig.timeTravelTopic || '').trim() ? '1.5px solid #10b981' : '1px solid var(--border-medium)',
+                          background: 'var(--bg-input)', color: 'var(--text-primary)',
+                          fontSize: '12px', outline: 'none', boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                      💡 Autonomously travels to a completely fresh, unrepeated viral historical era or future timeline every 24h.
+                    </span>
+                  )}
+                </div>
+
+                {/* 2. SERIES MODE */}
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>
+                    🎬 Series Mode
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {[
+                      { id: 'new', label: '✨ Standalone Stories', sub: 'Fresh Adventure Each Run' },
+                      { id: 'continue', label: '⏳ Continuous Series', sub: 'Linked Multi-Episode Arc' }
+                    ].map(s => {
+                      const isSel = (automationConfig.timeTravelSeriesMode || 'new') === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setAutomationConfig(prev => ({ ...prev, timeTravelSeriesMode: s.id }))}
+                          style={{
+                            padding: '6px 8px', borderRadius: '8px', cursor: 'pointer',
+                            background: isSel ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-elevated)',
+                            border: isSel ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                            color: isSel ? '#10b981' : 'var(--text-secondary)',
+                            fontSize: '11px', fontWeight: isSel ? 700 : 500,
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px'
+                          }}
+                        >
+                          <span>{s.label}</span>
+                          <span style={{ fontSize: '9px', opacity: 0.8 }}>{s.sub}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. CHARACTER CASTING & PHOTO */}
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', textTransform: 'uppercase' }}>
+                    <span>👤</span> Character Reference Photo (Optional)
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={automationConfig.timeTravelCharImageUrl || ''}
+                      onChange={e => setAutomationConfig(prev => ({ ...prev, timeTravelCharImageUrl: e.target.value }))}
+                      placeholder="https://i.ibb.co/...jpg (optional direct image URL)"
+                      style={{
+                        flex: 1, padding: '8px 10px', borderRadius: '8px',
+                        background: 'var(--bg-input)', color: 'var(--text-primary)',
+                        border: (automationConfig.timeTravelCharImageUrl || '').trim() ? '1.5px solid #10b981' : '1px solid var(--border-medium)',
+                        fontSize: '12px', outline: 'none'
+                      }}
+                    />
+                    {(automationConfig.timeTravelCharImageUrl || '').trim() && (
+                      <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', border: '1.5px solid #10b981', flexShrink: 0 }}>
+                        <img
+                          src={automationConfig.timeTravelCharImageUrl.trim()}
+                          alt="Preview"
+                          onError={e => { e.currentTarget.style.display = 'none'; }}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. GENDER SELECTION */}
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>
+                    👤 Influencer Gender
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                    {[
+                      { id: 'auto', label: 'Auto / Balanced', icon: '✨' },
+                      { id: 'female', label: 'Female (Cute Girl)', icon: '👩' },
+                      { id: 'male', label: 'Male (Handsome Guy)', icon: '👨' }
+                    ].map(g => {
+                      const isSel = (automationConfig.timeTravelGender || 'auto') === g.id;
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => setAutomationConfig(prev => ({ ...prev, timeTravelGender: g.id }))}
+                          style={{
+                            padding: '6px 8px', borderRadius: '8px', cursor: 'pointer',
+                            background: isSel ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-elevated)',
+                            border: isSel ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+                            color: isSel ? '#10b981' : 'var(--text-secondary)',
+                            fontSize: '11px', fontWeight: isSel ? 700 : 500,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+                          }}
+                        >
+                          <span>{g.icon}</span>
+                          <span>{g.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{
+                  padding: '6px 10px', borderRadius: '6px',
+                  background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)',
+                  fontSize: '10.5px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px'
+                }}>
+                  <span>⚡</span>
+                  <span>Pure native in-video Hindi speech with character lock and realistic lip-sync on 15s Grok video scenes.</span>
+                </div>
+              </div>
+            ) : automationConfig.templateId === 'family-micro-drama' ? (
+              <div style={{
+                padding: '14px', borderRadius: '12px',
+                background: 'rgba(225, 29, 72, 0.04)', border: '1px solid rgba(225, 29, 72, 0.25)',
+                display: 'flex', flexDirection: 'column', gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#e11d48', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🎭</span> Ghar Ki Kahani Autopilot Customizations
+                  </span>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#e11d48', background: 'rgba(225, 29, 72, 0.12)', padding: '2px 8px', borderRadius: '99px', border: '1px solid rgba(225, 29, 72, 0.3)' }}>
+                    Serial Family Drama
+                  </span>
+                </div>
+
+                {/* 1. EPISODE MODE */}
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', textTransform: 'uppercase' }}>
+                    <span>🎭</span> Episode Mode
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {[
+                      { id: 'next', label: '💡 Season 1 Progression', sub: 'Autonomous Story Bible' },
+                      { id: 'custom', label: '✍️ Custom Episode Idea', sub: 'Your Own Scenario' }
+                    ].map(m => {
+                      const isModeSel = (automationConfig.familyEpisodeMode || 'next') === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            if (typeof audioEngine !== 'undefined') audioEngine.playSfx('click');
+                            setAutomationConfig(prev => ({ ...prev, familyEpisodeMode: m.id }));
+                          }}
+                          style={{
+                            padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                            background: isModeSel ? 'rgba(225, 29, 72, 0.15)' : 'var(--bg-elevated)',
+                            border: isModeSel ? '1.5px solid #e11d48' : '1px solid var(--border-subtle)',
+                            color: isModeSel ? '#e11d48' : 'var(--text-secondary)',
+                            fontSize: '11px', fontWeight: isModeSel ? 700 : 500,
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                            transition: 'all 0.15s ease', textAlign: 'center'
+                          }}
+                        >
+                          <span>{m.label}</span>
+                          <span style={{ fontSize: '9px', opacity: 0.8 }}>{m.sub}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {automationConfig.familyEpisodeMode === 'custom' ? (
+                    <div style={{ marginTop: '8px' }}>
+                      <textarea
+                        value={automationConfig.familyCustomTopic || ''}
+                        onChange={e => setAutomationConfig(prev => ({ ...prev, familyCustomTopic: e.target.value.slice(0, 300) }))}
+                        maxLength={300}
+                        rows={3}
+                        placeholder="e.g. Chhota finds an old brass key hidden inside Dadi's harmonium that matches the lock on the steel tin box..."
+                        style={{
+                          width: '100%', padding: '8px 10px', borderRadius: '8px',
+                          border: (automationConfig.familyCustomTopic || '').trim() ? '1.5px solid #e11d48' : '1px solid var(--border-medium)',
+                          background: 'var(--bg-input)', color: 'var(--text-primary)',
+                          fontSize: '12px', outline: 'none', resize: 'vertical',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                      💡 Autonomously follows the show bible Season 1 episode progression for the Pune family and the mysterious locked steel tin box.
+                    </span>
+                  )}
+                </div>
+
+                {/* 2. OPTIONAL CAST PHOTO URL */}
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>
+                    🖼️ Custom Family Photo Reference (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={automationConfig.familyCastPhotoUrl || ''}
+                    onChange={e => setAutomationConfig(prev => ({ ...prev, familyCastPhotoUrl: e.target.value }))}
+                    placeholder="https://i.ibb.co/...jpg (optional direct image URL)"
+                    style={{
+                      width: '100%', padding: '8px 10px', borderRadius: '8px',
+                      background: 'var(--bg-input)', color: 'var(--text-primary)',
+                      border: (automationConfig.familyCastPhotoUrl || '').trim() ? '1.5px solid #e11d48' : '1px solid var(--border-medium)',
+                      fontSize: '12px', outline: 'none', boxSizing: 'border-box'
+                    }}
+                  />
+                  <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', marginTop: '3px', display: 'block' }}>
+                    ✨ If left blank, uses your saved Design Studio cast profile (Dadi, Papa, Mummy, Didi, Chhota).
+                  </span>
+                </div>
+
+                <div style={{
+                  padding: '6px 10px', borderRadius: '6px',
+                  background: 'rgba(225, 29, 72, 0.08)', border: '1px solid rgba(225, 29, 72, 0.2)',
+                  fontSize: '10.5px', color: '#e11d48', display: 'flex', alignItems: 'center', gap: '6px'
+                }}>
+                  <span>✨</span>
+                  <span>100% Devanagari Hindi dialogue, authentic Pune setting, and continuous serialized drama narrative.</span>
+                </div>
+              </div>
             ) : (
-              /* Specific Topic (Optional - Starts Empty, No Prefilled Topics) */
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+              /* Specific Topic & Angle Selector (World Mysteries, Last 24 Hours, 3-AM Horror) */
+              <div style={{
+                padding: '14px', borderRadius: '12px',
+                background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+                display: 'flex', flexDirection: 'column', gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Type size={12} /> Specific Topic <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--text-muted)' }}>(Optional)</span>
+                    <Type size={12} /> Specific Topic / Focus Angle <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--text-muted)' }}>(Optional)</span>
                   </label>
                   {automationConfig.topic ? (
                     <button
@@ -4479,6 +4817,7 @@ export default function TemplatesPage({
                     <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Auto-researched by AI</span>
                   )}
                 </div>
+
                 <input
                   type="text"
                   value={automationConfig.topic || ''}
@@ -4491,7 +4830,33 @@ export default function TemplatesPage({
                     boxSizing: 'border-box'
                   }}
                 />
-                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
+
+                {/* Quick Topic Ideas */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>Quick Ideas:</span>
+                  {(automationConfig.templateId === 'world-mysteries' ? [
+                    'Bermuda Triangle Deep Trench', 'Voynich Manuscript Code', 'Area 51 S4 Hangar', 'Oak Island Money Pit'
+                  ] : automationConfig.templateId === 'last-24-hours' ? [
+                    'Princess Diana: Final 24 Hours', 'Titanic: The Last Night', 'Subhas Chandra Bose Final Flight', 'Julius Caesar: The Ides of March'
+                  ] : [
+                    'Dyatlov Pass 3 AM Anomaly', 'The Backrooms Level 0', 'Midnight Caller in Shimla Tunnel', 'Skinwalker Ranch 3 AM'
+                  ]).map(idea => (
+                    <button
+                      key={idea}
+                      type="button"
+                      onClick={() => setAutomationConfig(prev => ({ ...prev, topic: idea }))}
+                      style={{
+                        padding: '2px 7px', borderRadius: '5px',
+                        background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-secondary)', fontSize: '10px', cursor: 'pointer'
+                      }}
+                    >
+                      + {idea}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
                   {automationConfig.topic
                     ? `AI will generate today's video specifically focused on "${automationConfig.topic}".`
                     : 'Leave blank to let the AI automatically brainstorm trending topics every day.'}
