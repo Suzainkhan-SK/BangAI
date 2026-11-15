@@ -358,8 +358,8 @@ export default function TemplatesPage({
     voiceId: voiceId,
     elevenLabsVoiceId: videoSettings?.elevenLabsVoiceId || '',
     voiceSpeed: 1.20,
-    musicId: 'mystery2',
-    musicVolume: 0.08,
+    musicId: videoSettings?.musicId || 'none',
+    musicVolume: videoSettings?.musicId === 'none' ? 0 : (videoSettings?.musicVolume ?? 0.08),
     selectedChannelId: '',
     autoUploadToYouTube: true,
     intervalHours: 24,
@@ -402,9 +402,11 @@ export default function TemplatesPage({
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.automation) {
-          // Keep voice synchronized with the user's active studio voice (videoSettings)
+          // Keep voice & background music synchronized with the user's active studio settings (videoSettings)
           const resolvedVoiceId = videoSettings?.voiceId || data.automation.voiceId || 'adam';
           const resolvedElVoiceId = videoSettings?.elevenLabsVoiceId || data.automation.elevenLabsVoiceId || '';
+          const resolvedMusicId = videoSettings?.musicId || data.automation.musicId || 'none';
+          const resolvedMusicVol = resolvedMusicId === 'none' ? 0 : (videoSettings?.musicVolume ?? data.automation.musicVolume ?? 0.08);
           setAutomationConfig({
             ...data.automation,
             topic: data.automation.topic || '',
@@ -425,7 +427,9 @@ export default function TemplatesPage({
             familyCustomTopic: data.automation.familyCustomTopic || '',
             familyCastPhotoUrl: data.automation.familyCastPhotoUrl || '',
             voiceId: resolvedVoiceId,
-            elevenLabsVoiceId: resolvedElVoiceId
+            elevenLabsVoiceId: resolvedElVoiceId,
+            musicId: resolvedMusicId,
+            musicVolume: resolvedMusicVol
           });
           if (Array.isArray(data.channels) && data.channels.length > 0) {
             const norm = data.channels.map(normalizeChannel);
@@ -481,13 +485,20 @@ export default function TemplatesPage({
       const targetChId = automationTargetChannel?.channelId || selectedChannel?.channelId || automationConfig.selectedChannelId || '';
       const chosenVoiceId = overrides.voiceId || voiceId || activeVoiceObj?.id || 'adam';
       const chosenElVoiceId = overrides.elevenLabsVoiceId || videoSettings?.elevenLabsVoiceId || activeVoiceObj?.elevenLabsId || '';
+      const chosenMusicId = overrides.musicId || videoSettings?.musicId || automationConfig.musicId || 'none';
+      const isNoMusic = chosenMusicId === 'none';
+      const chosenMusicVol = isNoMusic ? 0 : (overrides.musicVolume ?? videoSettings?.musicVolume ?? automationConfig.musicVolume ?? 0.08);
+      const chosenMusicTrackUrl = isNoMusic ? '' : (overrides.musicTrackUrl || videoSettings?.musicTrackUrl || '');
       const payload = {
         action: 'save',
         ...automationConfig,
         ...overrides,
         selectedChannelId: targetChId,
         voiceId: chosenVoiceId,
-        elevenLabsVoiceId: chosenElVoiceId
+        elevenLabsVoiceId: chosenElVoiceId,
+        musicId: chosenMusicId,
+        musicTrackUrl: chosenMusicTrackUrl,
+        musicVolume: chosenMusicVol
       };
       const res = await fetch('/.netlify/functions/template-automation', {
         method: 'POST',
@@ -550,6 +561,10 @@ export default function TemplatesPage({
       const token = getAuthToken() || '';
       const chosenVoiceId = voiceId || activeVoiceObj?.id || 'adam';
       const chosenElVoiceId = videoSettings?.elevenLabsVoiceId || activeVoiceObj?.elevenLabsId || '';
+      const runMusicId = videoSettings?.musicId || automationConfig.musicId || 'none';
+      const isNoMusic = runMusicId === 'none';
+      const runMusicVol = isNoMusic ? 0 : (videoSettings?.musicVolume ?? automationConfig.musicVolume ?? 0.08);
+      const runMusicTrackUrl = isNoMusic ? '' : (videoSettings?.musicTrackUrl || '');
       const isIslamic = automationConfig.templateId === 'islamic-stories-hindi';
       const isTimeTravel = automationConfig.templateId === 'time-travel-influencer';
       const isFamilyDrama = automationConfig.templateId === 'family-micro-drama';
@@ -595,6 +610,9 @@ export default function TemplatesPage({
           familyCastPhotoUrl: automationConfig.familyCastPhotoUrl || '',
           voiceId: chosenVoiceId,
           elevenLabsVoiceId: chosenElVoiceId,
+          musicId: runMusicId,
+          musicTrackUrl: runMusicTrackUrl,
+          musicVolume: runMusicVol,
           selectedChannelId: automationTargetChannel?.channelId || selectedChannel?.channelId || automationConfig.selectedChannelId || '',
           autoUploadToYouTube: automationConfig.autoUploadToYouTube !== false
         })
@@ -1129,8 +1147,11 @@ export default function TemplatesPage({
       }
 
       const chosenSubtitlePreset = videoSettings?.subtitleSettings?.presetId || videoSettings?.subtitleStyle || 'hormozi';
-      const chosenMusicId = videoSettings?.musicId || 'mystery2';
-      const chosenMusic = getMusicTrackById(chosenMusicId);
+      const isNoMusic = videoSettings?.musicId === 'none' || !videoSettings?.musicId;
+      const chosenMusicId = isNoMusic ? 'none' : videoSettings.musicId;
+      const chosenMusic = isNoMusic ? null : getMusicTrackById(chosenMusicId);
+      const chosenMusicUrl = isNoMusic ? '' : (videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '');
+      const chosenMusicVol = isNoMusic ? 0 : (videoSettings?.musicVolume ?? 0.08);
       const isTargetNativeVoice = targetTpl.id === 'time-travel-influencer' || !!targetTpl.isNativeVoice;
       const targetChannelToUse = selectedChannel?.channelId || selectedChannelId || undefined;
 
@@ -1179,8 +1200,8 @@ export default function TemplatesPage({
           subtitleSettings: videoSettings?.subtitleSettings || null,
           subtitleStyle: chosenSubtitlePreset,
           musicId: chosenMusicId,
-          musicTrackUrl: videoSettings?.musicTrackUrl || chosenMusic?.audioUrl || '',
-          musicVolume: videoSettings?.musicVolume ?? 0.08,
+          musicTrackUrl: chosenMusicUrl,
+          musicVolume: chosenMusicVol,
           influencerGender: templateId === 'time-travel-influencer' ? influencerGender : undefined,
           characterImageUrl: templateId === 'time-travel-influencer' ? resolvedCharUrl : undefined,
           seriesMode: templateId === 'time-travel-influencer' ? effectiveSeriesMode : undefined,
@@ -5037,6 +5058,42 @@ export default function TemplatesPage({
                   <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{SPEED_MAX.toFixed(2)}x</span>
                 </div>
               </div>
+            </div>
+
+            {/* Background Music Info (Synced from Design Studio) */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '9px 12px', borderRadius: '10px',
+              background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '15px' }}>{videoSettings?.musicId === 'none' ? '🎙️' : '🎵'}</span>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Background Music: {videoSettings?.musicId === 'none' ? 'No Background Music (Voiceover Only)' : (getMusicTrackById(videoSettings?.musicId)?.name || 'Custom Music')}
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                    {videoSettings?.musicId === 'none'
+                      ? '✨ Clean voiceover only (0% background music volume) synced from Design Studio.'
+                      : `✨ Volume ${(Number(videoSettings?.musicVolume ?? 0.08) * 100).toFixed(0)}% synced from Design Studio.`}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAutomateModal(false);
+                  if (typeof onNavigate === 'function') onNavigate('studio/music');
+                  else window.location.hash = '#/studio/music';
+                }}
+                style={{
+                  background: 'none', border: 'none', padding: 0,
+                  color: 'var(--accent-primary, #ff4f00)', fontWeight: 600,
+                  cursor: 'pointer', fontSize: '11px', flexShrink: 0
+                }}
+              >
+                Change in Studio ↗
+              </button>
             </div>
 
             {/* Auto-Upload to YouTube Shorts Toggle */}

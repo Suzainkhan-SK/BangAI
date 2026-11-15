@@ -219,6 +219,11 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
   const callbackUrl = `https://${hostHeader}/.netlify/functions/story-approval`;
   const meta = TEMPLATE_META[templateId] || TEMPLATE_META['world-mysteries'];
 
+  const isNoMusic = automation.musicId === 'none' || Number(automation.musicVolume) === 0;
+  const chosenMusicId = isNoMusic ? 'none' : (automation.musicId || meta.musicId || 'cinematic');
+  const chosenMusicVol = isNoMusic ? 0 : (automation.musicVolume !== undefined ? Number(automation.musicVolume) : 0.08);
+  const chosenMusicTrackUrl = isNoMusic ? '' : (automation.musicTrackUrl || '');
+
   let postPayload = {
     templateId,
     templateName: meta.name,
@@ -249,9 +254,9 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
     aspectRatio: '9:16',
     subtitleSettings: null,
     subtitleStyle: 'hormozi',
-    musicId: automation.musicId || meta.musicId,
-    musicTrackUrl: '',
-    musicVolume: automation.musicVolume !== undefined ? Number(automation.musicVolume) : 0.08,
+    musicId: chosenMusicId,
+    musicTrackUrl: chosenMusicTrackUrl,
+    musicVolume: chosenMusicVol,
     // Automation metadata
     isAutomatedDailyRun: true,
     dayNumber: completedDays,
@@ -516,8 +521,8 @@ export const handler = async (event) => {
           upcomingTopics: [],
           voiceId: 'adam',
           voiceSpeed: 1.20,
-          musicId: 'mystery2',
-          musicVolume: 0.08,
+          musicId: 'none',
+          musicVolume: 0,
           selectedChannelId: primaryChannel?.channelId || '',
           autoUploadToYouTube: true,
           intervalHours: 24,
@@ -683,8 +688,11 @@ export const handler = async (event) => {
         const voiceId = payload.voiceId || autoDoc?.voiceId || 'adam';
         const elevenLabsVoiceId = payload.elevenLabsVoiceId || autoDoc?.elevenLabsVoiceId || '';
         const voiceSpeed = payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : (autoDoc?.voiceSpeed ?? 1.20);
-        const musicId = payload.musicId || autoDoc?.musicId || 'mystery2';
-        const musicVolume = payload.musicVolume !== undefined ? Number(payload.musicVolume) : (autoDoc?.musicVolume ?? 0.08);
+        const rawMusicId = payload.musicId !== undefined ? payload.musicId : autoDoc?.musicId;
+        const isExplicitNone = rawMusicId === 'none' || payload.musicVolume === 0;
+        const musicId = isExplicitNone ? 'none' : (rawMusicId || 'none');
+        const musicVolume = isExplicitNone ? 0 : (payload.musicVolume !== undefined ? Number(payload.musicVolume) : (autoDoc?.musicVolume ?? 0.08));
+        const musicTrackUrl = isExplicitNone ? '' : (payload.musicTrackUrl || autoDoc?.musicTrackUrl || '');
         const selectedChannelId = payload.selectedChannelId !== undefined ? payload.selectedChannelId : (autoDoc?.selectedChannelId || '');
         const autoUploadToYouTube = payload.autoUploadToYouTube !== false;
         const requestedStatus = payload.status || autoDoc?.status || 'ACTIVE';
@@ -738,6 +746,7 @@ export const handler = async (event) => {
           voiceSpeed,
           musicId,
           musicVolume,
+          musicTrackUrl,
           selectedChannelId,
           autoUploadToYouTube,
           intervalHours,
@@ -872,8 +881,8 @@ export const handler = async (event) => {
             upcomingTopics: [],
             voiceId: 'adam',
             voiceSpeed: 1.20,
-            musicId: 'mystery2',
-            musicVolume: 0.08,
+            musicId: 'none',
+            musicVolume: 0,
             selectedChannelId: primaryChannel?.channelId || '',
             autoUploadToYouTube: true,
             topicsHistory: [],
@@ -914,6 +923,9 @@ export const handler = async (event) => {
           familyCastPhotoUrl: payload.familyCastPhotoUrl !== undefined ? payload.familyCastPhotoUrl : (autoDoc.familyCastPhotoUrl || ''),
           voiceId: payload.voiceId || autoDoc.voiceId,
           elevenLabsVoiceId: payload.elevenLabsVoiceId || autoDoc.elevenLabsVoiceId,
+          musicId: payload.musicId !== undefined ? payload.musicId : (autoDoc.musicId || 'none'),
+          musicTrackUrl: payload.musicTrackUrl !== undefined ? payload.musicTrackUrl : (autoDoc.musicTrackUrl || ''),
+          musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : (autoDoc.musicVolume ?? 0),
           selectedChannelId: payload.selectedChannelId !== undefined ? payload.selectedChannelId : autoDoc.selectedChannelId,
           autoUploadToYouTube: payload.autoUploadToYouTube !== undefined ? payload.autoUploadToYouTube : autoDoc.autoUploadToYouTube
         };

@@ -629,6 +629,11 @@ export const handler = async (event) => {
     // -------------------------------------------------------------
     let postPayload;
 
+    const isPayloadNoMusic = payload.musicId === 'none' || payload.musicVolume === 0;
+    const resolvedMusicId = isPayloadNoMusic ? 'none' : (payload.musicId || meta.musicId || 'cinematic');
+    const resolvedMusicVol = isPayloadNoMusic ? 0 : (payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08);
+    const resolvedMusicUrl = isPayloadNoMusic ? '' : (payload.musicTrackUrl || payload.musicUrl || '');
+
     if (templateId === 'family-micro-drama') {
       postPayload = {
         userId: userId || 'anonymous',
@@ -645,9 +650,9 @@ export const handler = async (event) => {
         userSpreadsheetId,
         subtitleSettings: payload.subtitleSettings || null,
         subtitleStyle: payload.subtitleStyle || payload.subtitlePreset || 'hormozi',
-        musicId: payload.musicId || meta.musicId,
-        musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
-        musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
+        musicId: resolvedMusicId,
+        musicTrackUrl: resolvedMusicUrl,
+        musicVolume: resolvedMusicVol,
         aspectRatio: '9:16',
         language: 'Hindi',
         timestamp: new Date().toISOString(),
@@ -711,9 +716,9 @@ export const handler = async (event) => {
         elevenLabsVoiceId: payload.elevenLabsVoiceId || '',
         voiceSpeed: payload.voiceSpeed !== undefined ? Number(payload.voiceSpeed) : 1.20,
         voiceVolume: payload.voiceVolume !== undefined ? Number(payload.voiceVolume) : 1.0,
-        musicId: payload.musicId || meta.musicId,
-        musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
-        musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
+        musicId: resolvedMusicId,
+        musicTrackUrl: resolvedMusicUrl,
+        musicVolume: resolvedMusicVol,
         subtitleSettings: payload.subtitleSettings || null,
         subtitleStyle: payload.subtitleStyle || payload.subtitlePreset || 'hormozi',
         privacyStatus: payload.privacyStatus || 'public',
@@ -747,9 +752,9 @@ export const handler = async (event) => {
         subtitleSettings: payload.subtitleSettings || null,
         subtitleStyle: payload.subtitleStyle || payload.subtitlePreset || 'hormozi',
         // Music & volume settings
-        musicId: payload.musicId || meta.musicId,
-        musicTrackUrl: payload.musicTrackUrl || payload.musicUrl || '',
-        musicVolume: payload.musicVolume !== undefined ? Number(payload.musicVolume) : 0.08,
+        musicId: resolvedMusicId,
+        musicTrackUrl: resolvedMusicUrl,
+        musicVolume: resolvedMusicVol,
         timestamp: new Date().toISOString()
       };
 

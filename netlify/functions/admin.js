@@ -6497,6 +6497,11 @@ export async function handler(event) {
         if (updates && updates.nextRunAt !== undefined) {
           sanitized.nextRunAt = updates.nextRunAt ? new Date(updates.nextRunAt) : null;
         }
+        if (sanitized.musicId === 'none' || sanitized.musicVolume === 0) {
+          sanitized.musicId = 'none';
+          sanitized.musicVolume = 0;
+          sanitized.musicTrackUrl = '';
+        }
         sanitized.updatedAt = new Date();
 
         await autoCol.updateOne(query, {

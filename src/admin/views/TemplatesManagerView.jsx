@@ -399,7 +399,8 @@ export default function TemplatesManagerView() {
         completedDays: Number(d.completedDays ?? 0),
         voiceId: d.voiceId || 'adam',
         voiceSpeed: Number(d.voiceSpeed || 1.20),
-        musicId: d.musicId || 'cinematic',
+        musicId: d.musicId || 'none',
+        musicVolume: d.musicId === 'none' ? 0 : (d.musicVolume !== undefined ? Number(d.musicVolume) : 0.08),
         status: d.status || 'ACTIVE',
         intervalHours: Number(d.intervalHours || 24),
         nextRunAt: d.nextRunAt || null,
@@ -2999,6 +3000,62 @@ export default function TemplatesManagerView() {
                     <option value="1.25">1.25x (Rapid High-Energy)</option>
                     <option value="1.30">1.30x (Ultra Fast)</option>
                     <option value="1.50">1.50x (Maximum Speed)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Background Music & Volume */}
+              <div className="admin-grid-2">
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                    Background Music Track
+                  </label>
+                  <select
+                    value={editAutoModal.data.musicId || 'none'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditAutoModal(prev => ({
+                        ...prev,
+                        data: {
+                          ...prev.data,
+                          musicId: val,
+                          musicVolume: val === 'none' ? 0 : (prev.data.musicVolume || 0.08)
+                        }
+                      }));
+                    }}
+                    className="admin-select"
+                  >
+                    <option value="none">🎙️ No Background Music (Voiceover Only)</option>
+                    <option value="mystery2">🌑 Deep Investigation Mystery (mystery2)</option>
+                    <option value="synth">⚡ Cyberpunk Synthwave Pulse (synth)</option>
+                    <option value="ambient">🧘 Lo-Fi Ambient Dreams (ambient)</option>
+                    <option value="indian">🎻 Cultural & Emotional Strings (indian)</option>
+                    <option value="action">⚔️ Tension Time Pulse (action)</option>
+                    <option value="piano">🎹 Heartfelt Piano Reflection (piano)</option>
+                    <option value="playful">🎉 Joyful Bright Beats (playful)</option>
+                    <option value="corporate">💼 Inspiring Visionary Ambient (corporate)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
+                    Music Volume ({((editAutoModal.data.musicId === 'none' ? 0 : (editAutoModal.data.musicVolume ?? 0.08)) * 100).toFixed(0)}%)
+                  </label>
+                  <select
+                    disabled={editAutoModal.data.musicId === 'none'}
+                    value={editAutoModal.data.musicId === 'none' ? 0 : (editAutoModal.data.musicVolume ?? 0.08)}
+                    onChange={(e) => setEditAutoModal(prev => ({
+                      ...prev,
+                      data: { ...prev.data, musicVolume: parseFloat(e.target.value) || 0 }
+                    }))}
+                    className="admin-select"
+                  >
+                    <option value="0">0% (Muted / Pure Narration)</option>
+                    <option value="0.04">4% (Subtle Whisper)</option>
+                    <option value="0.08">8% (Standard Background)</option>
+                    <option value="0.12">12% (Audible & Rich)</option>
+                    <option value="0.16">16% (High Dynamic)</option>
+                    <option value="0.25">25% (Heavy)</option>
                   </select>
                 </div>
               </div>
