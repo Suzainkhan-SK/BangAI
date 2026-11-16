@@ -431,6 +431,9 @@ export default function TemplatesPage({
             musicId: resolvedMusicId,
             musicVolume: resolvedMusicVol
           });
+          if (data.quota) {
+            setQuotaStatus(data.quota);
+          }
           if (Array.isArray(data.channels) && data.channels.length > 0) {
             const norm = data.channels.map(normalizeChannel);
             setChannels(prev => (prev && prev.length > 0 ? prev : norm));
@@ -454,7 +457,7 @@ export default function TemplatesPage({
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(async () => {
-      if (automationConfig.status === 'ACTIVE' && automationConfig.nextRunAt) {
+      if (automationConfig.status === 'ACTIVE' && automationConfig.nextRunAt && !quotaStatus?.isLimitReached) {
         const diff = new Date(automationConfig.nextRunAt).getTime() - Date.now();
         if (diff <= 0) {
           try {
@@ -554,6 +557,12 @@ export default function TemplatesPage({
 
   const handleTriggerRunNow = async () => {
     if (triggeringRunNow) return;
+    if (quotaStatus?.isLimitReached && user?.role !== 'admin' && user?.role !== 'master_admin') {
+      audioEngine.playSfx('warning');
+      setShowLimitModal(true);
+      setAutoStatusMessage(`❌ Daily limit reached (${quotaStatus.dailyLimit || 1} video per 24 hours). Next run available in ${countdownText || 'a few hours'}.`);
+      return;
+    }
     setTriggeringRunNow(true);
     setAutoStatusMessage("⏳ Launching today's autonomous video generation & YouTube auto-upload...");
     audioEngine.playSfx('shimmer');
@@ -617,6 +626,24 @@ export default function TemplatesPage({
           autoUploadToYouTube: automationConfig.autoUploadToYouTube !== false
         })
       });
+
+      if (res.status === 429) {
+        const errData = await res.json().catch(() => ({}));
+        audioEngine.playSfx('warning');
+        setQuotaStatus(prev => ({
+          ...prev,
+          isLimitReached: true,
+          remaining: 0,
+          dailyLimit: errData.dailyLimit || prev?.dailyLimit || 1,
+          usedToday: errData.usedToday || prev?.usedToday || 1,
+          nextResetTime: errData.nextResetTime || prev?.nextResetTime,
+          resetCountdownMs: errData.resetCountdownMs || prev?.resetCountdownMs
+        }));
+        setShowLimitModal(true);
+        setAutoStatusMessage(`❌ Daily limit reached: You can generate up to ${errData.dailyLimit || 1} video per 24 hours.`);
+        return;
+      }
+
       const data = await res.json();
       if (data.success) {
         setAutoStatusMessage(`🚀 Video successfully dispatched! Autonomous rendering in progress.`);
@@ -4099,6 +4126,40 @@ export default function TemplatesPage({
               </div>
             )}
 
+            {/* Daily Generation Quota Notice Banner */}
+            {quotaStatus?.isLimitReached && (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: '10px',
+                padding: '9px 12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                fontSize: '11px', color: '#ef4444'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Clock size={13} />
+                  <span>
+                    <strong>24-Hour Daily Limit Enforced:</strong> {quotaStatus.usedToday || 1}/{quotaStatus.dailyLimit || 1} video generated.
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>
+                    Reset in {countdownText || '24h'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { audioEngine.playSfx('click'); setShowLimitModal(true); }}
+                    style={{
+                      background: 'none', border: 'none', color: '#ef4444',
+                      textDecoration: 'underline', cursor: 'pointer', fontSize: '10.5px', fontWeight: 600, padding: 0
+                    }}
+                  >
+                    Details
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Cycle Status & Quick Controls */}
             <div style={{
               background: 'var(--bg-elevated)',
@@ -4140,18 +4201,46 @@ export default function TemplatesPage({
 
                 <button
                   type="button"
-                  onClick={handleTriggerRunNow}
+                  onClick={() => {
+                    if (quotaStatus?.isLimitReached && user?.role !== 'admin' && user?.role !== 'master_admin') {
+                      audioEngine.playSfx('warning');
+                      setShowLimitModal(true);
+                    } else {
+                      handleTriggerRunNow();
+                    }
+                  }}
                   disabled={triggeringRunNow || savingAutomation}
+                  title={quotaStatus?.isLimitReached && user?.role !== 'admin' && user?.role !== 'master_admin' ? `Daily Limit Reached (${quotaStatus.dailyLimit || 1} video per 24 hours)` : "Run today's autonomous video generation immediately"}
                   style={{
                     padding: '6px 12px', borderRadius: '8px',
-                    background: 'var(--accent-primary, #ff4f00)',
-                    border: 'none', color: '#ffffff',
+                    background: quotaStatus?.isLimitReached && user?.role !== 'admin' && user?.role !== 'master_admin'
+                      ? 'rgba(239, 68, 68, 0.15)'
+                      : 'var(--accent-primary, #ff4f00)',
+                    border: quotaStatus?.isLimitReached && user?.role !== 'admin' && user?.role !== 'master_admin'
+                      ? '1px solid rgba(239, 68, 68, 0.35)'
+                      : 'none',
+                    color: quotaStatus?.isLimitReached && user?.role !== 'admin' && user?.role !== 'master_admin'
+                      ? '#ef4444'
+                      : '#ffffff',
                     fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '4px'
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    transition: 'all 0.15s ease'
                   }}
                 >
-                  {triggeringRunNow ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
-                  <span>{triggeringRunNow ? 'Running...' : 'Run Now'}</span>
+                  {triggeringRunNow ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : quotaStatus?.isLimitReached && user?.role !== 'admin' && user?.role !== 'master_admin' ? (
+                    <Clock size={12} />
+                  ) : (
+                    <Zap size={12} />
+                  )}
+                  <span>
+                    {triggeringRunNow
+                      ? 'Running...'
+                      : quotaStatus?.isLimitReached && user?.role !== 'admin' && user?.role !== 'master_admin'
+                      ? `Limit Reached (${countdownText || '24h'})`
+                      : 'Run Now'}
+                  </span>
                 </button>
               </div>
             </div>

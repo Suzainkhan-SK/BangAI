@@ -6,6 +6,7 @@
 import { getDb } from './db.js';
 import { verifyToken, getFreshGoogleToken } from './google-oauth.js';
 import { getN8nConfig } from './n8n-config.js';
+import { getUserTemplateQuota } from './template-quota.js';
 
 // Default n8n Cloud Webhook endpoints for autonomous templates
 const TEMPLATE_WEBHOOKS = {
@@ -99,6 +100,41 @@ export async function executeAutonomousRun(db, automation, isManualTrigger = fal
 
   if (!userDoc) {
     throw new Error(`User account for ${userEmail} was not found.`);
+  }
+
+  // 1.5. Enforce 24-Hour Daily Quota Limit from Admin Panel
+  const isAdmin = userDoc.role === 'admin' || userDoc.role === 'master_admin';
+  const quota = await getUserTemplateQuota(db, { id: userId, email: userEmail, role: userDoc.role });
+
+  if (quota.isLimitReached && !isAdmin) {
+    if (isManualTrigger) {
+      const qErr = new Error(`Daily generation limit reached. You can generate up to ${quota.dailyLimit} video per 24 hours.`);
+      qErr.code = 'DAILY_LIMIT_REACHED';
+      qErr.quota = quota;
+      throw qErr;
+    } else {
+      console.log(`[template-automation] Schedule due for ${userEmail} but daily limit reached. Deferring run to ${quota.nextResetTime}`);
+      const autoId = automation._id || automation.id;
+      if (autoId) {
+        await db.collection('template_automations').updateOne(
+          { _id: autoId },
+          {
+            $set: { nextRunAt: quota.nextResetTime ? new Date(quota.nextResetTime) : new Date(Date.now() + 24 * 60 * 60 * 1000), updatedAt: new Date() },
+            $push: {
+              executionLogs: {
+                $each: [{
+                  timestamp: new Date(),
+                  status: 'quota_deferred',
+                  message: `Daily generation limit reached (${quota.dailyLimit} video per 24 hours). Next run deferred until ${quota.nextResetTime ? new Date(quota.nextResetTime).toLocaleTimeString() : 'tomorrow'}.`
+                }],
+                $slice: -30
+              }
+            }
+          }
+        );
+      }
+      return { deferred: true, reason: 'DAILY_LIMIT_REACHED', nextResetTime: quota.nextResetTime };
+    }
   }
 
   const channels = userDoc.youtubeChannels || [];
@@ -476,6 +512,7 @@ export const handler = async (event) => {
 
       const userId = String(user.userId || user.id || '');
       const userEmail = String(user.email || '').toLowerCase();
+      const quota = await getUserTemplateQuota(db, user);
 
       // Find user's automation doc
       let autoDoc = await autoCol.findOne({
@@ -489,8 +526,29 @@ export const handler = async (event) => {
       const now = new Date();
       if (autoDoc && autoDoc.status === 'ACTIVE' && autoDoc.nextRunAt && new Date(autoDoc.nextRunAt) <= now) {
         try {
-          await executeAutonomousRun(db, autoDoc, false, hostHeader);
-          autoDoc = await autoCol.findOne({ _id: autoDoc._id });
+          if (quota.isLimitReached && user.role !== 'admin' && user.role !== 'master_admin') {
+            console.log(`[template-automation] Schedule due on GET for ${userEmail} but daily limit reached. Deferring to ${quota.nextResetTime}`);
+            await autoCol.updateOne(
+              { _id: autoDoc._id },
+              {
+                $set: { nextRunAt: quota.nextResetTime ? new Date(quota.nextResetTime) : new Date(Date.now() + 24 * 60 * 60 * 1000), updatedAt: new Date() },
+                $push: {
+                  executionLogs: {
+                    $each: [{
+                      timestamp: new Date(),
+                      status: 'quota_deferred',
+                      message: `Daily generation limit reached (${quota.dailyLimit} video per 24 hours). Next run deferred until ${quota.nextResetTime ? new Date(quota.nextResetTime).toLocaleTimeString() : 'tomorrow'}.`
+                    }],
+                    $slice: -30
+                  }
+                }
+              }
+            );
+            autoDoc = await autoCol.findOne({ _id: autoDoc._id });
+          } else {
+            await executeAutonomousRun(db, autoDoc, false, hostHeader);
+            autoDoc = await autoCol.findOne({ _id: autoDoc._id });
+          }
         } catch (autoErr) {
           console.warn('[template-automation] Auto-run error on GET:', autoErr.message);
         }
@@ -586,6 +644,7 @@ export const handler = async (event) => {
         body: JSON.stringify({
           success: true,
           automation: autoDoc,
+          quota,
           channels: channels.map(c => ({
             channelId: c.channelId,
             channelTitle: c.channelTitle || c.title || 'YouTube Channel',
@@ -858,6 +917,46 @@ export const handler = async (event) => {
 
       // ── ACTION: RUN NOW (INSTANT TRIGGER FOR TODAY) ────────────────────────
       if (action === 'run-now') {
+        // 1. Quota & Governance Verification (Airtight 24h Daily Limit Enforcement)
+        const isAdmin = user.role === 'admin' || user.role === 'master_admin';
+        const quota = await getUserTemplateQuota(db, user);
+
+        if (quota.isLimitReached && !isAdmin) {
+          console.warn(`[template-automation] User ${userEmail} attempted run-now but daily limit is reached.`);
+          return {
+            statusCode: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              success: false,
+              error: 'DAILY_LIMIT_REACHED',
+              message: `Daily generation limit reached. You can generate up to ${quota.dailyLimit} video per 24 hours.`,
+              dailyLimit: quota.dailyLimit,
+              usedToday: quota.usedToday,
+              remaining: 0,
+              nextResetTime: quota.nextResetTime,
+              resetCountdownMs: quota.resetCountdownMs
+            })
+          };
+        }
+
+        // 2. Debounce: Prevent rapid duplicate clicks from launching multiple runs
+        const recentPending = await db.collection('template_generations').findOne({
+          $or: [{ userId }, { userEmail }],
+          createdAt: { $gte: new Date(Date.now() - 30 * 1000) },
+          status: { $in: ['dispatched', 'started', 'GENERATING'] }
+        });
+        if (recentPending && !isAdmin) {
+          return {
+            statusCode: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              success: false,
+              error: 'GENERATION_IN_PROGRESS',
+              message: 'A video generation is already currently launching. Please wait a moment.'
+            })
+          };
+        }
+
         if (!autoDoc) {
           const userDocForInit = await db.collection('users').findOne({
             $or: [
@@ -929,7 +1028,29 @@ export const handler = async (event) => {
           selectedChannelId: payload.selectedChannelId !== undefined ? payload.selectedChannelId : autoDoc.selectedChannelId,
           autoUploadToYouTube: payload.autoUploadToYouTube !== undefined ? payload.autoUploadToYouTube : autoDoc.autoUploadToYouTube
         };
-        const runResult = await executeAutonomousRun(db, runDoc, true, hostHeader);
+        let runResult;
+        try {
+          runResult = await executeAutonomousRun(db, runDoc, true, hostHeader);
+        } catch (execErr) {
+          if (execErr.code === 'DAILY_LIMIT_REACHED' || execErr.message?.includes('Daily generation limit reached')) {
+            const q = execErr.quota || quota;
+            return {
+              statusCode: 429,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                success: false,
+                error: 'DAILY_LIMIT_REACHED',
+                message: execErr.message,
+                dailyLimit: q.dailyLimit,
+                usedToday: q.usedToday,
+                remaining: 0,
+                nextResetTime: q.nextResetTime,
+                resetCountdownMs: q.resetCountdownMs
+              })
+            };
+          }
+          throw execErr;
+        }
 
         return {
           statusCode: 200,
