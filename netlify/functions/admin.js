@@ -5036,12 +5036,23 @@ export async function handler(event) {
           results.push(...chunkRes);
         }
 
+        const getCreditNum = (r) => {
+          if (typeof r.balance === 'number' && !isNaN(r.balance)) return r.balance;
+          if (typeof r.balance === 'string') {
+            const parsed = parseFloat(r.balance.replace(/[^0-9.-]/g, ''));
+            if (!isNaN(parsed)) return parsed;
+          }
+          return 0;
+        };
+
         const summary = {
           totalChecked: results.length,
           activeCount: results.filter(r => r.status === 'active').length,
           lowCount: results.filter(r => r.status === 'low').length,
           exhaustedCount: results.filter(r => r.status === 'exhausted').length,
-          invalidCount: results.filter(r => r.status === 'invalid').length
+          invalidCount: results.filter(r => r.status === 'invalid').length,
+          gte80Count: results.filter(r => getCreditNum(r) >= 80).length,
+          gte40Count: results.filter(r => getCreditNum(r) >= 40).length
         };
 
         return {

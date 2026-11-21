@@ -69,6 +69,8 @@ export default function WorkflowManagerView() {
   const [checkingBalances, setCheckingBalances] = useState(false);
   const [balanceSearchTerm, setBalanceSearchTerm] = useState('');
   const [balanceStatusFilter, setBalanceStatusFilter] = useState('all');
+  const [balanceCreditFilter, setBalanceCreditFilter] = useState('all');
+  const [balanceSortBy, setBalanceSortBy] = useState('default');
   const [selectedKeysToDelete, setSelectedKeysToDelete] = useState(new Set());
   const [deletingExhausted, setDeletingExhausted] = useState(false);
   const [inspectModalData, setInspectModalData] = useState(null);
@@ -587,12 +589,61 @@ export default function WorkflowManagerView() {
     return activeDisplayKeys.filter(k => k.toLowerCase().includes(term));
   }, [activeDisplayKeys, keySearchTerm]);
 
-  // Balance & Health Manager filtered results
+  const getNumericCredit = (item) => {
+    if (!item) return 0;
+    if (typeof item.balance === 'number' && !isNaN(item.balance)) return item.balance;
+    if (typeof item.balance === 'string') {
+      const num = parseFloat(item.balance.replace(/[^0-9.-]/g, ''));
+      if (!isNaN(num)) return num;
+    }
+    return 0;
+  };
+
+  const creditStats = useMemo(() => {
+    let countGte80 = 0;
+    let countGte40 = 0;
+    let countBetween40_80 = 0;
+    (balanceResults || []).forEach(item => {
+      const c = getNumericCredit(item);
+      if (c >= 80) countGte80++;
+      if (c >= 40) countGte40++;
+      if (c >= 40 && c < 80) countBetween40_80++;
+    });
+    return {
+      gte80: countGte80,
+      gte40: countGte40,
+      between40_80: countBetween40_80
+    };
+  }, [balanceResults]);
+
+  // Balance & Health Manager filtered results & multi-criteria sorting
   const filteredBalanceResults = useMemo(() => {
-    return balanceResults.filter(item => {
-      if (balanceStatusFilter !== 'all' && item.status !== balanceStatusFilter) {
+    let list = balanceResults.filter(item => {
+      const credits = getNumericCredit(item);
+
+      // Status / Category Tab Filter (including >=80 and >=40 credit categories)
+      if (balanceStatusFilter === 'gte80') {
+        if (credits < 80) return false;
+      } else if (balanceStatusFilter === 'gte40') {
+        if (credits < 40) return false;
+      } else if (balanceStatusFilter !== 'all' && item.status !== balanceStatusFilter) {
         return false;
       }
+
+      // Dedicated Credit Category Dropdown Filter
+      if (balanceCreditFilter === 'gte80') {
+        if (credits < 80) return false;
+      } else if (balanceCreditFilter === 'gte40') {
+        if (credits < 40) return false;
+      } else if (balanceCreditFilter === 'between40_80') {
+        if (credits < 40 || credits >= 80) return false;
+      } else if (balanceCreditFilter === 'lt40') {
+        if (credits >= 40 || credits <= 0) return false;
+      } else if (balanceCreditFilter === 'zero') {
+        if (credits > 0) return false;
+      }
+
+      // Search Filter
       if (balanceSearchTerm) {
         const q = balanceSearchTerm.toLowerCase();
         const matchesKey = item.key?.toLowerCase().includes(q) || item.maskedKey?.toLowerCase().includes(q);
@@ -602,7 +653,21 @@ export default function WorkflowManagerView() {
       }
       return true;
     });
-  }, [balanceResults, balanceStatusFilter, balanceSearchTerm]);
+
+    // Multi-criteria sorting
+    if (balanceSortBy === 'credits_desc') {
+      list = [...list].sort((a, b) => getNumericCredit(b) - getNumericCredit(a));
+    } else if (balanceSortBy === 'credits_asc') {
+      list = [...list].sort((a, b) => getNumericCredit(a) - getNumericCredit(b));
+    } else if (balanceSortBy === 'status') {
+      const statusOrder = { active: 1, low: 2, exhausted: 3, invalid: 4, unknown: 5 };
+      list = [...list].sort((a, b) => (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99));
+    } else if (balanceSortBy === 'service') {
+      list = [...list].sort((a, b) => (a.serviceLabel || '').localeCompare(b.serviceLabel || ''));
+    }
+
+    return list;
+  }, [balanceResults, balanceStatusFilter, balanceCreditFilter, balanceSearchTerm, balanceSortBy]);
 
   // Detected key counts for inputs
   const detectedAppendCount = useMemo(() => {
@@ -3054,8 +3119,47 @@ export default function WorkflowManagerView() {
                 </select>
               </div>
 
+              {/* Credit Category Filter Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
+                  Credit Filter:
+                </span>
+                <select
+                  value={balanceCreditFilter}
+                  onChange={(e) => setBalanceCreditFilter(e.target.value)}
+                  className="admin-input"
+                  style={{ minWidth: '185px', padding: '6px 10px', fontSize: '12px', fontWeight: 600 }}
+                >
+                  <option value="all">🌐 All Credit Balances</option>
+                  <option value="gte80">💎 80+ Credits (≥ 80)</option>
+                  <option value="gte40">⚡ 40+ Credits (≥ 40)</option>
+                  <option value="between40_80">⚡ 40 to 79 Credits</option>
+                  <option value="lt40">🟡 Under 40 Credits (&lt; 40)</option>
+                  <option value="zero">🔴 0 Credits (Exhausted)</option>
+                </select>
+              </div>
+
+              {/* Sort By Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
+                  Sort By:
+                </span>
+                <select
+                  value={balanceSortBy}
+                  onChange={(e) => setBalanceSortBy(e.target.value)}
+                  className="admin-input"
+                  style={{ minWidth: '195px', padding: '6px 10px', fontSize: '12px', fontWeight: 600 }}
+                >
+                  <option value="default">Default Order</option>
+                  <option value="credits_desc">💎 Credits: High ➔ Low (80+ first)</option>
+                  <option value="credits_asc">Credits: Low ➔ High</option>
+                  <option value="status">Health Status (Active first)</option>
+                  <option value="service">Service Provider</option>
+                </select>
+              </div>
+
               {/* Search Keys Filter */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '200px', maxWidth: '320px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '180px', maxWidth: '300px' }}>
                 <input
                   type="text"
                   placeholder="Filter key, service, or workflow..."
@@ -3070,73 +3174,150 @@ export default function WorkflowManagerView() {
             {/* Metrics Counter Cards */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
               gap: '10px',
               marginBottom: '16px'
             }}>
-              <div style={{
-                background: 'var(--admin-bg-elevated)',
-                border: '1px solid var(--admin-border-glass)',
-                padding: '12px',
-                borderRadius: '10px',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Total Keys Verified</div>
+              <div
+                onClick={() => { setBalanceStatusFilter('all'); setBalanceCreditFilter('all'); }}
+                style={{
+                  background: balanceStatusFilter === 'all' && balanceCreditFilter === 'all' ? 'rgba(255, 255, 255, 0.08)' : 'var(--admin-bg-elevated)',
+                  border: balanceStatusFilter === 'all' && balanceCreditFilter === 'all' ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Click to reset filters and view all verified keys"
+              >
+                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>Total Verified</div>
                 <div style={{ fontSize: '20px', fontWeight: 900, color: 'var(--admin-text-main)', marginTop: '2px' }}>
                   {balanceSummary?.totalChecked || balanceResults.length}
                 </div>
+                <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>All Providers</div>
               </div>
 
-              <div style={{
-                background: 'rgba(16, 185, 129, 0.08)',
-                border: '1px solid rgba(16, 185, 129, 0.25)',
-                padding: '12px',
-                borderRadius: '10px',
-                textAlign: 'center'
-              }}>
+              {/* 80+ Credits Category Card */}
+              <div
+                onClick={() => setBalanceStatusFilter(balanceStatusFilter === 'gte80' ? 'all' : 'gte80')}
+                style={{
+                  background: balanceStatusFilter === 'gte80' ? 'rgba(16, 185, 129, 0.22)' : 'rgba(16, 185, 129, 0.08)',
+                  border: balanceStatusFilter === 'gte80' ? '2px solid #10b981' : '1px solid rgba(16, 185, 129, 0.28)',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Click to filter keys with 80+ credits"
+              >
+                <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 800 }}>💎 80+ Credits</div>
+                <div style={{ fontSize: '20px', fontWeight: 900, color: '#10b981', marginTop: '2px' }}>
+                  {balanceSummary?.gte80Count ?? creditStats.gte80}
+                </div>
+                <div style={{ fontSize: '10px', color: '#10b981', marginTop: '2px', fontWeight: 600 }}>High Quota</div>
+              </div>
+
+              {/* 40+ Credits Category Card */}
+              <div
+                onClick={() => setBalanceStatusFilter(balanceStatusFilter === 'gte40' ? 'all' : 'gte40')}
+                style={{
+                  background: balanceStatusFilter === 'gte40' ? 'rgba(6, 182, 212, 0.22)' : 'rgba(6, 182, 212, 0.08)',
+                  border: balanceStatusFilter === 'gte40' ? '2px solid #06b6d4' : '1px solid rgba(6, 182, 212, 0.28)',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Click to filter keys with 40+ credits"
+              >
+                <div style={{ fontSize: '11px', color: '#06b6d4', fontWeight: 800 }}>⚡ 40+ Credits</div>
+                <div style={{ fontSize: '20px', fontWeight: 900, color: '#06b6d4', marginTop: '2px' }}>
+                  {balanceSummary?.gte40Count ?? creditStats.gte40}
+                </div>
+                <div style={{ fontSize: '10px', color: '#06b6d4', marginTop: '2px', fontWeight: 600 }}>Funded (≥40)</div>
+              </div>
+
+              <div
+                onClick={() => setBalanceStatusFilter(balanceStatusFilter === 'active' ? 'all' : 'active')}
+                style={{
+                  background: balanceStatusFilter === 'active' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.08)',
+                  border: balanceStatusFilter === 'active' ? '2px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Click to filter active & funded keys"
+              >
                 <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 700 }}>Active & Funded</div>
                 <div style={{ fontSize: '20px', fontWeight: 900, color: '#10b981', marginTop: '2px' }}>
                   {balanceSummary?.activeCount || balanceResults.filter(r => r.status === 'active').length}
                 </div>
+                <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>Operational</div>
               </div>
 
-              <div style={{
-                background: 'rgba(245, 158, 11, 0.08)',
-                border: '1px solid rgba(245, 158, 11, 0.25)',
-                padding: '12px',
-                borderRadius: '10px',
-                textAlign: 'center'
-              }}>
+              <div
+                onClick={() => setBalanceStatusFilter(balanceStatusFilter === 'low' ? 'all' : 'low')}
+                style={{
+                  background: balanceStatusFilter === 'low' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.08)',
+                  border: balanceStatusFilter === 'low' ? '2px solid #f59e0b' : '1px solid rgba(245, 158, 11, 0.25)',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Click to filter low quota keys"
+              >
                 <div style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 700 }}>Low Quota</div>
                 <div style={{ fontSize: '20px', fontWeight: 900, color: '#f59e0b', marginTop: '2px' }}>
                   {balanceSummary?.lowCount || balanceResults.filter(r => r.status === 'low').length}
                 </div>
+                <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>&lt; 5 Credits</div>
               </div>
 
-              <div style={{
-                background: 'rgba(239, 68, 68, 0.08)',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
-                padding: '12px',
-                borderRadius: '10px',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>Exhausted (0 Credits)</div>
+              <div
+                onClick={() => setBalanceStatusFilter(balanceStatusFilter === 'exhausted' ? 'all' : 'exhausted')}
+                style={{
+                  background: balanceStatusFilter === 'exhausted' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.08)',
+                  border: balanceStatusFilter === 'exhausted' ? '2px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.25)',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Click to filter 0-credit keys"
+              >
+                <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>Exhausted (0)</div>
                 <div style={{ fontSize: '20px', fontWeight: 900, color: '#ef4444', marginTop: '2px' }}>
                   {balanceSummary?.exhaustedCount || balanceResults.filter(r => r.status === 'exhausted').length}
                 </div>
+                <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>0 Credits</div>
               </div>
 
-              <div style={{
-                background: 'rgba(168, 85, 247, 0.08)',
-                border: '1px solid rgba(168, 85, 247, 0.25)',
-                padding: '12px',
-                borderRadius: '10px',
-                textAlign: 'center'
-              }}>
+              <div
+                onClick={() => setBalanceStatusFilter(balanceStatusFilter === 'invalid' ? 'all' : 'invalid')}
+                style={{
+                  background: balanceStatusFilter === 'invalid' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(168, 85, 247, 0.08)',
+                  border: balanceStatusFilter === 'invalid' ? '2px solid #a855f7' : '1px solid rgba(168, 85, 247, 0.25)',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Click to filter invalid / expired keys"
+              >
                 <div style={{ fontSize: '11px', color: '#a855f7', fontWeight: 700 }}>Invalid / Expired</div>
                 <div style={{ fontSize: '20px', fontWeight: 900, color: '#a855f7', marginTop: '2px' }}>
                   {balanceSummary?.invalidCount || balanceResults.filter(r => r.status === 'invalid').length}
                 </div>
+                <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>Revoked</div>
               </div>
             </div>
 
@@ -3149,33 +3330,55 @@ export default function WorkflowManagerView() {
               gap: '10px',
               marginBottom: '12px'
             }}>
-              {/* Status Filter Buttons */}
+              {/* Status & Credit Category Filter Buttons */}
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
-                  { id: 'all', label: 'All Keys' },
-                  { id: 'active', label: '🟢 Active' },
-                  { id: 'low', label: '🟡 Low' },
-                  { id: 'exhausted', label: '🔴 Exhausted' },
-                  { id: 'invalid', label: '⛔ Invalid' }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setBalanceStatusFilter(tab.id)}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '11.5px',
-                      fontWeight: 700,
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      border: balanceStatusFilter === tab.id ? '1px solid var(--admin-accent-cyan)' : '1px solid var(--admin-border-glass)',
-                      background: balanceStatusFilter === tab.id ? 'rgba(6, 182, 212, 0.2)' : 'var(--admin-bg-elevated)',
-                      color: balanceStatusFilter === tab.id ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)'
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+                  { id: 'all', label: 'All Keys', count: balanceResults.length },
+                  { id: 'gte80', label: '💎 80+ Credits', count: balanceSummary?.gte80Count ?? creditStats.gte80, color: '#10b981' },
+                  { id: 'gte40', label: '⚡ 40+ Credits', count: balanceSummary?.gte40Count ?? creditStats.gte40, color: '#06b6d4' },
+                  { id: 'active', label: '🟢 Active', count: balanceSummary?.activeCount || balanceResults.filter(r => r.status === 'active').length },
+                  { id: 'low', label: '🟡 Low', count: balanceSummary?.lowCount || balanceResults.filter(r => r.status === 'low').length },
+                  { id: 'exhausted', label: '🔴 Exhausted', count: balanceSummary?.exhaustedCount || balanceResults.filter(r => r.status === 'exhausted').length },
+                  { id: 'invalid', label: '⛔ Invalid', count: balanceSummary?.invalidCount || balanceResults.filter(r => r.status === 'invalid').length }
+                ].map(tab => {
+                  const isSelected = balanceStatusFilter === tab.id;
+                  const btnColor = tab.color || 'var(--admin-accent-cyan)';
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setBalanceStatusFilter(tab.id)}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        border: isSelected ? `1px solid ${btnColor}` : '1px solid var(--admin-border-glass)',
+                        background: isSelected ? (tab.color ? `${btnColor}25` : 'rgba(6, 182, 212, 0.2)') : 'var(--admin-bg-elevated)',
+                        color: isSelected ? btnColor : 'var(--admin-text-sub)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>{tab.label}</span>
+                      {tab.count !== undefined && (
+                        <span style={{
+                          fontSize: '10px',
+                          padding: '1px 5px',
+                          borderRadius: '9999px',
+                          background: isSelected ? (tab.color ? `${btnColor}35` : 'rgba(6, 182, 212, 0.3)') : 'rgba(255, 255, 255, 0.08)',
+                          color: isSelected ? '#fff' : 'var(--admin-text-sub)',
+                          fontWeight: 800
+                        }}>
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Bulk Action Buttons */}
@@ -3275,7 +3478,22 @@ export default function WorkflowManagerView() {
                       </th>
                       <th style={{ padding: '10px 14px' }}>API Key Identifier</th>
                       <th style={{ padding: '10px 14px' }}>Service Engine</th>
-                      <th style={{ padding: '10px 14px' }}>Current Balance / Quota</th>
+                      <th
+                        style={{ padding: '10px 14px', cursor: 'pointer', userSelect: 'none' }}
+                        onClick={() => setBalanceSortBy(prev => prev === 'credits_desc' ? 'credits_asc' : 'credits_desc')}
+                        title="Click to sort by credits high/low"
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>Current Balance / Quota</span>
+                          <span style={{
+                            fontSize: '11px',
+                            color: balanceSortBy.startsWith('credits') ? 'var(--admin-accent-cyan)' : 'var(--admin-text-sub)',
+                            fontWeight: 800
+                          }}>
+                            {balanceSortBy === 'credits_desc' ? '▼ (80+ first)' : (balanceSortBy === 'credits_asc' ? '▲ (Low first)' : '⇅')}
+                          </span>
+                        </div>
+                      </th>
                       <th style={{ padding: '10px 14px' }}>Health Status</th>
                       <th style={{ padding: '10px 14px' }}>Active In Workflows</th>
                       <th style={{ padding: '10px 14px', textAlign: 'right' }}>Actions</th>
@@ -3306,6 +3524,7 @@ export default function WorkflowManagerView() {
 
                     {!checkingBalances && filteredBalanceResults.map((item, idx) => {
                       const isSelected = selectedKeysToDelete.has(item.key);
+                      const creditVal = getNumericCredit(item);
                       const statusColor =
                         item.status === 'active' ? '#10b981' :
                         item.status === 'low' ? '#f59e0b' :
@@ -3388,7 +3607,7 @@ export default function WorkflowManagerView() {
 
                           {/* Real-time Balance */}
                           <td style={{ padding: '10px 14px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                               <span style={{
                                 fontSize: '13px',
                                 fontWeight: 800,
@@ -3396,6 +3615,51 @@ export default function WorkflowManagerView() {
                               }}>
                                 {item.balanceFormatted}
                               </span>
+                              {creditVal >= 80 && (
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: 800,
+                                  padding: '2px 7px',
+                                  borderRadius: '9999px',
+                                  background: 'rgba(16, 185, 129, 0.18)',
+                                  color: '#10b981',
+                                  border: '1px solid rgba(16, 185, 129, 0.45)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}>
+                                  💎 80+ Credits
+                                </span>
+                              )}
+                              {creditVal >= 40 && creditVal < 80 && (
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: 800,
+                                  padding: '2px 7px',
+                                  borderRadius: '9999px',
+                                  background: 'rgba(6, 182, 212, 0.18)',
+                                  color: '#06b6d4',
+                                  border: '1px solid rgba(6, 182, 212, 0.45)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}>
+                                  ⚡ 40+ Credits
+                                </span>
+                              )}
+                              {creditVal > 0 && creditVal < 40 && (
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  padding: '2px 6px',
+                                  borderRadius: '9999px',
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  color: '#f59e0b',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)'
+                                }}>
+                                  &lt; 40 Credits
+                                </span>
+                              )}
                             </div>
                           </td>
 
