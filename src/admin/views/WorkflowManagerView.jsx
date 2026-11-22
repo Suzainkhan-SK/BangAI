@@ -788,10 +788,14 @@ export default function WorkflowManagerView() {
       if (failoverService !== 'all' && item.service !== failoverService) {
         return false;
       }
-      if (failoverStatusFilter === 'active' && item.isCommented) {
+      const st = item.failoverState || (item.isCommented ? 'commented' : (item.isPartial ? 'partial' : 'active'));
+      if (failoverStatusFilter === 'active' && st !== 'active') {
         return false;
       }
-      if (failoverStatusFilter === 'commented' && !item.isCommented) {
+      if (failoverStatusFilter === 'commented' && st !== 'commented') {
+        return false;
+      }
+      if (failoverStatusFilter === 'partial' && st !== 'partial') {
         return false;
       }
       if (failoverSearchTerm) {
@@ -4212,8 +4216,9 @@ export default function WorkflowManagerView() {
                   style={{ minWidth: '160px', padding: '6px 10px', fontSize: '12px', fontWeight: 600 }}
                 >
                   <option value="all">All States</option>
-                  <option value="active">🟢 Active Only</option>
-                  <option value="commented">🔴 Commented Out (Disabled)</option>
+                  <option value="active">🟢 Active Keys Only</option>
+                  <option value="commented">🔴 Commented Out (Failover Forced)</option>
+                  <option value="partial">🟡 Partial Keys Only (Mixed)</option>
                 </select>
               </div>
 
@@ -4301,10 +4306,15 @@ export default function WorkflowManagerView() {
                         fontSize: '11.5px',
                         background: 'rgba(255, 255, 255, 0.03)',
                         padding: '6px 10px',
-                        borderRadius: '6px'
+                        borderRadius: '6px',
+                        flexWrap: 'wrap',
+                        gap: '6px'
                       }}>
                         <span style={{ color: '#10b981', fontWeight: 700 }}>🟢 {summary.activeKeys} Active</span>
                         <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 {summary.commentedKeys} Commented</span>
+                        {(summary.partialKeys > 0) && (
+                          <span style={{ color: '#f59e0b', fontWeight: 700 }}>🟡 {summary.partialKeys} Partial</span>
+                        )}
                         <span style={{ color: 'var(--admin-text-sub)', fontWeight: 600 }}>Total: {summary.totalKeys}</span>
                       </div>
                     </div>
@@ -4432,7 +4442,7 @@ export default function WorkflowManagerView() {
                 <button
                   type="button"
                   onClick={() => handleToggleFailover('comment_all', failoverService)}
-                  disabled={updatingFailover || filteredFailoverKeys.filter(k => !k.isCommented).length === 0}
+                  disabled={updatingFailover || filteredFailoverKeys.filter(k => k.failoverState !== 'commented').length === 0}
                   style={{
                     padding: '6px 12px',
                     fontSize: '11.5px',
@@ -4441,18 +4451,18 @@ export default function WorkflowManagerView() {
                     border: '1px solid rgba(239, 68, 68, 0.35)',
                     background: 'rgba(239, 68, 68, 0.15)',
                     color: '#ef4444',
-                    cursor: filteredFailoverKeys.filter(k => !k.isCommented).length === 0 ? 'not-allowed' : 'pointer',
-                    opacity: filteredFailoverKeys.filter(k => !k.isCommented).length === 0 ? 0.45 : 1
+                    cursor: filteredFailoverKeys.filter(k => k.failoverState !== 'commented').length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: filteredFailoverKeys.filter(k => k.failoverState !== 'commented').length === 0 ? 0.45 : 1
                   }}
                   title="Comment out all matching active keys"
                 >
-                  ⚡ Comment Out Filtered ({filteredFailoverKeys.filter(k => !k.isCommented).length})
+                  ⚡ Comment Out Filtered ({filteredFailoverKeys.filter(k => k.failoverState !== 'commented').length})
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleToggleFailover('uncomment_all', failoverService)}
-                  disabled={updatingFailover || filteredFailoverKeys.filter(k => k.isCommented).length === 0}
+                  disabled={updatingFailover || filteredFailoverKeys.filter(k => k.failoverState !== 'active').length === 0}
                   style={{
                     padding: '6px 12px',
                     fontSize: '11.5px',
@@ -4461,12 +4471,12 @@ export default function WorkflowManagerView() {
                     border: '1px solid rgba(16, 185, 129, 0.35)',
                     background: 'rgba(16, 185, 129, 0.15)',
                     color: '#10b981',
-                    cursor: filteredFailoverKeys.filter(k => k.isCommented).length === 0 ? 'not-allowed' : 'pointer',
-                    opacity: filteredFailoverKeys.filter(k => k.isCommented).length === 0 ? 0.45 : 1
+                    cursor: filteredFailoverKeys.filter(k => k.failoverState !== 'active').length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: filteredFailoverKeys.filter(k => k.failoverState !== 'active').length === 0 ? 0.45 : 1
                   }}
                   title="Uncomment all matching commented keys"
                 >
-                  ✅ Uncomment Filtered ({filteredFailoverKeys.filter(k => k.isCommented).length})
+                  ✅ Uncomment Filtered ({filteredFailoverKeys.filter(k => k.failoverState !== 'active').length})
                 </button>
               </div>
             </div>
@@ -4532,13 +4542,21 @@ export default function WorkflowManagerView() {
                     {!loadingFailover && filteredFailoverKeys.map((item, idx) => {
                       const isSelected = selectedFailoverKeys.has(item.key);
                       const isCommented = item.isCommented;
+                      const isPartial = item.isPartial;
+                      const failoverState = item.failoverState || (isCommented ? 'commented' : (isPartial ? 'partial' : 'active'));
+
+                      const statusColor = isCommented ? '#ef4444' : (isPartial ? '#f59e0b' : '#10b981');
+                      const statusBg = isCommented ? 'rgba(239, 68, 68, 0.15)' : (isPartial ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)');
+                      const statusText = isCommented
+                        ? '🔴 Commented Out (Failover Active)'
+                        : (isPartial ? `🟡 Partial (${item.commentedAppearances || 0}/${item.totalAppearances || 0} nodes)` : '🟢 Active in Code');
 
                       return (
                         <tr
                           key={`${item.service}-${item.key}-${idx}`}
                           style={{
                             borderBottom: '1px solid var(--admin-border-glass)',
-                            background: isSelected ? 'rgba(239, 68, 68, 0.05)' : (isCommented ? 'rgba(239, 68, 68, 0.03)' : 'transparent'),
+                            background: isSelected ? 'rgba(239, 68, 68, 0.05)' : (isCommented ? 'rgba(239, 68, 68, 0.03)' : (isPartial ? 'rgba(245, 158, 11, 0.03)' : 'transparent')),
                             transition: 'background 0.15s ease'
                           }}
                         >
@@ -4558,7 +4576,7 @@ export default function WorkflowManagerView() {
                               <code style={{
                                 fontFamily: 'var(--admin-font-mono)',
                                 fontSize: '11.5px',
-                                color: isCommented ? '#ef4444' : 'var(--admin-text-main)',
+                                color: isCommented ? '#ef4444' : (isPartial ? '#f59e0b' : 'var(--admin-text-main)'),
                                 textDecoration: isCommented ? 'line-through' : 'none',
                                 opacity: isCommented ? 0.75 : 1,
                                 background: 'rgba(255, 255, 255, 0.05)',
@@ -4630,60 +4648,110 @@ export default function WorkflowManagerView() {
                               fontWeight: 800,
                               padding: '3px 8px',
                               borderRadius: '9999px',
-                              background: isCommented ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                              color: isCommented ? '#ef4444' : '#10b981',
-                              border: `1px solid ${isCommented ? '#ef4444' : '#10b981'}40`,
+                              background: statusBg,
+                              color: statusColor,
+                              border: `1px solid ${statusColor}40`,
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '4px',
                               textTransform: 'uppercase'
-                            }}>
-                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isCommented ? '#ef4444' : '#10b981' }}></span>
-                              {isCommented ? '🔴 Commented Out (Disabled)' : '🟢 Active in Code'}
+                            }}
+                            title={isPartial ? `Commented in ${item.commentedAppearances} nodes, active in ${item.activeAppearances} nodes` : undefined}
+                            >
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColor }}></span>
+                              {statusText}
                             </span>
                           </td>
 
                           {/* Workflows */}
                           <td style={{ padding: '10px 14px' }}>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '260px' }}>
-                              {(item.workflows || []).map((wfName, wIdx) => (
-                                <span
-                                  key={wIdx}
-                                  style={{
-                                    fontSize: '10.5px',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px',
-                                    background: 'rgba(255, 255, 255, 0.06)',
-                                    color: 'var(--admin-text-sub)'
-                                  }}
-                                >
-                                  {wfName.length > 25 ? wfName.slice(0, 22) + '...' : wfName}
-                                </span>
-                              ))}
+                              {(item.workflows || []).map((wfName, wIdx) => {
+                                const isWfCommented = item.commentedWorkflows?.includes(wfName);
+                                return (
+                                  <span
+                                    key={wIdx}
+                                    style={{
+                                      fontSize: '10.5px',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      background: isWfCommented ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.06)',
+                                      color: isWfCommented ? '#ef4444' : 'var(--admin-text-sub)',
+                                      border: isWfCommented ? '1px solid rgba(239, 68, 68, 0.25)' : 'none'
+                                    }}
+                                  >
+                                    {wfName.length > 25 ? wfName.slice(0, 22) + '...' : wfName}
+                                    {isWfCommented ? ' (Off)' : ''}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </td>
 
                           {/* Action Toggle Button */}
                           <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleFailover(isCommented ? 'uncomment_keys' : 'comment_keys', item.service, [item.key])}
-                              disabled={updatingFailover}
-                              style={{
-                                padding: '5px 12px',
-                                fontSize: '11px',
-                                fontWeight: 800,
-                                borderRadius: '6px',
-                                border: isCommented ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid rgba(239, 68, 68, 0.45)',
-                                background: isCommented ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                color: isCommented ? '#10b981' : '#ef4444',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                              title={isCommented ? 'Uncomment this key to reactivate it' : 'Comment out this key to disable it and trigger failover'}
-                            >
-                              {isCommented ? '✅ Uncomment Key' : '⚡ Comment Out'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              {isPartial ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleFailover('comment_keys', item.service, [item.key])}
+                                    disabled={updatingFailover}
+                                    style={{
+                                      padding: '4px 8px',
+                                      fontSize: '10.5px',
+                                      fontWeight: 800,
+                                      borderRadius: '6px',
+                                      border: '1px solid rgba(239, 68, 68, 0.45)',
+                                      background: 'rgba(239, 68, 68, 0.15)',
+                                      color: '#ef4444',
+                                      cursor: 'pointer'
+                                    }}
+                                    title="Comment out this key in all remaining active nodes to force complete failover"
+                                  >
+                                    ⚡ Comment All
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleFailover('uncomment_keys', item.service, [item.key])}
+                                    disabled={updatingFailover}
+                                    style={{
+                                      padding: '4px 8px',
+                                      fontSize: '10.5px',
+                                      fontWeight: 800,
+                                      borderRadius: '6px',
+                                      border: '1px solid rgba(16, 185, 129, 0.45)',
+                                      background: 'rgba(16, 185, 129, 0.15)',
+                                      color: '#10b981',
+                                      cursor: 'pointer'
+                                    }}
+                                    title="Uncomment across all nodes to restore full operational state"
+                                  >
+                                    ✅ Restore All
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleFailover(isCommented ? 'uncomment_keys' : 'comment_keys', item.service, [item.key])}
+                                  disabled={updatingFailover}
+                                  style={{
+                                    padding: '5px 12px',
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    borderRadius: '6px',
+                                    border: isCommented ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid rgba(239, 68, 68, 0.45)',
+                                    background: isCommented ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                    color: isCommented ? '#10b981' : '#ef4444',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                  title={isCommented ? 'Uncomment this key to reactivate it' : 'Comment out this key to disable it and trigger failover'}
+                                >
+                                  {isCommented ? '✅ Uncomment Key' : '⚡ Comment Out'}
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );

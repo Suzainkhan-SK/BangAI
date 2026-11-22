@@ -5410,7 +5410,7 @@ export async function handler(event) {
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
         const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg35.app.n8n.cloud';
-        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZjZiNDZmNi03OTZiLTQzMDItYTc1ZS1lZDVjNTJhODI0NWYiLCJpc3MiOiJuOG4iLCJqdGkiOiJiZjAwMTAxYS0xZGJjLTRmNTQtODdlYS1kZDQ5ZDFjMTNjNDYiLCJpYXQiOjE3OTM0NTk2MjQsImF1ZCI6Im1jcC1zZXJ2ZXItYXBpIn0.cKjDmcneQoshSuao5EX02iYxgR-t0g-qtZwKrS8BBOs';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NDRhMDQyNS01ZjFkLTRkOWYtOGViOS01NDkyY2U4M2FhMTEiLCJpc3MiOiJuOG4iLCJqdGkiOiI0OWZlMGNiMS1hYjFjLTQ5YjUtOWM5MS00NmQwNDFmYjcyNGMiLCJpYXQiOjE3OTQ3MjI2ODksImF1ZCI6Im1jcC1zZXJ2ZXItYXBpIn0.tIM6CZ11RuGnz-qjvqIS7vC8Zx1MY_IyZ6IP6jrF4VI';
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'pcf9IjqGQdh8Xc1j';
         const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'buKzlNj4nNot90a8';
@@ -5438,7 +5438,7 @@ export async function handler(event) {
           targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
         }
 
-        // Helper to parse all keys (both active and commented) from a node's code
+        // Helper to parse all keys (both active and commented) from a node's code with block comment tracking
         const parseNodeKeys = (nodeName, code) => {
           if (!code || typeof code !== 'string') return null;
 
@@ -5493,15 +5493,19 @@ export async function handler(event) {
 
           if (isJson2Video) {
             const lines = code.split('\n');
+            let inBlockComment = false;
             for (let i = 0; i < lines.length; i++) {
               const line = lines[i];
               const trimmed = line.trim();
-              const km = trimmed.match(/apiKey:\s*["']([^"']+)["']/);
+              if (trimmed.includes('/*')) inBlockComment = true;
+
+              const km = line.match(/apiKey:\s*["']([^"']+)["']/);
               if (km && km[1].length > 5) {
                 const key = km[1].trim();
-                const pm = trimmed.match(/projectId:\s*["']([^"']*)["']/);
+                const pm = line.match(/projectId:\s*["']([^"']*)["']/);
                 const projectId = pm ? pm[1].trim() : '';
-                const isCommented = trimmed.startsWith('//') || trimmed.startsWith('/*');
+                const lineBeforeKey = line.slice(0, line.indexOf(km[0]));
+                const isCommented = inBlockComment || lineBeforeKey.includes('//') || lineBeforeKey.includes('/*');
                 keys.push({
                   key,
                   maskedKey: key.length > 16 ? `${key.slice(0, 8)}...${key.slice(-6)}` : `${key.slice(0, 4)}...`,
@@ -5510,6 +5514,7 @@ export async function handler(event) {
                   lineIndex: i
                 });
               }
+              if (trimmed.includes('*/')) inBlockComment = false;
             }
           } else if (varName) {
             const arrayRegex = new RegExp(`(?:const|let|var)\\s+${varName}\\s*=\\s*\\[([\\s\\S]*?)\\];`);
@@ -5517,14 +5522,18 @@ export async function handler(event) {
             if (match) {
               const inner = match[1];
               const lines = inner.split('\n');
+              let inBlockComment = false;
               for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
                 const trimmed = line.trim();
                 if (!trimmed) continue;
-                const km = trimmed.match(/["']([^"']+)["']/);
+                if (trimmed.includes('/*')) inBlockComment = true;
+
+                const km = line.match(/["']([^"']+)["']/);
                 if (km && km[1].length > 5) {
                   const key = km[1].trim();
-                  const isCommented = trimmed.startsWith('//') || trimmed.startsWith('/*');
+                  const lineBeforeKey = line.slice(0, line.indexOf(km[0]));
+                  const isCommented = inBlockComment || lineBeforeKey.includes('//') || lineBeforeKey.includes('/*');
                   keys.push({
                     key,
                     maskedKey: key.length > 16 ? `${key.slice(0, 8)}...${key.slice(-6)}` : `${key.slice(0, 4)}...`,
@@ -5532,6 +5541,7 @@ export async function handler(event) {
                     lineIndex: i
                   });
                 }
+                if (trimmed.includes('*/')) inBlockComment = false;
               }
             }
           }
@@ -5580,15 +5590,36 @@ export async function handler(event) {
                       service: parsed.service,
                       serviceLabel: parsed.serviceLabel,
                       projectId: k.projectId || '',
-                      isCommented: k.isCommented,
+                      activeAppearances: k.isCommented ? 0 : 1,
+                      commentedAppearances: k.isCommented ? 1 : 0,
                       nodeNames: new Set([parsed.nodeName]),
-                      workflows: new Set([target.name])
+                      workflows: new Set([target.name]),
+                      commentedWorkflows: new Set(k.isCommented ? [target.name] : []),
+                      activeWorkflows: new Set(!k.isCommented ? [target.name] : []),
+                      nodeDetails: [{
+                        nodeName: parsed.nodeName,
+                        workflowId: target.id,
+                        workflowName: target.name,
+                        isCommented: k.isCommented
+                      }]
                     });
                   } else {
                     const existing = keyMap.get(id);
                     existing.nodeNames.add(parsed.nodeName);
                     existing.workflows.add(target.name);
-                    if (!k.isCommented) existing.isCommented = false;
+                    if (k.isCommented) {
+                      existing.commentedAppearances++;
+                      existing.commentedWorkflows.add(target.name);
+                    } else {
+                      existing.activeAppearances++;
+                      existing.activeWorkflows.add(target.name);
+                    }
+                    existing.nodeDetails.push({
+                      nodeName: parsed.nodeName,
+                      workflowId: target.id,
+                      workflowName: target.name,
+                      isCommented: k.isCommented
+                    });
                   }
                 });
               }
@@ -5605,11 +5636,34 @@ export async function handler(event) {
         }
 
         const providerSummary = {};
-        const allKeyEntries = Array.from(keyMap.values()).map(k => ({
-          ...k,
-          nodeNames: Array.from(k.nodeNames),
-          workflows: Array.from(k.workflows)
-        }));
+        const allKeyEntries = Array.from(keyMap.values()).map(k => {
+          const total = k.activeAppearances + k.commentedAppearances;
+          let failoverState = 'active';
+          if (k.activeAppearances === 0 && k.commentedAppearances > 0) {
+            failoverState = 'commented';
+          } else if (k.commentedAppearances > 0 && k.activeAppearances > 0) {
+            failoverState = 'partial';
+          }
+
+          return {
+            key: k.key,
+            maskedKey: k.maskedKey,
+            service: k.service,
+            serviceLabel: k.serviceLabel,
+            projectId: k.projectId || '',
+            isCommented: failoverState === 'commented',
+            isPartial: failoverState === 'partial',
+            failoverState,
+            activeAppearances: k.activeAppearances,
+            commentedAppearances: k.commentedAppearances,
+            totalAppearances: total,
+            nodeNames: Array.from(k.nodeNames),
+            workflows: Array.from(k.workflows),
+            commentedWorkflows: Array.from(k.commentedWorkflows),
+            activeWorkflows: Array.from(k.activeWorkflows),
+            nodeDetails: k.nodeDetails
+          };
+        });
 
         const knownServices = [
           { id: 'kie', label: 'Primary Video (Kie.ai 1080p Veo)' },
@@ -5623,15 +5677,21 @@ export async function handler(event) {
 
         knownServices.forEach(s => {
           const keys = allKeyEntries.filter(k => k.service === s.id);
-          const activeKeys = keys.filter(k => !k.isCommented).length;
-          const commentedKeys = keys.filter(k => k.isCommented).length;
+          const activeKeys = keys.filter(k => k.activeAppearances > 0).length;
+          const commentedKeys = keys.filter(k => k.failoverState === 'commented').length;
+          const partialKeys = keys.filter(k => k.failoverState === 'partial').length;
           const totalKeys = keys.length;
-          const status = totalKeys === 0 ? 'EMPTY' : (activeKeys === 0 ? 'DISABLED' : (commentedKeys === 0 ? 'ACTIVE' : 'PARTIAL'));
+          let status = 'ACTIVE';
+          if (totalKeys === 0) status = 'EMPTY';
+          else if (activeKeys === 0 && commentedKeys > 0) status = 'DISABLED';
+          else if (commentedKeys > 0 || partialKeys > 0) status = 'PARTIAL';
+
           providerSummary[s.id] = {
             id: s.id,
             label: s.label,
             activeKeys,
             commentedKeys,
+            partialKeys,
             totalKeys,
             status
           };
@@ -5640,16 +5700,23 @@ export async function handler(event) {
         allKeyEntries.forEach(k => {
           if (!providerSummary[k.service]) {
             const keys = allKeyEntries.filter(e => e.service === k.service);
-            const activeKeys = keys.filter(e => !e.isCommented).length;
-            const commentedKeys = keys.filter(e => e.isCommented).length;
+            const activeKeys = keys.filter(e => e.activeAppearances > 0).length;
+            const commentedKeys = keys.filter(e => e.failoverState === 'commented').length;
+            const partialKeys = keys.filter(e => e.failoverState === 'partial').length;
             const totalKeys = keys.length;
+            let status = 'ACTIVE';
+            if (totalKeys === 0) status = 'EMPTY';
+            else if (activeKeys === 0 && commentedKeys > 0) status = 'DISABLED';
+            else if (commentedKeys > 0 || partialKeys > 0) status = 'PARTIAL';
+
             providerSummary[k.service] = {
               id: k.service,
               label: k.serviceLabel,
               activeKeys,
               commentedKeys,
+              partialKeys,
               totalKeys,
-              status: totalKeys === 0 ? 'EMPTY' : (activeKeys === 0 ? 'DISABLED' : (commentedKeys === 0 ? 'ACTIVE' : 'PARTIAL'))
+              status
             };
           }
         });
@@ -5683,7 +5750,7 @@ export async function handler(event) {
         const sysCol = db.collection('system_config');
         const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
         const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg35.app.n8n.cloud';
-        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZjZiNDZmNi03OTZiLTQzMDItYTc1ZS1lZDVjNTJhODI0NWYiLCJpc3MiOiJuOG4iLCJqdGkiOiJiZjAwMTAxYS0xZGJjLTRmNTQtODdlYS1kZDQ5ZDFjMTNjNDYiLCJpYXQiOjE3OTM0NTk2MjQsImF1ZCI6Im1jcC1zZXJ2ZXItYXBpIn0.cKjDmcneQoshSuao5EX02iYxgR-t0g-qtZwKrS8BBOs';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NDRhMDQyNS01ZjFkLTRkOWYtOGViOS01NDkyY2U4M2FhMTEiLCJpc3MiOiJuOG4iLCJqdGkiOiI0OWZlMGNiMS1hYjFjLTQ5YjUtOWM5MS00NmQwNDFmYjcyNGMiLCJpYXQiOjE3OTQ3MjI2ODksImF1ZCI6Im1jcC1zZXJ2ZXItYXBpIn0.tIM6CZ11RuGnz-qjvqIS7vC8Zx1MY_IyZ6IP6jrF4VI';
 
         const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'pcf9IjqGQdh8Xc1j';
         const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'buKzlNj4nNot90a8';
@@ -5775,11 +5842,11 @@ export async function handler(event) {
               if (isJson2Video) {
                 const lines = code.split('\n');
                 lines.forEach(l => {
-                  const trimmed = l.trim();
-                  const km = trimmed.match(/apiKey:\s*["']([^"']+)["']/);
+                  const km = l.match(/apiKey:\s*["']([^"']+)["']/);
                   if (km) {
                     const k = km[1].trim();
-                    const isComm = trimmed.startsWith('//');
+                    const lineBefore = l.slice(0, l.indexOf(km[0]));
+                    const isComm = lineBefore.includes('//') || lineBefore.includes('/*');
                     if (mode === 'comment_all') {
                       keyActionMap.set(k, 'comment');
                     } else if (mode === 'uncomment_all') {
@@ -5794,22 +5861,21 @@ export async function handler(event) {
 
                 if (keyActionMap.size > 0) {
                   const newLines = lines.map(line => {
-                    const trimmed = line.trim();
-                    if (!trimmed) return line;
-                    const km = trimmed.match(/apiKey:\s*["']([^"']+)["']/);
+                    const km = line.match(/apiKey:\s*["']([^"']+)["']/);
                     if (!km) return line;
                     const k = km[1].trim();
                     const act = keyActionMap.get(k);
                     if (!act) return line;
 
-                    const isComm = trimmed.startsWith('//');
+                    const lineBefore = line.slice(0, line.indexOf(km[0]));
+                    const isComm = lineBefore.includes('//') || lineBefore.includes('/*');
                     if (act === 'comment' && !isComm) {
                       const ind = line.match(/^(\s*)/)?.[1] || '  ';
-                      return `${ind}// ${trimmed}`;
+                      return `${ind}// ${line.trim()}`;
                     } else if (act === 'uncomment' && isComm) {
-                      const uncomm = trimmed.replace(/^\/\/\s*/, '');
                       const ind = line.match(/^(\s*)/)?.[1] || '  ';
-                      return `${ind}${uncomm}`;
+                      const cleaned = line.trim().replace(/^\/\/\s*/, '').replace(/^\/\*\s*/, '').replace(/\s*\*\/$/, '');
+                      return `${ind}${cleaned}`;
                     }
                     return line;
                   });
@@ -5833,12 +5899,11 @@ export async function handler(event) {
                   const lines = inner.split('\n');
 
                   lines.forEach(l => {
-                    const trimmed = l.trim();
-                    if (!trimmed) return;
-                    const km = trimmed.match(/["']([^"']+)["']/);
+                    const km = l.match(/["']([^"']+)["']/);
                     if (km) {
                       const k = km[1].trim();
-                      const isComm = trimmed.startsWith('//');
+                      const lineBefore = l.slice(0, l.indexOf(km[0]));
+                      const isComm = lineBefore.includes('//') || lineBefore.includes('/*');
                       if (mode === 'comment_all') {
                         keyActionMap.set(k, 'comment');
                       } else if (mode === 'uncomment_all') {
@@ -5853,27 +5918,26 @@ export async function handler(event) {
 
                   if (keyActionMap.size > 0) {
                     const newLines = lines.map(line => {
-                      const trimmed = line.trim();
-                      if (!trimmed) return line;
-                      const km = trimmed.match(/["']([^"']+)["']/);
+                      const km = line.match(/["']([^"']+)["']/);
                       if (!km) return line;
                       const k = km[1].trim();
                       const act = keyActionMap.get(k);
                       if (!act) return line;
 
-                      const isComm = trimmed.startsWith('//');
+                      const lineBefore = line.slice(0, line.indexOf(km[0]));
+                      const isComm = lineBefore.includes('//') || lineBefore.includes('/*');
                       if (act === 'comment' && !isComm) {
                         const ind = line.match(/^(\s*)/)?.[1] || '  ';
-                        return `${ind}// ${trimmed}`;
+                        return `${ind}// ${line.trim()}`;
                       } else if (act === 'uncomment' && isComm) {
-                        const uncomm = trimmed.replace(/^\/\/\s*/, '');
                         const ind = line.match(/^(\s*)/)?.[1] || '  ';
-                        return `${ind}${uncomm}`;
+                        const cleaned = line.trim().replace(/^\/\/\s*/, '').replace(/^\/\*\s*/, '').replace(/\s*\*\/$/, '');
+                        return `${ind}${cleaned}`;
                       }
                       return line;
                     });
 
-                    const updatedCode = code.replace(arrayRegex, `${prefix}${newLines.join('\n')}${suffix}`);
+                    const updatedCode = code.replace(arrayRegex, () => `${prefix}${newLines.join('\n')}${suffix}`);
                     if (updatedCode !== code) {
                       operations.push({
                         type: 'updateNodeParameters',
@@ -5893,6 +5957,17 @@ export async function handler(event) {
                 versionDescription: `Updated comment failover status across ${operations.length} node(s) for ${service}.`,
                 operations
               });
+
+              // Immediately publish workflow so the draft changes are active & live in n8n Cloud
+              try {
+                await callN8nMcp(activeBaseUrl, mcpToken, 'publish_workflow', {
+                  workflowId: target.id,
+                  versionDescription: `Failover Overrides (${mode}) - ${service} live in production`
+                });
+              } catch (pubErr) {
+                console.warn(`[toggle-key-failover] Auto-publish notice for ${target.id}:`, pubErr.message);
+              }
+
               totalNodesUpdated += operations.length;
               workflowResults.push({
                 workflowId: target.id,
@@ -5931,7 +6006,7 @@ export async function handler(event) {
           headers: corsHeaders,
           body: JSON.stringify({
             success: workflowResults.some(r => r.success),
-            message: `Successfully executed failover action (${mode}) across ${workflowResults.filter(r => r.nodesUpdated > 0).length} workflow(s) (${totalNodesUpdated} node(s) updated).`,
+            message: `Successfully executed failover action (${mode}) across ${workflowResults.filter(r => r.nodesUpdated > 0).length} workflow(s) (${totalNodesUpdated} node(s) updated & published).`,
             totalNodesUpdated,
             results: workflowResults
           })
