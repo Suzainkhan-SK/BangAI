@@ -139,6 +139,10 @@ export const adminService = {
     adminFetch('check-keys-balance', 'POST', { service, workflowId }),
   deleteExhaustedKeys: async (service = 'all', keysToDelete = [], targetWorkflows = 'all') =>
     adminFetch('delete-exhausted-keys', 'POST', { service, keysToDelete, targetWorkflows }),
+  getKeyFailoverStatus: async (workflowId = 'all', service = 'all') =>
+    adminFetch('get-key-failover-status', 'POST', { workflowId, service }),
+  toggleKeyFailover: async (payload) =>
+    adminFetch('toggle-key-failover', 'POST', payload),
   toggleWorkflowPublish: async (workflowId, publish) =>
     adminFetch('toggle-workflow-publish', 'POST', { workflowId, publish }),
   universalTogglePublish: async (publish) =>

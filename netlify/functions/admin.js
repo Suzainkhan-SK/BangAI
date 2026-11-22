@@ -5401,6 +5401,543 @@ export async function handler(event) {
         };
       }
 
+      // ----------------------------------------------------
+      // [11J] GET WORKFLOW KEY FAILOVER STATUS & COMMENT INSPECTOR
+      // ----------------------------------------------------
+      case 'get-key-failover-status': {
+        const { workflowId = 'all', service = 'all' } = body;
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg35.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZjZiNDZmNi03OTZiLTQzMDItYTc1ZS1lZDVjNTJhODI0NWYiLCJpc3MiOiJuOG4iLCJqdGkiOiJiZjAwMTAxYS0xZGJjLTRmNTQtODdlYS1kZDQ5ZDFjMTNjNDYiLCJpYXQiOjE3OTM0NTk2MjQsImF1ZCI6Im1jcC1zZXJ2ZXItYXBpIn0.cKjDmcneQoshSuao5EX02iYxgR-t0g-qtZwKrS8BBOs';
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'pcf9IjqGQdh8Xc1j';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'buKzlNj4nNot90a8';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'keivyIfrzdFMfGbm';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'THZBHYFIw28UF1DX';
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || 'fAkSmCs2kg5MLEvM';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'DyufUE0Sk1kgqnXb';
+        const islamicStoriesId = n8nDoc?.productionWorkflows?.islamicStoriesHindi || 'Hz1yIP2AEO9iq7Bu';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: islamicStoriesId, name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        // Helper to parse all keys (both active and commented) from a node's code
+        const parseNodeKeys = (nodeName, code) => {
+          if (!code || typeof code !== 'string') return null;
+
+          let nodeService = 'other';
+          let nodeLabel = nodeName;
+          let varName = '';
+          let isJson2Video = false;
+
+          if (nodeName.startsWith('Config: Primary Video Master') || nodeName === 'Config: Kie Image Master' || code.includes('primaryVideoApiKeys')) {
+            nodeService = 'kie';
+            nodeLabel = 'Primary Video (Kie.ai 1080p Veo)';
+            varName = 'primaryVideoApiKeys';
+          } else if (nodeName.startsWith('Config: Backup Video Master') || code.includes('backupVideoApiKeys')) {
+            nodeService = 'youbot';
+            nodeLabel = 'Backup Video (You.bot Grok Imagine)';
+            varName = 'backupVideoApiKeys';
+          } else if (nodeName === 'Config: Primary LLM Master' || nodeName === 'Config: Topic Analyzer LLM Master' || code.includes('primaryLlmApiKeys')) {
+            nodeService = 'xkiro';
+            nodeLabel = 'Primary LLM (xKiro Mistral Large)';
+            varName = 'primaryLlmApiKeys';
+          } else if (nodeName === 'Config: Backup LLM Master' || nodeName === 'Config: Strategy Backup LLM Master' || nodeName === 'Config: Topic Analyzer Backup LLM Master' || code.includes('backupLlmApiKeys')) {
+            nodeService = 'rapidapi';
+            nodeLabel = 'Backup LLM (RapidAPI gpt-4o-mini)';
+            varName = 'backupLlmApiKeys';
+          } else if (nodeName === 'Config: json2video Keys' || code.includes('api.json2video.com') || (code.includes('apiKey') && code.includes('projectId'))) {
+            nodeService = 'j2v';
+            nodeLabel = 'Voiceover Engine (json2video ElevenLabs)';
+            isJson2Video = true;
+          } else if (nodeName === 'Config: CloudConvert Master' || code.includes('cloudConvertTokens') || code.includes('cloudConvertApiKeys')) {
+            nodeService = 'cloudconvert';
+            nodeLabel = 'Audio Bridge (CloudConvert Master)';
+            varName = code.includes('cloudConvertTokens') ? 'cloudConvertTokens' : 'cloudConvertApiKeys';
+          } else if (nodeName === 'Config: Zvid Master' || code.includes('zvidApiKeys')) {
+            nodeService = 'zvid';
+            nodeLabel = 'Cloud Render (Zvid.io Master)';
+            varName = 'zvidApiKeys';
+          } else {
+            // Dynamic discovery for any other node with an array of keys
+            const genericMatch = code.match(/(?:const|let|var)\s+([a-zA-Z0-9_]*(?:ApiKeys?|Tokens?|Keys?))\s*=\s*\[/i);
+            if (genericMatch) {
+              varName = genericMatch[1];
+              nodeService = 'custom_' + nodeName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+              nodeLabel = nodeName;
+            }
+          }
+
+          if (service !== 'all' && nodeService !== service) {
+            return null;
+          }
+
+          const keys = [];
+
+          if (isJson2Video) {
+            const lines = code.split('\n');
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              const trimmed = line.trim();
+              const km = trimmed.match(/apiKey:\s*["']([^"']+)["']/);
+              if (km && km[1].length > 5) {
+                const key = km[1].trim();
+                const pm = trimmed.match(/projectId:\s*["']([^"']*)["']/);
+                const projectId = pm ? pm[1].trim() : '';
+                const isCommented = trimmed.startsWith('//') || trimmed.startsWith('/*');
+                keys.push({
+                  key,
+                  maskedKey: key.length > 16 ? `${key.slice(0, 8)}...${key.slice(-6)}` : `${key.slice(0, 4)}...`,
+                  projectId,
+                  isCommented,
+                  lineIndex: i
+                });
+              }
+            }
+          } else if (varName) {
+            const arrayRegex = new RegExp(`(?:const|let|var)\\s+${varName}\\s*=\\s*\\[([\\s\\S]*?)\\];`);
+            const match = code.match(arrayRegex);
+            if (match) {
+              const inner = match[1];
+              const lines = inner.split('\n');
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                const km = trimmed.match(/["']([^"']+)["']/);
+                if (km && km[1].length > 5) {
+                  const key = km[1].trim();
+                  const isCommented = trimmed.startsWith('//') || trimmed.startsWith('/*');
+                  keys.push({
+                    key,
+                    maskedKey: key.length > 16 ? `${key.slice(0, 8)}...${key.slice(-6)}` : `${key.slice(0, 4)}...`,
+                    isCommented,
+                    lineIndex: i
+                  });
+                }
+              }
+            }
+          }
+
+          if (keys.length === 0) return null;
+
+          const activeCount = keys.filter(k => !k.isCommented).length;
+          const commentedCount = keys.filter(k => k.isCommented).length;
+          const status = activeCount === 0 ? 'DISABLED' : (commentedCount === 0 ? 'ACTIVE' : 'PARTIAL');
+
+          return {
+            nodeName,
+            service: nodeService,
+            serviceLabel: nodeLabel,
+            varName,
+            isJson2Video,
+            keys,
+            activeCount,
+            commentedCount,
+            totalCount: keys.length,
+            status
+          };
+        };
+
+        const workflowsData = [];
+        const keyMap = new Map();
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id, detailLevel: 'full' });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) continue;
+
+            const wfNodes = [];
+            for (const node of wf.nodes) {
+              const parsed = parseNodeKeys(node.name, node.parameters?.jsCode);
+              if (parsed) {
+                wfNodes.push(parsed);
+
+                parsed.keys.forEach(k => {
+                  const id = `${parsed.service}:::${k.key}`;
+                  if (!keyMap.has(id)) {
+                    keyMap.set(id, {
+                      key: k.key,
+                      maskedKey: k.maskedKey,
+                      service: parsed.service,
+                      serviceLabel: parsed.serviceLabel,
+                      projectId: k.projectId || '',
+                      isCommented: k.isCommented,
+                      nodeNames: new Set([parsed.nodeName]),
+                      workflows: new Set([target.name])
+                    });
+                  } else {
+                    const existing = keyMap.get(id);
+                    existing.nodeNames.add(parsed.nodeName);
+                    existing.workflows.add(target.name);
+                    if (!k.isCommented) existing.isCommented = false;
+                  }
+                });
+              }
+            }
+
+            workflowsData.push({
+              workflowId: target.id,
+              name: target.name,
+              nodes: wfNodes
+            });
+          } catch (wfErr) {
+            console.warn(`[get-key-failover-status] Error fetching ${target.id}:`, wfErr.message);
+          }
+        }
+
+        const providerSummary = {};
+        const allKeyEntries = Array.from(keyMap.values()).map(k => ({
+          ...k,
+          nodeNames: Array.from(k.nodeNames),
+          workflows: Array.from(k.workflows)
+        }));
+
+        const knownServices = [
+          { id: 'kie', label: 'Primary Video (Kie.ai 1080p Veo)' },
+          { id: 'youbot', label: 'Backup Video (You.bot Grok Imagine)' },
+          { id: 'xkiro', label: 'Primary LLM (xKiro Mistral Large)' },
+          { id: 'rapidapi', label: 'Backup LLM (RapidAPI gpt-4o-mini)' },
+          { id: 'j2v', label: 'Voiceover Engine (json2video ElevenLabs)' },
+          { id: 'cloudconvert', label: 'Audio Bridge (CloudConvert Master)' },
+          { id: 'zvid', label: 'Cloud Render (Zvid.io Master)' }
+        ];
+
+        knownServices.forEach(s => {
+          const keys = allKeyEntries.filter(k => k.service === s.id);
+          const activeKeys = keys.filter(k => !k.isCommented).length;
+          const commentedKeys = keys.filter(k => k.isCommented).length;
+          const totalKeys = keys.length;
+          const status = totalKeys === 0 ? 'EMPTY' : (activeKeys === 0 ? 'DISABLED' : (commentedKeys === 0 ? 'ACTIVE' : 'PARTIAL'));
+          providerSummary[s.id] = {
+            id: s.id,
+            label: s.label,
+            activeKeys,
+            commentedKeys,
+            totalKeys,
+            status
+          };
+        });
+
+        allKeyEntries.forEach(k => {
+          if (!providerSummary[k.service]) {
+            const keys = allKeyEntries.filter(e => e.service === k.service);
+            const activeKeys = keys.filter(e => !e.isCommented).length;
+            const commentedKeys = keys.filter(e => e.isCommented).length;
+            const totalKeys = keys.length;
+            providerSummary[k.service] = {
+              id: k.service,
+              label: k.serviceLabel,
+              activeKeys,
+              commentedKeys,
+              totalKeys,
+              status: totalKeys === 0 ? 'EMPTY' : (activeKeys === 0 ? 'DISABLED' : (commentedKeys === 0 ? 'ACTIVE' : 'PARTIAL'))
+            };
+          }
+        });
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            workflowId,
+            service,
+            providerSummary,
+            allKeys: allKeyEntries,
+            workflows: workflowsData
+          })
+        };
+      }
+
+      // ----------------------------------------------------
+      // [11K] TOGGLE KEY FAILOVER (COMMENT / UNCOMMENT APIS)
+      // ----------------------------------------------------
+      case 'toggle-key-failover': {
+        const {
+          workflowId = 'all',
+          service = 'all',
+          mode = 'comment_all',
+          targetKeys = [],
+          targetNodes = []
+        } = body;
+
+        const sysCol = db.collection('system_config');
+        const n8nDoc = await sysCol.findOne({ _id: 'n8n_configuration' });
+        const activeBaseUrl = n8nDoc?.activeInstance || 'https://cmpunktg35.app.n8n.cloud';
+        const mcpToken = n8nDoc?.mcpToken || process.env.N8N_MCP_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZjZiNDZmNi03OTZiLTQzMDItYTc1ZS1lZDVjNTJhODI0NWYiLCJpc3MiOiJuOG4iLCJqdGkiOiJiZjAwMTAxYS0xZGJjLTRmNTQtODdlYS1kZDQ5ZDFjMTNjNDYiLCJpYXQiOjE3OTM0NTk2MjQsImF1ZCI6Im1jcC1zZXJ2ZXItYXBpIn0.cKjDmcneQoshSuao5EX02iYxgR-t0g-qtZwKrS8BBOs';
+
+        const studioId = n8nDoc?.productionWorkflows?.viralShorts || n8nDoc?.workflowId || 'pcf9IjqGQdh8Xc1j';
+        const mysteriesId = n8nDoc?.productionWorkflows?.worldMysteries || 'buKzlNj4nNot90a8';
+        const last24hId = n8nDoc?.productionWorkflows?.last24Hours || 'keivyIfrzdFMfGbm';
+        const horrorId = n8nDoc?.productionWorkflows?.horror3am || 'THZBHYFIw28UF1DX';
+        const timeTravelId = n8nDoc?.productionWorkflows?.timeTravelInfluencer || 'fAkSmCs2kg5MLEvM';
+        const familyDramaId = n8nDoc?.productionWorkflows?.familyMicroDrama || 'DyufUE0Sk1kgqnXb';
+        const islamicStoriesId = n8nDoc?.productionWorkflows?.islamicStoriesHindi || 'Hz1yIP2AEO9iq7Bu';
+
+        const flagshipWorkflows = [
+          { id: studioId, name: 'Viral All-In-One AI [5 Direct Video Scenes - 75s]' },
+          { id: mysteriesId, name: 'WORLD MYSTERIES & PARANORMAL [5 Direct Video Scenes - 75s]' },
+          { id: last24hId, name: 'Last 24 Hours [5 Direct Video Scenes - 75s]' },
+          { id: horrorId, name: '3-AM Horror [5 Direct Video Scenes - 75s]' },
+          { id: timeTravelId, name: 'TIME TRAVEL INFLUENCER [5 Direct Video Scenes - 75s]' },
+          { id: familyDramaId, name: 'Ghar Ki Kahani - Family Drama - Webhook Based' },
+          { id: islamicStoriesId, name: 'ISLAMIC STORIES-HINDI [5 Direct Video Scenes - 75s] - Webhook Based' }
+        ];
+
+        let targetList = [];
+        if (!workflowId || workflowId === 'all') {
+          targetList = flagshipWorkflows;
+        } else {
+          const found = flagshipWorkflows.find(w => w.id === workflowId);
+          targetList = found ? [found] : [{ id: workflowId, name: `Workflow ${workflowId}` }];
+        }
+
+        const targetKeysSet = new Set(targetKeys.map(k => String(k).trim()).filter(Boolean));
+        const targetNodesSet = new Set(targetNodes.map(n => String(n).trim()).filter(Boolean));
+
+        let totalNodesUpdated = 0;
+        const workflowResults = [];
+
+        for (const target of targetList) {
+          try {
+            const details = await callN8nMcp(activeBaseUrl, mcpToken, 'get_workflow_details', { workflowId: target.id, detailLevel: 'full' });
+            const wf = details.workflow || details;
+            if (!wf || !wf.nodes) continue;
+
+            const operations = [];
+
+            for (const node of wf.nodes) {
+              const code = node.parameters?.jsCode;
+              if (!code || typeof code !== 'string') continue;
+
+              if (targetNodesSet.size > 0 && !targetNodesSet.has(node.name)) {
+                continue;
+              }
+
+              let nodeService = 'other';
+              let varName = '';
+              let isJson2Video = false;
+
+              if (node.name.startsWith('Config: Primary Video Master') || node.name === 'Config: Kie Image Master' || code.includes('primaryVideoApiKeys')) {
+                nodeService = 'kie';
+                varName = 'primaryVideoApiKeys';
+              } else if (node.name.startsWith('Config: Backup Video Master') || code.includes('backupVideoApiKeys')) {
+                nodeService = 'youbot';
+                varName = 'backupVideoApiKeys';
+              } else if (node.name === 'Config: Primary LLM Master' || node.name === 'Config: Topic Analyzer LLM Master' || code.includes('primaryLlmApiKeys')) {
+                nodeService = 'xkiro';
+                varName = 'primaryLlmApiKeys';
+              } else if (node.name === 'Config: Backup LLM Master' || node.name === 'Config: Strategy Backup LLM Master' || node.name === 'Config: Topic Analyzer Backup LLM Master' || code.includes('backupLlmApiKeys')) {
+                nodeService = 'rapidapi';
+                varName = 'backupLlmApiKeys';
+              } else if (node.name === 'Config: json2video Keys' || code.includes('api.json2video.com') || (code.includes('apiKey') && code.includes('projectId'))) {
+                nodeService = 'j2v';
+                isJson2Video = true;
+              } else if (node.name === 'Config: CloudConvert Master' || code.includes('cloudConvertTokens') || code.includes('cloudConvertApiKeys')) {
+                nodeService = 'cloudconvert';
+                varName = code.includes('cloudConvertTokens') ? 'cloudConvertTokens' : 'cloudConvertApiKeys';
+              } else if (node.name === 'Config: Zvid Master' || code.includes('zvidApiKeys')) {
+                nodeService = 'zvid';
+                varName = 'zvidApiKeys';
+              } else {
+                const genericMatch = code.match(/(?:const|let|var)\s+([a-zA-Z0-9_]*(?:ApiKeys?|Tokens?|Keys?))\s*=\s*\[/i);
+                if (genericMatch) {
+                  varName = genericMatch[1];
+                  nodeService = 'custom_' + node.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                }
+              }
+
+              if (service !== 'all' && nodeService !== service) {
+                continue;
+              }
+
+              const keyActionMap = new Map();
+
+              if (isJson2Video) {
+                const lines = code.split('\n');
+                lines.forEach(l => {
+                  const trimmed = l.trim();
+                  const km = trimmed.match(/apiKey:\s*["']([^"']+)["']/);
+                  if (km) {
+                    const k = km[1].trim();
+                    const isComm = trimmed.startsWith('//');
+                    if (mode === 'comment_all') {
+                      keyActionMap.set(k, 'comment');
+                    } else if (mode === 'uncomment_all') {
+                      keyActionMap.set(k, 'uncomment');
+                    } else if (targetKeysSet.has(k)) {
+                      if (mode === 'comment_keys') keyActionMap.set(k, 'comment');
+                      else if (mode === 'uncomment_keys') keyActionMap.set(k, 'uncomment');
+                      else if (mode === 'toggle_keys') keyActionMap.set(k, isComm ? 'uncomment' : 'comment');
+                    }
+                  }
+                });
+
+                if (keyActionMap.size > 0) {
+                  const newLines = lines.map(line => {
+                    const trimmed = line.trim();
+                    if (!trimmed) return line;
+                    const km = trimmed.match(/apiKey:\s*["']([^"']+)["']/);
+                    if (!km) return line;
+                    const k = km[1].trim();
+                    const act = keyActionMap.get(k);
+                    if (!act) return line;
+
+                    const isComm = trimmed.startsWith('//');
+                    if (act === 'comment' && !isComm) {
+                      const ind = line.match(/^(\s*)/)?.[1] || '  ';
+                      return `${ind}// ${trimmed}`;
+                    } else if (act === 'uncomment' && isComm) {
+                      const uncomm = trimmed.replace(/^\/\/\s*/, '');
+                      const ind = line.match(/^(\s*)/)?.[1] || '  ';
+                      return `${ind}${uncomm}`;
+                    }
+                    return line;
+                  });
+
+                  const updatedCode = newLines.join('\n');
+                  if (updatedCode !== code) {
+                    operations.push({
+                      type: 'updateNodeParameters',
+                      nodeName: node.name,
+                      parameters: { jsCode: updatedCode }
+                    });
+                  }
+                }
+              } else if (varName) {
+                const arrayRegex = new RegExp(`((?:const|let|var)\\s+${varName}\\s*=\\s*\\[)([\\s\\S]*?)(\\];)`);
+                const match = code.match(arrayRegex);
+                if (match) {
+                  const prefix = match[1];
+                  const inner = match[2];
+                  const suffix = match[3];
+                  const lines = inner.split('\n');
+
+                  lines.forEach(l => {
+                    const trimmed = l.trim();
+                    if (!trimmed) return;
+                    const km = trimmed.match(/["']([^"']+)["']/);
+                    if (km) {
+                      const k = km[1].trim();
+                      const isComm = trimmed.startsWith('//');
+                      if (mode === 'comment_all') {
+                        keyActionMap.set(k, 'comment');
+                      } else if (mode === 'uncomment_all') {
+                        keyActionMap.set(k, 'uncomment');
+                      } else if (targetKeysSet.has(k)) {
+                        if (mode === 'comment_keys') keyActionMap.set(k, 'comment');
+                        else if (mode === 'uncomment_keys') keyActionMap.set(k, 'uncomment');
+                        else if (mode === 'toggle_keys') keyActionMap.set(k, isComm ? 'uncomment' : 'comment');
+                      }
+                    }
+                  });
+
+                  if (keyActionMap.size > 0) {
+                    const newLines = lines.map(line => {
+                      const trimmed = line.trim();
+                      if (!trimmed) return line;
+                      const km = trimmed.match(/["']([^"']+)["']/);
+                      if (!km) return line;
+                      const k = km[1].trim();
+                      const act = keyActionMap.get(k);
+                      if (!act) return line;
+
+                      const isComm = trimmed.startsWith('//');
+                      if (act === 'comment' && !isComm) {
+                        const ind = line.match(/^(\s*)/)?.[1] || '  ';
+                        return `${ind}// ${trimmed}`;
+                      } else if (act === 'uncomment' && isComm) {
+                        const uncomm = trimmed.replace(/^\/\/\s*/, '');
+                        const ind = line.match(/^(\s*)/)?.[1] || '  ';
+                        return `${ind}${uncomm}`;
+                      }
+                      return line;
+                    });
+
+                    const updatedCode = code.replace(arrayRegex, `${prefix}${newLines.join('\n')}${suffix}`);
+                    if (updatedCode !== code) {
+                      operations.push({
+                        type: 'updateNodeParameters',
+                        nodeName: node.name,
+                        parameters: { jsCode: updatedCode }
+                      });
+                    }
+                  }
+                }
+              }
+            }
+
+            if (operations.length > 0) {
+              await callN8nMcp(activeBaseUrl, mcpToken, 'update_workflow', {
+                workflowId: target.id,
+                versionName: `Failover Overrides (${mode})`,
+                versionDescription: `Updated comment failover status across ${operations.length} node(s) for ${service}.`,
+                operations
+              });
+              totalNodesUpdated += operations.length;
+              workflowResults.push({
+                workflowId: target.id,
+                name: target.name,
+                success: true,
+                nodesUpdated: operations.length
+              });
+            } else {
+              workflowResults.push({
+                workflowId: target.id,
+                name: target.name,
+                success: true,
+                nodesUpdated: 0
+              });
+            }
+          } catch (err) {
+            workflowResults.push({
+              workflowId: target.id,
+              name: target.name,
+              success: false,
+              error: err.message
+            });
+          }
+        }
+
+        await logAdminAction(db, 'TOGGLE_KEY_FAILOVER', {
+          workflowId,
+          service,
+          mode,
+          targetKeysCount: targetKeys.length,
+          totalNodesUpdated
+        }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: workflowResults.some(r => r.success),
+            message: `Successfully executed failover action (${mode}) across ${workflowResults.filter(r => r.nodesUpdated > 0).length} workflow(s) (${totalNodesUpdated} node(s) updated).`,
+            totalNodesUpdated,
+            results: workflowResults
+          })
+        };
+      }
+
 
       // ----------------------------------------------------
       // [12] SYNC KEYS TO NETLIFY ENVIRONMENT VARIABLES

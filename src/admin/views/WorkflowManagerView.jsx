@@ -60,6 +60,7 @@ export default function WorkflowManagerView() {
   const isBackup = videoProvider === 'backup';
   const isErrorRecovery = managerCategory === 'error_recovery';
   const isBalanceChecker = managerCategory === 'balance_checker';
+  const isFailoverControls = managerCategory === 'failover_controls';
 
   // Balance & Health Manager State
   const [balanceService, setBalanceService] = useState('all');
@@ -74,6 +75,18 @@ export default function WorkflowManagerView() {
   const [selectedKeysToDelete, setSelectedKeysToDelete] = useState(new Set());
   const [deletingExhausted, setDeletingExhausted] = useState(false);
   const [inspectModalData, setInspectModalData] = useState(null);
+
+  // Failover & Key Killswitch State
+  const [failoverWorkflow, setFailoverWorkflow] = useState('all');
+  const [failoverService, setFailoverService] = useState('all');
+  const [failoverStatusFilter, setFailoverStatusFilter] = useState('all');
+  const [failoverSearchTerm, setFailoverSearchTerm] = useState('');
+  const [failoverSummary, setFailoverSummary] = useState({});
+  const [failoverAllKeys, setFailoverAllKeys] = useState([]);
+  const [failoverWorkflows, setFailoverWorkflows] = useState([]);
+  const [loadingFailover, setLoadingFailover] = useState(false);
+  const [updatingFailover, setUpdatingFailover] = useState(false);
+  const [selectedFailoverKeys, setSelectedFailoverKeys] = useState(new Set());
 
   const fetchKeysBalance = async (svc = balanceService, wf = balanceWorkflow) => {
     setCheckingBalances(true);
@@ -178,6 +191,106 @@ export default function WorkflowManagerView() {
       setSelectedKeysToDelete(new Set());
     } else {
       setSelectedKeysToDelete(new Set(filteredList.map(r => r.key)));
+    }
+  };
+
+  const fetchFailoverStatus = async (wf = failoverWorkflow, svc = failoverService) => {
+    setLoadingFailover(true);
+    setLogs(prev => [
+      ...prev,
+      `[${new Date().toLocaleTimeString()}] 🔍 Scanning workflow nodes for active and commented API keys (${svc.toUpperCase()})...`
+    ]);
+    try {
+      const res = await adminService.getKeyFailoverStatus(wf, svc);
+      if (res && res.success) {
+        setFailoverSummary(res.providerSummary || {});
+        setFailoverAllKeys(res.allKeys || []);
+        setFailoverWorkflows(res.workflows || []);
+        setSelectedFailoverKeys(new Set());
+        setLogs(prev => [
+          ...prev,
+          `[${new Date().toLocaleTimeString()}] ✅ Scanned ${res.allKeys?.length || 0} API keys across workflow nodes.`
+        ]);
+      } else {
+        setToastMsg(`⚠️ Failed to scan keys: ${res?.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    } finally {
+      setLoadingFailover(false);
+    }
+  };
+
+  const handleToggleFailover = async (mode, targetService = failoverService, targetKeysList = []) => {
+    const isComment = mode.startsWith('comment');
+    const isUncomment = mode.startsWith('uncomment');
+    const actionLabel = isComment
+      ? 'COMMENT OUT (FORCE FAILOVER)'
+      : (isUncomment ? 'UNCOMMENT (RESTORE)' : 'TOGGLE COMMENT STATE');
+
+    const wfDesc = failoverWorkflow === 'all' ? 'ALL 7 Flagship Workflows' : `Workflow ${failoverWorkflow}`;
+    const svcDesc = targetService === 'all' ? 'All Providers' : targetService.toUpperCase();
+
+    const confirmMsg =
+      `⚠️ CONFIRM ${actionLabel}:\n\n` +
+      `Target: ${wfDesc} • Provider: ${svcDesc}\n` +
+      `Mode: ${mode}\n` +
+      (targetKeysList.length > 0 ? `Selected Keys: ${targetKeysList.length} key(s)\n\n` : `All keys for this provider.\n\n`) +
+      (isComment
+        ? `⚡ NOTICE: Commenting out keys will cause this provider to intentionally fail at runtime, automatically forcing the workflow to route execution to the fallback / backup provider!\n\n`
+        : `✅ Restoring keys will re-enable normal operations for this provider.\n\n`) +
+      `Do you want to proceed?`;
+
+    const confirmed = window.confirm(confirmMsg);
+    if (!confirmed) return;
+
+    setUpdatingFailover(true);
+    setLogs(prev => [
+      ...prev,
+      `[${new Date().toLocaleTimeString()}] ⚡ Applying failover override (${mode}) on ${svcDesc} in ${wfDesc}...`
+    ]);
+
+    try {
+      const res = await adminService.toggleKeyFailover({
+        workflowId: failoverWorkflow,
+        service: targetService,
+        mode,
+        targetKeys: targetKeysList
+      });
+
+      if (res && res.success) {
+        setLogs(prev => [
+          ...prev,
+          `[${new Date().toLocaleTimeString()}] ✅ ${res.message}`
+        ]);
+        setToastMsg(`✅ Failover override applied! (${res.totalNodesUpdated} nodes updated)`);
+        fetchFailoverStatus(failoverWorkflow, failoverService);
+        fetchWorkflows(true);
+      } else {
+        setToastMsg(`⚠️ Error: ${res?.error || 'Failed to update workflow keys'}`);
+      }
+    } catch (err) {
+      setToastMsg(`⚠️ Error: ${err.message}`);
+    } finally {
+      setUpdatingFailover(false);
+      setTimeout(() => setToastMsg(''), 5000);
+    }
+  };
+
+  const toggleSelectFailoverKey = (key) => {
+    setSelectedFailoverKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const selectAllFilteredFailoverKeys = (filteredList) => {
+    if (selectedFailoverKeys.size === filteredList.length) {
+      setSelectedFailoverKeys(new Set());
+    } else {
+      setSelectedFailoverKeys(new Set(filteredList.map(r => r.key)));
     }
   };
 
@@ -668,6 +781,30 @@ export default function WorkflowManagerView() {
 
     return list;
   }, [balanceResults, balanceStatusFilter, balanceCreditFilter, balanceSearchTerm, balanceSortBy]);
+
+  // Failover & Key Killswitch filtered results
+  const filteredFailoverKeys = useMemo(() => {
+    return failoverAllKeys.filter(item => {
+      if (failoverService !== 'all' && item.service !== failoverService) {
+        return false;
+      }
+      if (failoverStatusFilter === 'active' && item.isCommented) {
+        return false;
+      }
+      if (failoverStatusFilter === 'commented' && !item.isCommented) {
+        return false;
+      }
+      if (failoverSearchTerm) {
+        const q = failoverSearchTerm.toLowerCase();
+        const matchesKey = item.key?.toLowerCase().includes(q) || item.maskedKey?.toLowerCase().includes(q);
+        const matchesService = item.serviceLabel?.toLowerCase().includes(q) || item.service?.toLowerCase().includes(q);
+        const matchesNode = item.nodeNames?.some(n => n.toLowerCase().includes(q));
+        const matchesWf = item.workflows?.some(w => w.toLowerCase().includes(q));
+        if (!matchesKey && !matchesService && !matchesNode && !matchesWf) return false;
+      }
+      return true;
+    });
+  }, [failoverAllKeys, failoverService, failoverStatusFilter, failoverSearchTerm]);
 
   // Detected key counts for inputs
   const detectedAppendCount = useMemo(() => {
@@ -2088,6 +2225,48 @@ export default function WorkflowManagerView() {
               color: isBalanceChecker ? '#10b981' : 'var(--admin-text-sub)'
             }}>
               Live Health
+            </span>
+          </button>
+
+          {/* Category Tab: Provider Failover & Key Killswitch */}
+          <button
+            type="button"
+            onClick={() => {
+              setManagerCategory('failover_controls');
+              setFailoverSearchTerm('');
+              if (failoverAllKeys.length === 0) {
+                fetchFailoverStatus('all', 'all');
+              }
+            }}
+            style={{
+              flex: '1 1 200px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: isFailoverControls ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid transparent',
+              background: isFailoverControls
+                ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(245, 158, 11, 0.18) 100%)'
+                : 'transparent',
+              color: isFailoverControls ? 'var(--admin-text-main)' : 'var(--admin-text-sub)',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '7px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '15px' }}>🔌</span>
+            <span>Failover & Killswitch</span>
+            <span style={{
+              fontSize: '10.5px',
+              padding: '1px 6px',
+              borderRadius: '9999px',
+              background: isFailoverControls ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              color: isFailoverControls ? '#ef4444' : 'var(--admin-text-sub)'
+            }}>
+              Overrides
             </span>
           </button>
         </div>
@@ -3895,8 +4074,629 @@ export default function WorkflowManagerView() {
           </div>
         )}
 
+        {/* ========================================================================= */}
+        {/* NEW SECTION: UNIVERSAL PROVIDER FAILOVER & API KEY KILLSWITCH HUB         */}
+        {/* ========================================================================= */}
+        {isFailoverControls && (
+          <div>
+            {/* Failover Sub-Header & Explanation Banner */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '12px',
+              padding: '16px 20px',
+              marginBottom: '16px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '14px'
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '20px' }}>🔌</span>
+                  <h2 style={{ fontSize: '17px', fontWeight: 900, margin: 0, color: 'var(--admin-text-main)' }}>
+                    Universal Provider Failover & API Key Killswitch Hub
+                  </h2>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    background: 'rgba(239, 68, 68, 0.25)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.4)'
+                  }}>
+                    Intentional Failover Controls
+                  </span>
+                </div>
+                <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '6px 0 0 0', maxWidth: '850px', lineHeight: '1.5' }}>
+                  Intentionally comment out or restore API keys directly inside workflow nodes. When all keys of a primary provider are commented out, the workflow intentionally fails on that step and seamlessly routes execution to the backup provider (e.g. Kie.ai 1080p Veo ➔ You.bot Grok Imagine, or xKiro Mistral ➔ RapidAPI gpt-4o-mini).
+                </p>
+                <div style={{ fontSize: '11px', color: '#10b981', marginTop: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>⚡ Dynamic Node Scanner:</span>
+                  <span style={{ color: 'var(--admin-text-sub)' }}>
+                    Automatically detects key configuration arrays across all 7 Flagship Workflows. Even if you swap or add a new service later, it will be automatically discovered and controlled here.
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => fetchFailoverStatus(failoverWorkflow, failoverService)}
+                  disabled={loadingFailover || updatingFailover}
+                  className="admin-btn admin-btn-secondary"
+                  style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <span style={{ display: 'inline-block', transform: loadingFailover ? 'rotate(360deg)' : 'none', transition: 'transform 0.8s linear' }}>
+                    {loadingFailover ? '⏳' : '🔄'}
+                  </span>
+                  <span>{loadingFailover ? 'Scanning Nodes...' : 'Rescan Workflow Nodes'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter & Target Controls Bar */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+              background: 'var(--admin-bg-elevated)',
+              padding: '12px 16px',
+              borderRadius: '12px',
+              border: '1px solid var(--admin-border-glass)',
+              marginBottom: '16px'
+            }}>
+              {/* Target Workflow Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
+                  Target Workflow:
+                </span>
+                <select
+                  value={failoverWorkflow}
+                  onChange={(e) => {
+                    const nextWf = e.target.value;
+                    setFailoverWorkflow(nextWf);
+                    fetchFailoverStatus(nextWf, failoverService);
+                  }}
+                  className="admin-input"
+                  style={{ minWidth: '220px', padding: '6px 10px', fontSize: '12px', fontWeight: 600 }}
+                >
+                  <option value="all">🌐 ALL 7 Flagship Workflows (Universal)</option>
+                  {flagshipWorkflows.map(wf => (
+                    <option key={wf.id} value={wf.id}>
+                      {wf.name.length > 40 ? wf.name.slice(0, 37) + '...' : wf.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Service / Provider Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
+                  Provider Service:
+                </span>
+                <select
+                  value={failoverService}
+                  onChange={(e) => {
+                    const nextSvc = e.target.value;
+                    setFailoverService(nextSvc);
+                    fetchFailoverStatus(failoverWorkflow, nextSvc);
+                  }}
+                  className="admin-input"
+                  style={{ minWidth: '220px', padding: '6px 10px', fontSize: '12px', fontWeight: 600 }}
+                >
+                  <option value="all">🌐 All Provider Services</option>
+                  <option value="kie">⚡ Primary Video (Kie.ai 1080p Veo)</option>
+                  <option value="youbot">🛡️ Backup Video (You.bot Grok Imagine)</option>
+                  <option value="xkiro">🧠 Primary LLM (xKiro Mistral Large)</option>
+                  <option value="rapidapi">🤖 Backup LLM (RapidAPI gpt-4o-mini)</option>
+                  <option value="j2v">🎙️ Voiceover Engine (json2video)</option>
+                  <option value="cloudconvert">🔄 Audio Bridge (CloudConvert)</option>
+                  <option value="zvid">🎬 Cloud Render (Zvid.io)</option>
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', whiteSpace: 'nowrap' }}>
+                  Key Status:
+                </span>
+                <select
+                  value={failoverStatusFilter}
+                  onChange={(e) => setFailoverStatusFilter(e.target.value)}
+                  className="admin-input"
+                  style={{ minWidth: '160px', padding: '6px 10px', fontSize: '12px', fontWeight: 600 }}
+                >
+                  <option value="all">All States</option>
+                  <option value="active">🟢 Active Only</option>
+                  <option value="commented">🔴 Commented Out (Disabled)</option>
+                </select>
+              </div>
+
+              {/* Search Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '180px', maxWidth: '300px' }}>
+                <input
+                  type="text"
+                  placeholder="Filter key, service, or node..."
+                  value={failoverSearchTerm}
+                  onChange={(e) => setFailoverSearchTerm(e.target.value)}
+                  className="admin-input"
+                  style={{ width: '100%', padding: '6px 10px', fontSize: '12px' }}
+                />
+              </div>
+            </div>
+
+            {/* Provider Master Failover Cards */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '12px',
+              marginBottom: '16px'
+            }}>
+              {[
+                { id: 'kie', name: 'Primary Video (Kie.ai)', icon: '⚡', role: 'Primary 1080p Video' },
+                { id: 'youbot', name: 'Backup Video (You.bot)', icon: '🛡️', role: 'Failover Video Engine' },
+                { id: 'xkiro', name: 'Primary LLM (xKiro)', icon: '🧠', role: 'Primary Script & Plot' },
+                { id: 'rapidapi', name: 'Backup LLM (RapidAPI)', icon: '🤖', role: 'Failover LLM Engine' },
+                { id: 'j2v', name: 'Voiceover (json2video)', icon: '🎙️', role: 'ElevenLabs Narration' },
+                { id: 'cloudconvert', name: 'Audio Bridge (CloudConvert)', icon: '🔄', role: 'Audio Levels & Mix' },
+                { id: 'zvid', name: 'Cloud Render (Zvid.io)', icon: '🎬', role: 'Master Video Sticher' }
+              ].map(prov => {
+                const summary = failoverSummary[prov.id] || { activeKeys: 0, commentedKeys: 0, totalKeys: 0, status: 'EMPTY' };
+                const isFailoverTriggered = summary.status === 'DISABLED';
+                const isPartial = summary.status === 'PARTIAL';
+                const isOperational = summary.status === 'ACTIVE';
+
+                const statusColor = isFailoverTriggered ? '#ef4444' : (isPartial ? '#f59e0b' : (isOperational ? '#10b981' : 'var(--admin-text-sub)'));
+                const statusBg = isFailoverTriggered ? 'rgba(239, 68, 68, 0.15)' : (isPartial ? 'rgba(245, 158, 11, 0.15)' : (isOperational ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)'));
+                const statusLabel = isFailoverTriggered ? '🔴 FAILOVER FORCED (ALL COMMENTED)' : (isPartial ? '🟡 PARTIALLY COMMENTED' : (isOperational ? '🟢 ACTIVE & OPERATIONAL' : '⚪ NO KEYS'));
+
+                return (
+                  <div
+                    key={prov.id}
+                    style={{
+                      background: 'var(--admin-bg-elevated)',
+                      border: `1px solid ${isFailoverTriggered ? 'rgba(239, 68, 68, 0.4)' : 'var(--admin-border-glass)'}`,
+                      borderRadius: '10px',
+                      padding: '14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '15px' }}>{prov.icon}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--admin-text-main)' }}>{prov.name}</span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>{prov.role}</div>
+                        </div>
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          padding: '2px 7px',
+                          borderRadius: '9999px',
+                          background: statusBg,
+                          color: statusColor,
+                          border: `1px solid ${statusColor}40`,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {statusLabel}
+                        </span>
+                      </div>
+
+                      <div style={{
+                        marginTop: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: '11.5px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        padding: '6px 10px',
+                        borderRadius: '6px'
+                      }}>
+                        <span style={{ color: '#10b981', fontWeight: 700 }}>🟢 {summary.activeKeys} Active</span>
+                        <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 {summary.commentedKeys} Commented</span>
+                        <span style={{ color: 'var(--admin-text-sub)', fontWeight: 600 }}>Total: {summary.totalKeys}</span>
+                      </div>
+                    </div>
+
+                    {/* 1-Click Master Override Buttons for this Provider */}
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleFailover('comment_all', prov.id)}
+                        disabled={updatingFailover || summary.activeKeys === 0}
+                        style={{
+                          flex: 1,
+                          padding: '6px 8px',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          borderRadius: '6px',
+                          border: '1px solid rgba(239, 68, 68, 0.35)',
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          color: '#ef4444',
+                          cursor: summary.activeKeys === 0 ? 'not-allowed' : 'pointer',
+                          opacity: summary.activeKeys === 0 ? 0.45 : 1,
+                          transition: 'all 0.15s ease'
+                        }}
+                        title={`Comment out all ${summary.activeKeys} active keys for ${prov.name} to force failover`}
+                      >
+                        ⚡ Comment Out All
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleFailover('uncomment_all', prov.id)}
+                        disabled={updatingFailover || summary.commentedKeys === 0}
+                        style={{
+                          flex: 1,
+                          padding: '6px 8px',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          borderRadius: '6px',
+                          border: '1px solid rgba(16, 185, 129, 0.35)',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10b981',
+                          cursor: summary.commentedKeys === 0 ? 'not-allowed' : 'pointer',
+                          opacity: summary.commentedKeys === 0 ? 0.45 : 1,
+                          transition: 'all 0.15s ease'
+                        }}
+                        title={`Uncomment all ${summary.commentedKeys} commented keys for ${prov.name} to restore normal execution`}
+                      >
+                        ✅ Restore All
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bulk Actions Bar */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              background: 'var(--admin-bg-elevated)',
+              padding: '10px 16px',
+              borderRadius: '10px',
+              border: '1px solid var(--admin-border-glass)',
+              marginBottom: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)' }}>
+                  Selected Keys: <strong style={{ color: 'var(--admin-accent-cyan)' }}>{selectedFailoverKeys.size}</strong> / {filteredFailoverKeys.length}
+                </span>
+                {selectedFailoverKeys.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFailoverKeys(new Set())}
+                    style={{ background: 'none', border: 'none', color: 'var(--admin-text-sub)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                  >
+                    Clear Selection
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {selectedFailoverKeys.size > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFailover('comment_keys', failoverService, Array.from(selectedFailoverKeys))}
+                      disabled={updatingFailover}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '11.5px',
+                        fontWeight: 800,
+                        borderRadius: '6px',
+                        border: '1px solid rgba(239, 68, 68, 0.45)',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        color: '#ef4444',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🔴 Comment Out Selected ({selectedFailoverKeys.size})
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFailover('uncomment_keys', failoverService, Array.from(selectedFailoverKeys))}
+                      disabled={updatingFailover}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '11.5px',
+                        fontWeight: 800,
+                        borderRadius: '6px',
+                        border: '1px solid rgba(16, 185, 129, 0.45)',
+                        background: 'rgba(16, 185, 129, 0.2)',
+                        color: '#10b981',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🟢 Uncomment Selected ({selectedFailoverKeys.size})
+                    </button>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleFailover('comment_all', failoverService)}
+                  disabled={updatingFailover || filteredFailoverKeys.filter(k => !k.isCommented).length === 0}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '11.5px',
+                    fontWeight: 800,
+                    borderRadius: '6px',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    color: '#ef4444',
+                    cursor: filteredFailoverKeys.filter(k => !k.isCommented).length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: filteredFailoverKeys.filter(k => !k.isCommented).length === 0 ? 0.45 : 1
+                  }}
+                  title="Comment out all matching active keys"
+                >
+                  ⚡ Comment Out Filtered ({filteredFailoverKeys.filter(k => !k.isCommented).length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleFailover('uncomment_all', failoverService)}
+                  disabled={updatingFailover || filteredFailoverKeys.filter(k => k.isCommented).length === 0}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '11.5px',
+                    fontWeight: 800,
+                    borderRadius: '6px',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#10b981',
+                    cursor: filteredFailoverKeys.filter(k => k.isCommented).length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: filteredFailoverKeys.filter(k => k.isCommented).length === 0 ? 0.45 : 1
+                  }}
+                  title="Uncomment all matching commented keys"
+                >
+                  ✅ Uncomment Filtered ({filteredFailoverKeys.filter(k => k.isCommented).length})
+                </button>
+              </div>
+            </div>
+
+            {/* Granular API Keys Table */}
+            <div style={{
+              background: 'var(--admin-bg-elevated)',
+              border: '1px solid var(--admin-border-glass)',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              marginBottom: '20px'
+            }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+                  <thead>
+                    <tr style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      borderBottom: '1px solid var(--admin-border-glass)',
+                      color: 'var(--admin-text-sub)',
+                      fontSize: '11px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>
+                      <th style={{ padding: '10px 14px', width: '38px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={filteredFailoverKeys.length > 0 && selectedFailoverKeys.size === filteredFailoverKeys.length}
+                          onChange={() => selectAllFilteredFailoverKeys(filteredFailoverKeys)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </th>
+                      <th style={{ padding: '10px 14px' }}>API Key Identifier</th>
+                      <th style={{ padding: '10px 14px' }}>Provider Service</th>
+                      <th style={{ padding: '10px 14px' }}>Config Node(s)</th>
+                      <th style={{ padding: '10px 14px' }}>Failover State</th>
+                      <th style={{ padding: '10px 14px' }}>Workflows</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'right' }}>Failover Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingFailover && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: '36px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+                          <div style={{ fontSize: '24px', marginBottom: '8px' }}>⏳</div>
+                          <div style={{ fontWeight: 700 }}>Scanning workflow nodes for active & commented keys...</div>
+                          <div style={{ fontSize: '11.5px', marginTop: '4px' }}>Reading code AST across all target workflows</div>
+                        </td>
+                      </tr>
+                    )}
+
+                    {!loadingFailover && filteredFailoverKeys.length === 0 && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: '36px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+                          <div style={{ fontSize: '22px', marginBottom: '6px' }}>🔍</div>
+                          <div style={{ fontWeight: 700 }}>No API keys found matching current filter.</div>
+                          <div style={{ fontSize: '11.5px', marginTop: '4px' }}>
+                            Click &ldquo;Rescan Workflow Nodes&rdquo; or select another service/workflow above.
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+
+                    {!loadingFailover && filteredFailoverKeys.map((item, idx) => {
+                      const isSelected = selectedFailoverKeys.has(item.key);
+                      const isCommented = item.isCommented;
+
+                      return (
+                        <tr
+                          key={`${item.service}-${item.key}-${idx}`}
+                          style={{
+                            borderBottom: '1px solid var(--admin-border-glass)',
+                            background: isSelected ? 'rgba(239, 68, 68, 0.05)' : (isCommented ? 'rgba(239, 68, 68, 0.03)' : 'transparent'),
+                            transition: 'background 0.15s ease'
+                          }}
+                        >
+                          {/* Checkbox */}
+                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectFailoverKey(item.key)}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </td>
+
+                          {/* Key & Copy */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <code style={{
+                                fontFamily: 'var(--admin-font-mono)',
+                                fontSize: '11.5px',
+                                color: isCommented ? '#ef4444' : 'var(--admin-text-main)',
+                                textDecoration: isCommented ? 'line-through' : 'none',
+                                opacity: isCommented ? 0.75 : 1,
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                              }}>
+                                {item.maskedKey}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(item.key);
+                                  setCopiedKey(item.key);
+                                  setTimeout(() => setCopiedKey(''), 2000);
+                                }}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: copiedKey === item.key ? '#10b981' : 'var(--admin-text-sub)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer',
+                                  padding: '2px 4px'
+                                }}
+                                title="Copy full API key"
+                              >
+                                {copiedKey === item.key ? '✓' : '📋'}
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* Service Label */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              color: 'var(--admin-text-main)'
+                            }}>
+                              {item.serviceLabel}
+                            </span>
+                          </td>
+
+                          {/* Node Names */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '280px' }}>
+                              {(item.nodeNames || []).map((nName, nIdx) => (
+                                <code
+                                  key={nIdx}
+                                  style={{
+                                    fontSize: '10.5px',
+                                    padding: '1px 5px',
+                                    borderRadius: '4px',
+                                    background: 'rgba(6, 182, 212, 0.08)',
+                                    color: 'var(--admin-accent-cyan)'
+                                  }}
+                                >
+                                  {nName}
+                                </code>
+                              ))}
+                            </div>
+                          </td>
+
+                          {/* Status Tag */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              padding: '3px 8px',
+                              borderRadius: '9999px',
+                              background: isCommented ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                              color: isCommented ? '#ef4444' : '#10b981',
+                              border: `1px solid ${isCommented ? '#ef4444' : '#10b981'}40`,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              textTransform: 'uppercase'
+                            }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isCommented ? '#ef4444' : '#10b981' }}></span>
+                              {isCommented ? '🔴 Commented Out (Disabled)' : '🟢 Active in Code'}
+                            </span>
+                          </td>
+
+                          {/* Workflows */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '260px' }}>
+                              {(item.workflows || []).map((wfName, wIdx) => (
+                                <span
+                                  key={wIdx}
+                                  style={{
+                                    fontSize: '10.5px',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    background: 'rgba(255, 255, 255, 0.06)',
+                                    color: 'var(--admin-text-sub)'
+                                  }}
+                                >
+                                  {wfName.length > 25 ? wfName.slice(0, 22) + '...' : wfName}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+
+                          {/* Action Toggle Button */}
+                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleFailover(isCommented ? 'uncomment_keys' : 'comment_keys', item.service, [item.key])}
+                              disabled={updatingFailover}
+                              style={{
+                                padding: '5px 12px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                borderRadius: '6px',
+                                border: isCommented ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid rgba(239, 68, 68, 0.45)',
+                                background: isCommented ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                color: isCommented ? '#10b981' : '#ef4444',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title={isCommented ? 'Uncomment this key to reactivate it' : 'Comment out this key to disable it and trigger failover'}
+                            >
+                              {isCommented ? '✅ Uncomment Key' : '⚡ Comment Out'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Action Controls Bar: Target Selector & Append vs Manage Tabs (Kept 100% Intact) */}
-        {!isErrorRecovery && !isBalanceChecker && (
+        {!isErrorRecovery && !isBalanceChecker && !isFailoverControls && (
           <div>
             <div style={{
               display: 'flex',
