@@ -38,6 +38,77 @@ const QUICK_PROMPT_TAGS = [
   'Macro Lens Separation'
 ];
 
+/**
+ * Robust history item renderer with graceful error fallback.
+ * Prevents broken images from appearing when temporary URLs expire.
+ */
+function HistoryThumbnailItem({ item, isSelected, onClick }) {
+  const [imgError, setImgError] = useState(!item?.imageUrl);
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        position: 'relative',
+        width: item.aspectRatio === '9:16' ? '46px' : '88px',
+        height: '52px',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        cursor: 'pointer',
+        border: isSelected ? '2px solid #ff4f00' : '1px solid var(--border-subtle)',
+        background: 'var(--bg-card)',
+        flexShrink: 0,
+        boxShadow: isSelected ? '0 0 12px rgba(255, 79, 0, 0.4)' : 'none',
+        transition: 'all 0.15s ease'
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
+      title={item.prompt || 'Generated thumbnail'}
+    >
+      {!imgError && item.imageUrl ? (
+        <img
+          src={item.imageUrl}
+          alt={item.prompt ? item.prompt.slice(0, 30) : 'Thumbnail'}
+          onError={() => setImgError(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        <div style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(135deg, rgba(255, 79, 0, 0.12), rgba(99, 102, 241, 0.12))',
+          gap: '2px',
+          padding: '4px'
+        }}>
+          <ImageIcon size={14} color="#ff4f00" />
+          <span style={{ fontSize: '8px', fontWeight: 700, color: 'var(--text-muted)' }}>
+            {item.aspectRatio || '16:9'}
+          </span>
+        </div>
+      )}
+      <span style={{
+        position: 'absolute',
+        bottom: '2px',
+        right: '2px',
+        fontSize: '8px',
+        fontWeight: 800,
+        padding: '1px 3px',
+        borderRadius: '3px',
+        background: 'rgba(0, 0, 0, 0.75)',
+        color: '#fff',
+        letterSpacing: '0.02em',
+        pointerEvents: 'none'
+      }}>
+        {item.aspectRatio || '16:9'}
+      </span>
+    </div>
+  );
+}
+
 export default function ThumbnailStudioPage({
   user,
   theme,
@@ -563,21 +634,24 @@ export default function ThumbnailStudioPage({
           }}>
             {/* Input Mode Tabs */}
             <div style={{
-              padding: '10px 16px 0 16px',
+              height: '46px',
+              padding: '0 16px',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               borderBottom: '1px solid var(--border-subtle)',
-              background: 'var(--bg-card)'
+              background: 'var(--bg-card)',
+              flexShrink: 0,
+              boxSizing: 'border-box'
             }}>
               <button
                 type="button"
                 onClick={() => setInputTab('form')}
                 style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px 8px 0 0',
+                  height: '100%',
+                  padding: '0 14px',
                   border: 'none',
-                  background: inputTab === 'form' ? 'var(--bg-app)' : 'transparent',
+                  background: 'transparent',
                   borderBottom: inputTab === 'form' ? '2px solid #ff4f00' : '2px solid transparent',
                   color: inputTab === 'form' ? '#ff4f00' : 'var(--text-muted)',
                   fontSize: '12.5px',
@@ -595,10 +669,10 @@ export default function ThumbnailStudioPage({
                 type="button"
                 onClick={() => setInputTab('json')}
                 style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px 8px 0 0',
+                  height: '100%',
+                  padding: '0 14px',
                   border: 'none',
-                  background: inputTab === 'json' ? 'var(--bg-app)' : 'transparent',
+                  background: 'transparent',
                   borderBottom: inputTab === 'json' ? '2px solid #ff4f00' : '2px solid transparent',
                   color: inputTab === 'json' ? '#ff4f00' : 'var(--text-muted)',
                   fontSize: '12.5px',
@@ -1303,30 +1377,32 @@ export default function ThumbnailStudioPage({
             flexDirection: 'column',
             minWidth: 0,
             height: isMobile ? 'auto' : '100%',
-            overflowY: isMobile ? 'visible' : 'auto',
+            overflow: isMobile ? 'visible' : 'hidden',
             background: 'var(--bg-app)',
             position: 'relative'
           }}>
             {/* Output Sub-Header & Tabs */}
             <div style={{
-              padding: isMobile ? '10px 14px' : '10px 20px',
+              height: '46px',
+              padding: '0 16px',
               borderBottom: '1px solid var(--border-subtle)',
               background: 'var(--bg-card)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: '10px',
-              flexShrink: 0
+              flexShrink: 0,
+              boxSizing: 'border-box'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }}>
                 <button
                   type="button"
                   onClick={() => setOutputTab('preview')}
                   style={{
-                    padding: '6px 12px',
-                    borderRadius: '7px',
+                    height: '100%',
+                    padding: '0 14px',
                     border: 'none',
-                    background: outputTab === 'preview' ? 'var(--bg-app)' : 'transparent',
+                    background: 'transparent',
                     borderBottom: outputTab === 'preview' ? '2px solid #ff4f00' : '2px solid transparent',
                     color: outputTab === 'preview' ? '#ff4f00' : 'var(--text-muted)',
                     fontSize: '12.5px',
@@ -1344,10 +1420,10 @@ export default function ThumbnailStudioPage({
                   type="button"
                   onClick={() => setOutputTab('json')}
                   style={{
-                    padding: '6px 12px',
-                    borderRadius: '7px',
+                    height: '100%',
+                    padding: '0 14px',
                     border: 'none',
-                    background: outputTab === 'json' ? 'var(--bg-app)' : 'transparent',
+                    background: 'transparent',
                     borderBottom: outputTab === 'json' ? '2px solid #ff4f00' : '2px solid transparent',
                     color: outputTab === 'json' ? '#ff4f00' : 'var(--text-muted)',
                     fontSize: '12.5px',
@@ -1370,7 +1446,7 @@ export default function ThumbnailStudioPage({
                     type="button"
                     onClick={() => handleCopyLink(activeDisplayImage)}
                     style={{
-                      padding: '6px 10px',
+                      padding: '5px 10px',
                       borderRadius: '7px',
                       background: 'rgba(255, 255, 255, 0.05)',
                       border: '1px solid var(--border-subtle)',
@@ -1390,9 +1466,31 @@ export default function ThumbnailStudioPage({
 
                   <button
                     type="button"
+                    onClick={() => setLightboxOpen(true)}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: '7px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-secondary)',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="View Fullscreen"
+                  >
+                    <Maximize2 size={12} />
+                    <span>Fullscreen</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleDownload(activeDisplayImage)}
                     style={{
-                      padding: '6px 14px',
+                      padding: '5px 13px',
                       borderRadius: '7px',
                       background: 'linear-gradient(135deg, #ff4f00, #ff7700)',
                       border: 'none',
@@ -1416,14 +1514,15 @@ export default function ThumbnailStudioPage({
             {/* Main Canvas Stage */}
             <div style={{
               flex: 1,
-              padding: isMobile ? '16px 12px' : '24px',
+              minHeight: 0,
+              padding: isMobile ? '12px' : '16px 20px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              minHeight: isMobile ? '360px' : '460px',
+              overflowY: isMobile ? 'visible' : 'auto',
               position: 'relative',
-              background: 'radial-gradient(circle at 50% 50%, rgba(255, 79, 0, 0.06) 0%, transparent 65%)'
+              background: 'radial-gradient(circle at 50% 45%, rgba(255, 79, 0, 0.05) 0%, transparent 70%)'
             }}>
               {outputTab === 'json' ? (
                 /* Raw Response JSON Inspector */
@@ -1496,27 +1595,31 @@ export default function ThumbnailStudioPage({
                   </div>
                 </div>
               ) : (
-                /* Canvas Image Display */
+                /* Canvas Image Display Stage */
                 <div style={{
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '16px',
+                  gap: '10px',
                   width: '100%',
-                  maxWidth: aspectRatio === '9:16' ? '420px' : '840px'
+                  maxWidth: aspectRatio === '9:16' ? '360px' : '740px'
                 }}>
                   <div style={{
                     position: 'relative',
-                    borderRadius: '14px',
+                    borderRadius: '12px',
                     overflow: 'hidden',
-                    boxShadow: '0 16px 48px rgba(0, 0, 0, 0.45)',
+                    boxShadow: '0 14px 40px rgba(0, 0, 0, 0.35)',
                     border: '1.5px solid var(--border-medium)',
-                    background: '#0a0a0d',
+                    background: '#090a0f',
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    maxHeight: isMobile ? '400px' : '540px'
+                    maxHeight: isMobile
+                      ? '340px'
+                      : aspectRatio === '9:16'
+                        ? 'clamp(280px, calc(100vh - 360px), 480px)'
+                        : 'clamp(220px, calc(100vh - 380px), 430px)'
                   }}>
                     <img
                       src={activeDisplayImage}
@@ -1524,7 +1627,7 @@ export default function ThumbnailStudioPage({
                       style={{
                         width: '100%',
                         height: 'auto',
-                        maxHeight: isMobile ? '380px' : '520px',
+                        maxHeight: 'inherit',
                         objectFit: 'contain',
                         display: 'block'
                       }}
@@ -1533,20 +1636,21 @@ export default function ThumbnailStudioPage({
                     {/* Badge top-left */}
                     <div style={{
                       position: 'absolute',
-                      top: '12px',
-                      left: '12px',
+                      top: '10px',
+                      left: '10px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px',
-                      flexWrap: 'wrap'
+                      gap: '5px',
+                      flexWrap: 'wrap',
+                      zIndex: 2
                     }}>
                       <span style={{
-                        padding: '4px 9px',
-                        borderRadius: '6px',
-                        background: 'rgba(0, 0, 0, 0.8)',
+                        padding: '3px 8px',
+                        borderRadius: '5px',
+                        background: 'rgba(0, 0, 0, 0.82)',
                         backdropFilter: 'blur(8px)',
                         color: '#fff',
-                        fontSize: '11px',
+                        fontSize: '10.5px',
                         fontWeight: 800,
                         border: '1px solid rgba(255, 255, 255, 0.2)'
                       }}>
@@ -1554,12 +1658,12 @@ export default function ThumbnailStudioPage({
                       </span>
                       {isDisplayingShowcase ? (
                         <span style={{
-                          padding: '4px 9px',
-                          borderRadius: '6px',
-                          background: 'rgba(255, 79, 0, 0.9)',
+                          padding: '3px 8px',
+                          borderRadius: '5px',
+                          background: 'linear-gradient(135deg, #ff4f00, #ff7700)',
                           backdropFilter: 'blur(8px)',
                           color: '#fff',
-                          fontSize: '11px',
+                          fontSize: '10.5px',
                           fontWeight: 800,
                           boxShadow: '0 2px 8px rgba(255, 79, 0, 0.4)'
                         }}>
@@ -1567,12 +1671,12 @@ export default function ThumbnailStudioPage({
                         </span>
                       ) : (
                         <span style={{
-                          padding: '4px 9px',
-                          borderRadius: '6px',
+                          padding: '3px 8px',
+                          borderRadius: '5px',
                           background: 'rgba(16, 185, 129, 0.9)',
                           backdropFilter: 'blur(8px)',
                           color: '#fff',
-                          fontSize: '11px',
+                          fontSize: '10.5px',
                           fontWeight: 800
                         }}>
                           AI GENERATED
@@ -1586,11 +1690,11 @@ export default function ThumbnailStudioPage({
                       onClick={() => setLightboxOpen(true)}
                       style={{
                         position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        width: '34px',
-                        height: '34px',
-                        borderRadius: '8px',
+                        top: '10px',
+                        right: '10px',
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '7px',
                         background: 'rgba(0, 0, 0, 0.75)',
                         backdropFilter: 'blur(8px)',
                         border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -1599,73 +1703,71 @@ export default function ThumbnailStudioPage({
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        transition: 'transform 0.15s ease'
+                        transition: 'transform 0.15s ease',
+                        zIndex: 2
                       }}
                       onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.08)')}
                       onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                       title="View Fullscreen"
                     >
-                      <Maximize2 size={15} />
+                      <Maximize2 size={14} />
                     </button>
                   </div>
 
                   {/* Caption & Metadata card beneath image */}
                   <div style={{
                     width: '100%',
-                    padding: '12px 16px',
-                    borderRadius: '10px',
+                    padding: '8px 12px',
+                    borderRadius: '9px',
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border-subtle)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '12px',
-                    flexWrap: 'wrap'
+                    gap: '10px',
+                    boxSizing: 'border-box'
                   }}>
-                    <div style={{ flex: 1, minWidth: '220px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#ff4f00', textTransform: 'uppercase' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#ff4f00', textTransform: 'uppercase' }}>
                           {isDisplayingShowcase ? `Showcase: ${activeModel.name}` : `Rendered with ${currentResult.modelName}`}
                         </span>
-                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                           · {aspectRatio}
                         </span>
                       </div>
                       <div style={{
-                        fontSize: '12.5px',
+                        fontSize: '11.5px',
                         color: 'var(--text-primary)',
-                        marginTop: '3px',
+                        marginTop: '2px',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        lineHeight: 1.4
-                      }}>
+                        whiteSpace: 'nowrap'
+                      }} title={isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt}>
                         {isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt}
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                       <button
                         type="button"
                         onClick={() => handleCopyPrompt(isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt)}
                         style={{
-                          padding: '6px 12px',
-                          borderRadius: '7px',
+                          padding: '5px 10px',
+                          borderRadius: '6px',
                           background: 'rgba(255, 255, 255, 0.05)',
                           border: '1px solid var(--border-subtle)',
                           color: copiedPrompt ? '#10b981' : 'var(--text-secondary)',
-                          fontSize: '11.5px',
+                          fontSize: '11px',
                           fontWeight: 700,
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '5px'
+                          gap: '4px'
                         }}
                       >
-                        {copiedPrompt ? <Check size={12} /> : <Copy size={12} />}
-                        <span>{copiedPrompt ? 'Copied' : 'Copy Prompt'}</span>
+                        {copiedPrompt ? <Check size={11} /> : <Copy size={11} />}
+                        <span>{copiedPrompt ? 'Copied' : 'Prompt'}</span>
                       </button>
 
                       <button
@@ -1678,42 +1780,42 @@ export default function ThumbnailStudioPage({
                           setGenerationMode('image-to-image');
                         }}
                         style={{
-                          padding: '6px 12px',
-                          borderRadius: '7px',
+                          padding: '5px 10px',
+                          borderRadius: '6px',
                           background: 'rgba(255, 255, 255, 0.05)',
                           border: '1px solid var(--border-subtle)',
                           color: 'var(--text-secondary)',
-                          fontSize: '11.5px',
+                          fontSize: '11px',
                           fontWeight: 700,
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '5px'
+                          gap: '4px'
                         }}
                       >
-                        <Layers size={12} />
-                        <span>Use as Reference</span>
+                        <Layers size={11} />
+                        <span>Remix</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleDownload(activeDisplayImage)}
                         style={{
-                          padding: '6px 14px',
-                          borderRadius: '7px',
+                          padding: '5px 12px',
+                          borderRadius: '6px',
                           background: 'linear-gradient(135deg, #ff4f00, #ff7700)',
                           border: 'none',
                           color: '#fff',
-                          fontSize: '11.5px',
+                          fontSize: '11px',
                           fontWeight: 800,
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '5px',
-                          boxShadow: '0 2px 8px rgba(255, 79, 0, 0.35)'
+                          gap: '4px',
+                          boxShadow: '0 2px 6px rgba(255, 79, 0, 0.3)'
                         }}
                       >
-                        <Download size={12} />
+                        <Download size={11} />
                         <span>Download</span>
                       </button>
                     </div>
@@ -1725,14 +1827,14 @@ export default function ThumbnailStudioPage({
             {/* Bottom History Strip */}
             {history.length > 0 && (
               <div style={{
-                padding: isMobile ? '10px 14px' : '12px 20px',
+                padding: '8px 16px',
                 borderTop: '1px solid var(--border-subtle)',
-                background: isLight ? '#faf8f5' : 'rgba(18, 21, 28, 0.8)',
+                background: isLight ? '#faf8f5' : 'rgba(18, 21, 28, 0.85)',
                 flexShrink: 0
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Recent Generative History ({history.length})
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Recent Generations ({history.length})
                   </span>
                   <button
                     type="button"
@@ -1744,7 +1846,7 @@ export default function ThumbnailStudioPage({
                       background: 'transparent',
                       border: 'none',
                       color: 'var(--text-muted)',
-                      fontSize: '11px',
+                      fontSize: '10.5px',
                       fontWeight: 600,
                       cursor: 'pointer',
                       display: 'flex',
@@ -1752,8 +1854,8 @@ export default function ThumbnailStudioPage({
                       gap: '4px'
                     }}
                   >
-                    <Trash2 size={12} />
-                    <span>Clear History</span>
+                    <Trash2 size={11} />
+                    <span>Clear All</span>
                   </button>
                 </div>
 
@@ -1761,51 +1863,20 @@ export default function ThumbnailStudioPage({
                   display: 'flex',
                   gap: '8px',
                   overflowX: 'auto',
-                  paddingBottom: '4px',
+                  paddingBottom: '2px',
                   scrollbarWidth: 'thin'
                 }}>
                   {history.map(item => (
-                    <div
+                    <HistoryThumbnailItem
                       key={item.id}
+                      item={item}
+                      isSelected={currentResult?.id === item.id}
                       onClick={() => {
                         audioEngine.playSfx('click');
                         setCurrentResult(item);
                         setOutputTab('preview');
                       }}
-                      style={{
-                        position: 'relative',
-                        width: item.aspectRatio === '9:16' ? '46px' : '88px',
-                        height: '56px',
-                        borderRadius: '7px',
-                        overflow: 'hidden',
-                        cursor: 'pointer',
-                        border: currentResult?.id === item.id ? '2px solid #ff4f00' : '1px solid var(--border-subtle)',
-                        flexShrink: 0,
-                        transition: 'transform 0.15s ease'
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
-                      onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                      title={item.prompt}
-                    >
-                      <img
-                        src={item.imageUrl}
-                        alt="history"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                      <span style={{
-                        position: 'absolute',
-                        bottom: '2px',
-                        right: '2px',
-                        fontSize: '9px',
-                        fontWeight: 800,
-                        padding: '1px 3px',
-                        borderRadius: '3px',
-                        background: 'rgba(0,0,0,0.75)',
-                        color: '#fff'
-                      }}>
-                        {item.aspectRatio}
-                      </span>
-                    </div>
+                    />
                   ))}
                 </div>
               </div>
