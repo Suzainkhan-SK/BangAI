@@ -3,7 +3,8 @@ import {
   Sparkles, Image as ImageIcon, Wand2, Download, Copy, Check,
   RefreshCw, Upload, X, ChevronDown, Eye, Sliders, Layers,
   Zap, AlertCircle, CheckCircle2, Loader2, ArrowRight, Maximize2,
-  FileCode, Play, Trash2
+  FileCode, Play, Trash2, Camera, Compass, Film, ExternalLink,
+  Flame, Monitor, Smartphone, Square, Layout
 } from 'lucide-react';
 import AppShell from '../components/Layout/AppShell';
 import { audioEngine } from '../audio/audioEngine';
@@ -24,6 +25,18 @@ import {
   enhanceThumbnailPrompt,
   buildModelInput
 } from '../services/thumbnailService';
+
+// Creative prompt booster tags for rapid 1-click thumbnail conditioning
+const QUICK_PROMPT_TAGS = [
+  'Shocked Creator Face',
+  'Bold 3D Extruded Text',
+  'Neon Cyan & Warm Rim Light',
+  'Exploding Cash & Gold',
+  '8K Octane Render',
+  'Volumetric Cinematic Fog',
+  'Hindi Action Typography',
+  'Macro Lens Separation'
+];
 
 export default function ThumbnailStudioPage({
   user,
@@ -62,6 +75,7 @@ export default function ThumbnailStudioPage({
   const [errorMessage, setErrorMessage] = useState(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   // Current active result
   const [currentResult, setCurrentResult] = useState(null);
@@ -87,7 +101,7 @@ export default function ThumbnailStudioPage({
   // Save history on changes
   useEffect(() => {
     try {
-      localStorage.setItem('bangai_thumbnail_history', JSON.stringify(history.slice(0, 20)));
+      localStorage.setItem('bangai_thumbnail_history', JSON.stringify(history.slice(0, 24)));
     } catch {}
   }, [history]);
 
@@ -133,7 +147,7 @@ export default function ThumbnailStudioPage({
     }
   };
 
-  // Viral preset handler via dropdown
+  // Viral preset handler via dropdown or chip
   const handleSelectPresetById = (presetId) => {
     audioEngine.playSfx('click');
     setSelectedPresetId(presetId);
@@ -158,6 +172,17 @@ export default function ThumbnailStudioPage({
     audioEngine.playSfx('click');
     const enhanced = enhanceThumbnailPrompt(prompt, selectedStyleId);
     setPrompt(enhanced);
+  };
+
+  // Quick prompt tag adder
+  const handleAddPromptTag = (tag) => {
+    audioEngine.playSfx('click');
+    setPrompt(prev => {
+      const trimmed = (prev || '').trim();
+      if (!trimmed) return tag;
+      if (trimmed.toLowerCase().includes(tag.toLowerCase())) return trimmed;
+      return `${trimmed}, ${tag}`;
+    });
   };
 
   // Clear form
@@ -312,6 +337,14 @@ export default function ThumbnailStudioPage({
     setTimeout(() => setCopiedUrl(false), 2000);
   };
 
+  // Copy Prompt
+  const handleCopyPrompt = (textToCopy) => {
+    audioEngine.playSfx('click');
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedPrompt(true);
+    setTimeout(() => setCopiedPrompt(false), 2000);
+  };
+
   // Build live raw JSON input for inspection tab
   const rawInputJson = (() => {
     try {
@@ -338,6 +371,23 @@ export default function ThumbnailStudioPage({
   const activeDisplayImage = currentResult?.imageUrl || activeModel.showcaseImage;
   const isDisplayingShowcase = !currentResult;
 
+  // Aspect ratio icon helper
+  const renderAspectIcon = (arId) => {
+    switch (arId) {
+      case '16:9':
+        return <Monitor size={15} />;
+      case '9:16':
+        return <Smartphone size={15} />;
+      case '1:1':
+        return <Square size={14} />;
+      case '4:3':
+      case '3:4':
+        return <Layout size={14} />;
+      default:
+        return <ImageIcon size={14} />;
+    }
+  };
+
   return (
     <AppShell
       user={user}
@@ -352,41 +402,43 @@ export default function ThumbnailStudioPage({
         flexDirection: 'column',
         height: isMobile ? 'auto' : '100%',
         minHeight: 0,
-        background: 'var(--bg-main)',
-        overflowY: isMobile ? 'visible' : 'auto'
+        background: 'var(--bg-app)',
+        color: 'var(--text-primary)',
+        overflowY: isMobile ? 'visible' : 'hidden'
       }}>
-        {/* Top Header Bar */}
+        {/* ── TOP HEADER BAR ────────────────────────────────────── */}
         <div style={{
-          padding: isMobile ? '12px 14px' : '14px 22px',
+          padding: isMobile ? '12px 16px' : '12px 24px',
           borderBottom: '1px solid var(--border-subtle)',
-          background: isLight ? 'rgba(255, 255, 255, 0.75)' : 'rgba(20, 16, 16, 0.65)',
-          backdropFilter: 'blur(16px)',
+          background: isLight ? 'rgba(255, 255, 255, 0.85)' : 'rgba(14, 16, 21, 0.75)',
+          backdropFilter: 'blur(20px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '12px',
           flexWrap: 'wrap',
-          flexShrink: 0
+          flexShrink: 0,
+          zIndex: 10
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '9px',
-              background: 'linear-gradient(135deg, #ff4f00, #ff8c00)',
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #ff4f00 0%, #ff7700 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(255, 79, 0, 0.35)',
+              boxShadow: '0 4px 16px rgba(255, 79, 0, 0.4)',
               flexShrink: 0
             }}>
-              <ImageIcon size={18} color="#fff" />
+              <ImageIcon size={20} color="#fff" />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <h1 style={{
-                  fontSize: isMobile ? '16px' : '18px',
-                  fontWeight: 700,
+                  fontSize: isMobile ? '16px' : '19px',
+                  fontWeight: 800,
                   color: 'var(--text-primary)',
                   letterSpacing: '-0.02em',
                   margin: 0
@@ -396,42 +448,70 @@ export default function ThumbnailStudioPage({
                 <span style={{
                   fontSize: '10px',
                   fontWeight: 800,
-                  padding: '2px 7px',
+                  padding: '2px 8px',
                   borderRadius: '6px',
                   background: 'linear-gradient(135deg, #ff4f00, #ec4899)',
                   color: '#fff',
-                  letterSpacing: '0.04em'
+                  letterSpacing: '0.04em',
+                  boxShadow: '0 2px 8px rgba(255, 79, 0, 0.25)'
                 }}>
-                  ULTRA HD
+                  NEURAL 4K
+                </span>
+                <span style={{
+                  fontSize: '10.5px',
+                  fontWeight: 700,
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  color: 'var(--text-muted)',
+                  border: '1px solid var(--border-subtle)'
+                }}>
+                  {activeModel.type === 'text-to-image' ? 'Text to Image' : 'Image to Image'}
                 </span>
               </div>
               <p style={{
                 fontSize: '12px',
                 color: 'var(--text-muted)',
-                margin: '2px 0 0 0'
+                margin: '2px 0 0 0',
+                display: isMobile ? 'none' : 'block'
               }}>
-                Generate viral, high-retention YouTube thumbnails with AI vision models
+                Ultra-high CTR cover designs & viral YouTube thumbnail creator with multi-model neural vision
               </p>
             </div>
           </div>
 
           {/* Quick Header Stats & Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '5px 10px',
+              padding: '6px 12px',
               borderRadius: '8px',
               background: 'var(--bg-card)',
               border: '1px solid var(--border-subtle)',
               fontSize: '12px',
-              fontWeight: 600,
+              fontWeight: 700,
               color: 'var(--text-secondary)'
             }}>
-              <Zap size={13} fill="#ff4f00" color="#ff4f00" />
-              <span>Cost: <strong style={{ color: 'var(--text-primary)' }}>{getModelCredits(activeModel, resolution)} Credits</strong></span>
+              <Zap size={14} fill="#ff4f00" color="#ff4f00" />
+              <span>Cost: <strong style={{ color: '#ff4f00' }}>{getModelCredits(activeModel, resolution)} Credits</strong></span>
             </div>
+
+            {history.length > 0 && (
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: 'var(--text-muted)',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid var(--border-subtle)',
+                display: isMobile ? 'none' : 'inline-block'
+              }}>
+                {history.length} in session
+              </span>
+            )}
 
             <button
               type="button"
@@ -443,7 +523,7 @@ export default function ThumbnailStudioPage({
                 border: '1px solid var(--border-subtle)',
                 color: 'var(--text-secondary)',
                 fontSize: '12px',
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -452,6 +532,7 @@ export default function ThumbnailStudioPage({
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-muted)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; }}
+              title="Reset prompt and inputs"
             >
               <RefreshCw size={12} />
               <span>Reset</span>
@@ -459,7 +540,7 @@ export default function ThumbnailStudioPage({
           </div>
         </div>
 
-        {/* Main Dual-Panel Content */}
+        {/* ── MAIN DUAL-PANEL CONTENT ───────────────────────────── */}
         <div style={{
           flex: 1,
           display: 'flex',
@@ -470,6 +551,7 @@ export default function ThumbnailStudioPage({
           {/* ── LEFT PANEL: Controls & Form ───────────────────────── */}
           <div style={{
             width: isTablet || isMobile ? '100%' : '440px',
+            maxWidth: isTablet || isMobile ? '100%' : '480px',
             flexShrink: 0,
             borderRight: isTablet || isMobile ? 'none' : '1px solid var(--border-subtle)',
             borderBottom: isTablet || isMobile ? '1px solid var(--border-subtle)' : 'none',
@@ -477,68 +559,69 @@ export default function ThumbnailStudioPage({
             flexDirection: 'column',
             height: isMobile ? 'auto' : '100%',
             overflowY: isMobile ? 'visible' : 'auto',
-            background: isLight ? '#faf8f5' : 'rgba(23, 17, 17, 0.45)'
+            background: isLight ? '#faf8f5' : 'rgba(18, 21, 28, 0.55)'
           }}>
             {/* Input Mode Tabs */}
             <div style={{
-              padding: '10px 14px 0 14px',
+              padding: '10px 16px 0 16px',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              borderBottom: '1px solid var(--border-subtle)'
+              borderBottom: '1px solid var(--border-subtle)',
+              background: 'var(--bg-card)'
             }}>
               <button
                 type="button"
                 onClick={() => setInputTab('form')}
                 style={{
-                  padding: '7px 14px',
-                  borderRadius: '7px 7px 0 0',
+                  padding: '8px 14px',
+                  borderRadius: '8px 8px 0 0',
                   border: 'none',
-                  background: inputTab === 'form' ? 'var(--bg-card)' : 'transparent',
+                  background: inputTab === 'form' ? 'var(--bg-app)' : 'transparent',
                   borderBottom: inputTab === 'form' ? '2px solid #ff4f00' : '2px solid transparent',
-                  color: inputTab === 'form' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  color: inputTab === 'form' ? '#ff4f00' : 'var(--text-muted)',
                   fontSize: '12.5px',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px'
                 }}
               >
-                <Sliders size={13} />
+                <Sliders size={14} />
                 <span>Studio Form</span>
               </button>
               <button
                 type="button"
                 onClick={() => setInputTab('json')}
                 style={{
-                  padding: '7px 14px',
-                  borderRadius: '7px 7px 0 0',
+                  padding: '8px 14px',
+                  borderRadius: '8px 8px 0 0',
                   border: 'none',
-                  background: inputTab === 'json' ? 'var(--bg-card)' : 'transparent',
+                  background: inputTab === 'json' ? 'var(--bg-app)' : 'transparent',
                   borderBottom: inputTab === 'json' ? '2px solid #ff4f00' : '2px solid transparent',
-                  color: inputTab === 'json' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  color: inputTab === 'json' ? '#ff4f00' : 'var(--text-muted)',
                   fontSize: '12.5px',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px'
                 }}
               >
-                <FileCode size={13} />
-                <span>Raw JSON API</span>
+                <FileCode size={14} />
+                <span>Raw JSON Payload</span>
               </button>
             </div>
 
             {/* Input Content Area */}
-            <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+            <div style={{ padding: isMobile ? '14px' : '18px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
               {inputTab === 'json' ? (
                 /* Raw JSON inspector tab */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      GENERATED API PAYLOAD
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+                      GENERATED API PAYLOAD (AUTONOMOUS POOL)
                     </span>
                     <button
                       type="button"
@@ -564,16 +647,17 @@ export default function ThumbnailStudioPage({
                   </div>
                   <pre style={{
                     margin: 0,
-                    padding: '12px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-input)',
+                    padding: '14px',
+                    borderRadius: '10px',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border-subtle)',
                     fontSize: '11.5px',
                     fontFamily: 'monospace',
                     color: '#818cf8',
                     overflowX: 'auto',
                     whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all'
+                    wordBreak: 'break-all',
+                    lineHeight: 1.5
                   }}>
                     {rawInputJson}
                   </pre>
@@ -581,23 +665,23 @@ export default function ThumbnailStudioPage({
               ) : (
                 /* Form Controls */
                 <>
-                  {/* 1. Vision Model Dropdown List (Separated Text-to-Image vs Image-to-Image) */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {/* 1. Generation Mode & Model Selector */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Vision Model ({activeModel.type === 'text-to-image' ? 'Text-to-Image' : 'Image-to-Image'})
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Vision Model & Architecture
                       </label>
-                      <span style={{ fontSize: '11px', color: '#ff4f00', fontWeight: 600 }}>
+                      <span style={{ fontSize: '11px', color: '#ff4f00', fontWeight: 700 }}>
                         {activeModel.badge} · {getModelCredits(activeModel, resolution)} Credits
                       </span>
                     </div>
 
-                    {/* Mode Filter Pills */}
+                    {/* Mode Filter Segmented Bar */}
                     <div style={{
                       display: 'flex',
-                      background: 'var(--bg-input)',
+                      background: 'var(--bg-card)',
                       padding: '3px',
-                      borderRadius: '8px',
+                      borderRadius: '9px',
                       border: '1px solid var(--border-subtle)',
                       gap: '4px'
                     }}>
@@ -606,33 +690,33 @@ export default function ThumbnailStudioPage({
                         onClick={() => handleSelectMode('all')}
                         style={{
                           flex: 1,
-                          padding: '5px 8px',
-                          borderRadius: '6px',
+                          padding: '6px 8px',
+                          borderRadius: '7px',
                           border: 'none',
-                          background: generationMode === 'all' ? 'var(--bg-card)' : 'transparent',
-                          color: generationMode === 'all' ? '#ff4f00' : 'var(--text-secondary)',
-                          fontWeight: generationMode === 'all' ? 700 : 500,
+                          background: generationMode === 'all' ? 'linear-gradient(135deg, #ff4f00, #ff7700)' : 'transparent',
+                          color: generationMode === 'all' ? '#fff' : 'var(--text-secondary)',
+                          fontWeight: generationMode === 'all' ? 800 : 600,
                           fontSize: '11.5px',
                           cursor: 'pointer',
-                          transition: 'all 0.12s ease'
+                          transition: 'all 0.15s ease'
                         }}
                       >
-                        All Models
+                        All ({THUMBNAIL_MODELS.length})
                       </button>
                       <button
                         type="button"
                         onClick={() => handleSelectMode('text-to-image')}
                         style={{
                           flex: 1,
-                          padding: '5px 8px',
-                          borderRadius: '6px',
+                          padding: '6px 8px',
+                          borderRadius: '7px',
                           border: 'none',
-                          background: generationMode === 'text-to-image' ? 'var(--bg-card)' : 'transparent',
-                          color: generationMode === 'text-to-image' ? '#ff4f00' : 'var(--text-secondary)',
-                          fontWeight: generationMode === 'text-to-image' ? 700 : 500,
+                          background: generationMode === 'text-to-image' ? 'linear-gradient(135deg, #ff4f00, #ff7700)' : 'transparent',
+                          color: generationMode === 'text-to-image' ? '#fff' : 'var(--text-secondary)',
+                          fontWeight: generationMode === 'text-to-image' ? 800 : 600,
                           fontSize: '11.5px',
                           cursor: 'pointer',
-                          transition: 'all 0.12s ease'
+                          transition: 'all 0.15s ease'
                         }}
                       >
                         🎨 Text-to-Image
@@ -642,15 +726,15 @@ export default function ThumbnailStudioPage({
                         onClick={() => handleSelectMode('image-to-image')}
                         style={{
                           flex: 1,
-                          padding: '5px 8px',
-                          borderRadius: '6px',
+                          padding: '6px 8px',
+                          borderRadius: '7px',
                           border: 'none',
-                          background: generationMode === 'image-to-image' ? 'var(--bg-card)' : 'transparent',
-                          color: generationMode === 'image-to-image' ? '#ff4f00' : 'var(--text-secondary)',
-                          fontWeight: generationMode === 'image-to-image' ? 700 : 500,
+                          background: generationMode === 'image-to-image' ? 'linear-gradient(135deg, #ff4f00, #ff7700)' : 'transparent',
+                          color: generationMode === 'image-to-image' ? '#fff' : 'var(--text-secondary)',
+                          fontWeight: generationMode === 'image-to-image' ? 800 : 600,
                           fontSize: '11.5px',
                           cursor: 'pointer',
-                          transition: 'all 0.12s ease'
+                          transition: 'all 0.15s ease'
                         }}
                       >
                         🔄 Image-to-Image
@@ -658,187 +742,264 @@ export default function ThumbnailStudioPage({
                     </div>
 
                     {/* Model Dropdown List */}
-                    <select
-                      value={selectedModelId}
-                      onChange={e => handleSelectModel(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        background: 'var(--bg-input)',
-                        border: '1px solid var(--border-subtle)',
-                        color: 'var(--text-primary)',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        outline: 'none',
-                        cursor: 'pointer',
-                        colorScheme: isLight ? 'light' : 'dark'
-                      }}
-                    >
-                      {(generationMode === 'all' || generationMode === 'text-to-image') && (
-                        <optgroup label="── 🎨 TEXT-TO-IMAGE MODELS (Create from Scratch) ──">
-                          {TEXT_TO_IMAGE_MODELS.map(m => (
-                            <option key={m.id} value={m.id}>
-                              {m.name} ({m.badge} · {getModelCredits(m, resolution)} Credits)
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {(generationMode === 'all' || generationMode === 'image-to-image') && (
-                        <optgroup label="── 🔄 IMAGE-TO-IMAGE MODELS (Edit & Restyle) ──">
-                          {IMAGE_TO_IMAGE_MODELS.map(m => (
-                            <option key={m.id} value={m.id}>
-                              {m.name} ({m.badge} · {getModelCredits(m, resolution)} Credits)
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </select>
+                    <div style={{ position: 'relative' }}>
+                      <select
+                        value={selectedModelId}
+                        onChange={e => handleSelectModel(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '11px 14px',
+                          borderRadius: '10px',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border-subtle)',
+                          color: 'var(--text-primary)',
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          outline: 'none',
+                          cursor: 'pointer',
+                          colorScheme: isLight ? 'light' : 'dark',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        {(generationMode === 'all' || generationMode === 'text-to-image') && (
+                          <optgroup label="── 🎨 TEXT-TO-IMAGE MODELS (Create from Scratch) ──">
+                            {TEXT_TO_IMAGE_MODELS.map(m => (
+                              <option key={m.id} value={m.id}>
+                                {m.name} [{m.badge}] — {getModelCredits(m, resolution)} Credits
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {(generationMode === 'all' || generationMode === 'image-to-image') && (
+                          <optgroup label="── 🔄 IMAGE-TO-IMAGE MODELS (Edit & Restyle) ──">
+                            {IMAGE_TO_IMAGE_MODELS.map(m => (
+                              <option key={m.id} value={m.id}>
+                                {m.name} [{m.badge}] — {getModelCredits(m, resolution)} Credits
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                    </div>
 
-                    <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                      {activeModel.description}
-                    </p>
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 79, 0, 0.05)',
+                      border: '1px solid rgba(255, 79, 0, 0.15)',
+                      fontSize: '11.5px',
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.4
+                    }}>
+                      <strong style={{ color: '#ff4f00' }}>{activeModel.name}:</strong> {activeModel.description}
+                    </div>
                   </div>
 
-                  {/* 2. Viral Presets Dropdown List */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {/* 2. Interactive Viral Presets Carousel */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Viral Presets
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Viral Creator Presets (1-Click)
                       </label>
-                      <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                        One-Click Preset
+                      <span style={{ fontSize: '10.5px', color: '#ff4f00', fontWeight: 700 }}>
+                        {VIRAL_PRESETS.length} Formats
                       </span>
                     </div>
 
-                    <select
-                      value={selectedPresetId}
-                      onChange={e => handleSelectPresetById(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        background: 'var(--bg-input)',
-                        border: '1px solid var(--border-subtle)',
-                        color: 'var(--text-primary)',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        outline: 'none',
-                        cursor: 'pointer',
-                        colorScheme: isLight ? 'light' : 'dark'
-                      }}
-                    >
-                      <option value="">✨ Select a Viral Preset (or type your own prompt below)...</option>
-                      {VIRAL_PRESETS.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.emoji} {p.label} ({p.aspectRatio})
-                        </option>
-                      ))}
-                    </select>
+                    {/* Quick horizontal chip rail */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '6px',
+                      overflowX: 'auto',
+                      paddingBottom: '4px',
+                      scrollbarWidth: 'none'
+                    }}>
+                      {VIRAL_PRESETS.map(p => {
+                        const isSelected = selectedPresetId === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handleSelectPresetById(p.id)}
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              border: isSelected ? '1px solid #ff4f00' : '1px solid var(--border-subtle)',
+                              background: isSelected ? 'rgba(255, 79, 0, 0.15)' : 'var(--bg-card)',
+                              color: isSelected ? '#ff4f00' : 'var(--text-secondary)',
+                              fontSize: '11px',
+                              fontWeight: isSelected ? 800 : 600,
+                              whiteSpace: 'nowrap',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              flexShrink: 0,
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span>{p.emoji}</span>
+                            <span>{p.label.split('(')[0].trim()}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {/* 3. Thumbnail Vibe & Style Archetype Dropdown List */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {/* 3. Thumbnail Vibe & Visual Archetype */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Thumbnail Vibe & Style Archetype
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Vibe & Visual Archetype
                       </label>
-                      <span style={{ fontSize: '10px', color: '#ff4f00', fontWeight: 600 }}>
-                        ⚡ Auto-Conditioned
+                      <span style={{ fontSize: '10.5px', color: '#ff4f00', fontWeight: 700 }}>
+                        ⚡ Neural Grading
                       </span>
                     </div>
 
-                    <select
-                      value={selectedStyleId}
-                      onChange={e => {
-                        audioEngine.playSfx('click');
-                        setSelectedStyleId(e.target.value);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        background: 'var(--bg-input)',
-                        border: '1px solid var(--border-subtle)',
-                        color: 'var(--text-primary)',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        outline: 'none',
-                        cursor: 'pointer',
-                        colorScheme: isLight ? 'light' : 'dark'
-                      }}
-                    >
-                      {THUMBNAIL_STYLES.map(s => (
-                        <option key={s.id} value={s.id}>
-                          {s.emoji} {s.label} — {s.tagline}
-                        </option>
-                      ))}
-                    </select>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                      gap: '6px'
+                    }}>
+                      {THUMBNAIL_STYLES.map(s => {
+                        const isSelected = selectedStyleId === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              audioEngine.playSfx('click');
+                              setSelectedStyleId(s.id);
+                            }}
+                            style={{
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              border: isSelected ? '1.5px solid #ff4f00' : '1px solid var(--border-subtle)',
+                              background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
+                              color: isSelected ? '#ff4f00' : 'var(--text-secondary)',
+                              fontSize: '11px',
+                              fontWeight: isSelected ? 800 : 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'flex-start',
+                              gap: '2px',
+                              textAlign: 'left',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontSize: '13px' }}>{s.emoji}</span>
+                              <span style={{ fontWeight: 700 }}>{s.label}</span>
+                            </div>
+                            <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                              {s.tagline.split('·')[0]}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {/* 3. Thumbnail Prompt */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {/* 4. Prompt Studio & Keyword Boosters */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         Thumbnail Prompt
                       </label>
-                      <button
-                        type="button"
-                        onClick={handleEnhancePrompt}
-                        style={{
-                          background: 'rgba(255, 79, 0, 0.12)',
-                          border: '1px solid rgba(255, 79, 0, 0.3)',
-                          padding: '2px 8px',
-                          borderRadius: '5px',
-                          color: '#ff4f00',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                        title="Add cinematic lighting, 8k octane render, and high retention keywords"
-                      >
-                        <Wand2 size={11} />
-                        <span>Enhance</span>
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                          {prompt.length} chars
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleEnhancePrompt}
+                          style={{
+                            background: 'rgba(255, 79, 0, 0.15)',
+                            border: '1px solid rgba(255, 79, 0, 0.4)',
+                            padding: '3px 9px',
+                            borderRadius: '6px',
+                            color: '#ff4f00',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Add cinematic lighting, 8k octane render, and high retention keywords"
+                        >
+                          <Wand2 size={12} />
+                          <span>AI Enhance</span>
+                        </button>
+                      </div>
                     </div>
 
                     <textarea
                       rows={4}
                       value={prompt}
                       onChange={e => setPrompt(e.target.value)}
-                      placeholder="Describe your YouTube thumbnail composition, subjects, lighting, and expressions..."
+                      placeholder="Describe your YouTube thumbnail composition, subjects, expressions, lighting, and bold text..."
                       style={{
                         width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        background: 'var(--bg-input)',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        background: 'var(--bg-card)',
                         border: '1px solid var(--border-subtle)',
                         color: 'var(--text-primary)',
-                        fontSize: '12.5px',
+                        fontSize: '13px',
                         fontFamily: 'inherit',
-                        lineHeight: '1.4',
+                        lineHeight: '1.45',
                         resize: 'vertical',
                         outline: 'none',
-                        boxSizing: 'border-box'
+                        boxSizing: 'border-box',
+                        transition: 'border-color 0.15s ease'
                       }}
                       onFocus={e => (e.target.style.borderColor = '#ff4f00')}
                       onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
                     />
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                      <span>{prompt.length} chars</span>
+                    {/* Quick Keyword Booster Chips */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {QUICK_PROMPT_TAGS.map((tag, tIdx) => (
+                        <button
+                          key={tIdx}
+                          type="button"
+                          onClick={() => handleAddPromptTag(tag)}
+                          style={{
+                            padding: '3px 7px',
+                            borderRadius: '6px',
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-muted)',
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.12s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.color = '#ff4f00';
+                            e.currentTarget.style.borderColor = '#ff4f00';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.color = 'var(--text-muted)';
+                            e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                          }}
+                        >
+                          + {tag}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-                  {/* 4. Reference Image (Context-Adaptive: Required for Image-to-Image, Optional for Text-to-Image) */}
+                  {/* 5. Reference Image (Context-Adaptive: Required for Image-to-Image, Optional for Text-to-Image) */}
                   {(generationMode === 'image-to-image' || refImagePreview) && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          Reference Source Image {generationMode === 'image-to-image' ? <span style={{ color: '#ff4f00' }}>*Required for Restyle</span> : <span style={{ color: 'var(--text-muted)' }}>(Optional)</span>}
+                        <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Reference Source Asset {generationMode === 'image-to-image' ? <span style={{ color: '#ff4f00' }}>*Required</span> : <span style={{ color: 'var(--text-muted)' }}>(Optional)</span>}
                         </label>
                         {refImagePreview && (
                           <button
@@ -849,14 +1010,15 @@ export default function ThumbnailStudioPage({
                               border: 'none',
                               color: '#ef4444',
                               fontSize: '11px',
+                              fontWeight: 700,
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
                               gap: '3px'
                             }}
                           >
-                            <X size={11} />
-                            <span>Remove</span>
+                            <X size={12} />
+                            <span>Remove Asset</span>
                           </button>
                         )}
                       </div>
@@ -872,34 +1034,34 @@ export default function ThumbnailStudioPage({
                       {refImagePreview ? (
                         <div style={{
                           position: 'relative',
-                          borderRadius: '8px',
+                          borderRadius: '10px',
                           overflow: 'hidden',
                           border: '1.5px solid #ff4f00',
                           background: 'var(--bg-card)',
                           display: 'flex',
                           alignItems: 'center',
-                          padding: '8px 12px',
+                          padding: '10px 14px',
                           gap: '12px'
                         }}>
                           <img
                             src={refImagePreview}
                             alt="Reference"
-                            style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}
+                            style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}
                           />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {refImageFile?.name || 'Selected Reference Image'}
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {refImageFile?.name || 'Selected Reference Photo'}
                             </div>
-                            <div style={{ fontSize: '11px', color: isUploadingRef ? '#ff8c00' : '#10b981', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                            <div style={{ fontSize: '11px', color: isUploadingRef ? '#ff8c00' : '#10b981', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
                               {isUploadingRef ? (
                                 <>
-                                  <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />
-                                  <span>Uploading asset to CDN...</span>
+                                  <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                                  <span>Syncing asset to CDN...</span>
                                 </>
                               ) : (
                                 <>
-                                  <CheckCircle2 size={11} />
-                                  <span>Ready for vision engine restyling</span>
+                                  <CheckCircle2 size={12} />
+                                  <span>Asset synced & ready for vision restyling</span>
                                 </>
                               )}
                             </div>
@@ -909,9 +1071,9 @@ export default function ThumbnailStudioPage({
                         <div
                           onClick={() => fileInputRef.current?.click()}
                           style={{
-                            border: '1.5px dashed rgba(255, 79, 0, 0.5)',
-                            borderRadius: '9px',
-                            padding: '16px 12px',
+                            border: '1.5px dashed rgba(255, 79, 0, 0.45)',
+                            borderRadius: '10px',
+                            padding: '18px 14px',
                             textAlign: 'center',
                             cursor: 'pointer',
                             background: 'rgba(255, 79, 0, 0.04)',
@@ -922,13 +1084,13 @@ export default function ThumbnailStudioPage({
                             e.currentTarget.style.background = 'rgba(255, 79, 0, 0.08)';
                           }}
                           onMouseLeave={e => {
-                            e.currentTarget.style.borderColor = 'rgba(255, 79, 0, 0.5)';
+                            e.currentTarget.style.borderColor = 'rgba(255, 79, 0, 0.45)';
                             e.currentTarget.style.background = 'rgba(255, 79, 0, 0.04)';
                           }}
                         >
-                          <Upload size={18} color="#ff4f00" style={{ margin: '0 auto 4px auto' }} />
-                          <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            Upload image to edit or restyle
+                          <Upload size={20} color="#ff4f00" style={{ margin: '0 auto 6px auto' }} />
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            Upload reference photo to restyle
                           </div>
                           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
                             PNG, JPG, WebP supported · High resolution recommended
@@ -938,49 +1100,62 @@ export default function ThumbnailStudioPage({
                     </div>
                   )}
 
-                  {/* 5. Aspect Ratio */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Aspect Ratio
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                      {ASPECT_RATIOS.slice(0, 3).map(ar => (
-                        <button
-                          key={ar.id}
-                          type="button"
-                          onClick={() => { audioEngine.playSfx('click'); setAspectRatio(ar.id); }}
-                          style={{
-                            padding: '8px 6px',
-                            borderRadius: '8px',
-                            border: `1.5px solid ${aspectRatio === ar.id ? '#ff4f00' : 'var(--border-subtle)'}`,
-                            background: aspectRatio === ar.id ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
-                            color: aspectRatio === ar.id ? '#ff4f00' : 'var(--text-secondary)',
-                            fontWeight: aspectRatio === ar.id ? 700 : 500,
-                            fontSize: '11.5px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '2px',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          <span>{ar.id}</span>
-                          <span style={{ fontSize: '9.5px', opacity: 0.8 }}>{ar.id === '16:9' ? 'YouTube' : ar.id === '9:16' ? 'Shorts' : 'Square'}</span>
-                        </button>
-                      ))}
+                  {/* 6. Aspect Ratio Visual Cards */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Aspect Ratio & Format
+                      </label>
+                      <span style={{ fontSize: '11px', color: '#ff4f00', fontWeight: 700 }}>
+                        {aspectRatio} {aspectRatio === '16:9' ? '(YouTube)' : aspectRatio === '9:16' ? '(Shorts)' : ''}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '6px' }}>
+                      {ASPECT_RATIOS.slice(0, 4).map(ar => {
+                        const isSelected = aspectRatio === ar.id;
+                        return (
+                          <button
+                            key={ar.id}
+                            type="button"
+                            onClick={() => { audioEngine.playSfx('click'); setAspectRatio(ar.id); }}
+                            style={{
+                              padding: '10px 8px',
+                              borderRadius: '8px',
+                              border: isSelected ? '1.5px solid #ff4f00' : '1px solid var(--border-subtle)',
+                              background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
+                              color: isSelected ? '#ff4f00' : 'var(--text-secondary)',
+                              fontWeight: isSelected ? 800 : 600,
+                              fontSize: '11.5px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '4px',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <div style={{ color: isSelected ? '#ff4f00' : 'var(--text-muted)' }}>
+                              {renderAspectIcon(ar.id)}
+                            </div>
+                            <span style={{ fontWeight: 800 }}>{ar.id}</span>
+                            <span style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>
+                              {ar.id === '16:9' ? 'YouTube' : ar.id === '9:16' ? 'Shorts' : ar.id === '1:1' ? 'Square' : 'Classic'}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* 6. Dynamic Options: Resolution & Background (For Flare model) */}
-                  {/* 6. Dynamic Options: Resolution & Background */}
+                  {/* 7. Dynamic Resolution & Background Options */}
                   {activeModel.supportsResolution && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           Render Resolution
                         </label>
-                        <span style={{ fontSize: '10.5px', color: '#ff4f00', fontWeight: 600 }}>
+                        <span style={{ fontSize: '11px', color: '#ff4f00', fontWeight: 700 }}>
                           {getModelCredits(activeModel, resolution)} Credits
                         </span>
                       </div>
@@ -988,6 +1163,7 @@ export default function ThumbnailStudioPage({
                         {RESOLUTIONS.map(r => {
                           const isSupported = !activeModel.supportedResolutions || activeModel.supportedResolutions.includes(r.id);
                           const cost = getModelCredits(activeModel, r.id);
+                          const isSelected = resolution === r.id;
                           return (
                             <button
                               key={r.id}
@@ -995,23 +1171,24 @@ export default function ThumbnailStudioPage({
                               disabled={!isSupported}
                               onClick={() => { audioEngine.playSfx('click'); setResolution(r.id); }}
                               style={{
-                                padding: '7px 6px',
-                                borderRadius: '7px',
-                                border: `1px solid ${resolution === r.id ? '#ff4f00' : 'var(--border-subtle)'}`,
-                                background: resolution === r.id ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
-                                color: !isSupported ? 'var(--text-muted)' : resolution === r.id ? '#ff4f00' : 'var(--text-secondary)',
-                                fontWeight: resolution === r.id ? 700 : 500,
-                                fontSize: '11px',
+                                padding: '8px 6px',
+                                borderRadius: '8px',
+                                border: isSelected ? '1.5px solid #ff4f00' : '1px solid var(--border-subtle)',
+                                background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
+                                color: !isSupported ? 'var(--text-muted)' : (isSelected ? '#ff4f00' : 'var(--text-secondary)'),
+                                fontWeight: isSelected ? 800 : 600,
+                                fontSize: '11.5px',
                                 cursor: isSupported ? 'pointer' : 'not-allowed',
-                                opacity: isSupported ? 1 : 0.45,
+                                opacity: isSupported ? 1 : 0.4,
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                gap: '1px'
+                                gap: '2px',
+                                transition: 'all 0.15s ease'
                               }}
                             >
-                              <span style={{ fontWeight: 700 }}>{r.id}</span>
-                              <span style={{ fontSize: '9.5px', opacity: 0.85 }}>{cost} Cr</span>
+                              <span style={{ fontWeight: 800 }}>{r.id}</span>
+                              <span style={{ fontSize: '10px', opacity: 0.85 }}>{cost} Credits</span>
                             </button>
                           );
                         })}
@@ -1020,49 +1197,53 @@ export default function ThumbnailStudioPage({
                   )}
 
                   {activeModel.supportsBackground && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         Background Mode
                       </label>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                        {BACKGROUND_MODES.map(b => (
-                          <button
-                            key={b.id}
-                            type="button"
-                            onClick={() => { audioEngine.playSfx('click'); setBackground(b.id); }}
-                            style={{
-                              padding: '6px',
-                              borderRadius: '7px',
-                              border: `1px solid ${background === b.id ? '#ff4f00' : 'var(--border-subtle)'}`,
-                              background: background === b.id ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
-                              color: background === b.id ? '#ff4f00' : 'var(--text-secondary)',
-                              fontWeight: background === b.id ? 700 : 500,
-                              fontSize: '11px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {b.id === 'auto' ? 'Auto Blend' : b.id === 'opaque' ? 'Opaque' : 'Cutout PNG'}
-                          </button>
-                        ))}
+                        {BACKGROUND_MODES.map(b => {
+                          const isSelected = background === b.id;
+                          return (
+                            <button
+                              key={b.id}
+                              type="button"
+                              onClick={() => { audioEngine.playSfx('click'); setBackground(b.id); }}
+                              style={{
+                                padding: '7px 6px',
+                                borderRadius: '8px',
+                                border: isSelected ? '1.5px solid #ff4f00' : '1px solid var(--border-subtle)',
+                                background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
+                                color: isSelected ? '#ff4f00' : 'var(--text-secondary)',
+                                fontWeight: isSelected ? 800 : 600,
+                                fontSize: '11.5px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {b.id === 'auto' ? 'Auto Blend' : b.id === 'opaque' ? 'Solid Opaque' : 'Cutout PNG'}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
 
-                  {/* Error display */}
+                  {/* Error Notification */}
                   {errorMessage && (
                     <div style={{
-                      padding: '8px 12px',
+                      padding: '10px 14px',
                       borderRadius: '8px',
                       background: 'rgba(239, 68, 68, 0.12)',
-                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
                       color: '#f87171',
                       fontSize: '12px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '7px'
+                      gap: '8px'
                     }}>
-                      <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                      <span>{errorMessage}</span>
+                      <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                      <span style={{ fontWeight: 600 }}>{errorMessage}</span>
                     </div>
                   )}
 
@@ -1073,7 +1254,7 @@ export default function ThumbnailStudioPage({
                     disabled={isGenerating || isUploadingRef}
                     style={{
                       width: '100%',
-                      padding: '12px',
+                      padding: '13px',
                       borderRadius: '10px',
                       border: 'none',
                       background: isGenerating
@@ -1081,15 +1262,15 @@ export default function ThumbnailStudioPage({
                         : 'linear-gradient(135deg, #ff4f00 0%, #ff7700 100%)',
                       color: '#fff',
                       fontSize: '14px',
-                      fontWeight: 700,
+                      fontWeight: 800,
                       cursor: isGenerating ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '8px',
-                      boxShadow: isGenerating ? 'none' : '0 4px 16px rgba(255, 79, 0, 0.4)',
+                      boxShadow: isGenerating ? 'none' : '0 4px 20px rgba(255, 79, 0, 0.45)',
                       transition: 'all 0.15s ease',
-                      marginTop: '4px'
+                      marginTop: '6px'
                     }}
                     onMouseEnter={e => {
                       if (!isGenerating) e.currentTarget.style.transform = 'translateY(-1px)';
@@ -1123,12 +1304,14 @@ export default function ThumbnailStudioPage({
             minWidth: 0,
             height: isMobile ? 'auto' : '100%',
             overflowY: isMobile ? 'visible' : 'auto',
-            background: 'var(--bg-main)'
+            background: 'var(--bg-app)',
+            position: 'relative'
           }}>
             {/* Output Sub-Header & Tabs */}
             <div style={{
-              padding: '10px 18px',
+              padding: isMobile ? '10px 14px' : '10px 20px',
               borderBottom: '1px solid var(--border-subtle)',
+              background: 'var(--bg-card)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -1143,11 +1326,11 @@ export default function ThumbnailStudioPage({
                     padding: '6px 12px',
                     borderRadius: '7px',
                     border: 'none',
-                    background: outputTab === 'preview' ? 'var(--bg-card)' : 'transparent',
+                    background: outputTab === 'preview' ? 'var(--bg-app)' : 'transparent',
                     borderBottom: outputTab === 'preview' ? '2px solid #ff4f00' : '2px solid transparent',
-                    color: outputTab === 'preview' ? 'var(--text-primary)' : 'var(--text-muted)',
+                    color: outputTab === 'preview' ? '#ff4f00' : 'var(--text-muted)',
                     fontSize: '12.5px',
-                    fontWeight: 600,
+                    fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -1164,11 +1347,11 @@ export default function ThumbnailStudioPage({
                     padding: '6px 12px',
                     borderRadius: '7px',
                     border: 'none',
-                    background: outputTab === 'json' ? 'var(--bg-card)' : 'transparent',
+                    background: outputTab === 'json' ? 'var(--bg-app)' : 'transparent',
                     borderBottom: outputTab === 'json' ? '2px solid #ff4f00' : '2px solid transparent',
-                    color: outputTab === 'json' ? 'var(--text-primary)' : 'var(--text-muted)',
+                    color: outputTab === 'json' ? '#ff4f00' : 'var(--text-muted)',
                     fontSize: '12.5px',
-                    fontWeight: 600,
+                    fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -1182,18 +1365,18 @@ export default function ThumbnailStudioPage({
 
               {/* Action Toolbar on Top Right */}
               {activeDisplayImage && outputTab === 'preview' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     onClick={() => handleCopyLink(activeDisplayImage)}
                     style={{
-                      padding: '5px 10px',
+                      padding: '6px 10px',
                       borderRadius: '7px',
-                      background: 'var(--bg-card)',
+                      background: 'rgba(255, 255, 255, 0.05)',
                       border: '1px solid var(--border-subtle)',
                       color: copiedUrl ? '#10b981' : 'var(--text-secondary)',
                       fontSize: '11.5px',
-                      fontWeight: 600,
+                      fontWeight: 700,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -1209,18 +1392,18 @@ export default function ThumbnailStudioPage({
                     type="button"
                     onClick={() => handleDownload(activeDisplayImage)}
                     style={{
-                      padding: '5px 12px',
+                      padding: '6px 14px',
                       borderRadius: '7px',
                       background: 'linear-gradient(135deg, #ff4f00, #ff7700)',
                       border: 'none',
                       color: '#fff',
                       fontSize: '11.5px',
-                      fontWeight: 700,
+                      fontWeight: 800,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '5px',
-                      boxShadow: '0 2px 8px rgba(255, 79, 0, 0.3)'
+                      boxShadow: '0 2px 8px rgba(255, 79, 0, 0.35)'
                     }}
                   >
                     <Download size={12} />
@@ -1233,21 +1416,22 @@ export default function ThumbnailStudioPage({
             {/* Main Canvas Stage */}
             <div style={{
               flex: 1,
-              padding: isMobile ? '12px' : '20px',
+              padding: isMobile ? '16px 12px' : '24px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              minHeight: isMobile ? '360px' : '440px',
-              position: 'relative'
+              minHeight: isMobile ? '360px' : '460px',
+              position: 'relative',
+              background: 'radial-gradient(circle at 50% 50%, rgba(255, 79, 0, 0.06) 0%, transparent 65%)'
             }}>
               {outputTab === 'json' ? (
                 /* Raw Response JSON Inspector */
-                <div style={{ width: '100%', height: '100%', maxWidth: '800px' }}>
+                <div style={{ width: '100%', height: '100%', maxWidth: '840px' }}>
                   <pre style={{
                     margin: 0,
                     padding: '16px',
-                    borderRadius: '10px',
+                    borderRadius: '12px',
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border-subtle)',
                     fontSize: '12px',
@@ -1255,7 +1439,8 @@ export default function ThumbnailStudioPage({
                     color: '#34d399',
                     overflowX: 'auto',
                     whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all'
+                    wordBreak: 'break-all',
+                    lineHeight: 1.5
                   }}>
                     {lastRawResponse
                       ? JSON.stringify(lastRawResponse, null, 2)
@@ -1268,33 +1453,33 @@ export default function ThumbnailStudioPage({
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '16px',
+                  gap: '18px',
                   padding: '40px 20px',
                   textAlign: 'center',
-                  maxWidth: '420px'
+                  maxWidth: '440px'
                 }}>
                   <div style={{
-                    width: '80px',
-                    height: '80px',
+                    width: '84px',
+                    height: '84px',
                     borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(255, 79, 0, 0.25) 0%, rgba(255, 79, 0, 0.05) 70%, transparent 100%)',
+                    background: 'radial-gradient(circle, rgba(255, 79, 0, 0.3) 0%, rgba(255, 79, 0, 0.05) 70%, transparent 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     position: 'relative'
                   }}>
-                    <Loader2 size={36} color="#ff4f00" style={{ animation: 'spin 1.2s linear infinite' }} />
+                    <Loader2 size={38} color="#ff4f00" style={{ animation: 'spin 1.2s linear infinite' }} />
                   </div>
                   <div>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>
                       {generationStep}
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                      Vision Engine Processing · Elapsed: {elapsedSec}s
+                      BangAI Vision Engine Processing · Elapsed: <strong style={{ color: '#ff4f00' }}>{elapsedSec}s</strong>
                     </div>
                   </div>
                   <div style={{
-                    width: '200px',
+                    width: '220px',
                     height: '4px',
                     borderRadius: '2px',
                     background: 'var(--border-subtle)',
@@ -1316,22 +1501,22 @@ export default function ThumbnailStudioPage({
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '14px',
+                  gap: '16px',
                   width: '100%',
-                  maxWidth: '820px'
+                  maxWidth: aspectRatio === '9:16' ? '420px' : '840px'
                 }}>
                   <div style={{
                     position: 'relative',
-                    borderRadius: '12px',
+                    borderRadius: '14px',
                     overflow: 'hidden',
-                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.35)',
-                    border: '1px solid var(--border-medium)',
-                    background: '#0c0a0a',
+                    boxShadow: '0 16px 48px rgba(0, 0, 0, 0.45)',
+                    border: '1.5px solid var(--border-medium)',
+                    background: '#0a0a0d',
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    maxHeight: '520px'
+                    maxHeight: isMobile ? '400px' : '540px'
                   }}>
                     <img
                       src={activeDisplayImage}
@@ -1339,7 +1524,7 @@ export default function ThumbnailStudioPage({
                       style={{
                         width: '100%',
                         height: 'auto',
-                        maxHeight: '500px',
+                        maxHeight: isMobile ? '380px' : '520px',
                         objectFit: 'contain',
                         display: 'block'
                       }}
@@ -1352,31 +1537,45 @@ export default function ThumbnailStudioPage({
                       left: '12px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px'
+                      gap: '6px',
+                      flexWrap: 'wrap'
                     }}>
                       <span style={{
-                        padding: '4px 8px',
+                        padding: '4px 9px',
                         borderRadius: '6px',
-                        background: 'rgba(0, 0, 0, 0.75)',
+                        background: 'rgba(0, 0, 0, 0.8)',
                         backdropFilter: 'blur(8px)',
                         color: '#fff',
                         fontSize: '11px',
-                        fontWeight: 700,
-                        border: '1px solid rgba(255, 255, 255, 0.15)'
+                        fontWeight: 800,
+                        border: '1px solid rgba(255, 255, 255, 0.2)'
                       }}>
                         {aspectRatio}
                       </span>
-                      {isDisplayingShowcase && (
+                      {isDisplayingShowcase ? (
                         <span style={{
-                          padding: '4px 8px',
+                          padding: '4px 9px',
                           borderRadius: '6px',
-                          background: 'rgba(255, 79, 0, 0.85)',
+                          background: 'rgba(255, 79, 0, 0.9)',
                           backdropFilter: 'blur(8px)',
                           color: '#fff',
                           fontSize: '11px',
-                          fontWeight: 700
+                          fontWeight: 800,
+                          boxShadow: '0 2px 8px rgba(255, 79, 0, 0.4)'
                         }}>
-                          LIVE SHOWCASE
+                          SAMPLE SHOWCASE
+                        </span>
+                      ) : (
+                        <span style={{
+                          padding: '4px 9px',
+                          borderRadius: '6px',
+                          background: 'rgba(16, 185, 129, 0.9)',
+                          backdropFilter: 'blur(8px)',
+                          color: '#fff',
+                          fontSize: '11px',
+                          fontWeight: 800
+                        }}>
+                          AI GENERATED
                         </span>
                       )}
                     </div>
@@ -1389,29 +1588,32 @@ export default function ThumbnailStudioPage({
                         position: 'absolute',
                         top: '12px',
                         right: '12px',
-                        width: '32px',
-                        height: '32px',
+                        width: '34px',
+                        height: '34px',
                         borderRadius: '8px',
-                        background: 'rgba(0, 0, 0, 0.7)',
+                        background: 'rgba(0, 0, 0, 0.75)',
                         backdropFilter: 'blur(8px)',
                         border: '1px solid rgba(255, 255, 255, 0.2)',
                         color: '#fff',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        transition: 'transform 0.15s ease'
                       }}
+                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.08)')}
+                      onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                       title="View Fullscreen"
                     >
-                      <Maximize2 size={14} />
+                      <Maximize2 size={15} />
                     </button>
                   </div>
 
-                  {/* Caption & Metadata beneath image */}
+                  {/* Caption & Metadata card beneath image */}
                   <div style={{
                     width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border-subtle)',
                     display: 'flex',
@@ -1421,24 +1623,51 @@ export default function ThumbnailStudioPage({
                     flexWrap: 'wrap'
                   }}>
                     <div style={{ flex: 1, minWidth: '220px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                        {isDisplayingShowcase ? `Sample Output: ${activeModel.name}` : `Generated with ${currentResult.modelName}`}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#ff4f00', textTransform: 'uppercase' }}>
+                          {isDisplayingShowcase ? `Showcase: ${activeModel.name}` : `Rendered with ${currentResult.modelName}`}
+                        </span>
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                          · {aspectRatio}
+                        </span>
                       </div>
                       <div style={{
-                        fontSize: '12px',
+                        fontSize: '12.5px',
                         color: 'var(--text-primary)',
-                        marginTop: '2px',
+                        marginTop: '3px',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         display: '-webkit-box',
                         WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical'
+                        WebkitBoxOrient: 'vertical',
+                        lineHeight: 1.4
                       }}>
                         {isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt}
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPrompt(isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '7px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid var(--border-subtle)',
+                          color: copiedPrompt ? '#10b981' : 'var(--text-secondary)',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        {copiedPrompt ? <Check size={12} /> : <Copy size={12} />}
+                        <span>{copiedPrompt ? 'Copied' : 'Copy Prompt'}</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => {
@@ -1446,15 +1675,16 @@ export default function ThumbnailStudioPage({
                           setRefImagePreview(activeDisplayImage);
                           setRefImageUrl(activeDisplayImage);
                           setSelectedModelId('gpt-image-2-5-flare-image-to-image');
+                          setGenerationMode('image-to-image');
                         }}
                         style={{
                           padding: '6px 12px',
-                          borderRadius: '6px',
-                          background: 'transparent',
+                          borderRadius: '7px',
+                          background: 'rgba(255, 255, 255, 0.05)',
                           border: '1px solid var(--border-subtle)',
                           color: 'var(--text-secondary)',
                           fontSize: '11.5px',
-                          fontWeight: 600,
+                          fontWeight: 700,
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -1469,17 +1699,18 @@ export default function ThumbnailStudioPage({
                         type="button"
                         onClick={() => handleDownload(activeDisplayImage)}
                         style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          background: '#ff4f00',
+                          padding: '6px 14px',
+                          borderRadius: '7px',
+                          background: 'linear-gradient(135deg, #ff4f00, #ff7700)',
                           border: 'none',
                           color: '#fff',
                           fontSize: '11.5px',
-                          fontWeight: 700,
+                          fontWeight: 800,
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '5px'
+                          gap: '5px',
+                          boxShadow: '0 2px 8px rgba(255, 79, 0, 0.35)'
                         }}
                       >
                         <Download size={12} />
@@ -1494,9 +1725,9 @@ export default function ThumbnailStudioPage({
             {/* Bottom History Strip */}
             {history.length > 0 && (
               <div style={{
-                padding: '12px 18px',
+                padding: isMobile ? '10px 14px' : '12px 20px',
                 borderTop: '1px solid var(--border-subtle)',
-                background: isLight ? '#faf8f5' : 'rgba(20, 16, 16, 0.4)',
+                background: isLight ? '#faf8f5' : 'rgba(18, 21, 28, 0.8)',
                 flexShrink: 0
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -1513,19 +1744,26 @@ export default function ThumbnailStudioPage({
                       background: 'transparent',
                       border: 'none',
                       color: 'var(--text-muted)',
-                      fontSize: '10.5px',
+                      fontSize: '11px',
+                      fontWeight: 600,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px'
                     }}
                   >
-                    <Trash2 size={11} />
-                    <span>Clear</span>
+                    <Trash2 size={12} />
+                    <span>Clear History</span>
                   </button>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                <div style={{
+                  display: 'flex',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  paddingBottom: '4px',
+                  scrollbarWidth: 'thin'
+                }}>
                   {history.map(item => (
                     <div
                       key={item.id}
@@ -1536,16 +1774,16 @@ export default function ThumbnailStudioPage({
                       }}
                       style={{
                         position: 'relative',
-                        width: '90px',
+                        width: item.aspectRatio === '9:16' ? '46px' : '88px',
                         height: '56px',
-                        borderRadius: '6px',
+                        borderRadius: '7px',
                         overflow: 'hidden',
                         cursor: 'pointer',
                         border: currentResult?.id === item.id ? '2px solid #ff4f00' : '1px solid var(--border-subtle)',
                         flexShrink: 0,
                         transition: 'transform 0.15s ease'
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.04)')}
+                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
                       onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                       title={item.prompt}
                     >
@@ -1554,6 +1792,19 @@ export default function ThumbnailStudioPage({
                         alt="history"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
+                      <span style={{
+                        position: 'absolute',
+                        bottom: '2px',
+                        right: '2px',
+                        fontSize: '9px',
+                        fontWeight: 800,
+                        padding: '1px 3px',
+                        borderRadius: '3px',
+                        background: 'rgba(0,0,0,0.75)',
+                        color: '#fff'
+                      }}>
+                        {item.aspectRatio}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -1570,33 +1821,97 @@ export default function ThumbnailStudioPage({
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 999,
-            background: 'rgba(0,0,0,0.85)',
-            backdropFilter: 'blur(10px)',
+            zIndex: 9999,
+            background: 'rgba(0, 0, 0, 0.9)',
+            backdropFilter: 'blur(16px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '24px'
+            padding: isMobile ? '16px' : '28px'
           }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}
+            style={{
+              position: 'relative',
+              maxWidth: '92vw',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center'
+            }}
           >
             <img
               src={activeDisplayImage}
-              alt="Fullscreen"
-              style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '10px', boxShadow: '0 20px 60px rgba(0,0,0,0.7)' }}
+              alt="Fullscreen Preview"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '82vh',
+                borderRadius: '12px',
+                boxShadow: '0 24px 64px rgba(0, 0, 0, 0.85)',
+                objectFit: 'contain'
+              }}
             />
+
+            <div style={{
+              marginTop: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <button
+                type="button"
+                onClick={() => handleCopyLink(activeDisplayImage)}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                {copiedUrl ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                <span>{copiedUrl ? 'Copied' : 'Share Link'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDownload(activeDisplayImage)}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #ff4f00, #ff7700)',
+                  border: 'none',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 16px rgba(255, 79, 0, 0.4)'
+                }}
+              >
+                <Download size={14} />
+                <span>Download Ultra HD</span>
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() => setLightboxOpen(false)}
               style={{
                 position: 'absolute',
-                top: '-14px',
-                right: '-14px',
-                width: '32px',
-                height: '32px',
+                top: '-16px',
+                right: '-16px',
+                width: '36px',
+                height: '36px',
                 borderRadius: '50%',
                 background: '#ff4f00',
                 border: 'none',
@@ -1604,10 +1919,11 @@ export default function ThumbnailStudioPage({
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(255, 79, 0, 0.5)'
               }}
             >
-              <X size={16} />
+              <X size={18} />
             </button>
           </div>
         </div>
