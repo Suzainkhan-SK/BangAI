@@ -488,6 +488,43 @@ export default function ThumbnailStudioPage({
     }
   };
 
+  // Calculate dynamic canvas frame sizing to fit all ratios & device screens cleanly with 0 black bars
+  const getCanvasDimensions = () => {
+    const rawRatio = aspectRatio || '16:9';
+    const [wStr, hStr] = rawRatio.split(':');
+    const w = parseFloat(wStr) || 16;
+    const h = parseFloat(hStr) || 9;
+    const ratioVal = w / h;
+    const cssRatio = `${w} / ${h}`;
+
+    if (ratioVal < 0.9) {
+      // Vertical / Portrait (9:16, 3:4, etc.)
+      return {
+        height: isMobile ? 'clamp(320px, 58vh, 440px)' : 'clamp(340px, calc(100vh - 280px), 520px)',
+        width: 'auto',
+        maxWidth: '100%',
+        aspectRatio: cssRatio
+      };
+    } else if (ratioVal <= 1.1) {
+      // Square (1:1)
+      return {
+        height: isMobile ? 'clamp(260px, 46vh, 340px)' : 'clamp(280px, calc(100vh - 300px), 440px)',
+        width: 'auto',
+        maxWidth: '100%',
+        aspectRatio: '1 / 1'
+      };
+    } else {
+      // Landscape (16:9, 4:3, 21:9)
+      return {
+        width: '100%',
+        maxWidth: isMobile ? '100%' : ratioVal > 2 ? '780px' : '720px',
+        maxHeight: isMobile ? 'clamp(200px, 44vh, 280px)' : 'clamp(240px, calc(100vh - 300px), 430px)',
+        height: 'auto',
+        aspectRatio: cssRatio
+      };
+    }
+  };
+
   return (
     <AppShell
       user={user}
@@ -851,7 +888,7 @@ export default function ThumbnailStudioPage({
                         onChange={e => handleSelectModel(e.target.value)}
                         style={{
                           width: '100%',
-                          padding: '11px 14px',
+                          padding: '11px 36px 11px 14px',
                           borderRadius: '10px',
                           background: 'var(--bg-card)',
                           border: '1px solid var(--border-subtle)',
@@ -860,6 +897,7 @@ export default function ThumbnailStudioPage({
                           fontWeight: 700,
                           outline: 'none',
                           cursor: 'pointer',
+                          appearance: 'none',
                           colorScheme: isLight ? 'light' : 'dark',
                           boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                         }}
@@ -892,6 +930,18 @@ export default function ThumbnailStudioPage({
                           </optgroup>
                         )}
                       </select>
+                      <div style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        pointerEvents: 'none',
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        <ChevronDown size={16} />
+                      </div>
                     </div>
 
                     <div style={{
@@ -907,64 +957,56 @@ export default function ThumbnailStudioPage({
                     </div>
                   </div>
 
-                  {/* 2. Interactive Viral Presets Grid */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {/* 2. Viral Creator Presets Dropdown */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         Viral Creator Presets (1-Click)
                       </label>
                       <span style={{ fontSize: '10.5px', color: '#ff4f00', fontWeight: 700 }}>
-                        {presetsList.length} Archetypes
+                        {presetsList.length} Presets Available
                       </span>
                     </div>
 
-                    {/* Responsive Grid of Presets */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-                      gap: '7px'
-                    }}>
-                      {presetsList.map(p => {
-                        const isSelected = selectedPresetId === p.id;
-                        return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => handleSelectPresetById(p.id)}
-                            style={{
-                              padding: '8px 10px',
-                              borderRadius: '8px',
-                              border: isSelected ? '1.5px solid #ff4f00' : '1px solid var(--border-subtle)',
-                              background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
-                              color: isSelected ? '#ff4f00' : 'var(--text-primary)',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'flex-start',
-                              gap: '4px',
-                              textAlign: 'left',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                              <span style={{ fontSize: '15px' }}>{p.emoji || '🔥'}</span>
-                              <span style={{
-                                fontSize: '9px',
-                                fontWeight: 800,
-                                padding: '1px 5px',
-                                borderRadius: '4px',
-                                background: isSelected ? '#ff4f00' : 'rgba(255,255,255,0.08)',
-                                color: isSelected ? '#fff' : 'var(--text-muted)'
-                              }}>
-                                {p.aspectRatio || '16:9'}
-                              </span>
-                            </div>
-                            <span style={{ fontSize: '11px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                              {p.label}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div style={{ position: 'relative' }}>
+                      <select
+                        value={selectedPresetId || ''}
+                        onChange={e => handleSelectPresetById(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 36px 10px 14px',
+                          borderRadius: '10px',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border-subtle)',
+                          color: selectedPresetId ? '#ff4f00' : 'var(--text-primary)',
+                          fontSize: '12.5px',
+                          fontWeight: 700,
+                          outline: 'none',
+                          cursor: 'pointer',
+                          appearance: 'none',
+                          colorScheme: isLight ? 'light' : 'dark',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+                        }}
+                      >
+                        <option value="" disabled>Choose a Viral 1-Click Preset / Template...</option>
+                        {presetsList.map(p => (
+                          <option key={p.id} value={p.id} style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                            {p.emoji || '🔥'} {p.label} [{p.aspectRatio || '16:9'}]
+                          </option>
+                        ))}
+                      </select>
+                      <div style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        pointerEvents: 'none',
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        <ChevronDown size={15} />
+                      </div>
                     </div>
                   </div>
 
@@ -1027,36 +1069,50 @@ export default function ThumbnailStudioPage({
                       onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
                     />
 
-                    {/* Quick Keyword Booster Chips */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {QUICK_PROMPT_TAGS.map((tag, tIdx) => (
-                        <button
-                          key={tIdx}
-                          type="button"
-                          onClick={() => handleAddPromptTag(tag)}
-                          style={{
-                            padding: '3px 7px',
-                            borderRadius: '6px',
-                            background: 'rgba(255, 255, 255, 0.04)',
-                            border: '1px solid var(--border-subtle)',
-                            color: 'var(--text-muted)',
-                            fontSize: '10px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'all 0.12s ease'
-                          }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.color = '#ff4f00';
-                            e.currentTarget.style.borderColor = '#ff4f00';
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.color = 'var(--text-muted)';
-                            e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                          }}
-                        >
-                          + {tag}
-                        </button>
-                      ))}
+                    {/* Quick Keyword Booster Dropdown */}
+                    <div style={{ position: 'relative', marginTop: '2px' }}>
+                      <select
+                        value=""
+                        onChange={e => {
+                          if (e.target.value) {
+                            handleAddPromptTag(e.target.value);
+                          }
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 32px 8px 12px',
+                          borderRadius: '8px',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border-subtle)',
+                          color: 'var(--text-secondary)',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          outline: 'none',
+                          cursor: 'pointer',
+                          appearance: 'none',
+                          colorScheme: isLight ? 'light' : 'dark',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.05)'
+                        }}
+                      >
+                        <option value="" disabled>✨ + Add Viral Keyword Booster (Shocked Face, 3D Text, 8K Render...)</option>
+                        {QUICK_PROMPT_TAGS.map((tag, tIdx) => (
+                          <option key={tIdx} value={tag} style={{ color: 'var(--text-primary)' }}>
+                            + {tag}
+                          </option>
+                        ))}
+                      </select>
+                      <div style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        pointerEvents: 'none',
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        <ChevronDown size={14} />
+                      </div>
                     </div>
                   </div>
 
@@ -1800,16 +1856,11 @@ export default function ThumbnailStudioPage({
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '10px',
+                  gap: '12px',
                   width: '100%',
-                  maxWidth: aspectRatio === '9:16'
-                    ? '320px'
-                    : aspectRatio === '3:4'
-                      ? '360px'
-                      : aspectRatio === '1:1'
-                        ? '440px'
-                        : '740px',
-                  transition: 'max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                  maxWidth: isMobile ? '100%' : '740px',
+                  margin: '0 auto',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}>
                   <div style={{
                     position: 'relative',
@@ -1818,19 +1869,11 @@ export default function ThumbnailStudioPage({
                     boxShadow: '0 16px 48px rgba(0, 0, 0, 0.45)',
                     border: '1.5px solid var(--border-medium)',
                     background: '#090a0f',
-                    width: '100%',
-                    aspectRatio: aspectRatio.includes(':') ? aspectRatio.replace(':', ' / ') : '16 / 9',
-                    maxHeight: isMobile
-                      ? '340px'
-                      : aspectRatio === '9:16'
-                        ? 'clamp(320px, calc(100vh - 320px), 490px)'
-                        : aspectRatio === '1:1'
-                          ? 'clamp(280px, calc(100vh - 340px), 420px)'
-                          : 'clamp(220px, calc(100vh - 360px), 430px)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    ...getCanvasDimensions()
                   }}>
                     {/* Blurred ambient background to seamlessly fill any letterboxing if image ratio differs */}
                     <div style={{
@@ -1942,108 +1985,148 @@ export default function ThumbnailStudioPage({
                   {/* Caption & Metadata card beneath image */}
                   <div style={{
                     width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '9px',
+                    maxWidth: isMobile ? '100%' : '700px',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border-subtle)',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '10px',
-                    boxSizing: 'border-box'
+                    flexDirection: 'column',
+                    gap: '8px',
+                    boxSizing: 'border-box',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
                   }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#ff4f00', textTransform: 'uppercase' }}>
+                    {/* Top Row: Model badge & specs on left, Action buttons on right */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      flexWrap: isMobile ? 'wrap' : 'nowrap'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flexWrap: 'wrap' }}>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          color: '#ff4f00',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          whiteSpace: 'nowrap'
+                        }}>
                           {isDisplayingShowcase ? `Showcase: ${activeModel.name}` : `Rendered with ${currentResult.modelName}`}
                         </span>
-                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                          · {aspectRatio}
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: 'rgba(255, 79, 0, 0.1)',
+                          color: '#ff4f00',
+                          border: '1px solid rgba(255, 79, 0, 0.2)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {aspectRatio} {aspectRatio === '16:9' ? '(YouTube)' : aspectRatio === '9:16' ? '(Shorts)' : ''}
+                        </span>
+                        <span style={{
+                          fontSize: '10px',
+                          color: 'var(--text-muted)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          · {isDisplayingShowcase ? 'Sample Preset' : currentResult.generationMode || 'Text-to-Image'}
                         </span>
                       </div>
-                      <div style={{
-                        fontSize: '11.5px',
-                        color: 'var(--text-primary)',
-                        marginTop: '2px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }} title={isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt}>
-                        {isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt}
+
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPrompt(isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt)}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: '6px',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid var(--border-subtle)',
+                            color: copiedPrompt ? '#10b981' : 'var(--text-secondary)',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {copiedPrompt ? <Check size={11} /> : <Copy size={11} />}
+                          <span>{copiedPrompt ? 'Copied' : 'Prompt'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            audioEngine.playSfx('click');
+                            setRefImagePreview(activeDisplayImage);
+                            setRefImageUrl(activeDisplayImage);
+                            const imgModelId = imageToImageModels[0]?.id || 'gpt-image-2-5-flare-image-to-image';
+                            setSelectedModelId(imgModelId);
+                            setGenerationMode('image-to-image');
+                          }}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: '6px',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-secondary)',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          <Layers size={11} />
+                          <span>Remix</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(activeDisplayImage)}
+                          style={{
+                            padding: '5px 12px',
+                            borderRadius: '6px',
+                            background: 'linear-gradient(135deg, #ff4f00, #ff7700)',
+                            border: 'none',
+                            color: '#fff',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 2px 6px rgba(255, 79, 0, 0.3)'
+                          }}
+                        >
+                          <Download size={11} />
+                          <span>Download</span>
+                        </button>
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyPrompt(isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt)}
-                        style={{
-                          padding: '5px 10px',
-                          borderRadius: '6px',
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid var(--border-subtle)',
-                          color: copiedPrompt ? '#10b981' : 'var(--text-secondary)',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        {copiedPrompt ? <Check size={11} /> : <Copy size={11} />}
-                        <span>{copiedPrompt ? 'Copied' : 'Prompt'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          audioEngine.playSfx('click');
-                          setRefImagePreview(activeDisplayImage);
-                          setRefImageUrl(activeDisplayImage);
-                          const imgModelId = imageToImageModels[0]?.id || 'gpt-image-2-5-flare-image-to-image';
-                          setSelectedModelId(imgModelId);
-                          setGenerationMode('image-to-image');
-                        }}
-                        style={{
-                          padding: '5px 10px',
-                          borderRadius: '6px',
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid var(--border-subtle)',
-                          color: 'var(--text-secondary)',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        <Layers size={11} />
-                        <span>Remix</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDownload(activeDisplayImage)}
-                        style={{
-                          padding: '5px 12px',
-                          borderRadius: '6px',
-                          background: 'linear-gradient(135deg, #ff4f00, #ff7700)',
-                          border: 'none',
-                          color: '#fff',
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          boxShadow: '0 2px 6px rgba(255, 79, 0, 0.3)'
-                        }}
-                      >
-                        <Download size={11} />
-                        <span>Download</span>
-                      </button>
+                    {/* Bottom Row: Full Prompt Text */}
+                    <div style={{
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.4,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
+                    }} title={isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt}>
+                      <span style={{ fontWeight: 600, color: 'var(--text-muted)', marginRight: '4px' }}>Prompt:</span>
+                      {isDisplayingShowcase ? activeModel.defaultPrompt : currentResult.prompt}
                     </div>
                   </div>
                 </div>
