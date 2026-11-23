@@ -2483,7 +2483,7 @@ export default function ThumbnailManagerView() {
               <span style={{ fontSize: '20px' }}>🤖</span>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--admin-text-main)' }}>Bang AI Provider Architect</div>
-                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Powered by xKiro Mistral Large • Key-rotated AI engine • Auto-configures any image generation service</div>
+                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Powered by Google Gemini 3.8 Flash • Live Web Search & Doc Browsing Active • Key-rotated engine</div>
               </div>
               <div style={{ marginLeft: 'auto', padding: '3px 8px', background: 'rgba(16,185,129,0.15)', color: '#10b981', borderRadius: '5px', fontSize: '10px', fontWeight: 800 }}>
                 ONLINE

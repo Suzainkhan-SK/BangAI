@@ -1794,7 +1794,7 @@ export async function handler(event) {
       // [5B] THUMBNAIL STUDIO & MULTI-PROVIDER ENGINE GOVERNANCE
       // ----------------------------------------------------
 
-      // ── AI PROVIDER ARCHITECT: Fully Autonomous Agentic Copilot using xKiro engine ──
+      // ── AI PROVIDER ARCHITECT: Fully Autonomous Agentic Copilot using Google Gemini & Live Web Scraper ──
       case 'thumbnail-ai-architect': {
         const { messages: archMessages = [], context: archContext = {} } = body;
         if (!archMessages || archMessages.length === 0) {
@@ -1819,8 +1819,64 @@ export async function handler(event) {
           return null;
         };
 
+        // Helper: Extract URLs from text for live documentation scraping
+        const extractUrlsFromText = (text) => {
+          if (!text || typeof text !== 'string') return [];
+          const matches = text.match(/(https?:\/\/[^\s<>"']+)/g);
+          return matches ? Array.from(new Set(matches)) : [];
+        };
+
+        const allUserTexts = archMessages.filter(m => m.role === 'user').map(m => m.content).join('\n');
         const latestUserMsg = archMessages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
-        const detectedKey = extractApiKeyFromText(latestUserMsg) || archContext.providedApiKey || null;
+        const detectedKey = extractApiKeyFromText(latestUserMsg) || extractApiKeyFromText(allUserTexts) || archContext.providedApiKey || null;
+        const detectedUrls = extractUrlsFromText(allUserTexts);
+
+        // Live scrape any external documentation URLs provided by user
+        let scrapedDocsContext = '';
+        if (detectedUrls.length > 0) {
+          try {
+            const scrapePromises = detectedUrls.slice(0, 10).map(async (u) => {
+              try {
+                let fetchUrl = u;
+                try {
+                  const parsedU = new URL(u);
+                  if (parsedU.hostname.includes('docs.wizzx.ai') && parsedU.pathname && parsedU.pathname.length > 1 && !u.endsWith('.md') && !u.endsWith('.txt')) {
+                    fetchUrl = u.replace(/\/$/, '') + '.md';
+                  }
+                } catch {}
+                let sRes = await fetch(fetchUrl, {
+                  headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+                  signal: AbortSignal.timeout(6000)
+                });
+                if (!sRes.ok && fetchUrl !== u) {
+                  sRes = await fetch(u, {
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    signal: AbortSignal.timeout(6000)
+                  });
+                }
+                if (sRes.ok) {
+                  const rawText = await sRes.text();
+                  const clean = rawText
+                    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+                    .replace(/<[^>]+>/g, ' ')
+                    .replace(/&nbsp;/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .slice(0, 8000);
+                  return `=== LIVE SCRAPED DOCUMENTATION FROM URL: ${u} ===\n${clean}\n======================================================`;
+                }
+              } catch (err) {
+                console.warn(`[DocScraper] Failed to fetch ${u}:`, err.message);
+              }
+              return null;
+            });
+            const scrapedResults = await Promise.all(scrapePromises);
+            scrapedDocsContext = scrapedResults.filter(Boolean).join('\n\n');
+          } catch (scrapeErr) {
+            console.warn('[DocScraper] Overall scraping error:', scrapeErr.message);
+          }
+        }
 
         // Load current system state as context for the AI
         const [archConfigDoc, archKeysDoc] = await Promise.all([
@@ -1844,9 +1900,11 @@ export async function handler(event) {
           providerKeys: Object.keys(archKeysDoc?.providers || {})
         };
 
-        const ARCHITECT_SYSTEM_PROMPT = `You are the Bang AI Provider Architect — an AUTONOMOUS AGENTIC AI specialized in full-stack configuration, testing, and management of image generation providers and vision models for the Bang AI Thumbnail Studio.
+        const ARCHITECT_SYSTEM_PROMPT = `You are the Bang AI Provider Architect — an AUTONOMOUS AGENTIC AI powered by Google Gemini, specialized in full-stack configuration, testing, and management of image generation providers and vision models for the Bang AI Thumbnail Studio.
 
 You have DIRECT ACCESS to modify the database, test image generation, check API balances, and configure providers and model endpoints on behalf of the user.
+
+IMPORTANT: You HAVE LIVE WEB BROWSING AND REAL-TIME DOCUMENTATION ACCESS. Any documentation URLs provided by the user have been automatically scraped and provided below under 'LIVE SCRAPED DOCUMENTATION'. In addition, you have live Google Search grounding enabled. NEVER say you cannot browse external URLs or read documentation. You MUST parse the provided documentation, identify the endpoints, methods, parameters, and models, and configure them directly!
 
 CURRENT DATABASE STATE:
 - Active Primary Provider: ${currentState.activeProvider}
@@ -1858,12 +1916,12 @@ ${detectedKey ? `- API Key Detected from User Message: "${detectedKey}"` : ''}
 
 YOUR AVAILABLE ACTIONS (You must pick ONE action per turn):
 1. "CONFIGURE_PROVIDER":
-   Use when user wants to add or update an image provider (e.g. Ideogram, Fal.ai, Replicate, Together, OpenAI, Stability, custom API).
+   Use when user wants to add or update an image provider (e.g. Wizzx, Ideogram, Fal.ai, Replicate, Together, OpenAI, Stability, custom API).
    Extract all endpoints, auth headers, and polling settings from the user's message/docs.
    If an API key is in the text, extract it into "apiKey".
    Provide "providerConfig" object:
    {
-     "id": "provider-slug (lowercase, no spaces)",
+     "id": "provider-slug (lowercase, no spaces, e.g. wizzx)",
      "name": "Provider Display Name",
      "icon": "emoji",
      "mode": "sync" or "async",
@@ -1878,6 +1936,7 @@ YOUR AVAILABLE ACTIONS (You must pick ONE action per turn):
      "responseImageUrlPath": "...",
      "responseTaskIdPath": "...",
      "pollUrlTemplate": "...",
+     "pollMethod": "GET",
      "pollStatusPath": "...",
      "pollSuccessValue": "...",
      "pollResultUrlPath": "...",
@@ -1889,7 +1948,7 @@ YOUR AVAILABLE ACTIONS (You must pick ONE action per turn):
      "modelsListPath": "..."
    }
    Set "setAsPrimary": true if user requested to make it primary or default.
-   Optional "models": array of model objects to add along with this provider.
+   Optional "models": array of model objects to add along with this provider. When configuring a provider from docs, ALWAYS extract all image models mentioned in the docs into the "models" array, each with endpointOverride.enabled=true and their model-specific endpoint.
 
 2. "ADD_OR_UPDATE_MODEL":
    Use when user wants to add a model or update an existing model (including custom endpoints, credits, prompts, etc.).
@@ -1944,7 +2003,7 @@ YOUR AVAILABLE ACTIONS (You must pick ONE action per turn):
 8. "CHAT":
    Use when user is asking general questions, greeting, or discussing concepts without requesting a configuration change or test.
 
-RESPONSE FORMAT (JSON ONLY):
+RESPONSE FORMAT (JSON ONLY - Return ONLY a raw JSON object, no markdown fences):
 {
   "reply": "Clear, friendly, conversational explanation of what you did, the results, and what is now active.",
   "action": "CONFIGURE_PROVIDER" | "ADD_OR_UPDATE_MODEL" | "DELETE_MODEL" | "SET_PRIMARY_PROVIDER" | "TEST_GENERATION" | "CHECK_BALANCE" | "UPDATE_SYSTEM_PROMPT" | "CHAT",
@@ -1968,60 +2027,128 @@ RULES:
 - When action is CHAT, do NOT return providerConfig or model objects.
 - Be concise, direct, helpful, and natural.`;
 
-        // xKiro key pool from env or MongoDB
-        const XKIRO_KEYS = [
-          process.env.XKIRO_API_KEY_1 || 'sk-xt-e2786f0d32f17f1a0211ec5f1333c45379691ec0d6f9c954',
-          process.env.XKIRO_API_KEY_2 || 'sk-xt-450bf12af511af1eceb44dd398886c93a08b8bc52341e623'
-        ];
-        try {
-          const llmDoc = await db.collection('api_keys').findOne({ _id: 'primary_llm_keys' });
-          if (llmDoc?.pool?.length) XKIRO_KEYS.push(...llmDoc.pool.filter(k => !XKIRO_KEYS.includes(k)));
-        } catch {}
+        // Parse JSON helper for LLM output (removes markdown fences or extraneous text)
+        const parseJsonFromLlm = (text) => {
+          if (!text || typeof text !== 'string') return null;
+          let clean = text.trim();
+          clean = clean.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+          const firstBrace = clean.indexOf('{');
+          const lastBrace = clean.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            clean = clean.slice(firstBrace, lastBrace + 1);
+          }
+          try {
+            return JSON.parse(clean);
+          } catch {
+            return null;
+          }
+        };
 
-        const XKIRO_BASE = process.env.XKIRO_BASE_URL || 'https://api.xkiro.com/v1';
+        // Primary: Google Gemini with user-provided key & live search grounding
+        const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyCQy8iNz0XwCHoW6Hi4PKntUAZxDtSlwyc';
+        const GEMINI_MODELS = [
+          'gemini-3.8-flash',
+          'gemini-2.5-flash',
+          'gemini-3.5-flash',
+          'gemini-2.5-flash-lite'
+        ];
+
         let archReply = null;
         let archError = null;
 
-        const MODELS_TO_TRY = [
-          'mistralai/mistral-large-2512',
-          'qwen/qwen3.8-max:free',
-          'qwen/qwen3.8-omni-flash:free',
-          'mistralai/mistral-nemo:free'
-        ];
+        const geminiPrompt = `${ARCHITECT_SYSTEM_PROMPT}
 
-        for (const modelId of MODELS_TO_TRY) {
+${scrapedDocsContext ? `\n\n--- LIVE SCRAPED DOCUMENTATION FROM USER LINKS ---\n${scrapedDocsContext}\n------------------------------------------------------\n` : ''}
+
+USER CONVERSATION HISTORY:
+${archMessages.map(m => `[${m.role.toUpperCase()}]: ${typeof m.content === 'object' ? JSON.stringify(m.content) : m.content}`).join('\n\n')}
+
+INSTRUCTION: Carefully analyze the user's latest request and all documentation. Return ONLY a single raw JSON object conforming to the response format specified. No markdown formatting, no other text.`;
+
+        for (const geminiModel of GEMINI_MODELS) {
           if (archReply) break;
-          for (const apiKey of XKIRO_KEYS) {
-            if (archReply) break;
-            try {
-              const xkRes = await fetch(`${XKIRO_BASE}/chat/completions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                body: JSON.stringify({
-                  model: modelId,
-                  messages: [
-                    { role: 'system', content: ARCHITECT_SYSTEM_PROMPT },
-                    ...archMessages
-                  ],
-                  max_tokens: 4096,
-                  temperature: 0.3,
-                  response_format: { type: 'json_object' }
-                })
-              });
-              if (xkRes.ok) {
-                const xkJson = await xkRes.json();
-                const rawContent = xkJson.choices?.[0]?.message?.content || '';
-                if (rawContent.trim()) {
-                  try {
-                    archReply = JSON.parse(rawContent.trim());
-                  } catch {
-                    archReply = { reply: rawContent.trim(), action: 'CHAT' };
-                  }
-                  break;
-                }
+          try {
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`;
+            const gRes = await fetch(geminiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  role: 'user',
+                  parts: [{ text: geminiPrompt }]
+                }],
+                tools: [{ google_search: {} }]
+              }),
+              signal: AbortSignal.timeout(15000)
+            });
+
+            if (gRes.ok) {
+              const gJson = await gRes.json();
+              const rawText = gJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              const parsedObj = parseJsonFromLlm(rawText);
+              if (parsedObj) {
+                archReply = parsedObj;
+                break;
+              } else if (rawText.trim()) {
+                archReply = { reply: rawText.trim(), action: 'CHAT' };
+                break;
               }
-            } catch (xkErr) {
-              archError = xkErr.message;
+            } else {
+              const errBody = await gRes.json().catch(() => ({}));
+              archError = `${geminiModel} HTTP ${gRes.status}: ${errBody.error?.message || 'Failed'}`;
+            }
+          } catch (gErr) {
+            archError = `${geminiModel} Error: ${gErr.message}`;
+          }
+        }
+
+        // Secondary fallback to xKiro if all Gemini calls failed
+        if (!archReply) {
+          const XKIRO_KEYS = [
+            process.env.XKIRO_API_KEY_1 || 'sk-xt-e2786f0d32f17f1a0211ec5f1333c45379691ec0d6f9c954',
+            process.env.XKIRO_API_KEY_2 || 'sk-xt-450bf12af511af1eceb44dd398886c93a08b8bc52341e623'
+          ];
+          try {
+            const llmDoc = await db.collection('api_keys').findOne({ _id: 'primary_llm_keys' });
+            if (llmDoc?.pool?.length) XKIRO_KEYS.push(...llmDoc.pool.filter(k => !XKIRO_KEYS.includes(k)));
+          } catch {}
+
+          const XKIRO_BASE = process.env.XKIRO_BASE_URL || 'https://api.xkiro.com/v1';
+          const MODELS_TO_TRY = ['mistralai/mistral-large-2512', 'qwen/qwen3.8-max:free'];
+
+          for (const modelId of MODELS_TO_TRY) {
+            if (archReply) break;
+            for (const apiKey of XKIRO_KEYS) {
+              if (archReply) break;
+              try {
+                const xkRes = await fetch(`${XKIRO_BASE}/chat/completions`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                  body: JSON.stringify({
+                    model: modelId,
+                    messages: [
+                      { role: 'system', content: ARCHITECT_SYSTEM_PROMPT },
+                      ...(scrapedDocsContext ? [{ role: 'system', content: `LIVE SCRAPED DOCS:\n${scrapedDocsContext}` }] : []),
+                      ...archMessages
+                    ],
+                    max_tokens: 4096,
+                    temperature: 0.3,
+                    response_format: { type: 'json_object' }
+                  }),
+                  signal: AbortSignal.timeout(12000)
+                });
+                if (xkRes.ok) {
+                  const xkJson = await xkRes.json();
+                  const rawContent = xkJson.choices?.[0]?.message?.content || '';
+                  const parsed = parseJsonFromLlm(rawContent);
+                  if (parsed) {
+                    archReply = parsed;
+                    break;
+                  }
+                }
+              } catch (xkErr) {
+                archError = xkErr.message;
+              }
             }
           }
         }
@@ -2210,19 +2337,30 @@ RULES:
             const testKey = bKey || vaultKeys?.[0];
 
             if (testKey) {
-              const bUrl = archReply.balanceParams?.balanceUrl || provDef.balanceUrl || (prov === 'kie.ai' ? 'https://api.kie.ai/api/v1/chat/credit' : null);
+              const bUrl = archReply.balanceParams?.balanceUrl || provDef.balanceUrl || (prov === 'wizzx' ? 'https://api.wizzx.ai/api/v1/credits/balance' : (prov === 'kie.ai' ? 'https://api.kie.ai/api/v1/chat/credit' : null));
               if (bUrl) {
+                const authHeader = provDef.authHeaderType === 'Key' ? `Key ${testKey}` : `Bearer ${testKey}`;
                 const bRes = await fetch(bUrl, {
-                  headers: { 'Authorization': `Bearer ${testKey}`, 'Content-Type': 'application/json' }
+                  headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+                  signal: AbortSignal.timeout(8000)
                 });
                 const bJson = await bRes.json().catch(() => ({}));
-                let balValue = bJson.data ?? bJson.credits ?? bJson.balance ?? 'Active';
+                let balValue = bJson.data?.balance ?? bJson.data ?? bJson.credits ?? bJson.balance ?? 'Active';
+                const usd = bJson.data?.usd_equivalent != null ? ` ($${bJson.data.usd_equivalent} USD)` : '';
                 executedResult = {
                   action: 'CHECK_BALANCE',
                   success: true,
-                  message: `💰 Balance check for "${prov}": ${balValue} ${provDef.balanceUnit || 'Credits'}`
+                  message: `💰 Live Balance for "${prov}": ${balValue} ${provDef.balanceUnit || 'Credits'}${usd}`,
+                  balance: balValue,
+                  raw: bJson
                 };
               }
+            } else {
+              executedResult = {
+                action: 'CHECK_BALANCE',
+                success: false,
+                error: `No API key found in vault for provider "${prov}". Please provide a key.`
+              };
             }
           }
 
@@ -2233,26 +2371,29 @@ RULES:
             const tPrompt = archReply.testParams?.prompt || 'Cinematic 4K YouTube thumbnail of a shocked creator in a glowing gold vault';
             const tKey = archReply.testParams?.apiKey || finalKeyToVault;
 
+            const provDef = archConfigDoc?.customProviders?.[tProv] || {};
             const keysDoc = await db.collection('api_keys').findOne({ _id: 'thumbnail_keys' });
             const vaultKeys = keysDoc?.providers?.[tProv]?.keys || (tProv === 'kie.ai' ? keysDoc?.pool : []);
             const keyToUse = tKey || vaultKeys?.[0];
 
             if (keyToUse) {
               const startTime = Date.now();
-              // Run test generation
               let testImgUrl = null;
+
               if (tProv === 'kie.ai') {
                 const cRes = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${keyToUse}` },
-                  body: JSON.stringify({ model: tModel, input: { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' } })
+                  body: JSON.stringify({ model: tModel, input: { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' } }),
+                  signal: AbortSignal.timeout(10000)
                 });
                 const cJson = await cRes.json();
                 if (cJson.data?.taskId) {
                   for (let i = 0; i < 8; i++) {
                     await new Promise(r => setTimeout(r, 2000));
                     const pRes = await fetch(`https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${cJson.data.taskId}`, {
-                      headers: { 'Authorization': `Bearer ${keyToUse}` }
+                      headers: { 'Authorization': `Bearer ${keyToUse}` },
+                      signal: AbortSignal.timeout(6000)
                     });
                     const pJson = await pRes.json();
                     if (pJson.data?.state === 'success') {
@@ -2261,14 +2402,71 @@ RULES:
                     }
                   }
                 }
+              } else if (tProv === 'wizzx' || provDef.generateUrl?.includes('wizzx.ai')) {
+                // Wizzx AI task submission & polling
+                const submitUrl = provDef.generateUrl || 'https://api.wizzx.ai/api/v1/task/submit/gpt-image-2.5';
+                const sRes = await fetch(submitUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${keyToUse}` },
+                  body: JSON.stringify({ prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' }),
+                  signal: AbortSignal.timeout(10000)
+                });
+                const sJson = await sRes.json().catch(() => ({}));
+                const taskId = sJson.data?.task_id || sJson.task_id;
+                if (taskId) {
+                  const pollUrl = (provDef.pollUrlTemplate || 'https://api.wizzx.ai/api/v1/task/{{taskId}}').replace('{{taskId}}', taskId);
+                  for (let i = 0; i < 15; i++) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    const pRes = await fetch(pollUrl, {
+                      headers: { 'Authorization': `Bearer ${keyToUse}` },
+                      signal: AbortSignal.timeout(6000)
+                    });
+                    const pJson = await pRes.json().catch(() => ({}));
+                    if (pJson.data?.status === 'SUCCEEDED') {
+                      testImgUrl = pJson.data?.result_urls?.[0];
+                      break;
+                    }
+                    if (pJson.data?.status === 'FAILED') break;
+                  }
+                }
+              } else if (provDef.mode === 'async' && provDef.generateUrl) {
+                // Generic async provider
+                const authHeader = provDef.authHeaderType === 'Key' ? `Key ${keyToUse}` : `Bearer ${keyToUse}`;
+                const sRes = await fetch(provDef.generateUrl, {
+                  method: provDef.generateMethod || 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': authHeader },
+                  body: JSON.stringify({ prompt: tPrompt }),
+                  signal: AbortSignal.timeout(10000)
+                });
+                const sJson = await sRes.json().catch(() => ({}));
+                const taskId = sJson.data?.task_id || sJson.task_id || sJson.id;
+                if (taskId && provDef.pollUrlTemplate) {
+                  const pollUrl = provDef.pollUrlTemplate.replace('{{taskId}}', taskId);
+                  for (let i = 0; i < 10; i++) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    const pRes = await fetch(pollUrl, { headers: { 'Authorization': authHeader }, signal: AbortSignal.timeout(6000) });
+                    const pJson = await pRes.json().catch(() => ({}));
+                    if (pJson.data?.status === (provDef.pollSuccessValue || 'SUCCEEDED') || pJson.status === 'succeeded' || pJson.status === 'COMPLETED') {
+                      testImgUrl = pJson.data?.result_urls?.[0] || pJson.output?.[0] || pJson.images?.[0]?.url;
+                      break;
+                    }
+                  }
+                }
               }
+
               const costTime = Math.round((Date.now() - startTime) / 1000);
               executedResult = {
                 action: 'TEST_GENERATION',
                 success: Boolean(testImgUrl),
                 imageUrl: testImgUrl,
-                message: testImgUrl ? `🧪 Test generation succeeded in ${costTime}s!` : `Task created but polling timed out. Key is operational.`,
+                message: testImgUrl ? `🧪 Test generation on "${tProv}" succeeded in ${costTime}s!` : `Task created on "${tProv}" but polling timed out. API key and endpoint are operational.`,
                 costTime
+              };
+            } else {
+              executedResult = {
+                action: 'TEST_GENERATION',
+                success: false,
+                error: `No API key found for "${tProv}". Please provide an API key to test generation.`
               };
             }
           }
@@ -2551,6 +2749,43 @@ RULES:
             enabled: keysDoc?.providers?.openai?.enabled ?? true
           }
         };
+
+        // Dynamically include all custom providers configured in system_config or keys stored in api_keys
+        if (configDoc?.customProviders && typeof configDoc.customProviders === 'object') {
+          for (const [cpId, cpData] of Object.entries(configDoc.customProviders)) {
+            const vaultKeys = keysDoc?.providers?.[cpId]?.keys || [];
+            if (!resolvedProviders[cpId]) {
+              resolvedProviders[cpId] = {
+                name: cpData.name || cpId,
+                baseUrl: cpData.generateUrl || '',
+                keys: Array.isArray(vaultKeys) ? vaultKeys : [],
+                enabled: keysDoc?.providers?.[cpId]?.enabled ?? true,
+                isCustom: true
+              };
+            } else {
+              if (cpData.name && resolvedProviders[cpId].name === cpId) resolvedProviders[cpId].name = cpData.name;
+              if (vaultKeys.length > 0 && (!resolvedProviders[cpId].keys || resolvedProviders[cpId].keys.length === 0)) {
+                resolvedProviders[cpId].keys = vaultKeys;
+              }
+            }
+          }
+        }
+        if (keysDoc?.providers && typeof keysDoc.providers === 'object') {
+          for (const [kId, kData] of Object.entries(keysDoc.providers)) {
+            const rawKeys = Array.isArray(kData?.keys) ? kData.keys : (Array.isArray(kData) ? kData : []);
+            if (!resolvedProviders[kId]) {
+              resolvedProviders[kId] = {
+                name: kData?.name || kId,
+                baseUrl: kData?.baseUrl || '',
+                keys: rawKeys,
+                enabled: kData?.enabled ?? true,
+                isCustom: true
+              };
+            } else if (rawKeys.length > 0 && (!resolvedProviders[kId].keys || resolvedProviders[kId].keys.length === 0)) {
+              resolvedProviders[kId].keys = rawKeys;
+            }
+          }
+        }
 
         const defaultModels = [
           {
