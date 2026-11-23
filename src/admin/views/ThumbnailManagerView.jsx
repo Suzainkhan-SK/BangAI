@@ -2772,19 +2772,46 @@ export default function ThumbnailManagerView() {
                             </div>
                           )}
 
-                          {/* Live Discovered Models Chips */}
+                          {/* Live Discovered Models Chips & Structured Pricing Table */}
                           {parsed.executed.models && Array.isArray(parsed.executed.models) && (
-                            <div style={{ marginTop: '10px' }}>
-                              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '6px' }}>
-                                Discovered Models ({parsed.executed.models.length}):
+                            <div style={{ marginTop: '12px' }}>
+                              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--admin-text-sub)', marginBottom: '8px' }}>
+                                Discovered Models & Resolution Pricing ({parsed.executed.models.length}):
                               </div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                {parsed.executed.models.map((m, mIdx) => (
-                                  <span key={mIdx} style={{ padding: '3px 8px', borderRadius: '4px', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8', fontSize: '11px', fontWeight: 600 }}>
-                                    ✨ {m.name || m.id || m}
-                                  </span>
-                                ))}
-                              </div>
+                              {parsed.executed.models.some(m => m.p1k && m.p1k !== '-') ? (
+                                <div style={{ overflowX: 'auto', borderRadius: '6px', border: '1px solid var(--admin-border-glass)', background: 'rgba(0,0,0,0.25)' }}>
+                                  <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                    <thead>
+                                      <tr style={{ background: 'rgba(255,255,255,0.06)', borderBottom: '1px solid var(--admin-border-glass)' }}>
+                                        <th style={{ padding: '6px 10px', color: 'var(--admin-text-sub)' }}>Model Name</th>
+                                        <th style={{ padding: '6px 10px', color: 'var(--admin-text-sub)' }}>ID</th>
+                                        <th style={{ padding: '6px 10px', color: 'var(--admin-text-sub)' }}>1K Quality</th>
+                                        <th style={{ padding: '6px 10px', color: 'var(--admin-text-sub)' }}>2K Quality</th>
+                                        <th style={{ padding: '6px 10px', color: 'var(--admin-text-sub)' }}>4K Quality</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {parsed.executed.models.map((m, mIdx) => (
+                                        <tr key={mIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                          <td style={{ padding: '6px 10px', fontWeight: 700, color: 'var(--admin-text-main)' }}>{m.name || m.id}</td>
+                                          <td style={{ padding: '6px 10px', fontFamily: 'monospace', color: '#818cf8', fontSize: '10.5px' }}>{m.id}</td>
+                                          <td style={{ padding: '6px 10px', color: '#10b981', fontWeight: 600 }}>{m.p1k || m.creditsByResolution?.['1K'] || (m.credits ? `${m.credits} cr` : '-')}</td>
+                                          <td style={{ padding: '6px 10px', color: '#38bdf8', fontWeight: 600 }}>{m.p2k || m.creditsByResolution?.['2K'] || (m.credits ? `${m.credits} cr` : '-')}</td>
+                                          <td style={{ padding: '6px 10px', color: '#f59e0b', fontWeight: 600 }}>{m.p4k || m.creditsByResolution?.['4K'] || '-'}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                  {parsed.executed.models.map((m, mIdx) => (
+                                    <span key={mIdx} style={{ padding: '3px 8px', borderRadius: '4px', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8', fontSize: '11px', fontWeight: 600 }}>
+                                      ✨ {m.name || m.id || m}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

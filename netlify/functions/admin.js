@@ -1908,10 +1908,28 @@ export async function handler(event) {
             provider: m.provider,
             providerModelId: m.providerModelId,
             endpointOverride: m.endpointOverride?.enabled ? m.endpointOverride.generateUrl : null,
-            credits: m.credits
+            credits: m.credits,
+            creditsByResolution: m.creditsByResolution || { '1K': 6, '2K': 10, '4K': 16 }
           })),
           providerKeys: Object.keys(archKeysDoc?.providers || {})
         };
+
+        // Live Provider Catalog & Verified Quality Pricing Context
+        let liveCatalogContext = '';
+        try {
+          const isWizzx = archConfigDoc?.activeProvider?.includes('wizzx') || Boolean(archConfigDoc?.customProviders?.['wizzx.ai']) || allUserTexts.includes('wizzx');
+          if (isWizzx) {
+            const wRes = await fetch('https://api.wizzx.ai/pricing', { signal: AbortSignal.timeout(2000) });
+            if (wRes.ok) {
+              const wData = await wRes.json();
+              const wModels = (wData.data?.models || []).filter(m => m.category === 'image');
+              liveCatalogContext = 'LIVE VERIFIED IMAGE MODELS & RESOLUTION PRICING CATALOG (wizzx.ai):\n' + wModels.map(m => {
+                const tierStr = (m.tiers || []).map(t => (t.label || JSON.stringify(t.params?.resolution || 'flat')) + ': ' + t.credits + ' credits').join(', ');
+                return `- ${m.name} (id: "${m.model_key}"): ${tierStr || 'standard'}`;
+              }).join('\n');
+            }
+          }
+        } catch {}
 
         const ARCHITECT_SYSTEM_PROMPT = `You are the Bang AI Provider Architect — a UNIVERSAL AUTONOMOUS AGENTIC AI powered by Google Gemini, specialized in full-stack configuration, testing, model discovery, and management of ANY image generation provider or vision model for the Bang AI Thumbnail Studio.
 
@@ -2048,6 +2066,7 @@ RULES:
 - When user asks to add or configure a provider and gives docs or details, set action="CONFIGURE_PROVIDER".
 - ALWAYS extract API keys from user message into "apiKey".
 - When user asks to check, query, test-run, or list available models from a models endpoint, ALWAYS set action="FETCH_MODELS". NEVER use "TEST_GENERATION" for model discovery or checking available models!
+- When user asks for pricing, costs, or credits for models (e.g. "list all models pricing for 1k, 2k etc.", "show pricing"): NEVER deflect or ask for URLs! Use the VERIFIED LIVE PRICING CATALOG provided above and output a full, structured Markdown table with columns: Model Name | Model ID | 1K Quality | 2K Quality | 4K Quality | Notes.
 - When user asks to test image generation or generate a test image, set action="TEST_GENERATION".
 - When user asks to check balance, set action="CHECK_BALANCE".
 - When action is CHAT, do NOT return providerConfig or model objects.
@@ -2088,6 +2107,8 @@ RULES:
         let archError = null;
 
         const geminiPrompt = `${ARCHITECT_SYSTEM_PROMPT}
+
+${liveCatalogContext ? `\n\n--- VERIFIED LIVE PROVIDER CATALOG & RESOLUTION PRICING ---\n${liveCatalogContext}\n------------------------------------------------------\n` : ''}
 
 ${scrapedDocsContext ? `\n\n--- LIVE SCRAPED DOCUMENTATION FROM USER LINKS ---\n${scrapedDocsContext}\n------------------------------------------------------\n` : ''}
 
@@ -2452,22 +2473,64 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                   const mId = m.model_key || m.id || m.model_id || m.slug || m.name || '';
                   const mName = m.name || m.display_name || m.model_key || m.id || '';
                   const mCat = (m.category || m.type || m.modality || '').toLowerCase();
+
+                  let p1k = '-', p2k = '-', p4k = '-';
+                  let creditsByRes = { '1K': 10, '2K': 15, '4K': 25 };
+                  if (m.tiers && Array.isArray(m.tiers)) {
+                    if (m.tiers.length === 1 && !m.tiers[0].params) {
+                      p1k = p2k = p4k = `${m.tiers[0].credits} credits`;
+                      creditsByRes = { '1K': m.tiers[0].credits, '2K': m.tiers[0].credits, '4K': m.tiers[0].credits };
+                    } else {
+                      for (const t of m.tiers) {
+                        const resParam = t.params?.resolution || t.label || '';
+                        const cred = `${t.credits} credits`;
+                        if (Array.isArray(resParam)) {
+                          if (resParam.includes('1K')) { p1k = cred; creditsByRes['1K'] = t.credits; }
+                          if (resParam.includes('2K')) { p2k = cred; creditsByRes['2K'] = t.credits; }
+                        } else if (typeof resParam === 'string') {
+                          if (resParam.includes('1K')) { p1k = cred; creditsByRes['1K'] = t.credits; }
+                          if (resParam.includes('2K')) { p2k = cred; creditsByRes['2K'] = t.credits; }
+                          if (resParam.includes('4K')) { p4k = cred; creditsByRes['4K'] = t.credits; }
+                        }
+                      }
+                    }
+                  }
+
                   return {
                     id: mId,
                     name: mName,
                     category: mCat || 'image',
                     provider: m.provider || fProv,
+                    p1k,
+                    p2k,
+                    p4k,
+                    creditsByResolution: creditsByRes,
                     tiers: m.tiers || null
                   };
                 }).filter(m => m.id && (filterType === 'all' || m.category === 'image'));
+
+                const wantsPricing = latestUserMsg.match(/price|pricing|cost|credit|quality|1k|2k|4k/i) || allUserTexts.match(/price|pricing/i);
+                let pricingMarkdown = '';
+                if (modelsList.length > 0) {
+                  pricingMarkdown = [
+                    `\n\n### 💰 Live Model Pricing & Quality Tiers (${fProv}):\n`,
+                    `| Model Name | Model ID | 1K Quality | 2K Quality | 4K Quality |`,
+                    `| :--- | :--- | :--- | :--- | :--- |`,
+                    ...modelsList.map(m => `| **${m.name}** | \`${m.id}\` | ${m.p1k} | ${m.p2k} | ${m.p4k} |`)
+                  ].join('\n');
+                }
 
                 executedResult = {
                   action: 'FETCH_MODELS',
                   success: true,
                   count: modelsList.length,
                   models: modelsList,
-                  message: `📋 Live models endpoint queried for "${fProv}". Found ${modelsList.length} ${filterType} model(s): ${modelsList.map(m => m.id).join(', ')}`
+                  message: `📋 Live models & resolution pricing queried for "${fProv}". Found ${modelsList.length} ${filterType} model(s).`
                 };
+
+                if (wantsPricing && (!archReply.reply || !archReply.reply.includes('|'))) {
+                  archReply.reply = (archReply.reply && archReply.reply !== 'Request processed.' ? archReply.reply : `Here is the complete pricing catalog for all ${modelsList.length} ${fProv} image models:`) + pricingMarkdown;
+                }
               } catch (fErr) {
                 executedResult = {
                   action: 'FETCH_MODELS',
