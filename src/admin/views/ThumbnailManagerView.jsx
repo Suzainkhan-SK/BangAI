@@ -215,7 +215,14 @@ export default function ThumbnailManagerView() {
     enabled: true,
     description: '',
     defaultPrompt: '',
-    showcaseImage: '/showcases/gpt_flare_2_5_ultra.png'
+    showcaseImage: '/showcases/gpt_flare_2_5_ultra.png',
+    endpointOverride: {
+      enabled: false,
+      generateUrl: '',
+      generateMethod: 'POST',
+      payloadFormat: 'openai',
+      customPayloadTemplate: '{\n  "model": "{{model}}",\n  "prompt": "{{prompt}}",\n  "aspect_ratio": "{{aspectRatio}}"\n}'
+    }
   });
 
   // ── New Preset Form State ──
@@ -378,7 +385,8 @@ export default function ThumbnailManagerView() {
       if (res.success) {
         const assistantMsgContent = JSON.stringify({
           reply: res.reply || 'Configuration analysis complete.',
-          action: res.action || 'show_config',
+          action: res.action || 'CHAT',
+          executed: res.executed || null,
           extractedConfig: res.extractedConfig || null,
           extractedModels: res.extractedModels || [],
           testEndpoint: res.testEndpoint || null,
@@ -386,6 +394,13 @@ export default function ThumbnailManagerView() {
         });
         setArchitectMessages(prev => [...prev, { role: 'assistant', content: assistantMsgContent }]);
         if (res.extractedConfig) setPendingConfig(res.extractedConfig);
+
+        // Auto-reload config if the AI executed database modifications
+        if (res.reloadConfig) {
+          await loadConfig();
+          setSavedMsg('✅ Live state updated by AI Architect!');
+          setTimeout(() => setSavedMsg(''), 4000);
+        }
       } else {
         setArchitectError(res.error || 'AI Architect returned an error');
       }
@@ -849,7 +864,14 @@ export default function ThumbnailManagerView() {
       enabled: true,
       description: '',
       defaultPrompt: '',
-      showcaseImage: '/showcases/gpt_flare_2_5_ultra.png'
+      showcaseImage: '/showcases/gpt_flare_2_5_ultra.png',
+      endpointOverride: {
+        enabled: false,
+        generateUrl: '',
+        generateMethod: 'POST',
+        payloadFormat: 'openai',
+        customPayloadTemplate: '{\n  "model": "{{model}}",\n  "prompt": "{{prompt}}",\n  "aspect_ratio": "{{aspectRatio}}"\n}'
+      }
     });
   };
 
@@ -1914,6 +1936,33 @@ export default function ThumbnailManagerView() {
                       </div>
                       {m.endpointOverride?.enabled && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {/* 1-Click Endpoint Templates */}
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '2px' }}>
+                            {[
+                              { label: '🌐 OpenAI Sync', fmt: 'openai', method: 'POST', url: 'https://api.openai.com/v1/images/generations' },
+                              { label: '🚀 Fal Queue', fmt: 'fal', method: 'POST', url: `https://queue.fal.run/${m.providerModelId || m.id}` },
+                              { label: '🔄 Replicate', fmt: 'replicate', method: 'POST', url: `https://api.replicate.com/v1/models/${m.providerModelId || m.id}/predictions` },
+                              { label: '⚡ Kie.ai', fmt: 'kie', method: 'POST', url: 'https://api.kie.ai/api/v1/jobs/createTask' },
+                              { label: '⚙️ Custom', fmt: 'custom', method: 'POST', url: '' }
+                            ].map(tpl => (
+                              <button
+                                key={tpl.label}
+                                type="button"
+                                className="admin-btn admin-btn-sm"
+                                style={{ fontSize: '9.5px', padding: '2px 6px' }}
+                                onClick={() => handleUpdateModelField(m.id, 'endpointOverride', {
+                                  ...(m.endpointOverride || {}),
+                                  enabled: true,
+                                  generateMethod: tpl.method,
+                                  payloadFormat: tpl.fmt,
+                                  generateUrl: tpl.url || m.endpointOverride?.generateUrl || ''
+                                })}
+                              >
+                                {tpl.label}
+                              </button>
+                            ))}
+                          </div>
+
                           <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '6px' }}>
                             <div>
                               <label style={{ fontSize: '9.5px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>Method:</label>
@@ -2458,12 +2507,59 @@ export default function ThumbnailManagerView() {
                     <div style={{ maxWidth: '80%', background: msg.role === 'user' ? 'rgba(255,79,0,0.12)' : 'rgba(255,255,255,0.04)', borderRadius: msg.role === 'user' ? '14px 4px 14px 14px' : '4px 14px 14px 14px', padding: '10px 14px', border: `1px solid ${msg.role === 'user' ? 'rgba(255,79,0,0.25)' : 'var(--admin-border-glass)'}` }}>
                       <p style={{ fontSize: '12.5px', color: 'var(--admin-text-main)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{displayText}</p>
 
-                      {/* Config Preview Card */}
-                      {parsed?.extractedConfig && (
+                      {/* ── Executed Action Live Results Card ── */}
+                      {parsed?.executed && (
+                        <div style={{
+                          marginTop: '10px',
+                          padding: '10px 14px',
+                          background: parsed.executed.success ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                          borderRadius: '8px',
+                          border: `1px solid ${parsed.executed.success ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 800, color: parsed.executed.success ? '#10b981' : '#ef4444', textTransform: 'uppercase' }}>
+                              ⚡ {parsed.executed.action}: {parsed.executed.success ? 'EXECUTED' : 'FAILED'}
+                            </span>
+                            {parsed.executed.success && (
+                              <span style={{ padding: '1px 6px', borderRadius: '4px', background: 'rgba(16,185,129,0.2)', color: '#10b981', fontSize: '9px', fontWeight: 800 }}>
+                                LIVE ATLS SYNCED
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--admin-text-main)', lineHeight: 1.4 }}>
+                            {parsed.executed.message || parsed.executed.error}
+                          </div>
+
+                          {/* Live Rendered Test Image Preview */}
+                          {parsed.executed.imageUrl && (
+                            <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div style={{ width: '100%', maxWidth: '360px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--admin-border-glass)', background: '#000' }}>
+                                <img
+                                  src={parsed.executed.imageUrl}
+                                  alt="Live Test Render"
+                                  style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'contain' }}
+                                />
+                              </div>
+                              <a
+                                href={parsed.executed.imageUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <span>View Full 4K Thumbnail in New Window</span>
+                                <span>↗</span>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Config Proposal Card (ONLY if show_config or unexecuted proposed config) */}
+                      {parsed?.extractedConfig && !parsed?.executed && (
                         <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.3)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                             <span style={{ fontSize: '11px', fontWeight: 800, color: '#6366f1', textTransform: 'uppercase' }}>
-                              {parsed.extractedConfig.icon || '⚡'} Extracted Provider Config
+                              {parsed.extractedConfig.icon || '⚡'} Proposed Provider Configuration
                               {parsed.confidence > 0 && <span style={{ marginLeft: '8px', color: parsed.confidence >= 80 ? '#10b981' : '#f59e0b' }}>• {parsed.confidence}% confidence</span>}
                             </span>
                           </div>
@@ -3185,6 +3281,48 @@ export default function ThumbnailManagerView() {
                 </div>
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Fallback Model Slug (optional):
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. flux-schnell"
+                    value={newModel.fallbackModelId}
+                    onChange={e => setNewModel({ ...newModel, fallbackModelId: e.target.value })}
+                    className="admin-input"
+                    style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Credits (1K / 2K / 4K):
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                    {['1K', '2K', '4K'].map(tier => (
+                      <input
+                        key={tier}
+                        type="number"
+                        min="0"
+                        placeholder={tier}
+                        value={newModel.creditsByResolution?.[tier] ?? 10}
+                        onChange={e => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setNewModel(prev => ({
+                            ...prev,
+                            credits: tier === '2K' ? val : prev.credits,
+                            creditsByResolution: { ...(prev.creditsByResolution || {}), [tier]: val }
+                          }));
+                        }}
+                        className="admin-input"
+                        style={{ fontSize: '11px', padding: '5px 4px', textAlign: 'center' }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
                   Description:
@@ -3197,6 +3335,129 @@ export default function ThumbnailManagerView() {
                   className="admin-input"
                   style={{ width: '100%', fontSize: '12px' }}
                 />
+              </div>
+
+              {/* ── Per-Model Endpoint Override in Add Model Modal ── */}
+              <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.25)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#6366f1', textTransform: 'uppercase' }}>
+                    ⚡ Model-Specific Endpoint Override (Optional)
+                  </span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <span style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}>
+                      {newModel.endpointOverride?.enabled ? 'Override ON' : 'Use Provider Default'}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(newModel.endpointOverride?.enabled)}
+                      onChange={e => setNewModel({
+                        ...newModel,
+                        endpointOverride: { ...(newModel.endpointOverride || {}), enabled: e.target.checked }
+                      })}
+                      style={{ accentColor: '#6366f1', width: '14px', height: '14px' }}
+                    />
+                  </label>
+                </div>
+                {newModel.endpointOverride?.enabled && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {/* 1-Click Endpoint Templates in Add Model Modal */}
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '2px' }}>
+                      {[
+                        { label: '🌐 OpenAI Sync', fmt: 'openai', method: 'POST', url: 'https://api.openai.com/v1/images/generations' },
+                        { label: '🚀 Fal Queue', fmt: 'fal', method: 'POST', url: `https://queue.fal.run/${newModel.providerModelId || newModel.id || 'model'}` },
+                        { label: '🔄 Replicate', fmt: 'replicate', method: 'POST', url: `https://api.replicate.com/v1/models/${newModel.providerModelId || newModel.id || 'model'}/predictions` },
+                        { label: '⚡ Kie.ai', fmt: 'kie', method: 'POST', url: 'https://api.kie.ai/api/v1/jobs/createTask' },
+                        { label: '⚙️ Custom', fmt: 'custom', method: 'POST', url: '' }
+                      ].map(tpl => (
+                        <button
+                          key={tpl.label}
+                          type="button"
+                          className="admin-btn admin-btn-sm"
+                          style={{ fontSize: '9.5px', padding: '2px 6px' }}
+                          onClick={() => setNewModel(prev => ({
+                            ...prev,
+                            endpointOverride: {
+                              ...(prev.endpointOverride || {}),
+                              enabled: true,
+                              generateMethod: tpl.method,
+                              payloadFormat: tpl.fmt,
+                              generateUrl: tpl.url || prev.endpointOverride?.generateUrl || ''
+                            }
+                          }))}
+                        >
+                          {tpl.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '6px' }}>
+                      <div>
+                        <label style={{ fontSize: '9.5px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>Method:</label>
+                        <select
+                          value={newModel.endpointOverride?.generateMethod || 'POST'}
+                          onChange={e => setNewModel({
+                            ...newModel,
+                            endpointOverride: { ...(newModel.endpointOverride || {}), generateMethod: e.target.value }
+                          })}
+                          className="admin-input"
+                          style={{ width: '100%', fontSize: '11px' }}
+                        >
+                          <option value="POST">POST</option>
+                          <option value="GET">GET</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '9.5px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>Custom Generation URL:</label>
+                        <input
+                          type="text"
+                          placeholder="https://queue.fal.run/fal-ai/flux/schnell"
+                          value={newModel.endpointOverride?.generateUrl || ''}
+                          onChange={e => setNewModel({
+                            ...newModel,
+                            endpointOverride: { ...(newModel.endpointOverride || {}), generateUrl: e.target.value }
+                          })}
+                          className="admin-input"
+                          style={{ width: '100%', fontSize: '11px', fontFamily: 'monospace' }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '9.5px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>Payload Format:</label>
+                      <select
+                        value={newModel.endpointOverride?.payloadFormat || 'openai'}
+                        onChange={e => setNewModel({
+                          ...newModel,
+                          endpointOverride: { ...(newModel.endpointOverride || {}), payloadFormat: e.target.value }
+                        })}
+                        className="admin-input"
+                        style={{ fontSize: '11px', width: '160px' }}
+                      >
+                        <option value="openai">OpenAI Compatible</option>
+                        <option value="kie">Kie.ai Format</option>
+                        <option value="fal">Fal.ai Queue</option>
+                        <option value="replicate">Replicate</option>
+                        <option value="custom">Custom JSON Template</option>
+                      </select>
+                    </div>
+                    {newModel.endpointOverride?.payloadFormat === 'custom' && (
+                      <div>
+                        <label style={{ fontSize: '9.5px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>
+                          Custom Payload Template:
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={newModel.endpointOverride?.customPayloadTemplate || '{\n  "prompt": "{{prompt}}",\n  "model": "{{model}}"\n}'}
+                          onChange={e => setNewModel({
+                            ...newModel,
+                            endpointOverride: { ...(newModel.endpointOverride || {}), customPayloadTemplate: e.target.value }
+                          })}
+                          className="admin-input"
+                          style={{ width: '100%', fontSize: '11px', fontFamily: 'monospace' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
