@@ -60,6 +60,18 @@ async function adminFetch(actionOrEndpoint, method = 'GET', body = null, params 
 
   try {
     const res = await fetch(url, options);
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok) {
+      if (res.status === 504) {
+        return { success: false, error: 'Server gateway timeout (504). The external provider or AI took too long to respond. Please try again.' };
+      }
+      const errText = await res.text().catch(() => '');
+      return { success: false, error: `Server error HTTP ${res.status}: ${errText.slice(0, 200)}` };
+    }
+    if (!contentType.includes('application/json')) {
+      const rawText = await res.text().catch(() => '');
+      return { success: false, error: `Invalid server response format: ${rawText.slice(0, 150)}` };
+    }
     const data = await res.json();
     return data;
   } catch (err) {
