@@ -178,9 +178,39 @@ export default function ThumbnailManagerView() {
   // ── UI Filters & Helpers ──
   const [modelTypeFilter, setModelTypeFilter] = useState('all');
   const [modelSearch, setModelSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddPresetModal, setShowAddPresetModal] = useState(false);
   const [revealedKeys, setRevealedKeys] = useState({});
+
+  const openAddModelModalForCategory = (providerId) => {
+    const provDef = providersList.find(p => p.id === providerId);
+    setNewModel({
+      id: '',
+      name: '',
+      provider: providerId,
+      providerModelId: '',
+      fallbackModelId: '',
+      badge: 'VIRAL 4K',
+      badgeColor: 'linear-gradient(135deg, #10b981, #06b6d4)',
+      credits: 6,
+      creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
+      type: 'text-to-image',
+      supportedResolutions: ['1K', '2K', '4K'],
+      enabled: true,
+      description: '',
+      defaultPrompt: '',
+      showcaseImage: '/showcases/gpt_flare_2_5_ultra.png',
+      endpointOverride: {
+        enabled: true,
+        generateUrl: provDef?.generateUrl || '',
+        generateMethod: provDef?.generateMethod || 'POST',
+        payloadFormat: provDef?.payloadFormat || 'openai',
+        customPayloadTemplate: provDef?.customPayloadTemplate || ''
+      }
+    });
+    setShowAddModal(true);
+  };
 
   // ── Real-Time Activity Logs State (Tab 7) ──
   const [logs, setLogs] = useState([]);
@@ -1706,22 +1736,207 @@ export default function ThumbnailManagerView() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowAddModal(true)}
-              className="admin-btn admin-btn-primary"
-              style={{ fontWeight: 800 }}
-            >
-              ➕ Add Vision Model
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setProviderModalMode('add');
+                  setProviderForm(INITIAL_PROVIDER_FORM);
+                  setShowProviderModal(true);
+                }}
+                className="admin-btn"
+                style={{ fontSize: '12px' }}
+              >
+                ➕ Add Provider / Category
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="admin-btn admin-btn-primary"
+                style={{ fontWeight: 800 }}
+              >
+                ➕ Add Vision Model
+              </button>
+            </div>
           </div>
 
-          {/* Model Cards Grid */}
-          <div className="admin-grid admin-grid-2" style={{ gap: '16px' }}>
-            {filteredModels.map(m => {
-              const resCredits = m.creditsByResolution || { '1K': 6, '2K': 10, '4K': 16 };
+          {/* Provider Category Navigation Filter Bar */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            overflowX: 'auto',
+            padding: '4px 0',
+            scrollbarWidth: 'none'
+          }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              CATEGORIES:
+            </span>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter('all')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: categoryFilter === 'all' ? 'linear-gradient(135deg, #ff4f00, #ff7700)' : 'var(--admin-bg-card)',
+                color: categoryFilter === 'all' ? '#fff' : 'var(--admin-text-main)',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                boxShadow: categoryFilter === 'all' ? '0 2px 8px rgba(255, 79, 0, 0.3)' : 'none'
+              }}
+            >
+              <span>🌐 All Categories ({models.length})</span>
+            </button>
+
+            {providersList.map(p => {
+              const count = models.filter(m => (m.provider || 'kie.ai') === p.id).length;
+              const isSelected = categoryFilter === p.id;
+              const isPrimary = p.id === activeProvider;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setCategoryFilter(p.id)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    border: isSelected ? '1px solid #ff4f00' : '1px solid var(--admin-border-glass)',
+                    background: isSelected ? 'rgba(255, 79, 0, 0.15)' : 'var(--admin-bg-card)',
+                    color: isSelected ? '#ff4f00' : 'var(--admin-text-main)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <span>{p.icon || '📦'}</span>
+                  <span>{p.name} ({count})</span>
+                  {isPrimary && (
+                    <span style={{
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                      background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                      color: '#fff',
+                      fontSize: '9px',
+                      fontWeight: 800
+                    }}>
+                      PRIMARY
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Grouped by Provider Categories */}
+          {(() => {
+            const categoriesToRender = categoryFilter === 'all'
+              ? providersList
+              : providersList.filter(p => p.id === categoryFilter);
+
+            return categoriesToRender.map(p => {
+              const categoryModels = filteredModels.filter(m => (m.provider || 'kie.ai') === p.id);
+              const isPrimary = p.id === activeProvider;
 
               return (
+                <div
+                  key={p.id}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    background: 'rgba(255,255,255,0.02)',
+                    borderRadius: '12px',
+                    border: isPrimary ? '1.5px solid rgba(255, 79, 0, 0.4)' : '1px solid var(--admin-border-glass)',
+                    padding: '16px'
+                  }}
+                >
+                  {/* Category Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '22px' }}>{p.icon || '📦'}</span>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--admin-text-main)' }}>
+                            {p.name} Category
+                          </span>
+                          {isPrimary ? (
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                              color: '#fff',
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              boxShadow: '0 0 10px rgba(16, 185, 129, 0.4)'
+                            }}>
+                              ⭐ PRIMARY ACTIVE ENGINE
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setActiveProvider(p.id)}
+                              className="admin-btn admin-btn-sm"
+                              style={{
+                                fontSize: '10.5px',
+                                padding: '2px 8px',
+                                background: 'rgba(255, 79, 0, 0.1)',
+                                color: '#ff4f00',
+                                borderColor: 'rgba(255, 79, 0, 0.3)'
+                              }}
+                            >
+                              ⭐ Set as Primary Provider
+                            </button>
+                          )}
+                          <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 600 }}>
+                            ({categoryModels.length} Real Models)
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontFamily: 'monospace', marginTop: '2px' }}>
+                          Category Base Endpoint: {p.generateUrl || 'https://api.kie.ai/api/v1/jobs/createTask'} · Mode: {p.mode || 'async'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => openAddModelModalForCategory(p.id)}
+                        className="admin-btn admin-btn-sm admin-btn-primary"
+                        style={{ fontSize: '11.5px', fontWeight: 700 }}
+                      >
+                        ➕ Add Model to {p.name}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Models Grid in this Category */}
+                  {categoryModels.length === 0 ? (
+                    <div style={{
+                      padding: '22px',
+                      textAlign: 'center',
+                      background: 'rgba(0,0,0,0.15)',
+                      borderRadius: '8px',
+                      border: '1px dashed var(--admin-border-glass)',
+                      color: 'var(--admin-text-sub)',
+                      fontSize: '12px'
+                    }}>
+                      No models configured in <strong>{p.name}</strong> category yet. Click "Add Model to {p.name}" to add active models.
+                    </div>
+                  ) : (
+                    <div className="admin-grid admin-grid-2" style={{ gap: '14px' }}>
+                      {categoryModels.map(m => {
+                        const resCredits = m.creditsByResolution || { '1K': 6, '2K': 10, '4K': 16 };
+                        return (
                 <div
                   key={m.id}
                   className="admin-card"
@@ -1995,9 +2210,14 @@ export default function ThumbnailManagerView() {
                     </div>
                   </div>
                 </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
-            })}
-          </div>
+            });
+          })()}
         </div>
       )}
 
@@ -2483,7 +2703,7 @@ export default function ThumbnailManagerView() {
               <span style={{ fontSize: '20px' }}>🤖</span>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--admin-text-main)' }}>Bang AI Provider Architect</div>
-                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Powered by Google Gemini 3.8 Flash • Live Web Search & Doc Browsing Active • Key-rotated engine</div>
+                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Powered by Google Gemini 2026 (gemini-3.8-flash / gemini-2.5-flash) • Real-Time Web & Doc Scraper Active • Autonomous Vault Engine</div>
               </div>
               <div style={{ marginLeft: 'auto', padding: '3px 8px', background: 'rgba(16,185,129,0.15)', color: '#10b981', borderRadius: '5px', fontSize: '10px', fontWeight: 800 }}>
                 ONLINE

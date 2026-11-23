@@ -210,22 +210,51 @@ function getAuthHeaders(providerDef, key) {
   return headers;
 }
 
-// Construct generation request payload based on provider format (OpenAI, Kie, Fal, Replicate, or Custom Template)
-function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resolution, width, height, numSteps }) {
+// Construct generation request payload based on provider format (OpenAI, Kie, Fal, Replicate, Wizzx, or Custom Template)
+function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resolution, width, height, numSteps, imageUrl }) {
   const format = providerDef.payloadFormat || 'openai';
+  const provId = providerDef.id || '';
+  const isWizzx = provId.includes('wizzx') || providerDef.generateUrl?.includes('wizzx.ai');
+
+  // Dedicated clean handling for Wizzx AI
+  if (isWizzx) {
+    const wizzxPayload = {
+      prompt,
+      aspect_ratio: aspectRatio || '16:9',
+      resolution: resolution || '2K'
+    };
+    if (imageUrl) {
+      wizzxPayload.image_urls = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
+    }
+    return wizzxPayload;
+  }
 
   if (format === 'custom' && providerDef.customPayloadTemplate) {
     let tpl = providerDef.customPayloadTemplate;
-    tpl = tpl.replace(/\{\{prompt\}\}/g, JSON.stringify(prompt).slice(1, -1));
-    tpl = tpl.replace(/\{\{model\}\}/g, model);
-    tpl = tpl.replace(/\{\{aspectRatio\}\}/g, aspectRatio);
-    tpl = tpl.replace(/\{\{resolution\}\}/g, resolution);
-    tpl = tpl.replace(/\{\{width\}\}/g, String(width));
-    tpl = tpl.replace(/\{\{height\}\}/g, String(height));
-    try {
-      return JSON.parse(tpl);
-    } catch {
-      // If template parsing fails, fallback below
+    if (typeof tpl === 'object') {
+      try {
+        tpl = JSON.stringify(tpl);
+      } catch {
+        tpl = '';
+      }
+    }
+    if (typeof tpl === 'string' && tpl.trim()) {
+      tpl = tpl.replace(/\{\{prompt\}\}/g, JSON.stringify(prompt || '').slice(1, -1));
+      tpl = tpl.replace(/\{\{model\}\}/g, model || '');
+      tpl = tpl.replace(/\{\{aspectRatio\}\}/gi, aspectRatio || '16:9');
+      tpl = tpl.replace(/\{\{aspect_ratio\}\}/gi, aspectRatio || '16:9');
+      tpl = tpl.replace(/\{\{resolution\}\}/gi, resolution || '2K');
+      tpl = tpl.replace(/\{\{version\}\}/gi, 'flare');
+      tpl = tpl.replace(/\{\{image_urls\}\}/gi, imageUrl ? JSON.stringify([imageUrl]) : '[]');
+      tpl = tpl.replace(/\{\{width\}\}/g, String(width || 1024));
+      tpl = tpl.replace(/\{\{height\}\}/g, String(height || 768));
+      // Remove any leftover mustache tags
+      tpl = tpl.replace(/"\{\{[^}]+\}\}"/g, 'null').replace(/\{\{[^}]+\}\}/g, '""');
+      try {
+        return JSON.parse(tpl);
+      } catch (err) {
+        console.warn('[thumbnail.js] Custom template parse failed, falling back:', err.message);
+      }
     }
   }
 
@@ -535,8 +564,8 @@ export const handler = async (event, context) => {
               }
             }
           }
-          if (!resolvedModel || resolvedModel === model) {
-            resolvedModel = providerDef.defaultModel || model;
+          if (!resolvedModel) {
+            resolvedModel = model || providerDef.defaultModel || 'gpt-image-2.5';
           }
 
           // Build generation URL:
@@ -664,10 +693,13 @@ export const handler = async (event, context) => {
           }
 
           // ── ASYNC PROVIDER MODE (Returns task ID for status polling) ──
-          const taskId = getValueByPath(json, providerDef.responseTaskIdPath || 'data.taskId')
-            || getValueByPath(json, 'request_id')
+          const taskId = (providerDef.responseTaskIdPath ? getValueByPath(json, providerDef.responseTaskIdPath) : null)
+            || getValueByPath(json, 'data.task_id')
+            || getValueByPath(json, 'data.taskId')
+            || getValueByPath(json, 'task_id')
+            || getValueByPath(json, 'taskId')
             || getValueByPath(json, 'id')
-            || json.taskId;
+            || getValueByPath(json, 'data.id');
 
           if (!taskId) {
             // Fallback: check if direct image URL was returned anyway
@@ -814,9 +846,17 @@ export const handler = async (event, context) => {
       // Status Check: SUCCESS
       if (String(statusVal).toUpperCase() === String(successTarget).toUpperCase() || statusVal === 'success' || statusVal === 'succeeded' || statusVal === 'COMPLETED') {
         let resultUrl = getValueByPath(pollJson, providerDef.pollResultUrlPath || 'data.resultUrl')
+          || getValueByPath(pollJson, 'data.result_urls[0]')
           || getValueByPath(pollJson, 'images[0].url')
           || getValueByPath(pollJson, 'output[0]')
           || getValueByPath(pollJson, 'resultUrl');
+
+        if (!resultUrl && Array.isArray(pollJson.data?.result_urls) && pollJson.data.result_urls.length > 0) {
+          resultUrl = pollJson.data.result_urls[0];
+        }
+        if (Array.isArray(resultUrl)) {
+          resultUrl = resultUrl[0];
+        }
 
         // Kie.ai special fallback for stringified resultJson
         if (!resultUrl && pollJson.data?.resultJson) {
@@ -849,7 +889,22 @@ export const handler = async (event, context) => {
           body: JSON.stringify({
             success: true,
             state: 'success',
-            resultUrl
+            resultUrl,
+            taskData: pollJson
+          })
+        };
+      }
+
+      // Status Check: FAILED
+      if (String(statusVal).toUpperCase() === 'FAILED' || String(statusVal).toUpperCase() === 'FAIL' || statusVal === 'failed') {
+        const errMsg = pollJson.data?.error || pollJson.error?.message || pollJson.error || pollJson.msg || 'Generation task failed on provider';
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: false,
+            state: 'failed',
+            error: errMsg
           })
         };
       }

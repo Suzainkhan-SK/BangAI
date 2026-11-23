@@ -1845,32 +1845,51 @@ export async function handler(event) {
                   }
                 } catch {}
                 let sRes = await fetch(fetchUrl, {
-                  headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'text/markdown, text/html, */*'
+                  },
                   signal: AbortSignal.timeout(6000)
                 });
                 if (!sRes.ok && fetchUrl !== u) {
                   sRes = await fetch(u, {
-                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/markdown, text/html, */*' },
                     signal: AbortSignal.timeout(6000)
                   });
                 }
                 if (sRes.ok) {
                   const rawText = await sRes.text();
-                  const clean = rawText
-                    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-                    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-                    .replace(/<[^>]+>/g, ' ')
-                    .replace(/&nbsp;/g, ' ')
-                    .replace(/\s+/g, ' ')
-                    .trim()
-                    .slice(0, 8000);
-                  return `=== LIVE SCRAPED DOCUMENTATION FROM URL: ${u} ===\n${clean}\n======================================================`;
+                  const isHtml = sRes.headers.get('content-type')?.includes('html') || rawText.includes('<html');
+                  let clean = rawText;
+                  if (isHtml) {
+                    clean = rawText
+                      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+                      .replace(/<[^>]+>/g, ' ')
+                      .replace(/&nbsp;/g, ' ')
+                      .replace(/\s+/g, ' ')
+                      .trim();
+                  }
+                  return `=== LIVE SCRAPED DOCUMENTATION FROM URL: ${u} ===\n${clean.slice(0, 10000)}\n======================================================`;
                 }
               } catch (err) {
                 console.warn(`[DocScraper] Failed to fetch ${u}:`, err.message);
               }
               return null;
             });
+
+            // If Wizzx docs referenced, automatically fetch llms.txt index
+            if (allUserTexts.includes('wizzx') || detectedUrls.some(u => u.includes('wizzx'))) {
+              scrapePromises.push(
+                fetch('https://docs.wizzx.ai/llms.txt', {
+                  headers: { 'Accept': 'text/plain', 'User-Agent': 'Mozilla/5.0' },
+                  signal: AbortSignal.timeout(4000)
+                }).then(r => r.ok ? r.text() : null)
+                  .then(t => t ? `=== WIZZX AI DOCUMENTATION INDEX (llms.txt) ===\n${t.slice(0, 5000)}\n==============================================` : null)
+                  .catch(() => null)
+              );
+            }
+
             const scrapedResults = await Promise.all(scrapePromises);
             scrapedDocsContext = scrapedResults.filter(Boolean).join('\n\n');
           } catch (scrapeErr) {
@@ -2044,13 +2063,21 @@ RULES:
           }
         };
 
-        // Primary: Google Gemini with user-provided key & live search grounding
-        const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyCQy8iNz0XwCHoW6Hi4PKntUAZxDtSlwyc';
+        // Primary: Google Gemini with user-provided key & live document scraping
+        const GEMINI_KEYS = [
+          archContext.geminiApiKey,
+          'AIzaSyCQy8iNz0XwCHoW6Hi4PKntUAZxDtSlwyc',
+          'AIzaSyDzcHWcvzT9XSDvQOchqHMJAc7BK_GkJAY',
+          process.env.GEMINI_API_KEY
+        ].filter(Boolean);
+
         const GEMINI_MODELS = [
           'gemini-3.8-flash',
-          'gemini-2.5-flash',
+          'gemini-3.7-flash',
+          'gemini-3.6-flash',
           'gemini-3.5-flash',
-          'gemini-2.5-flash-lite'
+          'gemini-2.5-flash',
+          'gemini-2.5-pro'
         ];
 
         let archReply = null;
@@ -2065,40 +2092,49 @@ ${archMessages.map(m => `[${m.role.toUpperCase()}]: ${typeof m.content === 'obje
 
 INSTRUCTION: Carefully analyze the user's latest request and all documentation. Return ONLY a single raw JSON object conforming to the response format specified. No markdown formatting, no other text.`;
 
-        for (const geminiModel of GEMINI_MODELS) {
+        for (const geminiKey of GEMINI_KEYS) {
           if (archReply) break;
-          try {
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`;
-            const gRes = await fetch(geminiUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  role: 'user',
-                  parts: [{ text: geminiPrompt }]
-                }],
-                tools: [{ google_search: {} }]
-              }),
-              signal: AbortSignal.timeout(15000)
-            });
+          for (const geminiModel of GEMINI_MODELS) {
+            if (archReply) break;
+            try {
+              const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`;
+              const gRes = await fetch(geminiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{
+                    role: 'user',
+                    parts: [{ text: geminiPrompt }]
+                  }],
+                  generationConfig: {
+                    responseMimeType: 'application/json'
+                  }
+                }),
+                signal: AbortSignal.timeout(9000)
+              });
 
-            if (gRes.ok) {
-              const gJson = await gRes.json();
-              const rawText = gJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
-              const parsedObj = parseJsonFromLlm(rawText);
-              if (parsedObj) {
-                archReply = parsedObj;
-                break;
-              } else if (rawText.trim()) {
-                archReply = { reply: rawText.trim(), action: 'CHAT' };
-                break;
+              if (gRes.ok) {
+                const gJson = await gRes.json();
+                const rawText = gJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const parsedObj = parseJsonFromLlm(rawText);
+                if (parsedObj) {
+                  archReply = parsedObj;
+                  break;
+                } else if (rawText.trim()) {
+                  archReply = { reply: rawText.trim(), action: 'CHAT' };
+                  break;
+                }
+              } else {
+                const errBody = await gRes.json().catch(() => ({}));
+                archError = `${geminiModel} HTTP ${gRes.status}: ${errBody.error?.message || 'Failed'}`;
+                // If key is reported as leaked or invalid, break to try next key immediately
+                if (gRes.status === 403 || gRes.status === 400) {
+                  break;
+                }
               }
-            } else {
-              const errBody = await gRes.json().catch(() => ({}));
-              archError = `${geminiModel} HTTP ${gRes.status}: ${errBody.error?.message || 'Failed'}`;
+            } catch (gErr) {
+              archError = `${geminiModel} Error: ${gErr.message}`;
             }
-          } catch (gErr) {
-            archError = `${geminiModel} Error: ${gErr.message}`;
           }
         }
 
@@ -2337,7 +2373,8 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
             const testKey = bKey || vaultKeys?.[0];
 
             if (testKey) {
-              const bUrl = archReply.balanceParams?.balanceUrl || provDef.balanceUrl || (prov === 'wizzx' ? 'https://api.wizzx.ai/api/v1/credits/balance' : (prov === 'kie.ai' ? 'https://api.kie.ai/api/v1/chat/credit' : null));
+              const isWizzxBal = prov.includes('wizzx') || provDef.balanceUrl?.includes('wizzx.ai');
+              const bUrl = archReply.balanceParams?.balanceUrl || provDef.balanceUrl || (isWizzxBal ? 'https://api.wizzx.ai/api/v1/credits/balance' : (prov === 'kie.ai' ? 'https://api.kie.ai/api/v1/chat/credit' : null));
               if (bUrl) {
                 const authHeader = provDef.authHeaderType === 'Key' ? `Key ${testKey}` : `Bearer ${testKey}`;
                 const bRes = await fetch(bUrl, {
@@ -2402,7 +2439,7 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                     }
                   }
                 }
-              } else if (tProv === 'wizzx' || provDef.generateUrl?.includes('wizzx.ai')) {
+              } else if (tProv.includes('wizzx') || provDef.generateUrl?.includes('wizzx.ai')) {
                 // Wizzx AI task submission & polling
                 const submitUrl = provDef.generateUrl || 'https://api.wizzx.ai/api/v1/task/submit/gpt-image-2.5';
                 const sRes = await fetch(submitUrl, {

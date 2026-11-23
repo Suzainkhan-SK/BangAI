@@ -157,10 +157,39 @@ export default function ThumbnailStudioPage({
     return () => { isMounted = false; };
   }, []);
 
-  const textToImageModels = modelsList.filter(m => m.type === 'text-to-image');
-  const imageToImageModels = modelsList.filter(m => m.type === 'image-to-image');
-  const otherModels = modelsList.filter(m => m.type !== 'text-to-image' && m.type !== 'image-to-image');
-  const activeModel = modelsList.find(m => m.id === selectedModelId) || modelsList[0] || THUMBNAIL_MODELS[0];
+  // Filter models strictly to active primary provider
+  const providerModelsList = React.useMemo(() => {
+    if (!modelsList || modelsList.length === 0) return THUMBNAIL_MODELS;
+    const activeProv = (activeProvider || 'wizzx.ai').toLowerCase();
+    
+    const filtered = modelsList.filter(m => {
+      if (!m.provider) return activeProv === 'kie.ai';
+      const mProv = m.provider.toLowerCase();
+      return mProv === activeProv || 
+             mProv === activeProv.replace('.ai', '') || 
+             activeProv === mProv.replace('.ai', '') ||
+             (activeProv.includes('wizzx') && mProv.includes('wizzx')) ||
+             (activeProv.includes('kie') && mProv.includes('kie'));
+    });
+    
+    return filtered.length > 0 ? filtered : modelsList;
+  }, [modelsList, activeProvider]);
+
+  const textToImageModels = providerModelsList.filter(m => m.type === 'text-to-image');
+  const imageToImageModels = providerModelsList.filter(m => m.type === 'image-to-image');
+  const otherModels = providerModelsList.filter(m => m.type !== 'text-to-image' && m.type !== 'image-to-image');
+  const activeModel = providerModelsList.find(m => m.id === selectedModelId) || providerModelsList[0] || THUMBNAIL_MODELS[0];
+
+  // Auto-synchronize selectedModelId when active provider or providerModelsList changes
+  useEffect(() => {
+    if (providerModelsList.length > 0 && !providerModelsList.some(m => m.id === selectedModelId)) {
+      const first = providerModelsList[0];
+      setSelectedModelId(first.id);
+      if (first.defaultPrompt) {
+        setPrompt(first.defaultPrompt);
+      }
+    }
+  }, [providerModelsList, selectedModelId]);
 
   // Reference image state
   const [refImageFile, setRefImageFile] = useState(null);
@@ -213,7 +242,7 @@ export default function ThumbnailStudioPage({
     setGenerationMode(mode);
     if (mode === 'text-to-image') {
       if (!textToImageModels.some(m => m.id === selectedModelId)) {
-        const nextM = textToImageModels[0] || modelsList[0];
+        const nextM = textToImageModels[0] || providerModelsList[0];
         if (nextM) {
           setSelectedModelId(nextM.id);
           if (!prompt || imageToImageModels.some(im => im.defaultPrompt === prompt)) {
@@ -223,7 +252,7 @@ export default function ThumbnailStudioPage({
       }
     } else if (mode === 'image-to-image') {
       if (!imageToImageModels.some(m => m.id === selectedModelId)) {
-        const nextM = imageToImageModels[0] || modelsList[0];
+        const nextM = imageToImageModels[0] || providerModelsList[0];
         if (nextM) {
           setSelectedModelId(nextM.id);
           if (!prompt || textToImageModels.some(tm => tm.defaultPrompt === prompt)) {
@@ -239,7 +268,7 @@ export default function ThumbnailStudioPage({
     audioEngine.playSfx('click');
     setSelectedModelId(modelId);
     setCurrentResult(null);
-    const m = modelsList.find(item => item.id === modelId) || THUMBNAIL_MODELS.find(item => item.id === modelId);
+    const m = providerModelsList.find(item => item.id === modelId) || THUMBNAIL_MODELS.find(item => item.id === modelId);
     if (m) {
       if (generationMode !== 'all' && m.type && m.type !== generationMode) {
         setGenerationMode(m.type);
@@ -247,7 +276,7 @@ export default function ThumbnailStudioPage({
       if (m.supportedResolutions && m.supportedResolutions.length > 0 && !m.supportedResolutions.includes(resolution)) {
         setResolution(m.supportedResolutions[m.supportedResolutions.length - 1]);
       }
-      if (!prompt || modelsList.some(other => other.defaultPrompt === prompt)) {
+      if (!prompt || providerModelsList.some(other => other.defaultPrompt === prompt)) {
         setPrompt(m.defaultPrompt);
       }
     }
@@ -665,8 +694,8 @@ export default function ThumbnailStudioPage({
             {/* Active Vision Engine Badge */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '8px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', fontSize: '11px', fontWeight: 700, color: '#6366f1', whiteSpace: 'nowrap' }}>
               <span>{activeProviderIcon}</span>
-              <span style={{ display: isMobile ? 'none' : 'inline' }}>Engine: {activeProviderName}</span>
-              <span style={{ display: isMobile ? 'inline' : 'none' }}>{activeProviderName.split(' ')[0]}</span>
+              <span style={{ display: isMobile ? 'none' : 'inline' }}>Engine: {activeProviderName} ({providerModelsList.length} Models Active)</span>
+              <span style={{ display: isMobile ? 'inline' : 'none' }}>{activeProviderName.split(' ')[0]} ({providerModelsList.length})</span>
             </div>
 
             {history.length > 0 && (
@@ -875,7 +904,7 @@ export default function ThumbnailStudioPage({
                           transition: 'all 0.15s ease'
                         }}
                       >
-                        All ({modelsList.length})
+                        All ({providerModelsList.length})
                       </button>
                       <button
                         type="button"
