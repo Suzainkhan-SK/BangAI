@@ -1913,7 +1913,10 @@ export async function handler(event) {
           providerKeys: Object.keys(archKeysDoc?.providers || {})
         };
 
-        const ARCHITECT_SYSTEM_PROMPT = `You are the Bang AI Provider Architect — an AUTONOMOUS AGENTIC AI powered by Google Gemini, specialized in full-stack configuration, testing, and management of image generation providers and vision models for the Bang AI Thumbnail Studio.
+        const ARCHITECT_SYSTEM_PROMPT = `You are the Bang AI Provider Architect — a UNIVERSAL AUTONOMOUS AGENTIC AI powered by Google Gemini, specialized in full-stack configuration, testing, model discovery, and management of ANY image generation provider or vision model for the Bang AI Thumbnail Studio.
+
+You are NOT restricted to any single provider. You can configure, test, query, and manage ANY service:
+- Wizzx AI, Kie.ai, Fal.ai, Replicate, Ideogram, Midjourney/GoAPI, OpenAI/DALL-E, Stability AI, Together AI, Leonardo AI, Runware, Grok, Kling, ByteDance Seedream, Google Imagen/Nano Banana, or ANY custom REST/Webhook API.
 
 You have DIRECT ACCESS to modify the database, test image generation, check API balances, and configure providers and model endpoints on behalf of the user.
 
@@ -1934,7 +1937,7 @@ YOUR AVAILABLE ACTIONS (You must pick ONE action per turn):
    If an API key is in the text, extract it into "apiKey".
    Provide "providerConfig" object:
    {
-     "id": "provider-slug (lowercase, no spaces, e.g. wizzx)",
+     "id": "provider-slug (lowercase, no spaces, e.g. ideogram, fal, replicate)",
      "name": "Provider Display Name",
      "icon": "emoji",
      "mode": "sync" or "async",
@@ -1961,11 +1964,12 @@ YOUR AVAILABLE ACTIONS (You must pick ONE action per turn):
      "modelsListPath": "..."
    }
    Set "setAsPrimary": true if user requested to make it primary or default.
-   Optional "models": array of model objects to add along with this provider. When configuring a provider from docs, ALWAYS extract all image models mentioned in the docs into the "models" array, each with endpointOverride.enabled=true and their model-specific endpoint.
+   Optional "models": array of model objects to add along with this provider.
 
 2. "ADD_OR_UPDATE_MODEL":
-   Use when user wants to add a model or update an existing model (including custom endpoints, credits, prompts, etc.).
-   Provide "model" object:
+   Use when user wants to add a model or update existing models (including custom endpoints, credits, prompts, etc.).
+   Supports either a single "model" object OR an array of "models" for bulk additions.
+   Model format:
    {
      "id": "model-id (unique slug)",
      "name": "Model Name",
@@ -2286,47 +2290,56 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
             shouldReloadConfig = true;
           }
 
-          // ── ACTION 2: ADD_OR_UPDATE_MODEL ──
-          else if (archReply.action === 'ADD_OR_UPDATE_MODEL' && archReply.model?.id) {
-            const m = archReply.model;
+          // ── ACTION 2: ADD_OR_UPDATE_MODEL (Single or Bulk) ──
+          else if (archReply.action === 'ADD_OR_UPDATE_MODEL' && (archReply.model?.id || (Array.isArray(archReply.models) && archReply.models.length > 0))) {
+            const rawModels = Array.isArray(archReply.models) && archReply.models.length > 0
+              ? archReply.models
+              : [archReply.model];
+
             const sysCol = db.collection('system_config');
             const curSysDoc = await sysCol.findOne({ _id: 'thumbnail_configuration' });
             let curModels = [...(curSysDoc?.models || [])];
+            const addedNames = [];
 
-            const existingIdx = curModels.findIndex(item => item.id === m.id);
-            const modelObj = {
-              id: m.id,
-              name: m.name || m.id,
-              provider: m.provider || curSysDoc?.activeProvider || 'kie.ai',
-              providerModelId: m.providerModelId || m.id,
-              fallbackModelId: m.fallbackModelId || '',
-              badge: m.badge || 'VIRAL 4K',
-              badgeColor: m.badgeColor || 'linear-gradient(135deg, #10b981, #06b6d4)',
-              credits: m.credits || 10,
-              creditsByResolution: m.creditsByResolution || { '1K': 6, '2K': 10, '4K': 16 },
-              type: m.type || 'text-to-image',
-              supportedResolutions: ['1K', '2K', '4K'],
-              enabled: m.enabled ?? true,
-              description: m.description || '',
-              defaultPrompt: m.defaultPrompt || '',
-              showcaseImage: m.showcaseImage || '/showcases/gpt_flare_2_5_ultra.png',
-              endpointOverride: m.endpointOverride || { enabled: false }
-            };
+            for (const m of rawModels) {
+              if (!m || !m.id) continue;
+              const existingIdx = curModels.findIndex(item => item.id === m.id);
+              const modelObj = {
+                id: m.id,
+                name: m.name || m.id,
+                provider: m.provider || curSysDoc?.activeProvider || 'kie.ai',
+                providerModelId: m.providerModelId || m.id,
+                fallbackModelId: m.fallbackModelId || '',
+                badge: m.badge || 'VIRAL 4K',
+                badgeColor: m.badgeColor || 'linear-gradient(135deg, #10b981, #06b6d4)',
+                credits: m.credits || 10,
+                creditsByResolution: m.creditsByResolution || { '1K': 6, '2K': 10, '4K': 16 },
+                type: m.type || 'text-to-image',
+                supportedResolutions: ['1K', '2K', '4K'],
+                enabled: m.enabled ?? true,
+                description: m.description || '',
+                defaultPrompt: m.defaultPrompt || '',
+                showcaseImage: m.showcaseImage || '/showcases/gpt_flare_2_5_ultra.png',
+                endpointOverride: m.endpointOverride || { enabled: false }
+              };
 
-            if (existingIdx >= 0) {
-              curModels[existingIdx] = { ...curModels[existingIdx], ...modelObj };
-            } else {
-              curModels.push(modelObj);
+              if (existingIdx >= 0) {
+                curModels[existingIdx] = { ...curModels[existingIdx], ...modelObj };
+              } else {
+                curModels.push(modelObj);
+              }
+              addedNames.push(modelObj.name);
             }
 
             await sysCol.updateOne({ _id: 'thumbnail_configuration' }, { $set: { models: curModels, updatedAt: new Date().toISOString() } }, { upsert: true });
-            await logAdminAction(db, 'AI_ARCHITECT_MODEL_UPDATE', { modelId: m.id, isNew: existingIdx < 0 }, clientIp);
+            await logAdminAction(db, 'AI_ARCHITECT_MODEL_UPDATE', { count: addedNames.length, models: addedNames }, clientIp);
 
             executedResult = {
               action: 'ADD_OR_UPDATE_MODEL',
               success: true,
-              message: `✅ Model "${modelObj.name}" ${existingIdx >= 0 ? 'updated' : 'added'} with endpoint: ${modelObj.endpointOverride?.enabled ? modelObj.endpointOverride.generateUrl : 'provider default'}.`,
-              model: modelObj
+              count: addedNames.length,
+              message: `✅ Successfully configured ${addedNames.length} model(s): ${addedNames.join(', ')}.`,
+              models: rawModels
             };
             shouldReloadConfig = true;
           }
