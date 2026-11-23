@@ -8,6 +8,25 @@ const THUMBNAIL_PROXY_URL = '/.netlify/functions/thumbnail';
 
 // In-memory cache for live admin-configured settings, models & presets
 let liveThumbnailConfigCache = null;
+const CACHE_STORAGE_KEY = 'bangai_thumbnail_config_v1';
+
+export function getStoredThumbnailConfig() {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(CACHE_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    }
+  } catch {}
+  return null;
+}
+
+export function saveStoredThumbnailConfig(config) {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage && config) {
+      window.localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(config));
+    }
+  } catch {}
+}
 
 /**
  * Fetch dynamic thumbnail studio configuration from MongoDB Atlas via serverless function.
@@ -18,12 +37,22 @@ export async function fetchLiveThumbnailConfig(forceRefresh = false) {
     return liveThumbnailConfigCache;
   }
 
+  // Pre-fill memory cache from persistent localStorage if available
+  if (!liveThumbnailConfigCache) {
+    const stored = getStoredThumbnailConfig();
+    if (stored) {
+      liveThumbnailConfigCache = stored;
+      if (!forceRefresh) return stored;
+    }
+  }
+
   try {
     const res = await fetch(`${THUMBNAIL_PROXY_URL}?action=getConfig&t=${Date.now()}`);
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
         liveThumbnailConfigCache = data;
+        saveStoredThumbnailConfig(data);
         return data;
       }
     }
@@ -31,10 +60,15 @@ export async function fetchLiveThumbnailConfig(forceRefresh = false) {
     console.warn('[thumbnailService] Failed to load live config, using static defaults:', err.message);
   }
 
+  const stored = getStoredThumbnailConfig();
+  if (stored) return stored;
+
   liveThumbnailConfigCache = {
-    activeProvider: 'kie.ai',
+    activeProvider: 'wizzx.ai',
+    activeProviderName: 'Wizzx AI',
+    activeProviderIcon: '✨',
     providerRotationEnabled: true,
-    fallbackChain: ['kie.ai', 'fal.ai', 'replicate', 'together', 'openai'],
+    fallbackChain: ['wizzx.ai', 'kie.ai', 'fal.ai', 'replicate', 'together', 'openai'],
     systemPrompt: '',
     systemPromptEnabled: false,
     negativePrompt: '--no watermark, no blur, no low resolution, no deformed faces',

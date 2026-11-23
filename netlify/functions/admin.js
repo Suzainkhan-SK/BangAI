@@ -2567,12 +2567,39 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
 
           // ── ACTION 6: TEST_GENERATION ──
           else if (archReply.action === 'TEST_GENERATION') {
-            const tProv = archReply.testParams?.provider || currentState.activeProvider;
-            const tModel = archReply.testParams?.model || (archConfigDoc?.models?.[0]?.id) || 'gpt-image-2-5-flare-text-to-image';
+            const allConfigModels = archConfigDoc?.models || [];
+            const reqModel = archReply.testParams?.model || '';
+            const normReqModel = (reqModel || '').toLowerCase().trim();
+
+            // Intelligent model resolution: find exact ID, providerModelId, name, or substring
+            let foundModel = null;
+            if (normReqModel) {
+              foundModel = allConfigModels.find(m =>
+                m.id?.toLowerCase() === normReqModel ||
+                m.providerModelId?.toLowerCase() === normReqModel ||
+                m.name?.toLowerCase() === normReqModel ||
+                m.id?.toLowerCase().replace(/[^a-z0-9]/g, '') === normReqModel.replace(/[^a-z0-9]/g, '') ||
+                m.name?.toLowerCase().replace(/[^a-z0-9]/g, '') === normReqModel.replace(/[^a-z0-9]/g, '')
+              );
+              if (!foundModel) {
+                foundModel = allConfigModels.find(m =>
+                  m.id?.toLowerCase().includes(normReqModel) ||
+                  normReqModel.includes(m.id?.toLowerCase()) ||
+                  m.providerModelId?.toLowerCase().includes(normReqModel) ||
+                  normReqModel.includes(m.providerModelId?.toLowerCase()) ||
+                  m.name?.toLowerCase().includes(normReqModel) ||
+                  normReqModel.includes(m.name?.toLowerCase())
+                );
+              }
+            }
+
+            const tProv = archReply.testParams?.provider || foundModel?.provider || currentState.activeProvider || 'wizzx.ai';
+            const provDef = archConfigDoc?.customProviders?.[tProv] || {};
+            const resolvedModelSlug = foundModel?.providerModelId || foundModel?.id || reqModel || provDef.defaultModel || 'gpt-image-2.5';
+            const modelDisplayName = foundModel?.name || resolvedModelSlug;
             const tPrompt = archReply.testParams?.prompt || 'Cinematic 4K YouTube thumbnail of a shocked creator in a glowing gold vault';
             const tKey = archReply.testParams?.apiKey || finalKeyToVault;
 
-            const provDef = archConfigDoc?.customProviders?.[tProv] || {};
             const keysDoc = await db.collection('api_keys').findOne({ _id: 'thumbnail_keys' });
             const vaultKeys = keysDoc?.providers?.[tProv]?.keys || (tProv === 'kie.ai' ? keysDoc?.pool : []);
             const keyToUse = tKey || vaultKeys?.[0];
@@ -2580,106 +2607,135 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
             if (keyToUse) {
               const startTime = Date.now();
               let testImgUrl = null;
+              let detailedError = null;
 
-              if (tProv === 'kie.ai') {
-                const cRes = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${keyToUse}` },
-                  body: JSON.stringify({ model: tModel, input: { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' } }),
-                  signal: AbortSignal.timeout(10000)
-                });
-                const cJson = await cRes.json();
-                if (cJson.data?.taskId) {
-                  for (let i = 0; i < 2; i++) {
-                    await new Promise(r => setTimeout(r, 1200));
-                    const pRes = await fetch(`https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${cJson.data.taskId}`, {
-                      headers: { 'Authorization': `Bearer ${keyToUse}` },
-                      signal: AbortSignal.timeout(4000)
-                    });
-                    const pJson = await pRes.json().catch(() => ({}));
-                    if (pJson.data?.state === 'success') {
-                      testImgUrl = pJson.data.resultUrls?.[0] || pJson.data.resultUrl;
-                      break;
-                    }
-                  }
-                  if (!testImgUrl) {
-                    executedResult = {
-                      action: 'TEST_GENERATION',
-                      success: true,
-                      taskId: cJson.data.taskId,
-                      state: 'processing',
-                      message: `🚀 Test generation submitted successfully to Kie.ai cluster (Task ID: ${cJson.data.taskId}). Task is currently processing.`
-                    };
-                  }
+              // 1. Resolve Target Endpoint & Method (Per-model override wins)
+              let submitUrl;
+              let generateMethod = provDef.generateMethod || 'POST';
+              let payloadFormat = provDef.payloadFormat || (tProv.includes('wizzx') ? 'wizzx' : (tProv === 'kie.ai' ? 'kie' : 'openai'));
+              let customTemplate = provDef.customPayloadTemplate || null;
+
+              if (foundModel?.endpointOverride?.enabled && foundModel.endpointOverride.generateUrl) {
+                submitUrl = foundModel.endpointOverride.generateUrl;
+                if (foundModel.endpointOverride.generateMethod) generateMethod = foundModel.endpointOverride.generateMethod;
+                if (foundModel.endpointOverride.payloadFormat) payloadFormat = foundModel.endpointOverride.payloadFormat;
+                if (foundModel.endpointOverride.customPayloadTemplate) customTemplate = foundModel.endpointOverride.customPayloadTemplate;
+              } else if (provDef.generateUrl) {
+                submitUrl = provDef.generateUrl;
+              } else if (tProv === 'kie.ai') {
+                submitUrl = 'https://api.kie.ai/api/v1/jobs/createTask';
+              } else if (tProv.includes('wizzx')) {
+                submitUrl = 'https://api.wizzx.ai/api/v1/task/submit/{{model}}';
+              } else {
+                submitUrl = `${provDef.baseUrl || 'https://api.wizzx.ai/api/v1'}/task/submit/{{model}}`;
+              }
+
+              // Replace {{model}} interpolation variable in endpoint URL
+              submitUrl = submitUrl.replace(/\{\{model\}\}/g, encodeURIComponent(resolvedModelSlug));
+
+              // 2. Resolve Auth Header
+              const authHeaders = { 'Content-Type': 'application/json' };
+              if (provDef.authHeaderType === 'Key') {
+                authHeaders['Authorization'] = `Key ${keyToUse}`;
+              } else if (provDef.authHeaderType === 'Token') {
+                authHeaders['Authorization'] = `Token ${keyToUse}`;
+              } else if (provDef.authHeaderType === 'x-api-key') {
+                authHeaders[provDef.customHeaderName || 'x-api-key'] = keyToUse;
+              } else if (provDef.authHeaderType === 'Custom') {
+                authHeaders[provDef.customHeaderName || 'Authorization'] = (provDef.authPrefix || '') + keyToUse;
+              } else {
+                authHeaders['Authorization'] = `Bearer ${keyToUse}`;
+              }
+
+              // 3. Build Payload
+              let requestBody;
+              if (customTemplate) {
+                let tpl = typeof customTemplate === 'object' ? JSON.stringify(customTemplate) : customTemplate;
+                tpl = tpl.replace(/\{\{prompt\}\}/g, JSON.stringify(tPrompt).slice(1, -1));
+                tpl = tpl.replace(/\{\{model\}\}/g, resolvedModelSlug);
+                tpl = tpl.replace(/\{\{aspectRatio\}\}/gi, '16:9');
+                tpl = tpl.replace(/\{\{aspect_ratio\}\}/gi, '16:9');
+                tpl = tpl.replace(/\{\{resolution\}\}/gi, '1K');
+                try {
+                  requestBody = JSON.parse(tpl);
+                } catch {
+                  requestBody = { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' };
                 }
-              } else if (tProv.includes('wizzx') || provDef.generateUrl?.includes('wizzx.ai')) {
-                // Wizzx AI task submission & polling
-                const submitUrl = provDef.generateUrl || 'https://api.wizzx.ai/api/v1/task/submit/gpt-image-2.5';
+              } else if (payloadFormat === 'kie' || tProv === 'kie.ai') {
+                requestBody = { model: resolvedModelSlug, input: { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' } };
+              } else if (payloadFormat === 'wizzx' || tProv.includes('wizzx') || submitUrl.includes('wizzx.ai')) {
+                requestBody = { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' };
+              } else if (payloadFormat === 'fal') {
+                requestBody = { prompt: tPrompt, image_size: 'landscape_16_9', num_inference_steps: 4 };
+              } else if (payloadFormat === 'replicate') {
+                requestBody = { input: { prompt: tPrompt, aspect_ratio: '16:9' } };
+              } else {
+                // OpenAI / Together default
+                requestBody = { model: resolvedModelSlug, prompt: tPrompt, n: 1, size: '1024x1024' };
+              }
+
+              // 4. Dispatch Generation Request
+              try {
                 const sRes = await fetch(submitUrl, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${keyToUse}` },
-                  body: JSON.stringify({ prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' }),
-                  signal: AbortSignal.timeout(8000)
+                  method: generateMethod,
+                  headers: authHeaders,
+                  body: JSON.stringify(requestBody),
+                  signal: AbortSignal.timeout(9000)
                 });
                 const sJson = await sRes.json().catch(() => ({}));
-                const taskId = sJson.data?.task_id || sJson.task_id;
+
+                // Extract task ID for async cluster providers
+                const taskId = sJson.data?.task_id || sJson.task_id || sJson.data?.taskId || sJson.taskId || sJson.id || sJson.data?.id;
+
+                // Check for immediate direct image URLs (OpenAI / DALL-E / synchronous engines)
+                if (sJson.data?.[0]?.url || sJson.images?.[0]?.url || sJson.output?.[0]) {
+                  testImgUrl = sJson.data?.[0]?.url || sJson.images?.[0]?.url || sJson.output?.[0];
+                }
+
                 if (taskId) {
-                  const pollUrl = (provDef.pollUrlTemplate || 'https://api.wizzx.ai/api/v1/task/{{taskId}}').replace('{{taskId}}', taskId);
-                  for (let i = 0; i < 2; i++) {
+                  // Resolve Polling URL
+                  let pollUrl;
+                  if (tProv === 'kie.ai' || submitUrl.includes('kie.ai')) {
+                    pollUrl = `https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${taskId}`;
+                  } else {
+                    pollUrl = (provDef.pollUrlTemplate || 'https://api.wizzx.ai/api/v1/task/{{taskId}}').replace(/\{\{taskId\}\}/g, taskId);
+                  }
+
+                  // Poll up to 3 times (with 1200ms intervals)
+                  for (let i = 0; i < 3; i++) {
                     await new Promise(r => setTimeout(r, 1200));
                     const pRes = await fetch(pollUrl, {
-                      headers: { 'Authorization': `Bearer ${keyToUse}` },
+                      headers: authHeaders,
                       signal: AbortSignal.timeout(4000)
                     });
                     const pJson = await pRes.json().catch(() => ({}));
-                    if (pJson.data?.status === 'SUCCEEDED') {
-                      testImgUrl = pJson.data?.result_urls?.[0];
+                    const status = pJson.data?.status || pJson.status || pJson.data?.state || '';
+
+                    if (status === 'SUCCEEDED' || status === 'success' || status === 'COMPLETED' || status === 'succeeded') {
+                      testImgUrl = pJson.data?.result_urls?.[0] || pJson.data?.resultUrl || pJson.output?.[0] || pJson.images?.[0]?.url;
                       break;
                     }
-                    if (pJson.data?.status === 'FAILED') break;
+                    if (status === 'FAILED' || status === 'failed') {
+                      detailedError = pJson.data?.error || pJson.error || 'Provider reported task failed';
+                      break;
+                    }
                   }
-                  if (!testImgUrl) {
+
+                  if (!testImgUrl && !detailedError) {
+                    // Task is accepted and actively rendering in the cluster
                     executedResult = {
                       action: 'TEST_GENERATION',
                       success: true,
                       taskId,
                       state: 'processing',
-                      message: `🚀 Test generation submitted successfully to Wizzx AI cluster (Task ID: ${taskId}). Task is currently rendering.`
+                      message: `🚀 Test generation successfully initiated for "${modelDisplayName}" on ${tProv} (Task ID: ${taskId}). Cluster rendering is active.`
                     };
                   }
+                } else if (!testImgUrl) {
+                  detailedError = sJson.message || sJson.msg || sJson.error?.message || (typeof sJson.error === 'string' ? sJson.error : null) || (!sRes.ok ? `HTTP ${sRes.status} ${sRes.statusText || ''}`.trim() : 'Task submission failed. Check model slug and API endpoint.');
                 }
-              } else if (provDef.mode === 'async' && provDef.generateUrl) {
-                // Generic async provider
-                const authHeader = provDef.authHeaderType === 'Key' ? `Key ${keyToUse}` : `Bearer ${keyToUse}`;
-                const sRes = await fetch(provDef.generateUrl, {
-                  method: provDef.generateMethod || 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': authHeader },
-                  body: JSON.stringify({ prompt: tPrompt }),
-                  signal: AbortSignal.timeout(8000)
-                });
-                const sJson = await sRes.json().catch(() => ({}));
-                const taskId = sJson.data?.task_id || sJson.task_id || sJson.id;
-                if (taskId && provDef.pollUrlTemplate) {
-                  const pollUrl = provDef.pollUrlTemplate.replace('{{taskId}}', taskId);
-                  for (let i = 0; i < 2; i++) {
-                    await new Promise(r => setTimeout(r, 1200));
-                    const pRes = await fetch(pollUrl, { headers: { 'Authorization': authHeader }, signal: AbortSignal.timeout(4000) });
-                    const pJson = await pRes.json().catch(() => ({}));
-                    if (pJson.data?.status === (provDef.pollSuccessValue || 'SUCCEEDED') || pJson.status === 'succeeded' || pJson.status === 'COMPLETED') {
-                      testImgUrl = pJson.data?.result_urls?.[0] || pJson.output?.[0] || pJson.images?.[0]?.url;
-                      break;
-                    }
-                  }
-                  if (!testImgUrl) {
-                    executedResult = {
-                      action: 'TEST_GENERATION',
-                      success: true,
-                      taskId,
-                      state: 'processing',
-                      message: `🚀 Test task submitted to ${tProv} cluster (Task ID: ${taskId}). Rendering in progress.`
-                    };
-                  }
-                }
+              } catch (fetchErr) {
+                detailedError = fetchErr.message;
               }
 
               const costTime = Math.round((Date.now() - startTime) / 1000);
@@ -2688,14 +2744,15 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                   action: 'TEST_GENERATION',
                   success: true,
                   imageUrl: testImgUrl,
-                  message: `🧪 Test generation on "${tProv}" succeeded in ${costTime}s!`,
+                  message: `🧪 Test generation for "${modelDisplayName}" on "${tProv}" succeeded in ${costTime}s!`,
                   costTime
                 };
               } else if (!executedResult) {
                 executedResult = {
                   action: 'TEST_GENERATION',
                   success: false,
-                  message: `Task submission failed on "${tProv}". Check model parameters.`,
+                  message: `Task submission failed on "${tProv}": ${detailedError || 'Check model parameters'}`,
+                  error: detailedError,
                   costTime
                 };
               }

@@ -134,10 +134,18 @@ export default function ThumbnailManagerView() {
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
 
-  // ── Engine Configuration State ──
-  const [activeProvider, setActiveProvider] = useState('kie.ai');
-  const [providerRotationEnabled, setProviderRotationEnabled] = useState(true);
-  const [fallbackChain, setFallbackChain] = useState(['kie.ai', 'fal.ai', 'replicate', 'together', 'openai']);
+  // ── Engine Configuration State (Cached to eliminate provider flash on reload) ──
+  const getCachedAdminCfg = () => {
+    try {
+      const raw = localStorage.getItem('cached_admin_thumbnail_config') || localStorage.getItem('bangai_thumbnail_config_v1');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  };
+  const initialAdminCfg = React.useMemo(() => getCachedAdminCfg(), []);
+
+  const [activeProvider, setActiveProvider] = useState(() => initialAdminCfg?.activeProvider || 'wizzx.ai');
+  const [providerRotationEnabled, setProviderRotationEnabled] = useState(() => initialAdminCfg?.providerRotationEnabled ?? true);
+  const [fallbackChain, setFallbackChain] = useState(() => initialAdminCfg?.fallbackChain || ['wizzx.ai', 'kie.ai', 'fal.ai', 'replicate', 'together', 'openai']);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [systemPromptEnabled, setSystemPromptEnabled] = useState(false);
   const [negativePrompt, setNegativePrompt] = useState('--no watermark, no blur, no low resolution, no deformed faces');
@@ -312,6 +320,10 @@ export default function ThumbnailManagerView() {
         setPresets(c.presets || []);
         setStyles(c.styles || []);
         setCustomProviders(c.customProviders || {});
+        try {
+          localStorage.setItem('cached_admin_thumbnail_config', JSON.stringify(c));
+          localStorage.setItem('bangai_thumbnail_config_v1', JSON.stringify(c));
+        } catch {}
 
         if (c.models?.length > 0 && !testModel) {
           setTestModel(c.models[0].id);

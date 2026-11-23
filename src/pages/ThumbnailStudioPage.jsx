@@ -22,7 +22,9 @@ import {
   pollThumbnailTask,
   enhanceThumbnailPrompt,
   buildModelInput,
-  fetchLiveThumbnailConfig
+  fetchLiveThumbnailConfig,
+  getStoredThumbnailConfig,
+  saveStoredThumbnailConfig
 } from '../services/thumbnailService';
 
 // Creative prompt booster tags for rapid 1-click thumbnail conditioning
@@ -118,17 +120,30 @@ export default function ThumbnailStudioPage({
 }) {
   const { isMobile, isTablet } = useBreakpoint();
 
+  // Read persisted live config instantly on frame 0 to eliminate provider flash on reload
+  const cachedConfig = React.useMemo(() => getStoredThumbnailConfig(), []);
+
   // Dynamic models & presets loaded from Admin / Backend DB
-  const [modelsList, setModelsList] = useState(THUMBNAIL_MODELS);
-  const [presetsList, setPresetsList] = useState(VIRAL_PRESETS);
-  // Active provider tracking (synced from admin config)
-  const [activeProvider, setActiveProvider] = useState('kie.ai');
-  const [activeProviderName, setActiveProviderName] = useState('Kie.ai Vision Engine');
-  const [activeProviderIcon, setActiveProviderIcon] = useState('⚡');
+  const [modelsList, setModelsList] = useState(() => (Array.isArray(cachedConfig?.models) && cachedConfig.models.length > 0) ? cachedConfig.models : THUMBNAIL_MODELS);
+  const [presetsList, setPresetsList] = useState(() => (Array.isArray(cachedConfig?.presets) && cachedConfig.presets.length > 0) ? cachedConfig.presets : VIRAL_PRESETS);
+  // Active provider tracking (synced from admin config, default to current primary wizzx.ai)
+  const [activeProvider, setActiveProvider] = useState(() => cachedConfig?.activeProvider || 'wizzx.ai');
+  const [activeProviderName, setActiveProviderName] = useState(() => cachedConfig?.activeProviderName || (cachedConfig?.activeProvider === 'kie.ai' ? 'Kie.ai Vision Engine' : 'Wizzx AI'));
+  const [activeProviderIcon, setActiveProviderIcon] = useState(() => cachedConfig?.activeProviderIcon || (cachedConfig?.activeProvider === 'kie.ai' ? '⚡' : '✨'));
 
   // Active form state
   const [generationMode, setGenerationMode] = useState('all'); // 'all' | 'text-to-image' | 'image-to-image'
-  const [selectedModelId, setSelectedModelId] = useState(TEXT_TO_IMAGE_MODELS[0].id);
+  const [selectedModelId, setSelectedModelId] = useState(() => {
+    if (cachedConfig?.models && cachedConfig.models.length > 0) {
+      const activeProv = (cachedConfig.activeProvider || 'wizzx.ai').toLowerCase();
+      const firstProvModel = cachedConfig.models.find(m => {
+        const mp = (m.provider || '').toLowerCase();
+        return mp.includes(activeProv) || activeProv.includes(mp);
+      });
+      if (firstProvModel) return firstProvModel.id;
+    }
+    return TEXT_TO_IMAGE_MODELS[0].id;
+  });
   const [selectedPresetId, setSelectedPresetId] = useState('');
   const [prompt, setPrompt] = useState(TEXT_TO_IMAGE_MODELS[0].defaultPrompt);
   const [aspectRatio, setAspectRatio] = useState('16:9');
@@ -149,8 +164,9 @@ export default function ThumbnailStudioPage({
       if (cfg.activeProvider) {
         setActiveProvider(cfg.activeProvider);
         setActiveProviderName(cfg.activeProviderName || cfg.activeProvider);
-        setActiveProviderIcon(cfg.activeProviderIcon || '⚡');
+        setActiveProviderIcon(cfg.activeProviderIcon || (cfg.activeProvider === 'kie.ai' ? '⚡' : '✨'));
       }
+      saveStoredThumbnailConfig(cfg);
     }).catch(err => {
       console.warn('Could not fetch live thumbnail config, fallback to local defaults:', err);
     });
@@ -488,9 +504,13 @@ export default function ThumbnailStudioPage({
       const effectiveProviderIcon = activeProviderIcon || '⚡';
 
       // Determine target generation endpoint based on model override or active provider
-      let targetGenerationUrl = 'https://api.kie.ai/api/v1/jobs/createTask';
+      let targetGenerationUrl = 'https://api.wizzx.ai/api/v1/task/submit/{{model}}';
       if (activeModel.endpointOverride?.enabled && activeModel.endpointOverride?.generateUrl) {
         targetGenerationUrl = activeModel.endpointOverride.generateUrl;
+      } else if (effectiveProvider.includes('wizzx')) {
+        targetGenerationUrl = `https://api.wizzx.ai/api/v1/task/submit/${activeModel.providerModelId || activeModel.id}`;
+      } else if (effectiveProvider.includes('kie')) {
+        targetGenerationUrl = 'https://api.kie.ai/api/v1/jobs/createTask';
       }
 
       const payload = {
