@@ -6,7 +6,66 @@
 // via /.netlify/functions/thumbnail (zero API keys exposed in browser or DevTools)
 const THUMBNAIL_PROXY_URL = '/.netlify/functions/thumbnail';
 
-// Supported top-tier vision models
+// In-memory cache for live admin-configured settings, models & presets
+let liveThumbnailConfigCache = null;
+
+/**
+ * Fetch dynamic thumbnail studio configuration from MongoDB Atlas via serverless function.
+ * If offline or pending, gracefully falls back to the default models and presets.
+ */
+export async function fetchLiveThumbnailConfig(forceRefresh = false) {
+  if (!forceRefresh && liveThumbnailConfigCache) {
+    return liveThumbnailConfigCache;
+  }
+
+  try {
+    const res = await fetch(`${THUMBNAIL_PROXY_URL}?action=getConfig`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        liveThumbnailConfigCache = data;
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('[thumbnailService] Failed to load live config, using static defaults:', err.message);
+  }
+
+  liveThumbnailConfigCache = {
+    activeProvider: 'kie.ai',
+    providerRotationEnabled: true,
+    fallbackChain: ['kie.ai', 'fal.ai', 'replicate', 'together', 'openai'],
+    systemPrompt: '',
+    systemPromptEnabled: false,
+    negativePrompt: '--no watermark, no blur, no low resolution, no deformed faces',
+    defaultAspectRatio: '16:9',
+    defaultResolution: '2K',
+    models: THUMBNAIL_MODELS,
+    presets: VIRAL_PRESETS,
+    styles: THUMBNAIL_STYLES
+  };
+  return liveThumbnailConfigCache;
+}
+
+export function getLiveConfigCache() {
+  return liveThumbnailConfigCache;
+}
+
+export function getAvailableModels(liveConfig = null) {
+  const models = liveConfig?.models || liveThumbnailConfigCache?.models || THUMBNAIL_MODELS;
+  return models.filter(m => m.enabled !== false);
+}
+
+export function getAvailablePresets(liveConfig = null) {
+  const presets = liveConfig?.presets || liveThumbnailConfigCache?.presets || VIRAL_PRESETS;
+  return presets.filter(p => p.enabled !== false);
+}
+
+export function getAvailableStyles(liveConfig = null) {
+  return liveConfig?.styles || liveThumbnailConfigCache?.styles || THUMBNAIL_STYLES;
+}
+
+// Supported top-tier vision models (Default Fallbacks)
 export const THUMBNAIL_MODELS = [
   // ── TEXT-TO-IMAGE MODELS ──────────────────────────
   {
@@ -182,13 +241,17 @@ export const THUMBNAIL_MODELS = [
 export function getModelCredits(modelOrId, resolution = '1K') {
   let model = modelOrId;
   if (typeof modelOrId === 'string') {
-    model = THUMBNAIL_MODELS.find(m => m.id === modelOrId);
+    const models = getAvailableModels();
+    model = models.find(m => m.id === modelOrId) || THUMBNAIL_MODELS.find(m => m.id === modelOrId);
   }
-  if (!model) return 4;
+  if (!model) return 6;
   if (model.creditsByResolution && model.creditsByResolution[resolution] !== undefined) {
-    return model.creditsByResolution[resolution];
+    return Number(model.creditsByResolution[resolution]);
   }
-  return model.credits;
+  if (model.credits !== undefined) {
+    return Number(model.credits);
+  }
+  return 6;
 }
 
 export const TEXT_TO_IMAGE_MODELS = THUMBNAIL_MODELS.filter(m => m.type === 'text-to-image');
@@ -361,27 +424,21 @@ export async function uploadImageToCDN(file) {
   return cdnUrl;
 }
 
-// Naturally adapt any video topic or prompt into a real YouTube thumbnail with topic title typography
+// Naturally adapt prompt or apply custom admin system prompt if configured
 export function conditionThumbnailPrompt(rawPrompt, { styleId = 'viral-high-ctr', isEdit = false } = {}) {
   const p = (rawPrompt || '').trim();
-  const activeStyle = THUMBNAIL_STYLES.find(s => s.id === styleId) || THUMBNAIL_STYLES[0];
+  const config = liveThumbnailConfigCache;
 
-  if (!p) {
-    return `YouTube thumbnail composition: Bold focal subject, dynamic rim lighting, high contrast, crisp edge definition, 8K cinematic render --no watermark, no blur`;
+  // USER EXPLICIT REQUIREMENT:
+  // "by default there should be no system prompt which overrides the users prompts for the image/thumbnail generation,
+  // the system prompt should only work if i have entered in admin panel, else it should work normally like how a image gen works."
+  let resultPrompt = p;
+
+  if (config?.systemPromptEnabled && config?.systemPrompt && config.systemPrompt.trim()) {
+    resultPrompt = `${config.systemPrompt.trim()}\n\n${resultPrompt}`;
   }
 
-  // If user already wrote detailed thumbnail instructions or negative flags:
-  if (p.toLowerCase().includes('--no') || (p.length > 200 && p.toLowerCase().includes('youtube thumbnail'))) {
-    return `${p} --no watermark, no blur, no low resolution, no artifacts`;
-  }
-
-  // For image-to-image / restyle tasks:
-  if (isEdit) {
-    return `Viral YouTube thumbnail transformation for topic: "${p}". Prominent high-contrast topic title text across the top reading "${p}". Enhance focal subject with intense thumbnail rim lighting, sharp foreground separation, dynamic cinematic depth, and vibrant colors. ${activeStyle.keywords}`;
-  }
-
-  // Standard text-to-image: adapt video topic into proper thumbnail framing with bold title text of the topic
-  return `Real YouTube thumbnail for video topic "${p}": Featuring prominent, large bold title typography across the upper frame displaying "${p}" with high-contrast outline and drop shadow. Bold focal subject on one third, dramatic contrasting lighting, crisp foreground separation, high-retention visual hierarchy. ${activeStyle.keywords}`;
+  return resultPrompt;
 }
 
 // Build model-specific input payload with automated backend pre-conditioning
@@ -506,7 +563,13 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
     return payload;
   }
 
-  return { prompt: conditionedPrompt, aspect_ratio: aspectRatio };
+  return {
+    prompt: conditionedPrompt,
+    aspect_ratio: aspectRatio,
+    resolution,
+    background,
+    ...(imageUrl ? { image_urls: [imageUrl] } : {})
+  };
 }
 
 // Generate thumbnail task via secure serverless proxy with multi-key rotation and automatic failover

@@ -160,6 +160,11 @@ export const adminService = {
   getPlatformSettings: async () => adminFetch('get-platform-settings', 'GET'),
   savePlatformSettings: async (settings) => adminFetch('save-platform-settings', 'POST', { settings }),
 
+  // 7B. Thumbnail Studio & Multi-Provider Engine Governance
+  getThumbnailConfig: async () => adminFetch('get-thumbnail-config', 'GET'),
+  saveThumbnailConfig: async (config, keys) => adminFetch('save-thumbnail-config', 'POST', { config, keys }),
+  testThumbnailGeneration: async (params) => adminFetch('test-thumbnail-generation', 'POST', params),
+
   // 8. AI Templates Hub & Daily Limits Governance
   getTemplates: async () => adminFetch('get-templates', 'GET'),
   saveTemplate: async (template, blocklist) =>

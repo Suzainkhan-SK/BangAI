@@ -1791,6 +1791,606 @@ export async function handler(event) {
       }
 
       // ----------------------------------------------------
+      // [5B] THUMBNAIL STUDIO & MULTI-PROVIDER ENGINE GOVERNANCE
+      // ----------------------------------------------------
+      case 'get-thumbnail-config': {
+        const sysCol = db.collection('system_config');
+        const keysCol = db.collection('api_keys');
+
+        const [configDoc, keysDoc] = await Promise.all([
+          sysCol.findOne({ _id: 'thumbnail_configuration' }),
+          keysCol.findOne({ _id: 'thumbnail_keys' })
+        ]);
+
+        const defaultKieKeys = [
+          '05ac939d323c2500f085f9b9ba235e85',
+          'e69cdf52c51effcfebfeb44e508c8e40',
+          'bb19f8a8b94e785f7f8cf7955ed165a6',
+          'a12309554b342ed9d3d5577d4079cae0',
+          '2157c9fa712b2064b7a781139c8122d0',
+          '18609e3bdb8e6ac38de3c5c7469ede4f',
+          '4626f1626df64062f34aead8fae16bab',
+          '934c5d4c188c224c040d8e3f03696c92',
+          'b08b84a5a4007b96d7f64d999dc7a9fe',
+          '52b269d09aa3e629f5be27063286a5c7',
+          '027cb49edbfe6908faf141d773f5e189',
+          '600b59d0630c57062ea2d359a6a6f64c',
+          '448eb7672ebe6a1c6fe64c4db9e7edf0',
+          '4125c81cab785b8b23474ce0b62c10ef',
+          'dea4cecf44a3aec3b6a652bd485e172d',
+          '92d0de6f5552d358907b96d10349e68b'
+        ];
+
+        const existingPool = Array.isArray(keysDoc?.pool) && keysDoc.pool.length > 0 ? keysDoc.pool : defaultKieKeys;
+
+        const resolvedProviders = {
+          'kie.ai': {
+            name: 'Kie.ai Vision Engine',
+            keys: keysDoc?.providers?.['kie.ai']?.keys || existingPool,
+            enabled: keysDoc?.providers?.['kie.ai']?.enabled ?? true
+          },
+          'fal.ai': {
+            name: 'Fal.ai Fast Vision',
+            keys: keysDoc?.providers?.['fal.ai']?.keys || [],
+            enabled: keysDoc?.providers?.['fal.ai']?.enabled ?? true
+          },
+          'replicate': {
+            name: 'Replicate',
+            keys: keysDoc?.providers?.replicate?.keys || [],
+            enabled: keysDoc?.providers?.replicate?.enabled ?? true
+          },
+          'together': {
+            name: 'Together AI',
+            keys: keysDoc?.providers?.together?.keys || [],
+            enabled: keysDoc?.providers?.together?.enabled ?? true
+          },
+          'openai': {
+            name: 'OpenAI / Custom Compatible',
+            baseUrl: keysDoc?.providers?.openai?.baseUrl || 'https://api.openai.com/v1',
+            keys: keysDoc?.providers?.openai?.keys || [],
+            enabled: keysDoc?.providers?.openai?.enabled ?? true
+          }
+        };
+
+        const defaultModels = [
+          {
+            id: 'gpt-image-2-5-flare-text-to-image',
+            name: 'GPT Flare 2.5 Ultra',
+            provider: 'kie.ai',
+            badge: 'VIRAL 4K',
+            badgeColor: 'linear-gradient(135deg, #10b981, #06b6d4)',
+            credits: 6,
+            creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
+            type: 'text-to-image',
+            supportedResolutions: ['1K', '2K', '4K'],
+            supportsBackground: true,
+            requiresImage: false,
+            enabled: true,
+            description: 'Next-gen photorealistic thumbnails with text comprehension and 4K ultra-fine details.',
+            defaultPrompt: 'Viral YouTube thumbnail in MrBeast challenge style: Prominently displaying large, ultra-bold 3D extruded title text reading "$10,000,000 VAULT" in radiant yellow and white with thick black outline and drop shadow across the top. On the left third, an expressive young male creator with wide eyes and open mouth in extreme disbelief looking directly into the camera lens with vivid cyan and warm gold rim lighting. On the right, a massive 12-foot stainless steel bank vault door exploding open with millions of 3D gold bullion bars and cash stacks flying outward. Razor-sharp foreground, high contrast, 8K octane render --no watermark, no blur, no low resolution',
+            showcaseImage: '/showcases/gpt_flare_2_5_ultra.png'
+          },
+          {
+            id: 'nano-banana-2',
+            name: 'Nano Banana 2 Ultra (4K)',
+            provider: 'kie.ai',
+            badge: 'ULTRA 4K',
+            badgeColor: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            credits: 8,
+            creditsByResolution: { '1K': 8, '2K': 12, '4K': 18 },
+            type: 'text-to-image',
+            supportedResolutions: ['1K', '2K', '4K'],
+            supportsBackground: false,
+            requiresImage: false,
+            enabled: true,
+            description: 'Flagship 4K visual synthesis with character consistency, photorealism, and sharp detail.',
+            defaultPrompt: 'Professional YouTube documentary thumbnail in World Mysteries style: Prominent bold high-contrast title text across the top reading "12,000 YEAR SECRET" in solid white and glowing gold capital letters with black outline. In a colossal subterranean cavern, a shocked archaeologist holding a bright lantern looks up in awe at an ancient glowing blue alien monolith covered in glowing runes. Volumetric atmospheric god rays, cinematic 4K Unreal Engine render, high visual hierarchy --no watermark, no blur',
+            showcaseImage: '/showcases/nano_banana_2_ultra.png'
+          },
+          {
+            id: 'wan/2-7-image-pro',
+            name: 'Wan 2.7 Image Pro',
+            provider: 'kie.ai',
+            badge: 'PRO STUDIO',
+            badgeColor: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+            credits: 12,
+            creditsByResolution: { '1K': 12, '2K': 12, '4K': 12 },
+            type: 'text-to-image',
+            supportedResolutions: ['1K', '2K', '4K'],
+            supportsBackground: false,
+            requiresImage: false,
+            enabled: true,
+            description: 'Professional studio-grade visuals with superior texture resolution, lighting gradients, and multilingual text.',
+            defaultPrompt: 'Professional Hindi YouTube investigative thumbnail in Dhruv Rathee documentary style: On the right, a serious Indian investigative journalist in a dark polo looking directly into the camera with studio rim lighting. Prominent bold high-contrast Hindi and English typography across the top reading "काला सच: UNDERSEA CABLES" with yellow subtitle "भारत का डेटा खतरे में!". In the background, a dark illuminated 3D globe showing glowing fiber optic submarine cables connecting India and global ports, with a red alert circle pinpointing deep ocean sabotage. Crisp newsroom grading, razor-sharp contrast --no watermark, no blur',
+            showcaseImage: '/showcases/wan_2_7_pro.png'
+          },
+          {
+            id: 'gpt-image-2-text-to-image',
+            name: 'GPT Image 2 (Text-to-Image)',
+            provider: 'kie.ai',
+            badge: 'CREATIVE',
+            badgeColor: 'linear-gradient(135deg, #0284c7, #38bdf8)',
+            credits: 6,
+            creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
+            type: 'text-to-image',
+            supportedResolutions: ['1K', '2K', '4K'],
+            supportsBackground: false,
+            requiresImage: false,
+            enabled: true,
+            description: 'Highly creative, prompt-adherent image generation with complex conceptual scene understanding.',
+            defaultPrompt: 'Viral Hindi YouTube horror thumbnail in Khooni Monday and 3-AM Horror style: Large bold blood-red and white Hindi typography across the upper third reading "रात 3 बजे मत जाना!" with glowing yellow outline. In an eerie dark abandoned Indian palace haveli at night, a glowing red digital clock clearly displays "03:00 AM". A sharp flashlight beam cuts through thick sinister fog illuminating a terrifying shadowy supernatural ghost silhouette near an ancient carved wooden door. Intense dark horror atmosphere, cinematic grading --no watermark, no blur',
+            showcaseImage: '/showcases/gpt_image_2_t2i.png'
+          },
+          {
+            id: 'seedream/5-flash-text-to-image',
+            name: 'Seedream 5.0 Flash (T2I)',
+            provider: 'kie.ai',
+            badge: 'FAST 2K',
+            badgeColor: 'linear-gradient(135deg, #f59e0b, #eab308)',
+            credits: 3.24,
+            creditsByResolution: { '1K': 3.24, '2K': 3.24, '4K': 3.24 },
+            type: 'text-to-image',
+            supportedResolutions: ['1K', '2K'],
+            supportsBackground: false,
+            requiresImage: false,
+            enabled: true,
+            description: 'Ultra-fast 2K visual rendering with vibrant colors, high dynamic range, and exceptional speed.',
+            defaultPrompt: 'Viral Hindi YouTube vlog thumbnail in Gaurav Taneja Flying Beast style: Large bold slanted Hindi action typography across the top reading "24 घंटे ट्रेन में फंसे!" in high-voltage electric yellow and fire-red with heavy black shadow. An energetic Indian creator looking directly into the camera with wide eyes and windblown hair, illuminated by neon purple and warm orange rim lights. In the background, an Indian Railways train speeding on tracks during a dramatic lightning thunderstorm. Fast-motion blur on background, hyper-sharp foreground subject, saturated viral colors, 2K octane render --no watermark, no blur on subject',
+            showcaseImage: '/showcases/seedream_5_flash_t2i.png'
+          },
+          {
+            id: 'nano-banana-2-lite',
+            name: 'Nano Banana 2 Lite',
+            provider: 'kie.ai',
+            badge: 'LITE SPEED',
+            badgeColor: 'linear-gradient(135deg, #14b8a6, #06b6d4)',
+            credits: 4,
+            creditsByResolution: { '1K': 4, '2K': 4, '4K': 4 },
+            type: 'text-to-image',
+            supportedResolutions: ['1K'],
+            supportsBackground: false,
+            requiresImage: false,
+            enabled: true,
+            description: 'High-speed lightweight thumbnail engine with crisp text rendering and high contrast.',
+            defaultPrompt: 'Viral YouTube tech thumbnail in Technical Guruji tech review style: Bold glowing cybernetic title text at the top reading "BANNED IN 2026!" in luminous neon cyan and white with red alert badge. An amazed tech creator pointing directly at a floating, transparent glowing quantum AI processor chip in a dark studio. Pulsing neon cyan and emerald circuit traces, razor-sharp macro reflections, clean dark studio backdrop, crisp edge separation --no watermark, no blur',
+            showcaseImage: '/showcases/nano_banana_2_lite.png'
+          },
+          {
+            id: 'grok-imagine-image-2-0/text-to-image',
+            name: 'Grok Imagine 2.0 (Text-to-Image)',
+            provider: 'kie.ai',
+            badge: 'POPULAR',
+            badgeColor: 'linear-gradient(135deg, #8b5cf6, #d946ef)',
+            credits: 4,
+            creditsByResolution: { '1K': 4, '2K': 4, '4K': 4 },
+            type: 'text-to-image',
+            supportedResolutions: ['1K'],
+            supportsBackground: false,
+            requiresImage: false,
+            enabled: true,
+            description: 'Vibrant, high-contrast, razor-sharp textures ideal for eye-catching YouTube video covers.',
+            defaultPrompt: 'Dramatic YouTube investigative thumbnail in Last 24 Hours mystery style: Bold high-contrast documentary headline text reading "BERMUDA TRIANGLE: WHAT HAPPENED?" in bold white and hazard yellow lettering on top. Split scene of a vintage aircraft vanishing into an enormous spiraling dark oceanic vortex over green lightning, with dramatic searchlight beams and a glowing cockpit radar screen. Cinematic 35mm film grading, rich deep contrast --no watermark, no blur',
+            showcaseImage: '/showcases/grok_imagine_2_t2i.png'
+          },
+          {
+            id: 'gpt-image-2-5-flare-image-to-image',
+            name: 'GPT Flare 2.5 (Image-to-Image)',
+            provider: 'kie.ai',
+            badge: 'RESTYLE',
+            badgeColor: 'linear-gradient(135deg, #10b981, #3b82f6)',
+            credits: 6,
+            creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
+            type: 'image-to-image',
+            supportedResolutions: ['1K', '2K', '4K'],
+            supportsBackground: true,
+            requiresImage: true,
+            enabled: true,
+            description: 'Transform or restyle any reference image into a viral thumbnail with custom lighting and style.',
+            defaultPrompt: 'Viral YouTube thumbnail restyle: Transform reference subject into a triumphant MrBeast challenge winner. Feature large bold 3D golden title text on top reading "$1,000,000 WINNER!" with glowing sparkle accents. Creator has joyful triumphant expression, holding a giant ceremonial check surrounded by confetti bursts, stacks of money, and glowing golden spotlights. High contrast, 8K octane render --no watermark, no blur',
+            showcaseImage: '/showcases/gpt_flare_i2i.png'
+          },
+          {
+            id: 'gpt-image-2-image-to-image',
+            name: 'GPT Image 2 (Image-to-Image)',
+            provider: 'kie.ai',
+            badge: 'TRANSFORM',
+            badgeColor: 'linear-gradient(135deg, #f97316, #ef4444)',
+            credits: 6,
+            creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
+            type: 'image-to-image',
+            supportedResolutions: ['1K', '2K', '4K'],
+            supportsBackground: false,
+            requiresImage: true,
+            enabled: true,
+            description: 'Advanced multimodal image transformation and style transfer for viral thumbnail edits.',
+            defaultPrompt: 'Cinematic YouTube horror thumbnail transformation: Restyle reference subject into a terrified investigator inside a haunted asylum. Bold ominous title text reading "THE 3 AM HAUNTING" in glowing ghostly green typography at the top. Subject has wide-eyed fear expression illuminated by an intense green night-vision flashlight beam, with shadowy supernatural apparitions behind them. Chilling horror color grading, sharp textures --no watermark, no blur',
+            showcaseImage: '/showcases/gpt_image_2_i2i.png'
+          },
+          {
+            id: 'seedream/5-flash-image-to-image',
+            name: 'Seedream 5.0 Flash (I2I)',
+            provider: 'kie.ai',
+            badge: 'FAST EDIT',
+            badgeColor: 'linear-gradient(135deg, #eab308, #f59e0b)',
+            credits: 3.24,
+            creditsByResolution: { '1K': 3.24, '2K': 3.24, '4K': 3.24 },
+            type: 'image-to-image',
+            supportedResolutions: ['1K', '2K'],
+            supportsBackground: false,
+            requiresImage: true,
+            enabled: true,
+            description: 'Fast reference image restyling, face/lighting adaptation, and thumbnail remixing.',
+            defaultPrompt: 'Viral YouTube travel vlog thumbnail restyle: Restyle reference subject with vibrant electric neon lighting and bold slanted title text at top. Fast-paced high-energy travel aesthetic, vivid saturation, crisp subject focus --no watermark, no blur',
+            showcaseImage: '/showcases/seedream_5_flash_i2i.png'
+          },
+          {
+            id: 'grok-imagine-image-2-0/image-edit',
+            name: 'Grok Imagine 2.0 (Image Edit)',
+            provider: 'kie.ai',
+            badge: 'EDIT',
+            badgeColor: 'linear-gradient(135deg, #a855f7, #6366f1)',
+            credits: 4,
+            creditsByResolution: { '1K': 4, '2K': 4, '4K': 4 },
+            type: 'image-to-image',
+            supportedResolutions: ['1K'],
+            supportsBackground: false,
+            requiresImage: true,
+            enabled: true,
+            description: 'Modify elements, swap backgrounds, and enhance existing scenes with generative precision.',
+            defaultPrompt: 'High-contrast YouTube thumbnail edit: Swap background of reference photo to a dramatic neon cyber city at night, add glowing rim lighting around subject, add bold 3D extruded title typography at the top --no watermark, no blur',
+            showcaseImage: '/showcases/grok_imagine_2_edit.png'
+          }
+        ];
+
+        const defaultPresets = [
+          {
+            id: 'mrbeast',
+            emoji: '🔥',
+            label: '$10M Vault Challenge (MrBeast Style)',
+            prompt: 'Viral YouTube thumbnail in MrBeast challenge style: Prominently displaying large, ultra-bold 3D extruded title text reading "$10,000,000 VAULT" in radiant yellow and white with thick black outline and drop shadow across the top. On the left third, an expressive young male creator with wide eyes and open mouth in extreme disbelief looking directly into the camera lens with vivid cyan and warm gold rim lighting. On the right, a massive 12-foot stainless steel bank vault door exploding open with millions of 3D gold bullion bars and cash stacks flying outward. Razor-sharp foreground, high contrast, 8K octane render --no watermark, no blur, no low resolution',
+            aspectRatio: '16:9',
+            modelId: 'gpt-image-2-5-flare-text-to-image',
+            enabled: true
+          },
+          {
+            id: 'khooni-monday',
+            emoji: '👻',
+            label: 'रात 3 बजे मत जाना! (Khooni Monday Horror)',
+            prompt: 'Viral Hindi YouTube horror thumbnail in Khooni Monday and 3-AM Horror style: Large bold blood-red and white Hindi typography across the upper third reading "रात 3 बजे मत जाना!" with glowing yellow outline. In an eerie dark abandoned Indian palace haveli at night, a glowing red digital clock clearly displays "03:00 AM". A sharp flashlight beam cuts through thick sinister fog illuminating a terrifying shadowy supernatural ghost silhouette near an ancient carved wooden door. Intense dark horror atmosphere, cinematic grading --no watermark, no blur',
+            aspectRatio: '16:9',
+            modelId: 'gpt-image-2-text-to-image',
+            enabled: true
+          },
+          {
+            id: 'dhruv-rathee',
+            emoji: '🔍',
+            label: 'काला सच: Undersea Cables (Dhruv Rathee Style)',
+            prompt: 'Professional Hindi YouTube investigative thumbnail in Dhruv Rathee documentary style: On the right, a serious Indian investigative journalist in a dark polo looking directly into the camera with studio rim lighting. Prominent bold high-contrast Hindi and English typography across the top reading "काला सच: UNDERSEA CABLES" with yellow subtitle "भारत का डेटा खतरे में!". In the background, a dark illuminated 3D globe showing glowing fiber optic submarine cables connecting India and global ports, with a red alert circle pinpointing deep ocean sabotage. Crisp newsroom grading, razor-sharp contrast --no watermark, no blur',
+            aspectRatio: '16:9',
+            modelId: 'wan/2-7-image-pro',
+            enabled: true
+          },
+          {
+            id: 'flying-beast',
+            emoji: '⚡',
+            label: '24 घंटे ट्रेन में फंसे! (Flying Beast / Gaurav Taneja)',
+            prompt: 'Viral Hindi YouTube vlog thumbnail in Gaurav Taneja Flying Beast style: Large bold slanted Hindi action typography across the top reading "24 घंटे ट्रेन में फंसे!" in high-voltage electric yellow and fire-red with heavy black shadow. An energetic Indian creator looking directly into the camera with wide eyes and windblown hair, illuminated by neon purple and warm orange rim lights. In the background, an Indian Railways train speeding on tracks during a dramatic lightning thunderstorm. Fast-motion blur on background, hyper-sharp foreground subject, saturated viral colors, 2K octane render --no watermark, no blur on subject',
+            aspectRatio: '16:9',
+            modelId: 'seedream/5-flash-text-to-image',
+            enabled: true
+          },
+          {
+            id: 'tech-guruji',
+            emoji: '🦾',
+            label: 'BANNED IN 2026! (Technical Guruji Tech)',
+            prompt: 'Viral YouTube tech thumbnail in Technical Guruji tech review style: Bold glowing cybernetic title text at the top reading "BANNED IN 2026!" in luminous neon cyan and white with red alert badge. An amazed tech creator pointing directly at a floating, transparent glowing quantum AI processor chip in a dark studio. Pulsing neon cyan and emerald circuit traces, razor-sharp macro reflections, clean dark studio backdrop, crisp edge separation --no watermark, no blur',
+            aspectRatio: '16:9',
+            modelId: 'nano-banana-2-lite',
+            enabled: true
+          },
+          {
+            id: 'world-mystery',
+            emoji: '🛸',
+            label: '12,000 YEAR SECRET (World Mysteries)',
+            prompt: 'Professional YouTube documentary thumbnail in World Mysteries style: Prominent bold high-contrast title text across the top reading "12,000 YEAR SECRET" in solid white and glowing gold capital letters with black outline. In a colossal subterranean cavern, a shocked archaeologist holding a bright lantern looks up in awe at an ancient glowing blue alien monolith covered in glowing runes. Volumetric atmospheric god rays, cinematic 4K Unreal Engine render, high visual hierarchy --no watermark, no blur',
+            aspectRatio: '16:9',
+            modelId: 'nano-banana-2',
+            enabled: true
+          },
+          {
+            id: 'bermuda',
+            emoji: '⏳',
+            label: 'BERMUDA TRIANGLE: WHAT HAPPENED? (Last 24 Hours)',
+            prompt: 'Dramatic YouTube investigative thumbnail in Last 24 Hours mystery style: Bold high-contrast documentary headline text reading "BERMUDA TRIANGLE: WHAT HAPPENED?" in bold white and hazard yellow lettering on top. Split scene of a vintage aircraft vanishing into an enormous spiraling dark oceanic vortex over green lightning, with dramatic searchlight beams and a glowing cockpit radar screen. Cinematic 35mm film grading, rich deep contrast --no watermark, no blur',
+            aspectRatio: '16:9',
+            modelId: 'grok-imagine-image-2-0/text-to-image',
+            enabled: true
+          },
+          {
+            id: 'shorts',
+            emoji: '📱',
+            label: 'Vertical Viral Short (9:16)',
+            prompt: 'Vertical 9:16 mobile YouTube Short thumbnail: Bold top headline reading "DO NOT WATCH!" in flaming neon yellow with red warning border. Shocked creator face close-up looking at camera with mouth agape, holding a glowing mystery device emitting neon sparks, bold contrasting lighting, high-energy viral retention style --no watermark, no blur',
+            aspectRatio: '9:16',
+            modelId: 'gpt-image-2-5-flare-text-to-image',
+            enabled: true
+          }
+        ];
+
+        const defaultStyles = [
+          { id: 'viral-high-ctr', label: 'Viral High-CTR', emoji: '🔥', tagline: 'High Impact · Bold Pop · Dynamic Lighting' },
+          { id: 'dark-mystery', label: 'Dark Mystery', emoji: '🛸', tagline: 'Documentary · Eerie Spotlights · Deep Contrast' },
+          { id: 'tech-cyber', label: 'Futuristic Tech', emoji: '⚡', tagline: 'Clean Studio · Neon Accents · Macro Clarity' },
+          { id: 'cinematic-epic', label: 'Cinematic Movie', emoji: '🎬', tagline: 'Blockbuster · IMAX Scale · Volumetric Rays' },
+          { id: 'shock-drama', label: 'Shock & Drama', emoji: '😱', tagline: 'High Energy · Vivid Contrast · Neon Glow' }
+        ];
+
+        const resolvedConfig = {
+          activeProvider: configDoc?.activeProvider || 'kie.ai',
+          providerRotationEnabled: configDoc?.providerRotationEnabled ?? true,
+          fallbackChain: configDoc?.fallbackChain || ['kie.ai', 'fal.ai', 'replicate', 'together', 'openai'],
+          systemPrompt: configDoc?.systemPrompt || '',
+          systemPromptEnabled: Boolean(configDoc?.systemPromptEnabled),
+          negativePrompt: configDoc?.negativePrompt || '--no watermark, no blur, no low resolution, no deformed faces',
+          defaultAspectRatio: configDoc?.defaultAspectRatio || '16:9',
+          defaultResolution: configDoc?.defaultResolution || '2K',
+          models: Array.isArray(configDoc?.models) && configDoc.models.length > 0 ? configDoc.models : defaultModels,
+          presets: Array.isArray(configDoc?.presets) && configDoc.presets.length > 0 ? configDoc.presets : defaultPresets,
+          styles: Array.isArray(configDoc?.styles) && configDoc.styles.length > 0 ? configDoc.styles : defaultStyles
+        };
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            config: resolvedConfig,
+            keys: {
+              providers: resolvedProviders,
+              pool: existingPool
+            }
+          })
+        };
+      }
+
+      case 'save-thumbnail-config': {
+        const { config, keys } = body;
+        const sysCol = db.collection('system_config');
+        const keysCol = db.collection('api_keys');
+
+        if (config) {
+          await sysCol.updateOne(
+            { _id: 'thumbnail_configuration' },
+            { $set: { ...config, updatedAt: new Date().toISOString() } },
+            { upsert: true }
+          );
+
+          // Dual-sync to platform_settings.thumbnailSettings
+          await sysCol.updateOne(
+            { _id: 'platform_settings' },
+            {
+              $set: {
+                thumbnailSettings: {
+                  activeProvider: config.activeProvider || 'kie.ai',
+                  providerRotationEnabled: config.providerRotationEnabled ?? true,
+                  fallbackChain: config.fallbackChain || [],
+                  systemPrompt: config.systemPrompt || '',
+                  systemPromptEnabled: Boolean(config.systemPromptEnabled),
+                  negativePrompt: config.negativePrompt || '',
+                  modelsCount: (config.models || []).length,
+                  updatedAt: new Date().toISOString()
+                }
+              }
+            },
+            { upsert: true }
+          );
+        }
+
+        if (keys && keys.providers) {
+          const kieKeys = keys.providers['kie.ai']?.keys || keys.pool || [];
+          await keysCol.updateOne(
+            { _id: 'thumbnail_keys' },
+            {
+              $set: {
+                pool: kieKeys,
+                providers: keys.providers,
+                activeKeyIndex: 0,
+                provider: 'thumbnail',
+                name: 'Thumbnail Studio Multi-Provider Key Vault',
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          );
+        }
+
+        await logAdminAction(db, 'THUMBNAIL_CONFIG_UPDATE', {
+          activeProvider: config?.activeProvider,
+          modelsCount: config?.models?.length,
+          providerRotationEnabled: config?.providerRotationEnabled
+        }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            message: 'Thumbnail Studio configuration & provider keys saved successfully to MongoDB Atlas'
+          })
+        };
+      }
+
+      case 'test-thumbnail-generation': {
+        const { provider = 'kie.ai', model, prompt, aspectRatio = '16:9', resolution = '1K', apiKey = null, imageUrl = null } = body;
+        if (!prompt) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Missing prompt' }) };
+        }
+
+        const keysCol = db.collection('api_keys');
+        const keysDoc = await keysCol.findOne({ _id: 'thumbnail_keys' });
+        const providerKeys = keysDoc?.providers?.[provider]?.keys || (provider === 'kie.ai' ? keysDoc?.pool : []);
+        const keyToUse = apiKey || providerKeys?.[0];
+
+        if (!keyToUse) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: `No active API key found for provider '${provider}'. Please add a key in the provider vault.` })
+          };
+        }
+
+        const startTime = Date.now();
+        let resultUrl = null;
+        let taskId = `test-${Date.now()}`;
+
+        try {
+          if (provider === 'kie.ai') {
+            const effectiveModel = model || 'gpt-image-2-5-flare-text-to-image';
+            const createRes = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${keyToUse}`
+              },
+              body: JSON.stringify({
+                model: effectiveModel,
+                input: {
+                  prompt,
+                  aspect_ratio: aspectRatio,
+                  resolution,
+                  ...(imageUrl ? { image_urls: [imageUrl] } : {})
+                }
+              })
+            });
+            const createJson = await createRes.json();
+            if (createJson.code !== 200 || !createJson.data?.taskId) {
+              throw new Error(createJson.msg || `Kie.ai error code ${createJson.code}`);
+            }
+            taskId = createJson.data.taskId;
+
+            // Poll for completion (up to 30s for test)
+            for (let i = 0; i < 15; i++) {
+              await new Promise(r => setTimeout(r, 2000));
+              const pollRes = await fetch(`https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${taskId}`, {
+                headers: { 'Authorization': `Bearer ${keyToUse}` }
+              });
+              const pollJson = await pollRes.json();
+              if (pollJson.data?.state === 'success') {
+                if (pollJson.data.resultJson) {
+                  try {
+                    const parsed = JSON.parse(pollJson.data.resultJson);
+                    resultUrl = parsed.resultUrls?.[0] || parsed.resultUrl || parsed.output?.[0];
+                  } catch {
+                    resultUrl = pollJson.data.resultJson;
+                  }
+                }
+                if (!resultUrl && pollJson.data.resultUrls?.length) resultUrl = pollJson.data.resultUrls[0];
+                break;
+              }
+              if (pollJson.data?.state === 'fail') {
+                throw new Error(pollJson.data.failReason || 'Generation task marked as failed');
+              }
+            }
+          } else if (provider === 'openai') {
+            const baseUrl = keysDoc?.providers?.openai?.baseUrl || 'https://api.openai.com/v1';
+            const oaiRes = await fetch(`${baseUrl}/images/generations`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${keyToUse}`
+              },
+              body: JSON.stringify({
+                model: model || 'dall-e-3',
+                prompt,
+                n: 1,
+                size: aspectRatio === '9:16' ? '1024x1792' : '1792x1024'
+              })
+            });
+            const oaiJson = await oaiRes.json();
+            if (!oaiRes.ok) throw new Error(oaiJson.error?.message || `OpenAI error ${oaiRes.status}`);
+            resultUrl = oaiJson.data?.[0]?.url;
+          } else if (provider === 'fal.ai') {
+            const falModel = model || 'fal-ai/flux/schnell';
+            const falRes = await fetch(`https://fal.run/${falModel}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Key ${keyToUse}`
+              },
+              body: JSON.stringify({
+                prompt,
+                image_size: aspectRatio === '9:16' ? 'portrait_16_9' : 'landscape_16_9'
+              })
+            });
+            const falJson = await falRes.json();
+            if (!falRes.ok) throw new Error(falJson.detail || `Fal.ai error ${falRes.status}`);
+            resultUrl = falJson.images?.[0]?.url;
+          } else if (provider === 'together') {
+            const togModel = model || 'black-forest-labs/FLUX.1-schnell-Free';
+            const togRes = await fetch('https://api.together.xyz/v1/images/generations', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${keyToUse}`
+              },
+              body: JSON.stringify({
+                model: togModel,
+                prompt,
+                width: aspectRatio === '9:16' ? 768 : 1024,
+                height: aspectRatio === '9:16' ? 1024 : 768
+              })
+            });
+            const togJson = await togRes.json();
+            if (!togRes.ok) throw new Error(togJson.error?.message || `Together error ${togRes.status}`);
+            resultUrl = togJson.data?.[0]?.url;
+          } else if (provider === 'replicate') {
+            const repModel = model || 'black-forest-labs/flux-schnell';
+            const repRes = await fetch(`https://api.replicate.com/v1/models/${repModel}/predictions`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${keyToUse}`,
+                'Prefer': 'wait'
+              },
+              body: JSON.stringify({
+                input: {
+                  prompt,
+                  aspect_ratio: aspectRatio
+                }
+              })
+            });
+            const repJson = await repRes.json();
+            if (!repRes.ok) throw new Error(repJson.detail || `Replicate error ${repRes.status}`);
+            resultUrl = Array.isArray(repJson.output) ? repJson.output[0] : repJson.output;
+          }
+
+          const costTime = Math.round((Date.now() - startTime) / 1000);
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: true,
+              imageUrl: resultUrl,
+              providerUsed: provider,
+              taskId,
+              costTime
+            })
+          };
+        } catch (genErr) {
+          return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: false,
+              error: genErr.message,
+              providerUsed: provider,
+              taskId
+            })
+          };
+        }
+      }
+
+      // ----------------------------------------------------
       // [6] USER MANAGEMENT & QUOTAS (REAL ATLAS DATA)
       // ----------------------------------------------------
       // ----------------------------------------------------

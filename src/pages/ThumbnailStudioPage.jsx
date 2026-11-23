@@ -23,7 +23,8 @@ import {
   createThumbnailTask,
   pollThumbnailTask,
   enhanceThumbnailPrompt,
-  buildModelInput
+  buildModelInput,
+  fetchLiveThumbnailConfig
 } from '../services/thumbnailService';
 
 // Creative prompt booster tags for rapid 1-click thumbnail conditioning
@@ -119,6 +120,11 @@ export default function ThumbnailStudioPage({
 }) {
   const { isMobile, isTablet } = useBreakpoint();
 
+  // Dynamic models & presets loaded from Admin / Backend DB
+  const [modelsList, setModelsList] = useState(THUMBNAIL_MODELS);
+  const [presetsList, setPresetsList] = useState(VIRAL_PRESETS);
+  const [stylesList, setStylesList] = useState(THUMBNAIL_STYLES);
+
   // Active form state
   const [generationMode, setGenerationMode] = useState('all'); // 'all' | 'text-to-image' | 'image-to-image'
   const [selectedModelId, setSelectedModelId] = useState(TEXT_TO_IMAGE_MODELS[0].id);
@@ -128,6 +134,31 @@ export default function ThumbnailStudioPage({
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [resolution, setResolution] = useState('2K');
   const [background, setBackground] = useState('auto');
+
+  // Load live config from serverless backend on mount
+  useEffect(() => {
+    let isMounted = true;
+    fetchLiveThumbnailConfig().then(cfg => {
+      if (!isMounted || !cfg) return;
+      if (Array.isArray(cfg.models) && cfg.models.length > 0) {
+        setModelsList(cfg.models);
+      }
+      if (Array.isArray(cfg.presets) && cfg.presets.length > 0) {
+        setPresetsList(cfg.presets);
+      }
+      if (Array.isArray(cfg.styles) && cfg.styles.length > 0) {
+        setStylesList(cfg.styles);
+      }
+    }).catch(err => {
+      console.warn('Could not fetch live thumbnail config, fallback to local defaults:', err);
+    });
+    return () => { isMounted = false; };
+  }, []);
+
+  const textToImageModels = modelsList.filter(m => m.type === 'text-to-image');
+  const imageToImageModels = modelsList.filter(m => m.type === 'image-to-image');
+  const otherModels = modelsList.filter(m => m.type !== 'text-to-image' && m.type !== 'image-to-image');
+  const activeModel = modelsList.find(m => m.id === selectedModelId) || modelsList[0] || THUMBNAIL_MODELS[0];
 
   // Reference image state
   const [refImageFile, setRefImageFile] = useState(null);
@@ -167,8 +198,6 @@ export default function ThumbnailStudioPage({
 
   const fileInputRef = useRef(null);
 
-  const activeModel = THUMBNAIL_MODELS.find(m => m.id === selectedModelId) || THUMBNAIL_MODELS[0];
-
   // Save history on changes
   useEffect(() => {
     try {
@@ -181,19 +210,23 @@ export default function ThumbnailStudioPage({
     audioEngine.playSfx('click');
     setGenerationMode(mode);
     if (mode === 'text-to-image') {
-      if (!TEXT_TO_IMAGE_MODELS.some(m => m.id === selectedModelId)) {
-        const nextM = TEXT_TO_IMAGE_MODELS[0];
-        setSelectedModelId(nextM.id);
-        if (!prompt || IMAGE_TO_IMAGE_MODELS.some(im => im.defaultPrompt === prompt)) {
-          setPrompt(nextM.defaultPrompt);
+      if (!textToImageModels.some(m => m.id === selectedModelId)) {
+        const nextM = textToImageModels[0] || modelsList[0];
+        if (nextM) {
+          setSelectedModelId(nextM.id);
+          if (!prompt || imageToImageModels.some(im => im.defaultPrompt === prompt)) {
+            setPrompt(nextM.defaultPrompt);
+          }
         }
       }
     } else if (mode === 'image-to-image') {
-      if (!IMAGE_TO_IMAGE_MODELS.some(m => m.id === selectedModelId)) {
-        const nextM = IMAGE_TO_IMAGE_MODELS[0];
-        setSelectedModelId(nextM.id);
-        if (!prompt || TEXT_TO_IMAGE_MODELS.some(tm => tm.defaultPrompt === prompt)) {
-          setPrompt(nextM.defaultPrompt);
+      if (!imageToImageModels.some(m => m.id === selectedModelId)) {
+        const nextM = imageToImageModels[0] || modelsList[0];
+        if (nextM) {
+          setSelectedModelId(nextM.id);
+          if (!prompt || textToImageModels.some(tm => tm.defaultPrompt === prompt)) {
+            setPrompt(nextM.defaultPrompt);
+          }
         }
       }
     }
@@ -204,7 +237,7 @@ export default function ThumbnailStudioPage({
     audioEngine.playSfx('click');
     setSelectedModelId(modelId);
     setCurrentResult(null);
-    const m = THUMBNAIL_MODELS.find(item => item.id === modelId);
+    const m = modelsList.find(item => item.id === modelId) || THUMBNAIL_MODELS.find(item => item.id === modelId);
     if (m) {
       if (generationMode !== 'all' && m.type && m.type !== generationMode) {
         setGenerationMode(m.type);
@@ -212,7 +245,7 @@ export default function ThumbnailStudioPage({
       if (m.supportedResolutions && m.supportedResolutions.length > 0 && !m.supportedResolutions.includes(resolution)) {
         setResolution(m.supportedResolutions[m.supportedResolutions.length - 1]);
       }
-      if (!prompt || THUMBNAIL_MODELS.some(other => other.defaultPrompt === prompt)) {
+      if (!prompt || modelsList.some(other => other.defaultPrompt === prompt)) {
         setPrompt(m.defaultPrompt);
       }
     }
@@ -223,14 +256,14 @@ export default function ThumbnailStudioPage({
     audioEngine.playSfx('click');
     setSelectedPresetId(presetId);
     if (!presetId) return;
-    const preset = VIRAL_PRESETS.find(p => p.id === presetId);
+    const preset = presetsList.find(p => p.id === presetId) || VIRAL_PRESETS.find(p => p.id === presetId);
     if (preset) {
       setPrompt(preset.prompt);
       setAspectRatio(preset.aspectRatio);
       if (preset.modelId) {
         setSelectedModelId(preset.modelId);
         setCurrentResult(null);
-        const m = THUMBNAIL_MODELS.find(item => item.id === preset.modelId);
+        const m = modelsList.find(item => item.id === preset.modelId);
         if (m?.type && generationMode !== 'all' && generationMode !== m.type) {
           setGenerationMode(m.type);
         }
@@ -775,7 +808,7 @@ export default function ThumbnailStudioPage({
                           transition: 'all 0.15s ease'
                         }}
                       >
-                        All ({THUMBNAIL_MODELS.length})
+                        All ({modelsList.length})
                       </button>
                       <button
                         type="button"
@@ -835,20 +868,29 @@ export default function ThumbnailStudioPage({
                           boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                         }}
                       >
-                        {(generationMode === 'all' || generationMode === 'text-to-image') && (
+                        {(generationMode === 'all' || generationMode === 'text-to-image') && textToImageModels.length > 0 && (
                           <optgroup label="── 🎨 TEXT-TO-IMAGE MODELS (Create from Scratch) ──">
-                            {TEXT_TO_IMAGE_MODELS.map(m => (
+                            {textToImageModels.map(m => (
                               <option key={m.id} value={m.id}>
-                                {m.name} [{m.badge}] — {getModelCredits(m, resolution)} Credits
+                                {m.name} [{m.badge || 'AI'}] — {getModelCredits(m, resolution)} Credits
                               </option>
                             ))}
                           </optgroup>
                         )}
-                        {(generationMode === 'all' || generationMode === 'image-to-image') && (
+                        {(generationMode === 'all' || generationMode === 'image-to-image') && imageToImageModels.length > 0 && (
                           <optgroup label="── 🔄 IMAGE-TO-IMAGE MODELS (Edit & Restyle) ──">
-                            {IMAGE_TO_IMAGE_MODELS.map(m => (
+                            {imageToImageModels.map(m => (
                               <option key={m.id} value={m.id}>
-                                {m.name} [{m.badge}] — {getModelCredits(m, resolution)} Credits
+                                {m.name} [{m.badge || 'AI'}] — {getModelCredits(m, resolution)} Credits
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {otherModels.length > 0 && (
+                          <optgroup label="── 🌟 CUSTOM VISION MODELS ──">
+                            {otherModels.map(m => (
+                              <option key={m.id} value={m.id}>
+                                {m.name} [{m.badge || 'PRO'}] — {getModelCredits(m, resolution)} Credits
                               </option>
                             ))}
                           </optgroup>
@@ -876,7 +918,7 @@ export default function ThumbnailStudioPage({
                         Viral Creator Presets (1-Click)
                       </label>
                       <span style={{ fontSize: '10.5px', color: '#ff4f00', fontWeight: 700 }}>
-                        {VIRAL_PRESETS.length} Formats
+                        {presetsList.length} Formats
                       </span>
                     </div>
 
@@ -888,7 +930,7 @@ export default function ThumbnailStudioPage({
                       paddingBottom: '4px',
                       scrollbarWidth: 'none'
                     }}>
-                      {VIRAL_PRESETS.map(p => {
+                      {presetsList.map(p => {
                         const isSelected = selectedPresetId === p.id;
                         return (
                           <button
@@ -936,7 +978,7 @@ export default function ThumbnailStudioPage({
                       gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
                       gap: '6px'
                     }}>
-                      {THUMBNAIL_STYLES.map(s => {
+                      {stylesList.map(s => {
                         const isSelected = selectedStyleId === s.id;
                         return (
                           <button
@@ -1602,34 +1644,59 @@ export default function ThumbnailStudioPage({
                   alignItems: 'center',
                   gap: '10px',
                   width: '100%',
-                  maxWidth: aspectRatio === '9:16' ? '360px' : '740px'
+                  maxWidth: aspectRatio === '9:16'
+                    ? '320px'
+                    : aspectRatio === '3:4'
+                      ? '360px'
+                      : aspectRatio === '1:1'
+                        ? '440px'
+                        : '740px',
+                  transition: 'max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}>
                   <div style={{
                     position: 'relative',
-                    borderRadius: '12px',
+                    borderRadius: '14px',
                     overflow: 'hidden',
-                    boxShadow: '0 14px 40px rgba(0, 0, 0, 0.35)',
+                    boxShadow: '0 16px 48px rgba(0, 0, 0, 0.45)',
                     border: '1.5px solid var(--border-medium)',
                     background: '#090a0f',
                     width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    aspectRatio: aspectRatio.includes(':') ? aspectRatio.replace(':', ' / ') : '16 / 9',
                     maxHeight: isMobile
                       ? '340px'
                       : aspectRatio === '9:16'
-                        ? 'clamp(280px, calc(100vh - 360px), 480px)'
-                        : 'clamp(220px, calc(100vh - 380px), 430px)'
+                        ? 'clamp(320px, calc(100vh - 320px), 490px)'
+                        : aspectRatio === '1:1'
+                          ? 'clamp(280px, calc(100vh - 340px), 420px)'
+                          : 'clamp(220px, calc(100vh - 360px), 430px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}>
+                    {/* Blurred ambient background to seamlessly fill any letterboxing if image ratio differs */}
+                    <div style={{
+                      position: 'absolute',
+                      inset: -12,
+                      backgroundImage: `url(${activeDisplayImage})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(22px) brightness(0.28)',
+                      transform: 'scale(1.15)',
+                      zIndex: 0,
+                      pointerEvents: 'none'
+                    }} />
+
                     <img
                       src={activeDisplayImage}
                       alt="Thumbnail Preview"
                       style={{
                         width: '100%',
-                        height: 'auto',
-                        maxHeight: 'inherit',
+                        height: '100%',
                         objectFit: 'contain',
-                        display: 'block'
+                        display: 'block',
+                        position: 'relative',
+                        zIndex: 1
                       }}
                     />
 
@@ -1776,7 +1843,8 @@ export default function ThumbnailStudioPage({
                           audioEngine.playSfx('click');
                           setRefImagePreview(activeDisplayImage);
                           setRefImageUrl(activeDisplayImage);
-                          setSelectedModelId('gpt-image-2-5-flare-image-to-image');
+                          const imgModelId = imageToImageModels[0]?.id || 'gpt-image-2-5-flare-image-to-image';
+                          setSelectedModelId(imgModelId);
                           setGenerationMode('image-to-image');
                         }}
                         style={{
