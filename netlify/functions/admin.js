@@ -2013,12 +2013,13 @@ Pick an action ONLY when the user EXPLICITLY COMMANDS an operational task:
    Provide "testParams": { "provider": "...", "model": "...", "prompt": "..." }.
 
 CURRENT DATABASE STATE:
-- Active Primary Provider: \${currentState.activeProvider}
-- Providers Configured: \${JSON.stringify(Object.keys(currentState.customProviders))}
-- Model Count in Studio: \${currentState.modelCount}
-- Configured Studio Models: \${JSON.stringify(currentState.modelsSummary)}
-- Provider Keys In Vault: \${JSON.stringify(currentState.providerKeys)}
-\${detectedKey ? \`- API Key Detected from User Message: "\${detectedKey}"\` : ''}
+- Active Primary Provider: ${currentState.activeProvider}
+- Providers Configured: ${Object.keys(currentState.customProviders).join(', ') || 'none'}
+- Total Studio Models: ${currentState.modelCount}
+- Configured Studio Models:
+${currentState.modelsSummary.map(m => `  * [${m.provider}] "${m.name}" (ID: "${m.id}", Slug: "${m.providerModelId}", Type: "${m.type}", Credits: 1K=${m.creditsByResolution?.['1K'] || m.credits}, 2K=${m.creditsByResolution?.['2K'] || m.credits}, 4K=${m.creditsByResolution?.['4K'] || m.credits}${m.endpointOverride ? `, CustomEndpoint: "${m.endpointOverride}"` : ''})`).join('\n')}
+- Provider Keys In Vault: ${currentState.providerKeys.join(', ') || 'none'}
+${detectedKey ? `- API Key Detected from User Message: "${detectedKey}"` : ''}
 
 RESPONSE FORMAT (JSON ONLY - Return ONLY a raw JSON object, no markdown fences):
 {
