@@ -1793,6 +1793,361 @@ export async function handler(event) {
       // ----------------------------------------------------
       // [5B] THUMBNAIL STUDIO & MULTI-PROVIDER ENGINE GOVERNANCE
       // ----------------------------------------------------
+
+      // ── AI PROVIDER ARCHITECT: Intelligent configuration agent using xKiro engine ──
+      case 'thumbnail-ai-architect': {
+        const { messages: archMessages = [], context: archContext = {} } = body;
+        if (!archMessages || archMessages.length === 0) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'No messages provided to AI Architect' }) };
+        }
+
+        // Load current system state as context for the AI
+        const [archConfigDoc, archKeysDoc] = await Promise.all([
+          db.collection('system_config').findOne({ _id: 'thumbnail_configuration' }),
+          db.collection('api_keys').findOne({ _id: 'thumbnail_keys' })
+        ]);
+
+        const currentState = {
+          activeProvider: archConfigDoc?.activeProvider || 'kie.ai',
+          customProviders: archConfigDoc?.customProviders || {},
+          modelCount: (archConfigDoc?.models || []).length,
+          providerKeys: Object.keys(archKeysDoc?.providers || {})
+        };
+
+        const ARCHITECT_SYSTEM_PROMPT = `You are the Bang AI Provider Architect — an expert AI assistant specialized in configuring image generation API providers for the Bang AI Thumbnail Studio.
+
+Your job is to help the admin configure any image generation service (like Fal.ai, Replicate, Together AI, Ideogram, Stability AI, OpenAI, or any custom HTTP API) by extracting the correct configuration from API documentation, cURL examples, or plain descriptions.
+
+CURRENT SYSTEM STATE:
+${JSON.stringify(currentState, null, 2)}
+
+CONFIGURATION SCHEMA YOU MUST EXTRACT:
+You must analyze the documentation and extract a complete provider configuration JSON with these fields:
+{
+  "id": "unique-slug (lowercase, no spaces)",
+  "name": "Human Display Name",
+  "icon": "emoji",
+  "mode": "sync OR async",
+  "authHeaderType": "Bearer | Key | Token | x-api-key | Custom",
+  "customHeaderName": "Only if authHeaderType=Custom or x-api-key",
+  "authPrefix": "Only if authHeaderType=Custom",
+  "generateUrl": "Full URL (can use {{model}} placeholder if model is in path)",
+  "generateMethod": "POST",
+  "payloadFormat": "openai | kie | fal | replicate | custom",
+  "customPayloadTemplate": "JSON template with {{prompt}}, {{model}}, {{aspectRatio}}, {{width}}, {{height}} if payloadFormat=custom",
+  "defaultModel": "default model slug",
+  "responseImageUrlPath": "dot-notation path to image URL in sync response (e.g. data[0].url)",
+  "responseTaskIdPath": "dot-notation path to task ID in async response (e.g. data.taskId)",
+  "pollUrlTemplate": "URL template with {{taskId}} for async polling",
+  "pollStatusPath": "dot-notation path to status field (e.g. status)",
+  "pollSuccessValue": "success value string (e.g. COMPLETED, succeeded, SUCCESS)",
+  "pollResultUrlPath": "dot-notation path to image URL in poll response (e.g. output[0])",
+  "balanceUrl": "URL to check API key balance",
+  "balanceMethod": "GET",
+  "balanceValuePath": "dot-notation path to balance amount",
+  "balanceUnit": "Credits | $ | Tokens",
+  "modelsListUrl": "URL to list available models (e.g. /v1/models)",
+  "modelsListMethod": "GET",
+  "modelsListPath": "dot-notation path to models array in response (e.g. data)"
+}
+
+RESPONSE FORMAT:
+Always respond with a JSON block containing:
+1. "reply": Your conversational explanation to the admin
+2. "action": One of: "show_config" | "test_ready" | "fetch_models" | "apply_config" | "need_more_info" | "clarify"
+3. "extractedConfig": The provider config JSON you extracted (if action is show_config, test_ready, or apply_config)
+4. "extractedModels": Array of model objects if you found specific models in the docs: [{id, name, description}]
+5. "testEndpoint": Specific URL to test connectivity (if action is test_ready)
+6. "confidence": 0-100 confidence score in your extraction
+
+RULES:
+- If the admin provides API documentation or cURL examples, extract the configuration precisely
+- If you need an API key to test, ask for it
+- For Fal.ai: mode=async, auth=Key, URL pattern is https://queue.fal.run/{{model}}
+- For Replicate: mode=async, auth=Bearer, URL pattern is https://api.replicate.com/v1/models/{{model}}/predictions
+- For Together AI: mode=sync, auth=Bearer, URL=https://api.together.xyz/v1/images/generations
+- For OpenAI-compatible: mode=sync, auth=Bearer, URL ends in /v1/images/generations
+- For Stability AI: mode=sync, auth=Bearer, URL=https://api.stability.ai/v2beta/stable-image/generate/ultra
+- Always extract as many fields as possible from the docs
+- When asking for missing info, be specific about what exactly you need`;
+
+        // xKiro key pool from env or MongoDB
+        const XKIRO_KEYS = [
+          process.env.XKIRO_API_KEY_1 || 'sk-xt-e2786f0d32f17f1a0211ec5f1333c45379691ec0d6f9c954',
+          process.env.XKIRO_API_KEY_2 || 'sk-xt-450bf12af511af1eceb44dd398886c93a08b8bc52341e623'
+        ];
+        // Also try to load from DB
+        try {
+          const llmDoc = await db.collection('api_keys').findOne({ _id: 'primary_llm_keys' });
+          if (llmDoc?.pool?.length) XKIRO_KEYS.push(...llmDoc.pool.filter(k => !XKIRO_KEYS.includes(k)));
+        } catch {}
+
+        const XKIRO_BASE = process.env.XKIRO_BASE_URL || 'https://api.xkiro.com/v1';
+        let archReply = null;
+        let archError = null;
+
+        const MODELS_TO_TRY = [
+          'mistralai/mistral-large-2512',
+          'qwen/qwen3.8-max:free',
+          'qwen/qwen3.8-omni-flash:free',
+          'mistralai/mistral-nemo:free'
+        ];
+
+        for (const modelId of MODELS_TO_TRY) {
+          if (archReply) break;
+          for (const apiKey of XKIRO_KEYS) {
+            if (archReply) break;
+            try {
+              const xkRes = await fetch(`${XKIRO_BASE}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                  model: modelId,
+                  messages: [
+                    { role: 'system', content: ARCHITECT_SYSTEM_PROMPT },
+                    ...archMessages
+                  ],
+                  max_tokens: 4096,
+                  temperature: 0.3,
+                  response_format: { type: 'json_object' }
+                })
+              });
+              if (xkRes.ok) {
+                const xkJson = await xkRes.json();
+                const rawContent = xkJson.choices?.[0]?.message?.content || '';
+                if (rawContent.trim()) {
+                  try {
+                    archReply = JSON.parse(rawContent.trim());
+                  } catch {
+                    // Model returned text not JSON — wrap it
+                    archReply = { reply: rawContent.trim(), action: 'need_more_info', extractedConfig: null };
+                  }
+                  break;
+                }
+              }
+            } catch (xkErr) {
+              archError = xkErr.message;
+            }
+          }
+        }
+
+        if (!archReply) {
+          return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ success: false, error: `AI Architect unavailable: ${archError || 'All models failed'}` })
+          };
+        }
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: true, ...archReply })
+        };
+      }
+
+      // ── FETCH PROVIDER MODELS: Queries any provider's models listing endpoint ──
+      case 'fetch-provider-models': {
+        const { providerId, modelsListUrl, modelsListMethod = 'GET', modelsListPath = '', authHeaderType = 'Bearer', apiKey: provApiKey } = body;
+
+        if (!modelsListUrl) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Missing modelsListUrl' }) };
+        }
+
+        // Build auth header
+        const authHeaders = { 'Content-Type': 'application/json' };
+        if (provApiKey) {
+          if (authHeaderType === 'Bearer') authHeaders['Authorization'] = `Bearer ${provApiKey}`;
+          else if (authHeaderType === 'Key') authHeaders['Authorization'] = `Key ${provApiKey}`;
+          else if (authHeaderType === 'Token') authHeaders['Authorization'] = `Token ${provApiKey}`;
+          else if (authHeaderType === 'x-api-key') authHeaders['x-api-key'] = provApiKey;
+          else authHeaders['Authorization'] = `Bearer ${provApiKey}`;
+        } else {
+          // Try to get a key from the vault for this provider
+          const keysDocForFetch = await db.collection('api_keys').findOne({ _id: 'thumbnail_keys' });
+          const provKeys = keysDocForFetch?.providers?.[providerId]?.keys || [];
+          if (provKeys.length > 0) {
+            const k = typeof provKeys[0] === 'string' ? provKeys[0] : provKeys[0]?.key;
+            if (k && authHeaderType === 'Bearer') authHeaders['Authorization'] = `Bearer ${k}`;
+          }
+        }
+
+        try {
+          const modRes = await fetch(modelsListUrl, { method: modelsListMethod, headers: authHeaders });
+          if (!modRes.ok) {
+            return {
+              statusCode: modRes.status,
+              headers: corsHeaders,
+              body: JSON.stringify({ error: `Provider returned HTTP ${modRes.status}`, rawStatus: modRes.status })
+            };
+          }
+
+          const modJson = await modRes.json();
+
+          // Navigate to models array using modelsListPath
+          let modelsArray = modJson;
+          if (modelsListPath) {
+            const cleanPath = modelsListPath.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '');
+            for (const k of cleanPath.split('.')) {
+              if (modelsArray != null) modelsArray = modelsArray[k];
+            }
+          }
+
+          if (!Array.isArray(modelsArray)) {
+            // Try common paths automatically
+            modelsArray = modJson.data || modJson.models || modJson.results || modJson.items || [];
+          }
+
+          // Normalize model objects
+          const normalizedModels = modelsArray.slice(0, 200).map(m => {
+            if (typeof m === 'string') return { id: m, name: m, description: '' };
+            return {
+              id: m.id || m.model_id || m.name || m.slug || '',
+              name: m.name || m.display_name || m.id || m.model_id || '',
+              description: m.description || m.context_length ? `Context: ${m.context_length}` : '',
+              type: m.type || m.modality || '',
+              created: m.created || m.created_at || '',
+              raw: m
+            };
+          }).filter(m => m.id);
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: true,
+              count: normalizedModels.length,
+              models: normalizedModels,
+              rawCount: Array.isArray(modelsArray) ? modelsArray.length : 0
+            })
+          };
+        } catch (fetchErr) {
+          return {
+            statusCode: 502,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: `Failed to reach models endpoint: ${fetchErr.message}` })
+          };
+        }
+      }
+
+      // ── BULK ADD MODELS: Merge imported models into system_config ──
+      case 'bulk-add-thumbnail-models': {
+        const { models: newModels = [], defaultCredits = { '1K': 6, '2K': 10, '4K': 16 }, defaultProvider = 'kie.ai' } = body;
+        if (!Array.isArray(newModels) || newModels.length === 0) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'No models provided' }) };
+        }
+
+        const sysColBulk = db.collection('system_config');
+        const configDocBulk = await sysColBulk.findOne({ _id: 'thumbnail_configuration' });
+        const existingModels = configDocBulk?.models || [];
+        const existingIds = new Set(existingModels.map(m => m.id));
+
+        const toAdd = newModels
+          .filter(m => m.id && !existingIds.has(m.id))
+          .map(m => ({
+            id: m.id,
+            name: m.name || m.id,
+            provider: m.provider || defaultProvider,
+            providerModelId: m.providerModelId || m.id,
+            fallbackModelId: m.fallbackModelId || '',
+            badge: m.badge || 'AI Model',
+            badgeColor: m.badgeColor || 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            credits: defaultCredits['2K'] || 10,
+            creditsByResolution: { ...defaultCredits },
+            type: m.type || 'text-to-image',
+            supportedResolutions: ['1K', '2K', '4K'],
+            enabled: true,
+            description: m.description || '',
+            defaultPrompt: m.defaultPrompt || '',
+            showcaseImage: m.showcaseImage || '/showcases/gpt_flare_2_5_ultra.png',
+            endpointOverride: m.endpointOverride || { enabled: false }
+          }));
+
+        const mergedModels = [...existingModels, ...toAdd];
+        await sysColBulk.updateOne(
+          { _id: 'thumbnail_configuration' },
+          { $set: { models: mergedModels, updatedAt: new Date().toISOString() } },
+          { upsert: true }
+        );
+
+        await logAdminAction(db, 'BULK_ADD_THUMBNAIL_MODELS', { addedCount: toAdd.length, skippedCount: newModels.length - toAdd.length }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            added: toAdd.length,
+            skipped: newModels.length - toAdd.length,
+            totalModels: mergedModels.length,
+            message: `Successfully added ${toAdd.length} new models (${newModels.length - toAdd.length} skipped as duplicates)`
+          })
+        };
+      }
+
+      // ── APPLY ARCHITECT CONFIG: AI Architect commits provider + key to MongoDB in one shot ──
+      case 'apply-architect-provider': {
+        const { providerConfig, apiKey: archKey, setAsPrimary = false } = body;
+        if (!providerConfig || !providerConfig.id) {
+          return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'providerConfig with id is required' }) };
+        }
+
+        const sysColArch = db.collection('system_config');
+        const keysColArch = db.collection('api_keys');
+
+        // 1. Save provider config to thumbnail_configuration.customProviders
+        const archConfigDoc = await sysColArch.findOne({ _id: 'thumbnail_configuration' });
+        const existingCustomProviders = archConfigDoc?.customProviders || {};
+        existingCustomProviders[providerConfig.id] = { ...providerConfig };
+
+        const updatePayload = { customProviders: existingCustomProviders, updatedAt: new Date().toISOString() };
+        if (setAsPrimary) {
+          updatePayload.activeProvider = providerConfig.id;
+          const existingChain = archConfigDoc?.fallbackChain || ['kie.ai'];
+          if (!existingChain.includes(providerConfig.id)) existingChain.unshift(providerConfig.id);
+          else {
+            existingChain.splice(existingChain.indexOf(providerConfig.id), 1);
+            existingChain.unshift(providerConfig.id);
+          }
+          updatePayload.fallbackChain = existingChain;
+        }
+
+        await sysColArch.updateOne(
+          { _id: 'thumbnail_configuration' },
+          { $set: updatePayload },
+          { upsert: true }
+        );
+
+        // 2. Save API key to thumbnail_keys vault
+        if (archKey && archKey.trim()) {
+          const existingKeysDoc = await keysColArch.findOne({ _id: 'thumbnail_keys' });
+          const existingProviders = existingKeysDoc?.providers || {};
+          if (!existingProviders[providerConfig.id]) existingProviders[providerConfig.id] = { keys: [], enabled: true };
+          const keyVal = archKey.trim();
+          if (!existingProviders[providerConfig.id].keys.includes(keyVal)) {
+            existingProviders[providerConfig.id].keys.push(keyVal);
+          }
+          await keysColArch.updateOne(
+            { _id: 'thumbnail_keys' },
+            { $set: { providers: existingProviders, updatedAt: new Date().toISOString() } },
+            { upsert: true }
+          );
+        }
+
+        await logAdminAction(db, 'ARCHITECT_APPLY_PROVIDER', { providerId: providerConfig.id, setAsPrimary }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            message: `Provider "${providerConfig.name || providerConfig.id}" configured${setAsPrimary ? ' and set as primary provider' : ''}. ${archKey ? 'API key saved to vault.' : ''}`,
+            providerId: providerConfig.id,
+            setAsPrimary
+          })
+        };
+      }
+
       case 'get-thumbnail-config': {
         const sysCol = db.collection('system_config');
         const keysCol = db.collection('api_keys');

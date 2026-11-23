@@ -168,6 +168,16 @@ export const adminService = {
   getThumbnailLogs: async (limit = 100) => adminFetch(`get-thumbnail-logs&limit=${limit}`, 'GET'),
   clearThumbnailLogs: async () => adminFetch('clear-thumbnail-logs', 'POST'),
 
+  // AI Provider Architect
+  askThumbnailAiArchitect: async (messages, context = {}) => adminFetch('thumbnail-ai-architect', 'POST', { messages, context }),
+  applyArchitectProvider: async (providerConfig, apiKey, setAsPrimary = false) => adminFetch('apply-architect-provider', 'POST', { providerConfig, apiKey, setAsPrimary }),
+
+  // Model Listing & Bulk Import
+  fetchProviderModels: async (providerId, modelsListUrl, modelsListMethod = 'GET', modelsListPath = '', authHeaderType = 'Bearer', apiKey = null) =>
+    adminFetch('fetch-provider-models', 'POST', { providerId, modelsListUrl, modelsListMethod, modelsListPath, authHeaderType, apiKey }),
+  bulkAddThumbnailModels: async (models, defaultCredits = { '1K': 6, '2K': 10, '4K': 16 }, defaultProvider = 'kie.ai') =>
+    adminFetch('bulk-add-thumbnail-models', 'POST', { models, defaultCredits, defaultProvider }),
+
   // 8. AI Templates Hub & Daily Limits Governance
   getTemplates: async () => adminFetch('get-templates', 'GET'),
   saveTemplate: async (template, blocklist) =>

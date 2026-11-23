@@ -412,12 +412,27 @@ export const handler = async (event, context) => {
   if (action === 'getConfig') {
     const forceFresh = Boolean(event.queryStringParameters?.t || event.queryStringParameters?.refresh);
     const config = await getThumbnailConfig(forceFresh);
+    // Also resolve active provider name for frontend display
+    const activeProvId = config.activeProvider || 'kie.ai';
+    const builtInProviderNames = {
+      'kie.ai': 'Kie.ai Vision Engine',
+      'together': 'Together AI',
+      'openai': 'OpenAI / Custom Compatible',
+      'fal.ai': 'Fal.ai Fast Vision',
+      'replicate': 'Replicate'
+    };
+    const customProvDef = config.customProviders?.[activeProvId];
+    const activeProviderName = customProvDef?.name || builtInProviderNames[activeProvId] || activeProvId;
+    const activeProviderIcon = customProvDef?.icon || (activeProvId === 'kie.ai' ? '⚡' : activeProvId === 'fal.ai' ? '🚀' : activeProvId === 'replicate' ? '🔄' : activeProvId === 'together' ? '🧠' : '🌐');
+
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({
         success: true,
-        activeProvider: config.activeProvider || 'kie.ai',
+        activeProvider: activeProvId,
+        activeProviderName,
+        activeProviderIcon,
         providerRotationEnabled: config.providerRotationEnabled ?? true,
         fallbackChain: config.fallbackChain || ['kie.ai', 'fal.ai', 'replicate', 'together', 'openai'],
         systemPrompt: config.systemPrompt || '',
@@ -427,7 +442,8 @@ export const handler = async (event, context) => {
         defaultResolution: config.defaultResolution || '2K',
         models: config.models || [],
         presets: config.presets || [],
-        styles: config.styles || []
+        styles: config.styles || [],
+        customProviders: config.customProviders || {}
       })
     };
   }
@@ -498,14 +514,23 @@ export const handler = async (event, context) => {
         const maskedKey = `${key.slice(0, 4)}...${key.slice(-4)}`;
 
         try {
-          // Resolve provider-specific model slug
+          // Resolve provider-specific model slug & check for per-model endpoint override
           let resolvedModel = model;
+          let modelEndpointOverride = null;
+          let effectiveProviderDef = providerDef;
+
           if (config.models) {
             const foundModel = config.models.find(m => m.id === model);
             if (foundModel) {
+              // Per-model endpoint override takes absolute priority
+              if (foundModel.endpointOverride?.enabled) {
+                modelEndpointOverride = foundModel.endpointOverride;
+                console.log(`[thumbnail.js] Using per-model endpoint override for model '${model}'`);
+              }
+              // Resolve the correct model slug for this provider
               if (foundModel.provider === currentProvider && foundModel.providerModelId) {
                 resolvedModel = foundModel.providerModelId;
-              } else if (foundModel.fallbackModelId) {
+              } else if (foundModel.fallbackModelId && currentProvider !== (foundModel.provider || 'kie.ai')) {
                 resolvedModel = foundModel.fallbackModelId;
               }
             }
@@ -514,11 +539,30 @@ export const handler = async (event, context) => {
             resolvedModel = providerDef.defaultModel || model;
           }
 
-          // Build generation URL (interpolating {{model}} if present)
-          let targetUrl = providerDef.generateUrl || `${providerDef.baseUrl || 'https://api.openai.com/v1'}/images/generations`;
+          // Build generation URL:
+          // 1. Per-model endpoint override wins
+          // 2. Provider's generateUrl (with {{model}} interpolation)
+          // 3. Provider's baseUrl + /images/generations fallback
+          let targetUrl;
+          let generateMethod = providerDef.generateMethod || 'POST';
+          let overriddenPayloadDef = effectiveProviderDef;
+
+          if (modelEndpointOverride) {
+            targetUrl = modelEndpointOverride.generateUrl || providerDef.generateUrl || `${providerDef.baseUrl || 'https://api.openai.com/v1'}/images/generations`;
+            if (modelEndpointOverride.generateMethod) generateMethod = modelEndpointOverride.generateMethod;
+            // Build a merged providerDef for payload building
+            overriddenPayloadDef = {
+              ...providerDef,
+              ...modelEndpointOverride,
+              payloadFormat: modelEndpointOverride.payloadFormat || providerDef.payloadFormat,
+              customPayloadTemplate: modelEndpointOverride.customPayloadTemplate || providerDef.customPayloadTemplate
+            };
+          } else {
+            targetUrl = providerDef.generateUrl || `${providerDef.baseUrl || 'https://api.openai.com/v1'}/images/generations`;
+          }
           targetUrl = targetUrl.replace(/\{\{model\}\}/g, encodeURIComponent(resolvedModel));
 
-          const payload = buildRequestPayload(providerDef, {
+          const payload = buildRequestPayload(overriddenPayloadDef, {
             model: resolvedModel,
             prompt: effectiveInput.prompt,
             aspectRatio: effectiveInput.aspect_ratio || '16:9',
@@ -542,7 +586,7 @@ export const handler = async (event, context) => {
           });
 
           const res = await fetch(targetUrl, {
-            method: providerDef.generateMethod || 'POST',
+            method: generateMethod,
             headers,
             body: JSON.stringify(payload)
           });

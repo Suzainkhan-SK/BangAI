@@ -121,6 +121,10 @@ export default function ThumbnailStudioPage({
   // Dynamic models & presets loaded from Admin / Backend DB
   const [modelsList, setModelsList] = useState(THUMBNAIL_MODELS);
   const [presetsList, setPresetsList] = useState(VIRAL_PRESETS);
+  // Active provider tracking (synced from admin config)
+  const [activeProvider, setActiveProvider] = useState('kie.ai');
+  const [activeProviderName, setActiveProviderName] = useState('Kie.ai Vision Engine');
+  const [activeProviderIcon, setActiveProviderIcon] = useState('⚡');
 
   // Active form state
   const [generationMode, setGenerationMode] = useState('all'); // 'all' | 'text-to-image' | 'image-to-image'
@@ -140,6 +144,12 @@ export default function ThumbnailStudioPage({
       }
       if (Array.isArray(cfg.presets) && cfg.presets.length > 0) {
         setPresetsList(cfg.presets);
+      }
+      // Sync active provider from admin config
+      if (cfg.activeProvider) {
+        setActiveProvider(cfg.activeProvider);
+        setActiveProviderName(cfg.activeProviderName || cfg.activeProvider);
+        setActiveProviderIcon(cfg.activeProviderIcon || '⚡');
       }
     }).catch(err => {
       console.warn('Could not fetch live thumbnail config, fallback to local defaults:', err);
@@ -443,10 +453,27 @@ export default function ThumbnailStudioPage({
   // Build live raw JSON input for inspection tab with full accurate details
   const rawInputJson = (() => {
     try {
+      // Determine effective provider — use model's explicit provider or fall back to active system provider
+      const effectiveProvider = activeModel.provider || activeProvider || 'kie.ai';
+      const effectiveProviderName = activeProviderName || effectiveProvider;
+      const effectiveProviderIcon = activeProviderIcon || '⚡';
+
+      // Determine target generation endpoint based on model override or active provider
+      let targetGenerationUrl = 'https://api.kie.ai/api/v1/jobs/createTask';
+      if (activeModel.endpointOverride?.enabled && activeModel.endpointOverride?.generateUrl) {
+        targetGenerationUrl = activeModel.endpointOverride.generateUrl;
+      }
+
       const payload = {
+        activePrimaryProvider: effectiveProvider,
+        providerDisplayName: `${effectiveProviderIcon} ${effectiveProviderName}`,
+        effectiveProvider,
+        targetGenerationUrl,
         modelId: activeModel.id,
+        providerModelSlug: activeModel.providerModelId || activeModel.id,
+        fallbackModelSlug: activeModel.fallbackModelId || null,
         modelName: activeModel.name,
-        provider: activeModel.provider || 'kie.ai (auto-failover)',
+        modelEndpointOverrideEnabled: Boolean(activeModel.endpointOverride?.enabled),
         aspectRatio,
         resolution,
         creditsEstimated: getModelCredits(activeModel, resolution),
@@ -633,6 +660,13 @@ export default function ThumbnailStudioPage({
             }}>
               <Zap size={14} fill="#ff4f00" color="#ff4f00" />
               <span>Cost: <strong style={{ color: '#ff4f00' }}>{getModelCredits(activeModel, resolution)} Credits</strong></span>
+            </div>
+
+            {/* Active Vision Engine Badge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '8px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', fontSize: '11px', fontWeight: 700, color: '#6366f1', whiteSpace: 'nowrap' }}>
+              <span>{activeProviderIcon}</span>
+              <span style={{ display: isMobile ? 'none' : 'inline' }}>Engine: {activeProviderName}</span>
+              <span style={{ display: isMobile ? 'inline' : 'none' }}>{activeProviderName.split(' ')[0]}</span>
             </div>
 
             {history.length > 0 && (

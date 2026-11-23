@@ -129,7 +129,7 @@ const INITIAL_PROVIDER_FORM = {
 };
 
 export default function ThumbnailManagerView() {
-  const [activeTab, setActiveTab] = useState('providers'); // 'providers' | 'balances' | 'models' | 'system_prompt' | 'presets' | 'diagnostics' | 'logs'
+  const [activeTab, setActiveTab] = useState('providers'); // 'providers' | 'balances' | 'models' | 'system_prompt' | 'presets' | 'diagnostics' | 'logs' | 'ai_architect'
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
@@ -229,6 +229,33 @@ export default function ThumbnailManagerView() {
     enabled: true
   });
 
+  // ── AI Provider Architect State ──
+  const [architectMessages, setArchitectMessages] = useState([
+    { role: 'assistant', content: JSON.stringify({ reply: "👋 Hello! I'm the **Bang AI Provider Architect**. I can configure any image generation service for your Thumbnail Studio automatically.\n\nJust paste in the API documentation, a cURL example, or describe the service you want to add (like \"I want to add Ideogram AI\" or \"Add Fal.ai with my key: xyz123\").\n\nI'll extract all the endpoints, authentication headers, and model slugs for you, test the connection, and apply the configuration with one click!", action: 'need_more_info', extractedConfig: null, confidence: 100 }) }
+  ]);
+  const [architectInput, setArchitectInput] = useState('');
+  const [architectLoading, setArchitectLoading] = useState(false);
+  const [architectError, setArchitectError] = useState(null);
+  const [pendingConfig, setPendingConfig] = useState(null);
+  const [applyingConfig, setApplyingConfig] = useState(false);
+  const [architectApiKey, setArchitectApiKey] = useState('');
+  const architectChatRef = useRef(null);
+
+  // ── Bulk Model Importer State ──
+  const [showModelImporter, setShowModelImporter] = useState(false);
+  const [importerProvider, setImporterProvider] = useState('kie.ai');
+  const [importerUrl, setImporterUrl] = useState('');
+  const [importerPath, setImporterPath] = useState('');
+  const [importerAuth, setImporterAuth] = useState('Bearer');
+  const [importerApiKey, setImporterApiKey] = useState('');
+  const [importerModels, setImporterModels] = useState([]);
+  const [importerLoading, setImporterLoading] = useState(false);
+  const [importerError, setImporterError] = useState(null);
+  const [importerSelected, setImporterSelected] = useState(new Set());
+  const [importerFilter, setImporterFilter] = useState('');
+  const [importerCredits, setImporterCredits] = useState({ '1K': 6, '2K': 10, '4K': 16 });
+  const [importerSuccess, setImporterSuccess] = useState('');
+
   // Load configuration from MongoDB Atlas
   const loadConfig = async () => {
     setLoading(true);
@@ -317,6 +344,129 @@ export default function ThumbnailManagerView() {
       setLogs([]);
     } catch (err) {
       alert('Failed to clear logs: ' + err.message);
+    }
+  };
+
+  // ── AI ARCHITECT HANDLER ──
+  const handleArchitectSend = async () => {
+    if (!architectInput.trim() || architectLoading) return;
+    setArchitectError(null);
+    const userMsg = { role: 'user', content: architectInput.trim() };
+    const updatedMsgs = [...architectMessages, userMsg];
+    setArchitectMessages(updatedMsgs);
+    setArchitectInput('');
+    setArchitectLoading(true);
+
+    try {
+      // Convert messages to plain text format for the backend
+      const msgPayload = updatedMsgs.map(m => {
+        let content = m.content;
+        // Parse JSON messages (assistant ones stored as JSON) to extract reply
+        if (m.role === 'assistant') {
+          try {
+            const parsed = JSON.parse(m.content);
+            content = parsed.reply || m.content;
+          } catch {}
+        }
+        return { role: m.role, content };
+      });
+
+      const res = await adminService.askThumbnailAiArchitect(msgPayload, {
+        providedApiKey: architectApiKey || undefined
+      });
+
+      if (res.success) {
+        const assistantMsgContent = JSON.stringify({
+          reply: res.reply || 'Configuration analysis complete.',
+          action: res.action || 'show_config',
+          extractedConfig: res.extractedConfig || null,
+          extractedModels: res.extractedModels || [],
+          testEndpoint: res.testEndpoint || null,
+          confidence: res.confidence || 0
+        });
+        setArchitectMessages(prev => [...prev, { role: 'assistant', content: assistantMsgContent }]);
+        if (res.extractedConfig) setPendingConfig(res.extractedConfig);
+      } else {
+        setArchitectError(res.error || 'AI Architect returned an error');
+      }
+    } catch (err) {
+      setArchitectError(err.message);
+    } finally {
+      setArchitectLoading(false);
+      setTimeout(() => {
+        if (architectChatRef.current) architectChatRef.current.scrollTop = architectChatRef.current.scrollHeight;
+      }, 100);
+    }
+  };
+
+  const handleArchitectApply = async (cfg, setAsPrimary = false) => {
+    if (!cfg || !cfg.id) { alert('No valid provider configuration to apply.'); return; }
+    setApplyingConfig(true);
+    try {
+      const res = await adminService.applyArchitectProvider(cfg, architectApiKey || null, setAsPrimary);
+      if (res.success) {
+        setArchitectMessages(prev => [...prev, {
+          role: 'assistant',
+          content: JSON.stringify({ reply: `✅ **${cfg.name || cfg.id}** has been configured and saved!\n\n${architectApiKey ? '🔑 API key saved to the vault.' : ''}\n${setAsPrimary ? '⭐ Set as primary generation provider.' : ''}\n\nYou can now use this provider in the Thumbnail Studio. Click "Save Configuration" to finalize all settings.`, action: 'apply_config', extractedConfig: null, confidence: 100 })
+        }]);
+        setPendingConfig(null);
+        await loadConfig();
+        setSavedMsg(`✅ Provider "${cfg.name || cfg.id}" applied successfully!`);
+        setTimeout(() => setSavedMsg(''), 4000);
+      } else {
+        alert('Apply failed: ' + (res.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Apply failed: ' + err.message);
+    } finally {
+      setApplyingConfig(false);
+    }
+  };
+
+  // ── BULK MODEL IMPORTER HANDLER ──
+  const handleFetchImporterModels = async () => {
+    if (!importerUrl.trim()) { setImporterError('Please enter a models listing URL first.'); return; }
+    setImporterLoading(true);
+    setImporterError(null);
+    setImporterModels([]);
+    setImporterSelected(new Set());
+    setImporterSuccess('');
+    try {
+      const res = await adminService.fetchProviderModels(importerProvider, importerUrl.trim(), 'GET', importerPath.trim(), importerAuth, importerApiKey.trim() || null);
+      if (res.success && Array.isArray(res.models)) {
+        setImporterModels(res.models);
+        if (res.models.length === 0) setImporterError('No models found at this endpoint. Check the path configuration.');
+      } else {
+        setImporterError(res.error || 'No models returned from endpoint.');
+      }
+    } catch (err) {
+      setImporterError(err.message);
+    } finally {
+      setImporterLoading(false);
+    }
+  };
+
+  const handleBulkImportModels = async () => {
+    if (importerSelected.size === 0) { alert('Please select at least one model to import.'); return; }
+    const toImport = importerModels.filter(m => importerSelected.has(m.id)).map(m => ({
+      id: m.id,
+      name: m.name || m.id,
+      provider: importerProvider,
+      providerModelId: m.id,
+      description: m.description || '',
+      type: 'text-to-image'
+    }));
+    try {
+      const res = await adminService.bulkAddThumbnailModels(toImport, importerCredits, importerProvider);
+      if (res.success) {
+        setImporterSuccess(`✅ ${res.added} models added! (${res.skipped} skipped as duplicates). Total: ${res.totalModels} models.`);
+        setImporterSelected(new Set());
+        await loadConfig();
+      } else {
+        setImporterError(res.error || 'Bulk import failed');
+      }
+    } catch (err) {
+      setImporterError(err.message);
     }
   };
 
@@ -902,7 +1052,8 @@ export default function ThumbnailManagerView() {
           { id: 'system_prompt', label: '🧠 System Prompt & Rules' },
           { id: 'presets', label: `🎨 Viral Presets (${presets.length})` },
           { id: 'diagnostics', label: '⚡ Live Diagnostics & Real Test' },
-          { id: 'logs', label: `📋 Real-Time Activity & Logs (${logs.length})` }
+          { id: 'logs', label: `📋 Real-Time Activity & Logs (${logs.length})` },
+          { id: 'ai_architect', label: '✨ AI Provider Architect' }
         ].map(t => {
           const isSelected = activeTab === t.id;
           return (
@@ -1751,6 +1902,48 @@ export default function ThumbnailManagerView() {
                         </div>
                       </div>
                     </div>
+
+                    {/* ── Per-Model Endpoint Override ── */}
+                    <div style={{ padding: '10px 12px', borderRadius: '8px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#6366f1', textTransform: 'uppercase' }}>⚡ Model-Specific Endpoint Override</span>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                          <span style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}>{m.endpointOverride?.enabled ? 'Override ON' : 'Use Provider Default'}</span>
+                          <input type="checkbox" checked={Boolean(m.endpointOverride?.enabled)} onChange={e => handleUpdateModelField(m.id, 'endpointOverride', { ...(m.endpointOverride || {}), enabled: e.target.checked })} style={{ accentColor: '#6366f1', width: '14px', height: '14px' }} />
+                        </label>
+                      </div>
+                      {m.endpointOverride?.enabled && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '6px' }}>
+                            <div>
+                              <label style={{ fontSize: '9.5px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>Method:</label>
+                              <select value={m.endpointOverride?.generateMethod || 'POST'} onChange={e => handleUpdateModelField(m.id, 'endpointOverride', { ...(m.endpointOverride || {}), generateMethod: e.target.value })} className="admin-input" style={{ width: '100%', fontSize: '11px' }}>
+                                <option value="POST">POST</option><option value="GET">GET</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '9.5px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>Custom Generation URL:</label>
+                              <input type="text" placeholder="https://api.example.com/model-specific-endpoint" value={m.endpointOverride?.generateUrl || ''} onChange={e => handleUpdateModelField(m.id, 'endpointOverride', { ...(m.endpointOverride || {}), generateUrl: e.target.value })} className="admin-input" style={{ width: '100%', fontSize: '11px', fontFamily: 'monospace' }} />
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '9.5px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>Payload Format:</label>
+                            <select value={m.endpointOverride?.payloadFormat || 'openai'} onChange={e => handleUpdateModelField(m.id, 'endpointOverride', { ...(m.endpointOverride || {}), payloadFormat: e.target.value })} className="admin-input" style={{ fontSize: '11px', width: '160px' }}>
+                              <option value="openai">OpenAI Compatible</option><option value="kie">Kie.ai Format</option><option value="fal">Fal.ai Queue</option><option value="replicate">Replicate</option><option value="custom">Custom JSON Template</option>
+                            </select>
+                          </div>
+                          {m.endpointOverride?.payloadFormat === 'custom' && (
+                            <div>
+                              <label style={{ fontSize: '9.5px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>Custom Payload Template (use {'{{prompt}}'}, {'{{model}}'}, {'{{width}}'}, {'{{height}}'}):</label>
+                              <textarea rows={4} value={m.endpointOverride?.customPayloadTemplate || '{\n  "prompt": "{{prompt}}",\n  "model": "{{model}}"\n}'} onChange={e => handleUpdateModelField(m.id, 'endpointOverride', { ...(m.endpointOverride || {}), customPayloadTemplate: e.target.value })} className="admin-input" style={{ width: '100%', fontSize: '11px', fontFamily: 'monospace', resize: 'vertical' }} />
+                            </div>
+                          )}
+                          <p style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)', margin: 0 }}>
+                            💡 This endpoint will be used exclusively for this model, overriding the provider's default generation URL.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -2199,6 +2392,245 @@ export default function ThumbnailManagerView() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════
+          TAB 8: AI PROVIDER ARCHITECT (INTELLIGENT CONFIGURATOR)
+      ════════════════════════════════════════════════════════════ */}
+      {activeTab === 'ai_architect' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+          {/* API Key input for the architect to use */}
+          <div className="admin-card" style={{ padding: '14px 18px', borderLeft: '3px solid #ff4f00' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '240px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--admin-text-sub)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                  New Provider API Key (optional — for testing & auto-vault):
+                </label>
+                <input
+                  type="password"
+                  value={architectApiKey}
+                  onChange={e => setArchitectApiKey(e.target.value)}
+                  placeholder="Paste your API key here — it will be saved to vault when you apply"
+                  className="admin-input"
+                  style={{ width: '100%', fontFamily: 'monospace', fontSize: '12px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', paddingTop: '14px' }}>
+                <button type="button" className="admin-btn" style={{ fontSize: '11px', background: 'rgba(255,79,0,0.1)', borderColor: '#ff4f00', color: '#ff4f00' }} onClick={() => { setArchitectMessages([{ role: 'assistant', content: JSON.stringify({ reply: "👋 Hello! I'm the **Bang AI Provider Architect**. Paste API docs, a cURL example, or just describe the provider you want to add. I'll extract and test the full configuration for you!", action: 'need_more_info', extractedConfig: null, confidence: 100 }) }]); setArchitectInput(''); setArchitectError(null); setPendingConfig(null); }}>
+                  🔄 Reset Chat
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat Interface */}
+          <div className="admin-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--admin-border-glass)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '20px' }}>🤖</span>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--admin-text-main)' }}>Bang AI Provider Architect</div>
+                <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>Powered by xKiro Mistral Large • Key-rotated AI engine • Auto-configures any image generation service</div>
+              </div>
+              <div style={{ marginLeft: 'auto', padding: '3px 8px', background: 'rgba(16,185,129,0.15)', color: '#10b981', borderRadius: '5px', fontSize: '10px', fontWeight: 800 }}>
+                ONLINE
+              </div>
+            </div>
+
+            {/* Chat Messages */}
+            <div ref={architectChatRef} style={{ maxHeight: '460px', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {architectMessages.map((msg, idx) => {
+                let parsed = null;
+                if (msg.role === 'assistant') {
+                  try { parsed = JSON.parse(msg.content); } catch {}
+                }
+                const displayText = parsed?.reply || msg.content;
+
+                return (
+                  <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: msg.role === 'user' ? '#ff4f00' : 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0 }}>
+                      {msg.role === 'user' ? '👤' : '🤖'}
+                    </div>
+                    <div style={{ maxWidth: '80%', background: msg.role === 'user' ? 'rgba(255,79,0,0.12)' : 'rgba(255,255,255,0.04)', borderRadius: msg.role === 'user' ? '14px 4px 14px 14px' : '4px 14px 14px 14px', padding: '10px 14px', border: `1px solid ${msg.role === 'user' ? 'rgba(255,79,0,0.25)' : 'var(--admin-border-glass)'}` }}>
+                      <p style={{ fontSize: '12.5px', color: 'var(--admin-text-main)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{displayText}</p>
+
+                      {/* Config Preview Card */}
+                      {parsed?.extractedConfig && (
+                        <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.3)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 800, color: '#6366f1', textTransform: 'uppercase' }}>
+                              {parsed.extractedConfig.icon || '⚡'} Extracted Provider Config
+                              {parsed.confidence > 0 && <span style={{ marginLeft: '8px', color: parsed.confidence >= 80 ? '#10b981' : '#f59e0b' }}>• {parsed.confidence}% confidence</span>}
+                            </span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 10px', marginBottom: '10px' }}>
+                            {[['ID', parsed.extractedConfig.id], ['Name', parsed.extractedConfig.name], ['Mode', parsed.extractedConfig.mode], ['Auth', parsed.extractedConfig.authHeaderType], ['Gen URL', parsed.extractedConfig.generateUrl], ['Payload', parsed.extractedConfig.payloadFormat]].map(([k, v]) => v && (
+                              <div key={k} style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}><span style={{ color: 'var(--admin-text-main)', fontWeight: 700 }}>{k}:</span> <span style={{ fontFamily: 'monospace' }}>{v}</span></div>
+                            ))}
+                          </div>
+                          {parsed.extractedModels?.length > 0 && (
+                            <div style={{ marginBottom: '8px', fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                              Models found: {parsed.extractedModels.map(m => <span key={m.id} style={{ display: 'inline-block', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '4px', padding: '1px 6px', margin: '2px', fontFamily: 'monospace', fontSize: '10px', color: '#6366f1' }}>{m.id}</span>)}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button type="button" className="admin-btn admin-btn-sm" style={{ fontSize: '11px', background: 'rgba(16,185,129,0.15)', borderColor: '#10b981', color: '#10b981' }} onClick={() => handleArchitectApply(parsed.extractedConfig, false)} disabled={applyingConfig}>
+                              {applyingConfig ? '⏳ Applying...' : '✅ Save Provider Config'}
+                            </button>
+                            <button type="button" className="admin-btn admin-btn-sm" style={{ fontSize: '11px', background: 'rgba(255,79,0,0.15)', borderColor: '#ff4f00', color: '#ff4f00' }} onClick={() => handleArchitectApply(parsed.extractedConfig, true)} disabled={applyingConfig}>
+                              {applyingConfig ? '⏳...' : '⭐ Apply & Set as Primary'}
+                            </button>
+                            <button type="button" className="admin-btn admin-btn-sm" style={{ fontSize: '11px' }} onClick={() => { const rawStr = JSON.stringify(parsed.extractedConfig, null, 2); setArchitectInput(`Here's the config I want you to verify and correct if needed:\n\`\`\`json\n${rawStr}\n\`\`\``); }}>
+                              ✏️ Refine Config
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {architectLoading && (
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>🤖</div>
+                  <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: '4px 14px 14px 14px', border: '1px solid var(--admin-border-glass)' }}>
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      {[0, 1, 2].map(i => <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', animation: `pulse ${0.6 + i * 0.15}s ease-in-out infinite alternate` }} />)}
+                      <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginLeft: '6px' }}>Analyzing API documentation...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {architectError && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', fontSize: '12px', color: '#ef4444' }}>❌ {architectError}</div>}
+            </div>
+
+            {/* Input Area */}
+            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--admin-border-glass)', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+              <textarea
+                value={architectInput}
+                onChange={e => setArchitectInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleArchitectSend(); } }}
+                placeholder={'Describe the provider or paste API docs / cURL here...\nExamples:\n• "Add Ideogram AI — their API endpoint is https://api.ideogram.ai/generate"\n• Paste a cURL example with the full endpoint and headers\n• "Configure Stability AI with key: sk-xxx..."'}
+                className="admin-input"
+                rows={3}
+                style={{ flex: 1, fontSize: '12.5px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
+              />
+              <button type="button" className="admin-btn admin-btn-primary" onClick={handleArchitectSend} disabled={architectLoading || !architectInput.trim()} style={{ padding: '10px 20px', flexShrink: 0, fontWeight: 800 }}>
+                {architectLoading ? '⏳' : '📤 Send'}
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Prompts */}
+          <div className="admin-card" style={{ padding: '14px 18px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--admin-text-sub)', textTransform: 'uppercase', marginBottom: '10px' }}>Quick Prompts:</div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {[
+                { label: '⚡ Configure Fal.ai', prompt: 'I want to add Fal.ai as a provider. Their API uses Authorization: Key <KEY>, the generation endpoint for FLUX Schnell is POST https://queue.fal.run/fal-ai/flux/schnell. It is async — returns request_id, polling URL is https://queue.fal.run/fal-ai/flux/schnell/requests/{request_id}/status and completed when status == "COMPLETED", result at images[0].url.' },
+                { label: '🎨 Configure Ideogram', prompt: 'Configure Ideogram AI. API endpoint: POST https://api.ideogram.ai/generate. Headers: Api-Key: <KEY>. It is synchronous and returns images[0].url. The models are ideogram-v2 and ideogram-v2-turbo. Balance check: GET https://api.ideogram.ai/manage/api/account returns credit_balance.' },
+                { label: '🔵 Configure Stability AI', prompt: 'Add Stability AI. Endpoint: POST https://api.stability.ai/v2beta/stable-image/generate/ultra. Auth: Authorization: Bearer <KEY>. It returns a base64 image directly in the response body. The model is stable-ultra.' },
+                { label: '🟢 OpenAI Compatible', prompt: 'I have a custom OpenAI-compatible API at https://my-custom-api.com/v1/images/generations. It uses Bearer auth and returns data[0].url. Set it up as "My Custom API".' },
+                { label: '🔄 Configure Replicate', prompt: 'Configure Replicate API. Auth: Bearer. Endpoint is POST https://api.replicate.com/v1/models/{owner}/{model}/predictions. It is async — returns id, poll at GET https://api.replicate.com/v1/predictions/{id}, succeeded when status == "succeeded", image at output[0].' }
+              ].map(q => (
+                <button key={q.label} type="button" className="admin-btn admin-btn-sm" style={{ fontSize: '11px' }} onClick={() => setArchitectInput(q.prompt)}>
+                  {q.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Bulk Model Importer Section */}
+          <div className="admin-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--admin-text-main)' }}>📡 Models Discovery & Bulk Importer</h3>
+                <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: 0 }}>Fetch a provider's full model catalog from their /v1/models endpoint and bulk-import them into Thumbnail Studio.</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+              <div>
+                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Provider:</label>
+                <select value={importerProvider} onChange={e => setImporterProvider(e.target.value)} className="admin-input" style={{ width: '100%', fontSize: '12px' }}>
+                  {providersList.map(p => <option key={p.id} value={p.id}>{p.icon || '🌐'} {p.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Auth Type:</label>
+                <select value={importerAuth} onChange={e => setImporterAuth(e.target.value)} className="admin-input" style={{ width: '100%', fontSize: '12px' }}>
+                  <option value="Bearer">Bearer</option>
+                  <option value="Key">Key (Fal.ai)</option>
+                  <option value="Token">Token</option>
+                  <option value="x-api-key">x-api-key</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Credits 1K / 2K / 4K:</label>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {['1K', '2K', '4K'].map(r => (
+                    <input key={r} type="number" min="0" value={importerCredits[r]} onChange={e => setImporterCredits(prev => ({ ...prev, [r]: Number(e.target.value) }))} className="admin-input" style={{ width: '50px', fontSize: '11px', padding: '5px 6px', textAlign: 'center' }} placeholder={r} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px', marginBottom: '10px' }}>
+              <div>
+                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Models Listing URL:</label>
+                <input type="text" value={importerUrl} onChange={e => setImporterUrl(e.target.value)} placeholder="e.g. https://api.together.xyz/v1/models" className="admin-input" style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Response Path (optional):</label>
+                <input type="text" value={importerPath} onChange={e => setImporterPath(e.target.value)} placeholder="e.g. data or models" className="admin-input" style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }} />
+              </div>
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>API Key for fetching (uses vault key if blank):</label>
+              <input type="password" value={importerApiKey} onChange={e => setImporterApiKey(e.target.value)} placeholder="Leave blank to use a key from the provider's vault" className="admin-input" style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+              <button type="button" className="admin-btn admin-btn-primary" onClick={handleFetchImporterModels} disabled={importerLoading} style={{ fontWeight: 800 }}>
+                {importerLoading ? '⏳ Fetching...' : '📡 Fetch Models from Endpoint'}
+              </button>
+              {importerModels.length > 0 && (
+                <button type="button" className="admin-btn" style={{ fontSize: '12px' }} onClick={() => { setImporterSelected(new Set(importerModels.filter(m => m.id.toLowerCase().includes(importerFilter.toLowerCase()) || !importerFilter).map(m => m.id))); }}>
+                  ✅ Select All Visible
+                </button>
+              )}
+              {importerSelected.size > 0 && (
+                <button type="button" className="admin-btn admin-btn-primary" style={{ background: 'linear-gradient(135deg, #10b981, #06b6d4)', border: 'none', fontWeight: 800 }} onClick={handleBulkImportModels}>
+                  ⬇️ Import Selected ({importerSelected.size})
+                </button>
+              )}
+            </div>
+
+            {importerError && <div style={{ padding: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', fontSize: '12px', color: '#ef4444', marginBottom: '12px' }}>❌ {importerError}</div>}
+            {importerSuccess && <div style={{ padding: '10px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '12px', color: '#10b981', marginBottom: '12px' }}>✅ {importerSuccess}</div>}
+
+            {importerModels.length > 0 && (
+              <div>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                  <input type="text" value={importerFilter} onChange={e => setImporterFilter(e.target.value)} placeholder="🔍 Filter models by name or ID..." className="admin-input" style={{ flex: 1, fontSize: '12px' }} />
+                  <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)', whiteSpace: 'nowrap' }}>{importerModels.filter(m => !importerFilter || m.id.toLowerCase().includes(importerFilter.toLowerCase()) || m.name.toLowerCase().includes(importerFilter.toLowerCase())).length} models</span>
+                </div>
+                <div style={{ maxHeight: '340px', overflowY: 'auto', border: '1px solid var(--admin-border-glass)', borderRadius: '8px' }}>
+                  {importerModels.filter(m => !importerFilter || m.id.toLowerCase().includes(importerFilter.toLowerCase()) || m.name.toLowerCase().includes(importerFilter.toLowerCase())).map(m => (
+                    <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderBottom: '1px solid var(--admin-border-glass)', cursor: 'pointer', background: importerSelected.has(m.id) ? 'rgba(99,102,241,0.08)' : 'transparent', transition: 'background 0.1s' }}>
+                      <input type="checkbox" checked={importerSelected.has(m.id)} onChange={e => { const next = new Set(importerSelected); e.target.checked ? next.add(m.id) : next.delete(m.id); setImporterSelected(next); }} style={{ accentColor: '#ff4f00', width: '14px', height: '14px', flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.id}</div>
+                        {m.name !== m.id && <div style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}>{m.name}</div>}
+                        {m.description && <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.description}</div>}
+                      </div>
+                      {m.type && <span style={{ fontSize: '9px', padding: '1px 5px', background: 'rgba(99,102,241,0.15)', color: '#6366f1', borderRadius: '3px', whiteSpace: 'nowrap', flexShrink: 0 }}>{m.type}</span>}
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
           </div>
