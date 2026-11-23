@@ -1,7 +1,8 @@
 // Netlify Serverless Function: thumbnail
 // Path: /.netlify/functions/thumbnail
-// Multi-Provider Vision & Thumbnail Generation Proxy with Provider Rotation & Key Failover
-// Eliminates raw API key exposure in client-side browser bundles and DevTools
+// Multi-Provider Vision & Thumbnail Generation Proxy with Universal Provider & Endpoint Engine
+// Supports any custom provider (OpenAI-compatible, Kie-compatible, Fal queue, Replicate, custom HTTP)
+// Key rotation, automatic multi-provider failover, and real-time MongoDB activity logging
 
 import { getDb } from './db.js';
 
@@ -33,6 +34,247 @@ const FALLBACK_KIE_KEYS = [
   '2157c9fa712b2064b7a781139c8122d0'
 ];
 
+// Complete built-in default provider definitions with exact endpoints
+const DEFAULT_PROVIDER_CONFIGS = {
+  'kie.ai': {
+    id: 'kie.ai',
+    name: 'Kie.ai Vision Engine',
+    icon: '⚡',
+    mode: 'async',
+    authHeaderType: 'Bearer',
+    generateUrl: 'https://api.kie.ai/api/v1/jobs/createTask',
+    generateMethod: 'POST',
+    payloadFormat: 'kie',
+    defaultModel: 'gpt-image/2.5-flare',
+    responseTaskIdPath: 'data.taskId',
+    pollUrlTemplate: 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId={{taskId}}',
+    pollStatusPath: 'data.state',
+    pollSuccessValue: 'SUCCESS',
+    pollResultUrlPath: 'data.resultUrl',
+    balanceUrl: 'https://api.kie.ai/api/v1/chat/credit',
+    balanceMethod: 'GET',
+    balanceValuePath: 'data',
+    balanceUnit: 'Credits'
+  },
+  'together': {
+    id: 'together',
+    name: 'Together AI',
+    icon: '🧠',
+    mode: 'sync',
+    authHeaderType: 'Bearer',
+    generateUrl: 'https://api.together.xyz/v1/images/generations',
+    generateMethod: 'POST',
+    payloadFormat: 'openai',
+    defaultModel: 'black-forest-labs/FLUX.1-schnell-Free',
+    responseImageUrlPath: 'data[0].url',
+    balanceUrl: 'https://api.together.xyz/v1/models',
+    balanceMethod: 'GET'
+  },
+  'openai': {
+    id: 'openai',
+    name: 'OpenAI / Custom Compatible',
+    icon: '🌐',
+    mode: 'sync',
+    authHeaderType: 'Bearer',
+    generateUrl: 'https://api.openai.com/v1/images/generations',
+    generateMethod: 'POST',
+    payloadFormat: 'openai',
+    defaultModel: 'dall-e-3',
+    responseImageUrlPath: 'data[0].url',
+    balanceUrl: 'https://api.openai.com/v1/models',
+    balanceMethod: 'GET'
+  },
+  'fal.ai': {
+    id: 'fal.ai',
+    name: 'Fal.ai Fast Vision',
+    icon: '🚀',
+    mode: 'async',
+    authHeaderType: 'Key',
+    generateUrl: 'https://queue.fal.run/{{model}}',
+    generateMethod: 'POST',
+    payloadFormat: 'fal',
+    defaultModel: 'fal-ai/flux/schnell',
+    responseTaskIdPath: 'request_id',
+    pollUrlTemplate: 'https://queue.fal.run/{{model}}/requests/{{taskId}}/status',
+    pollStatusPath: 'status',
+    pollSuccessValue: 'COMPLETED',
+    pollResultUrlPath: 'images[0].url',
+    balanceUrl: 'https://rest.alpha.fal.ai/keys/current',
+    balanceMethod: 'GET'
+  },
+  'replicate': {
+    id: 'replicate',
+    name: 'Replicate',
+    icon: '🔄',
+    mode: 'async',
+    authHeaderType: 'Bearer',
+    generateUrl: 'https://api.replicate.com/v1/models/{{model}}/predictions',
+    generateMethod: 'POST',
+    payloadFormat: 'replicate',
+    defaultModel: 'black-forest-labs/flux-schnell',
+    responseTaskIdPath: 'id',
+    pollUrlTemplate: 'https://api.replicate.com/v1/predictions/{{taskId}}',
+    pollStatusPath: 'status',
+    pollSuccessValue: 'succeeded',
+    pollResultUrlPath: 'output[0]',
+    balanceUrl: 'https://api.replicate.com/v1/account',
+    balanceMethod: 'GET'
+  }
+};
+
+// Log real-time activity events to MongoDB collection `thumbnail_logs`
+async function logThumbnailActivity(entry) {
+  try {
+    const db = await getDb();
+    if (!db) return;
+    const logDoc = {
+      ...entry,
+      timestamp: new Date().toISOString()
+    };
+    await db.collection('thumbnail_logs').insertOne(logDoc);
+    // Keep collection tidy (latest 300 logs)
+    const count = await db.collection('thumbnail_logs').countDocuments();
+    if (count > 350) {
+      const oldest = await db.collection('thumbnail_logs').find().sort({ timestamp: 1 }).limit(count - 300).toArray();
+      if (oldest.length > 0) {
+        await db.collection('thumbnail_logs').deleteMany({ _id: { $in: oldest.map(o => o._id) } });
+      }
+    }
+  } catch (err) {
+    console.warn('[thumbnail.js] Activity log insert failed:', err.message);
+  }
+}
+
+// Extract nested values from JSON response using dot and bracket notation (e.g. "data[0].url", "images[0].url")
+function getValueByPath(obj, path) {
+  if (!obj || !path) return undefined;
+  const cleanPath = path.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '');
+  const keys = cleanPath.split('.');
+  let current = obj;
+  for (const k of keys) {
+    if (current == null) return undefined;
+    current = current[k];
+  }
+  return current;
+}
+
+// Retrieve complete provider specification (combining custom configurations from DB and built-in defaults)
+function getProviderDef(config, keyDoc, providerId) {
+  if (config?.customProviders && config.customProviders[providerId]) {
+    return {
+      ...(DEFAULT_PROVIDER_CONFIGS[providerId] || DEFAULT_PROVIDER_CONFIGS['openai']),
+      ...config.customProviders[providerId]
+    };
+  }
+  if (keyDoc?.providers && keyDoc.providers[providerId]) {
+    const kp = keyDoc.providers[providerId];
+    if (kp.generateUrl || kp.baseUrl) {
+      return {
+        ...(DEFAULT_PROVIDER_CONFIGS[providerId] || DEFAULT_PROVIDER_CONFIGS['openai']),
+        ...kp
+      };
+    }
+  }
+  return DEFAULT_PROVIDER_CONFIGS[providerId] || {
+    id: providerId,
+    name: providerId,
+    icon: '🌐',
+    mode: 'sync',
+    authHeaderType: 'Bearer',
+    generateUrl: `https://api.${providerId}.com/v1/images/generations`,
+    generateMethod: 'POST',
+    payloadFormat: 'openai',
+    responseImageUrlPath: 'data[0].url'
+  };
+}
+
+// Format authorization headers according to provider authentication type
+function getAuthHeaders(providerDef, key) {
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  const authType = providerDef.authHeaderType || 'Bearer';
+  if (authType === 'Bearer') {
+    headers['Authorization'] = `Bearer ${key}`;
+  } else if (authType === 'Key') {
+    headers['Authorization'] = `Key ${key}`;
+  } else if (authType === 'Token') {
+    headers['Authorization'] = `Token ${key}`;
+  } else if (authType === 'x-api-key') {
+    headers[providerDef.customHeaderName || 'x-api-key'] = key;
+  } else if (authType === 'Custom') {
+    headers[providerDef.customHeaderName || 'Authorization'] = (providerDef.authPrefix || '') + key;
+  } else {
+    headers['Authorization'] = `Bearer ${key}`;
+  }
+  return headers;
+}
+
+// Construct generation request payload based on provider format (OpenAI, Kie, Fal, Replicate, or Custom Template)
+function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resolution, width, height, numSteps }) {
+  const format = providerDef.payloadFormat || 'openai';
+
+  if (format === 'custom' && providerDef.customPayloadTemplate) {
+    let tpl = providerDef.customPayloadTemplate;
+    tpl = tpl.replace(/\{\{prompt\}\}/g, JSON.stringify(prompt).slice(1, -1));
+    tpl = tpl.replace(/\{\{model\}\}/g, model);
+    tpl = tpl.replace(/\{\{aspectRatio\}\}/g, aspectRatio);
+    tpl = tpl.replace(/\{\{resolution\}\}/g, resolution);
+    tpl = tpl.replace(/\{\{width\}\}/g, String(width));
+    tpl = tpl.replace(/\{\{height\}\}/g, String(height));
+    try {
+      return JSON.parse(tpl);
+    } catch {
+      // If template parsing fails, fallback below
+    }
+  }
+
+  if (format === 'kie') {
+    return {
+      model,
+      input: {
+        prompt,
+        aspect_ratio: aspectRatio,
+        resolution
+      }
+    };
+  }
+
+  if (format === 'fal') {
+    let falSize = 'landscape_16_9';
+    if (aspectRatio === '9:16') falSize = 'portrait_16_9';
+    else if (aspectRatio === '1:1') falSize = 'square_hd';
+    else if (aspectRatio === '4:3') falSize = 'landscape_4_3';
+
+    return {
+      prompt,
+      image_size: falSize,
+      num_inference_steps: numSteps || 4
+    };
+  }
+
+  if (format === 'replicate') {
+    return {
+      input: {
+        prompt,
+        aspect_ratio: aspectRatio || '16:9'
+      }
+    };
+  }
+
+  // Default: OpenAI / Together compatible
+  let size = '1024x1024';
+  if (aspectRatio === '9:16') size = '1024x1792';
+  else if (aspectRatio === '16:9') size = '1792x1024';
+
+  return {
+    model: model || providerDef.defaultModel || 'dall-e-3',
+    prompt,
+    n: 1,
+    size
+  };
+}
+
 async function getThumbnailConfig(forceFresh = false) {
   const now = Date.now();
   if (!forceFresh && cachedConfig && (now - lastConfigFetchTime < CACHE_TTL_MS)) {
@@ -62,7 +304,8 @@ async function getThumbnailConfig(forceFresh = false) {
     systemPromptEnabled: false,
     negativePrompt: '--no watermark, no blur, no low resolution, no deformed faces',
     defaultAspectRatio: '16:9',
-    defaultResolution: '2K'
+    defaultResolution: '2K',
+    customProviders: DEFAULT_PROVIDER_CONFIGS
   };
   lastConfigFetchTime = now;
   return cachedConfig;
@@ -189,7 +432,7 @@ export const handler = async (event, context) => {
     };
   }
 
-  // ── ACTION 1: CREATE THUMBNAIL TASK WITH MULTI-PROVIDER ROTATION ──
+  // ── ACTION 1: CREATE THUMBNAIL TASK WITH MULTI-PROVIDER ROTATION & FAILOVER ──
   if (action === 'createTask') {
     const { model, input, provider: requestedProvider } = body;
     if (!model || !input) {
@@ -204,8 +447,7 @@ export const handler = async (event, context) => {
     const keyDoc = await getKeyDoc(true);
 
     // 1. System Prompt Conditioning:
-    // User Requirement: "by default there should be no system prompt which overrides the users prompts...
-    // the system prompt should only work if i have entered in admin panel, else it should work normally like how a image gen works."
+    // By default no system prompt overrides unless explicitly enabled in admin panel
     let effectivePrompt = input.prompt || '';
     if (config.systemPromptEnabled && config.systemPrompt && config.systemPrompt.trim()) {
       const sp = config.systemPrompt.trim();
@@ -230,241 +472,244 @@ export const handler = async (event, context) => {
     }
 
     let lastError = null;
-    let successfulResult = null;
 
     // Loop through provider chain
     for (const currentProvider of providerChain) {
+      const providerDef = getProviderDef(config, keyDoc, currentProvider);
       const keys = getProviderKeys(keyDoc, currentProvider);
+
       if (!keys || keys.length === 0) {
-        console.warn(`[thumbnail.js] Skipping provider '${currentProvider}': no API keys configured in vault.`);
+        await logThumbnailActivity({
+          type: 'SKIP_PROVIDER_NO_KEYS',
+          provider: currentProvider,
+          model,
+          promptSnippet: effectiveInput.prompt.slice(0, 80),
+          message: `Provider '${currentProvider}' skipped: no active API keys found in vault.`
+        });
         continue;
       }
 
       console.log(`[thumbnail.js] Attempting generation with provider '${currentProvider}' (${keys.length} keys in pool)...`);
-      let providerSucceeded = false;
       const maxKeyAttempts = keys.length;
 
       for (let attempt = 0; attempt < maxKeyAttempts; attempt++) {
         const key = getActiveKeyForProvider(keys, currentProvider);
         if (!key) break;
+        const maskedKey = `${key.slice(0, 4)}...${key.slice(-4)}`;
 
         try {
-          // --- PROVIDER 1: KIE.AI ---
-          if (currentProvider === 'kie.ai') {
-            const res = await fetch(`${KIE_BASE_API_URL}/createTask`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${key}`
-              },
-              body: JSON.stringify({
-                model,
-                input: effectiveInput
-              })
+          // Resolve provider-specific model slug
+          let resolvedModel = model;
+          if (config.models) {
+            const foundModel = config.models.find(m => m.id === model);
+            if (foundModel) {
+              if (foundModel.provider === currentProvider && foundModel.providerModelId) {
+                resolvedModel = foundModel.providerModelId;
+              } else if (foundModel.fallbackModelId) {
+                resolvedModel = foundModel.fallbackModelId;
+              }
+            }
+          }
+          if (!resolvedModel || resolvedModel === model) {
+            resolvedModel = providerDef.defaultModel || model;
+          }
+
+          // Build generation URL (interpolating {{model}} if present)
+          let targetUrl = providerDef.generateUrl || `${providerDef.baseUrl || 'https://api.openai.com/v1'}/images/generations`;
+          targetUrl = targetUrl.replace(/\{\{model\}\}/g, encodeURIComponent(resolvedModel));
+
+          const payload = buildRequestPayload(providerDef, {
+            model: resolvedModel,
+            prompt: effectiveInput.prompt,
+            aspectRatio: effectiveInput.aspect_ratio || '16:9',
+            resolution: effectiveInput.resolution || '2K',
+            width: effectiveInput.aspect_ratio === '9:16' ? 768 : 1024,
+            height: effectiveInput.aspect_ratio === '9:16' ? 1024 : 768
+          });
+
+          const headers = getAuthHeaders(providerDef, key);
+          const startTime = Date.now();
+
+          await logThumbnailActivity({
+            type: 'TASK_DISPATCH',
+            provider: currentProvider,
+            model: resolvedModel,
+            keyMasked: maskedKey,
+            targetUrl,
+            promptSnippet: effectiveInput.prompt.slice(0, 80),
+            aspectRatio: effectiveInput.aspect_ratio || '16:9',
+            resolution: effectiveInput.resolution || '2K'
+          });
+
+          const res = await fetch(targetUrl, {
+            method: providerDef.generateMethod || 'POST',
+            headers,
+            body: JSON.stringify(payload)
+          });
+
+          // Check HTTP status for rate-limiting, authentication or credit errors: rotate key & retry!
+          if (res.status === 401 || res.status === 402 || res.status === 429) {
+            const errText = await res.text().catch(() => '');
+            console.warn(`[thumbnail.js] Provider '${currentProvider}' returned HTTP ${res.status}, rotating key...`);
+            await logThumbnailActivity({
+              type: 'KEY_ROTATED_ON_ERROR',
+              provider: currentProvider,
+              keyMasked: maskedKey,
+              httpStatus: res.status,
+              error: errText.slice(0, 160)
+            });
+            rotateKeyForProvider(keys, currentProvider);
+            continue;
+          }
+
+          const json = await res.json().catch(() => ({}));
+
+          // Check Kie.ai specific code 402 or insufficient balance message
+          if (json.code === 402 || (json.msg && /insufficient|balance|credit/i.test(json.msg))) {
+            console.warn(`[thumbnail.js] Kie.ai key credit exhausted, rotating key...`);
+            await logThumbnailActivity({
+              type: 'KEY_CREDIT_EXHAUSTED',
+              provider: currentProvider,
+              keyMasked: maskedKey,
+              error: json.msg || 'Insufficient balance'
+            });
+            rotateKeyForProvider(keys, currentProvider);
+            continue;
+          }
+
+          if (!res.ok) {
+            throw new Error(json.msg || json.error?.message || json.detail || `HTTP ${res.status}`);
+          }
+
+          const durationMs = Date.now() - startTime;
+
+          // ── SYNC PROVIDER MODE (Returns direct image URL) ──
+          if (providerDef.mode === 'sync') {
+            const imgUrl = getValueByPath(json, providerDef.responseImageUrlPath || 'data[0].url') 
+              || getValueByPath(json, 'output[0]') 
+              || getValueByPath(json, 'images[0].url')
+              || getValueByPath(json, 'url');
+
+            if (!imgUrl) {
+              throw new Error('Image URL not found at response path: ' + (providerDef.responseImageUrlPath || 'data[0].url'));
+            }
+
+            await logThumbnailActivity({
+              type: 'GENERATION_SUCCESS',
+              provider: currentProvider,
+              model: resolvedModel,
+              keyMasked: maskedKey,
+              durationMs,
+              resultUrl: imgUrl,
+              promptSnippet: effectiveInput.prompt.slice(0, 80)
             });
 
-            if (res.status === 401 || res.status === 402 || res.status === 429) {
-              console.warn(`[thumbnail.js] Kie.ai key returned HTTP ${res.status}, rotating key...`);
-              rotateKeyForProvider(keys, currentProvider);
-              continue;
-            }
+            return {
+              statusCode: 200,
+              headers: corsHeaders,
+              body: JSON.stringify({
+                success: true,
+                taskId: `sync:${currentProvider}:${Date.now()}`,
+                providerUsed: currentProvider,
+                keyUsed: key,
+                modelId: resolvedModel,
+                state: 'success',
+                resultUrl: imgUrl
+              })
+            };
+          }
 
-            const json = await res.json();
-            if (json.code === 402 || (json.msg && /insufficient|balance|credit/i.test(json.msg))) {
-              console.warn(`[thumbnail.js] Kie.ai key credit exhausted, rotating key...`);
-              rotateKeyForProvider(keys, currentProvider);
-              continue;
-            }
+          // ── ASYNC PROVIDER MODE (Returns task ID for status polling) ──
+          const taskId = getValueByPath(json, providerDef.responseTaskIdPath || 'data.taskId')
+            || getValueByPath(json, 'request_id')
+            || getValueByPath(json, 'id')
+            || json.taskId;
 
-            if (json.code !== 200 || !json.data?.taskId) {
-              throw new Error(json.msg || `Kie.ai error code ${json.code}`);
+          if (!taskId) {
+            // Fallback: check if direct image URL was returned anyway
+            const directImgUrl = getValueByPath(json, providerDef.responseImageUrlPath || 'data[0].url') 
+              || getValueByPath(json, 'output[0]') 
+              || getValueByPath(json, 'images[0].url');
+            if (directImgUrl) {
+              await logThumbnailActivity({
+                type: 'GENERATION_SUCCESS',
+                provider: currentProvider,
+                model: resolvedModel,
+                keyMasked: maskedKey,
+                durationMs,
+                resultUrl: directImgUrl
+              });
+              return {
+                statusCode: 200,
+                headers: corsHeaders,
+                body: JSON.stringify({
+                  success: true,
+                  taskId: `sync:${currentProvider}:${Date.now()}`,
+                  providerUsed: currentProvider,
+                  keyUsed: key,
+                  modelId: resolvedModel,
+                  state: 'success',
+                  resultUrl: directImgUrl
+                })
+              };
             }
+            throw new Error('Task ID not found in response path: ' + (providerDef.responseTaskIdPath || 'data.taskId'));
+          }
 
-            successfulResult = {
+          await logThumbnailActivity({
+            type: 'TASK_CREATED_ASYNC',
+            provider: currentProvider,
+            model: resolvedModel,
+            keyMasked: maskedKey,
+            taskId: `${currentProvider}:${taskId}`,
+            durationMs
+          });
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
               success: true,
-              taskId: `kie:${json.data.taskId}`,
-              providerUsed: 'kie.ai',
+              taskId: `${currentProvider}:${taskId}`,
+              providerUsed: currentProvider,
               keyUsed: key,
-              modelId: model,
+              modelId: resolvedModel,
               state: 'waiting'
-            };
-            providerSucceeded = true;
-            break;
-          }
+            })
+          };
 
-          // --- PROVIDER 2: FAL.AI ---
-          else if (currentProvider === 'fal.ai') {
-            const falModel = model.includes('/') ? model : 'fal-ai/flux/schnell';
-            const res = await fetch(`https://queue.fal.run/${falModel}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Key ${key}`
-              },
-              body: JSON.stringify({
-                prompt: effectiveInput.prompt,
-                image_size: effectiveInput.aspect_ratio === '9:16' ? 'portrait_16_9' : 'landscape_16_9',
-                num_inference_steps: 4
-              })
-            });
-
-            if (res.status === 401 || res.status === 402 || res.status === 429) {
-              rotateKeyForProvider(keys, currentProvider);
-              continue;
-            }
-
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.detail || `Fal.ai status ${res.status}`);
-
-            successfulResult = {
-              success: true,
-              taskId: `fal:${json.request_id}:${falModel}`,
-              providerUsed: 'fal.ai',
-              modelId: falModel,
-              state: 'waiting'
-            };
-            providerSucceeded = true;
-            break;
-          }
-
-          // --- PROVIDER 3: REPLICATE ---
-          else if (currentProvider === 'replicate') {
-            const repModel = model.includes('/') ? model : 'black-forest-labs/flux-schnell';
-            const res = await fetch(`https://api.replicate.com/v1/models/${repModel}/predictions`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${key}`
-              },
-              body: JSON.stringify({
-                input: {
-                  prompt: effectiveInput.prompt,
-                  aspect_ratio: effectiveInput.aspect_ratio || '16:9'
-                }
-              })
-            });
-
-            if (res.status === 401 || res.status === 402 || res.status === 429) {
-              rotateKeyForProvider(keys, currentProvider);
-              continue;
-            }
-
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.detail || `Replicate status ${res.status}`);
-
-            successfulResult = {
-              success: true,
-              taskId: `rep:${json.id}`,
-              providerUsed: 'replicate',
-              modelId: repModel,
-              state: json.status === 'succeeded' ? 'success' : 'waiting',
-              resultUrl: Array.isArray(json.output) ? json.output[0] : json.output
-            };
-            providerSucceeded = true;
-            break;
-          }
-
-          // --- PROVIDER 4: TOGETHER AI ---
-          else if (currentProvider === 'together') {
-            const togModel = model.includes('/') ? model : 'black-forest-labs/FLUX.1-schnell-Free';
-            const res = await fetch('https://api.together.xyz/v1/images/generations', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${key}`
-              },
-              body: JSON.stringify({
-                model: togModel,
-                prompt: effectiveInput.prompt,
-                width: effectiveInput.aspect_ratio === '9:16' ? 768 : 1024,
-                height: effectiveInput.aspect_ratio === '9:16' ? 1024 : 768
-              })
-            });
-
-            if (res.status === 401 || res.status === 402 || res.status === 429) {
-              rotateKeyForProvider(keys, currentProvider);
-              continue;
-            }
-
-            const json = await res.json();
-            if (!res.ok || !json.data?.[0]?.url) throw new Error(json.error?.message || `Together status ${res.status}`);
-
-            successfulResult = {
-              success: true,
-              taskId: `tog:${Date.now()}`,
-              providerUsed: 'together',
-              modelId: togModel,
-              state: 'success',
-              resultUrl: json.data[0].url
-            };
-            providerSucceeded = true;
-            break;
-          }
-
-          // --- PROVIDER 5: OPENAI / CUSTOM ---
-          else if (currentProvider === 'openai') {
-            const baseUrl = keyDoc?.providers?.openai?.baseUrl || 'https://api.openai.com/v1';
-            const res = await fetch(`${baseUrl}/images/generations`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${key}`
-              },
-              body: JSON.stringify({
-                model: 'dall-e-3',
-                prompt: effectiveInput.prompt,
-                n: 1,
-                size: effectiveInput.aspect_ratio === '9:16' ? '1024x1792' : '1792x1024'
-              })
-            });
-
-            if (res.status === 401 || res.status === 402 || res.status === 429) {
-              rotateKeyForProvider(keys, currentProvider);
-              continue;
-            }
-
-            const json = await res.json();
-            if (!res.ok || !json.data?.[0]?.url) throw new Error(json.error?.message || `OpenAI status ${res.status}`);
-
-            successfulResult = {
-              success: true,
-              taskId: `oai:${Date.now()}`,
-              providerUsed: 'openai',
-              modelId: 'dall-e-3',
-              state: 'success',
-              resultUrl: json.data[0].url
-            };
-            providerSucceeded = true;
-            break;
-          }
         } catch (err) {
           lastError = err;
-          console.warn(`[thumbnail.js] Provider '${currentProvider}' attempt failed:`, err.message);
+          console.warn(`[thumbnail.js] Provider '${currentProvider}' key attempt failed:`, err.message);
+          await logThumbnailActivity({
+            type: 'KEY_ATTEMPT_FAILED',
+            provider: currentProvider,
+            keyMasked: maskedKey,
+            error: err.message
+          });
           rotateKeyForProvider(keys, currentProvider);
         }
       }
 
-      if (providerSucceeded && successfulResult) {
-        return {
-          statusCode: 200,
-          headers: corsHeaders,
-          body: JSON.stringify(successfulResult)
-        };
-      }
-
-      console.warn(`[thumbnail.js] All keys for provider '${currentProvider}' exhausted or failed. Initiating failover to next provider...`);
+      // All keys for currentProvider failed -> trigger Provider Failover
+      console.warn(`[thumbnail.js] All keys for provider '${currentProvider}' exhausted. Initiating provider failover...`);
+      await logThumbnailActivity({
+        type: 'PROVIDER_FAILOVER',
+        failedProvider: currentProvider,
+        message: `All keys for provider '${currentProvider}' failed or exhausted. Failing over to next provider in priority chain.`
+      });
     }
 
     return {
       statusCode: 502,
       headers: corsHeaders,
       body: JSON.stringify({
-        error: `All thumbnail generation providers and keys exhausted: ${lastError?.message || 'Unknown error'}`
+        error: `All thumbnail generation providers and keys exhausted in failover chain: ${lastError?.message || 'Unknown error'}`
       })
     };
   }
 
-  // ── ACTION 2: POLL TASK RECORD INFO ────────────────────────
+  // ── ACTION 2: POLL ASYNC TASK STATUS (UNIVERSAL FOR ANY PROVIDER) ──
   if (action === 'pollTask') {
     const rawTaskId = event.queryStringParameters?.taskId || body.taskId;
     if (!rawTaskId) {
@@ -475,10 +720,8 @@ export const handler = async (event, context) => {
       };
     }
 
-    const keyDoc = await getKeyDoc();
-
-    // 1. Sync tasks (Together AI / OpenAI)
-    if (rawTaskId.startsWith('tog:') || rawTaskId.startsWith('oai:')) {
+    // 1. Check for immediate sync tasks
+    if (rawTaskId.startsWith('sync:') || rawTaskId.startsWith('tog:') || rawTaskId.startsWith('oai:')) {
       return {
         statusCode: 200,
         headers: corsHeaders,
@@ -490,144 +733,113 @@ export const handler = async (event, context) => {
       };
     }
 
-    // 2. Fal.ai Polling (`fal:requestId:model`)
-    if (rawTaskId.startsWith('fal:')) {
-      const parts = rawTaskId.split(':');
-      const reqId = parts[1];
-      const falModel = parts.slice(2).join(':') || 'fal-ai/flux/schnell';
-      const keys = getProviderKeys(keyDoc, 'fal.ai');
-      const key = getActiveKeyForProvider(keys, 'fal.ai');
+    // 2. Parse provider from taskId: `${providerId}:${realTaskId}`
+    const colonIdx = rawTaskId.indexOf(':');
+    let providerId = 'kie.ai';
+    let realTaskId = rawTaskId;
 
-      try {
-        const res = await fetch(`https://queue.fal.run/${falModel}/requests/${reqId}/status`, {
-          headers: { 'Authorization': `Key ${key}` }
-        });
-        const json = await res.json();
-
-        if (json.status === 'COMPLETED') {
-          const resDetail = await fetch(`https://queue.fal.run/${falModel}/requests/${reqId}`, {
-            headers: { 'Authorization': `Key ${key}` }
-          });
-          const detailJson = await resDetail.json();
-          const imgUrl = detailJson.images?.[0]?.url;
-          return {
-            statusCode: 200,
-            headers: corsHeaders,
-            body: JSON.stringify({ success: true, state: 'success', resultUrl: imgUrl })
-          };
-        }
-
-        if (json.status === 'FAILED') {
-          return {
-            statusCode: 200,
-            headers: corsHeaders,
-            body: JSON.stringify({ success: false, state: 'fail', failReason: json.error || 'Fal task failed' })
-          };
-        }
-
-        return {
-          statusCode: 200,
-          headers: corsHeaders,
-          body: JSON.stringify({ success: true, state: 'processing' })
-        };
-      } catch (err) {
-        return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) };
-      }
+    if (colonIdx > 0) {
+      providerId = rawTaskId.slice(0, colonIdx);
+      realTaskId = rawTaskId.slice(colonIdx + 1);
     }
 
-    // 3. Replicate Polling (`rep:predictionId`)
-    if (rawTaskId.startsWith('rep:')) {
-      const predId = rawTaskId.replace('rep:', '');
-      const keys = getProviderKeys(keyDoc, 'replicate');
-      const key = getActiveKeyForProvider(keys, 'replicate');
+    const config = await getThumbnailConfig();
+    const keyDoc = await getKeyDoc();
+    const providerDef = getProviderDef(config, keyDoc, providerId);
+    const keys = getProviderKeys(keyDoc, providerId);
+    const key = body.keyUsed || getActiveKeyForProvider(keys, providerId);
 
-      try {
-        const res = await fetch(`https://api.replicate.com/v1/predictions/${predId}`, {
-          headers: { 'Authorization': `Bearer ${key}` }
-        });
-        const json = await res.json();
+    // 3. Construct Polling URL
+    let pollUrl = providerDef.pollUrlTemplate || 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId={{taskId}}';
+    pollUrl = pollUrl.replace(/\{\{taskId\}\}/g, encodeURIComponent(realTaskId));
+    pollUrl = pollUrl.replace(/\{\{model\}\}/g, encodeURIComponent(body.modelId || providerDef.defaultModel || ''));
 
-        if (json.status === 'succeeded') {
-          const imgUrl = Array.isArray(json.output) ? json.output[0] : json.output;
-          return {
-            statusCode: 200,
-            headers: corsHeaders,
-            body: JSON.stringify({ success: true, state: 'success', resultUrl: imgUrl })
-          };
-        }
-
-        if (json.status === 'failed' || json.status === 'canceled') {
-          return {
-            statusCode: 200,
-            headers: corsHeaders,
-            body: JSON.stringify({ success: false, state: 'fail', failReason: json.error || 'Replicate prediction failed' })
-          };
-        }
-
-        return {
-          statusCode: 200,
-          headers: corsHeaders,
-          body: JSON.stringify({ success: true, state: 'processing' })
-        };
-      } catch (err) {
-        return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) };
-      }
-    }
-
-    // 4. Kie.ai Polling (Default & `kie:taskId`)
-    const cleanKieTaskId = rawTaskId.startsWith('kie:') ? rawTaskId.replace('kie:', '') : rawTaskId;
-    const kieKeys = getProviderKeys(keyDoc, 'kie.ai');
-    const key = body.keyUsed || getActiveKeyForProvider(kieKeys, 'kie.ai');
+    const headers = getAuthHeaders(providerDef, key);
 
     try {
-      const res = await fetch(`${KIE_BASE_API_URL}/recordInfo?taskId=${cleanKieTaskId}`, {
-        headers: { 'Authorization': `Bearer ${key}` }
-      });
-      const json = await res.json();
+      const pollRes = await fetch(pollUrl, { headers });
+      const pollJson = await pollRes.json().catch(() => ({}));
 
-      if (json.code === 200 && json.data) {
-        const state = json.data.state;
-        let resultUrl = null;
+      // Extract status using configured path
+      const statusVal = getValueByPath(pollJson, providerDef.pollStatusPath || 'data.state')
+        || getValueByPath(pollJson, 'status')
+        || getValueByPath(pollJson, 'state');
 
-        if (state === 'success') {
-          if (json.data.resultJson) {
-            try {
-              const parsed = JSON.parse(json.data.resultJson);
-              resultUrl = parsed.resultUrls?.[0] || parsed.resultUrl || parsed.output?.[0] || parsed.images?.[0];
-            } catch {
-              resultUrl = json.data.resultJson;
-            }
-          }
-          if (!resultUrl && json.data.resultUrls?.length) {
-            resultUrl = json.data.resultUrls[0];
-          }
-          if (!resultUrl && json.data.response?.resultUrls?.length) {
-            resultUrl = json.data.response.resultUrls[0];
+      const successTarget = providerDef.pollSuccessValue || 'SUCCESS';
+
+      // Status Check: SUCCESS
+      if (String(statusVal).toUpperCase() === String(successTarget).toUpperCase() || statusVal === 'success' || statusVal === 'succeeded' || statusVal === 'COMPLETED') {
+        let resultUrl = getValueByPath(pollJson, providerDef.pollResultUrlPath || 'data.resultUrl')
+          || getValueByPath(pollJson, 'images[0].url')
+          || getValueByPath(pollJson, 'output[0]')
+          || getValueByPath(pollJson, 'resultUrl');
+
+        // Kie.ai special fallback for stringified resultJson
+        if (!resultUrl && pollJson.data?.resultJson) {
+          try {
+            const parsed = JSON.parse(pollJson.data.resultJson);
+            resultUrl = parsed.resultUrls?.[0] || parsed.resultUrl || parsed.output?.[0] || parsed.images?.[0];
+          } catch {
+            resultUrl = pollJson.data.resultJson;
           }
         }
+
+        // Fal.ai special fallback to request details endpoint
+        if (!resultUrl && providerId === 'fal.ai') {
+          const detailUrl = `https://queue.fal.run/${body.modelId || 'fal-ai/flux/schnell'}/requests/${realTaskId}`;
+          const resDet = await fetch(detailUrl, { headers });
+          const jsonDet = await resDet.json().catch(() => ({}));
+          resultUrl = jsonDet.images?.[0]?.url;
+        }
+
+        await logThumbnailActivity({
+          type: 'TASK_COMPLETED',
+          provider: providerId,
+          taskId: rawTaskId,
+          resultUrl
+        });
 
         return {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify({
             success: true,
-            state,
-            resultUrl,
-            failReason: json.data.failReason || null,
-            costTime: json.data.costTime || null
+            state: 'success',
+            resultUrl
           })
         };
       }
 
+      // Status Check: FAILURE
+      if (String(statusVal).toLowerCase().includes('fail') || String(statusVal).toLowerCase().includes('error') || statusVal === 'canceled') {
+        const failReason = pollJson.data?.failReason || pollJson.failReason || pollJson.error || 'Generation failed on provider';
+        await logThumbnailActivity({
+          type: 'TASK_FAILED',
+          provider: providerId,
+          taskId: rawTaskId,
+          error: failReason
+        });
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: false,
+            state: 'fail',
+            failReason
+          })
+        };
+      }
+
+      // Status Check: STILL PROCESSING
       return {
         statusCode: 200,
         headers: corsHeaders,
         body: JSON.stringify({
-          success: false,
-          code: json.code,
-          msg: json.msg || 'Record info query pending'
+          success: true,
+          state: 'processing'
         })
       };
+
     } catch (err) {
       return {
         statusCode: 500,

@@ -2134,6 +2134,7 @@ export async function handler(event) {
           negativePrompt: configDoc?.negativePrompt || '--no watermark, no blur, no low resolution, no deformed faces',
           defaultAspectRatio: configDoc?.defaultAspectRatio || '16:9',
           defaultResolution: configDoc?.defaultResolution || '2K',
+          customProviders: configDoc?.customProviders || {},
           models: Array.isArray(configDoc?.models) && configDoc.models.length > 0 ? configDoc.models : defaultModels,
           presets: Array.isArray(configDoc?.presets) && configDoc.presets.length > 0 ? configDoc.presets : defaultPresets,
           styles: Array.isArray(configDoc?.styles) && configDoc.styles.length > 0 ? configDoc.styles : defaultStyles
@@ -2221,7 +2222,19 @@ export async function handler(event) {
       }
 
       case 'check-thumbnail-key-balance': {
-        const { provider = 'kie.ai', key, baseUrl = null } = body;
+        const {
+          provider = 'kie.ai',
+          key,
+          baseUrl = null,
+          balanceUrl = null,
+          balanceMethod = 'GET',
+          authHeaderType = 'Bearer',
+          customHeaderName = null,
+          authPrefix = null,
+          balanceValuePath = 'data',
+          balanceUnit = 'Credits'
+        } = body;
+
         if (!key || !key.trim()) {
           return {
             statusCode: 400,
@@ -2236,6 +2249,33 @@ export async function handler(event) {
         let status = 'unknown';
         let details = '';
 
+        // Helper: retrieve provider definition from system_config if custom
+        let customProv = null;
+        try {
+          const sysDoc = await db.collection('system_config').findOne({ _id: 'thumbnail_configuration' });
+          if (sysDoc?.customProviders?.[provider]) {
+            customProv = sysDoc.customProviders[provider];
+          }
+        } catch {}
+
+        const effectiveBalanceUrl = balanceUrl || customProv?.balanceUrl;
+        const effectiveAuthType = authHeaderType || customProv?.authHeaderType || 'Bearer';
+        const effectiveHeaderName = customHeaderName || customProv?.customHeaderName;
+        const effectivePrefix = authPrefix !== null ? authPrefix : (customProv?.authPrefix || '');
+        const effectiveValuePath = balanceValuePath || customProv?.balanceValuePath || 'data';
+        const effectiveUnit = balanceUnit || customProv?.balanceUnit || 'Credits';
+
+        const getCheckHeaders = () => {
+          const h = { 'Content-Type': 'application/json' };
+          if (effectiveAuthType === 'Bearer') h['Authorization'] = `Bearer ${trimmedKey}`;
+          else if (effectiveAuthType === 'Key') h['Authorization'] = `Key ${trimmedKey}`;
+          else if (effectiveAuthType === 'Token') h['Authorization'] = `Token ${trimmedKey}`;
+          else if (effectiveAuthType === 'x-api-key') h[effectiveHeaderName || 'x-api-key'] = trimmedKey;
+          else if (effectiveAuthType === 'Custom') h[effectiveHeaderName || 'Authorization'] = (effectivePrefix || '') + trimmedKey;
+          else h['Authorization'] = `Bearer ${trimmedKey}`;
+          return h;
+        };
+
         try {
           if (provider === 'kie.ai') {
             const res = await fetch('https://api.kie.ai/api/v1/chat/credit', {
@@ -2243,11 +2283,11 @@ export async function handler(event) {
             });
             if (res.status === 200) {
               const j = await res.json().catch(() => ({}));
-              const val = typeof j.data === 'number' ? j.data : 0;
+              const val = typeof j.data === 'number' ? j.data : (parseFloat(j.data) || 0);
               balance = val;
               balanceFormatted = `${val} Credits`;
               status = val > 5 ? 'active' : (val > 0 ? 'low' : 'exhausted');
-              details = `Kie.ai balance: ${val} credits`;
+              details = `Kie.ai balance verified: ${val} credits`;
             } else if (res.status === 401 || res.status === 403) {
               status = 'invalid';
               details = `Invalid Kie.ai API Key (HTTP ${res.status})`;
@@ -2262,20 +2302,20 @@ export async function handler(event) {
             if (res.status === 200) {
               status = 'active';
               balanceFormatted = 'Active / Operational';
-              details = 'Together AI Key Valid';
+              details = 'Together AI Key Authenticated';
             } else {
               status = 'invalid';
               details = `Together error (HTTP ${res.status})`;
             }
           } else if (provider === 'openai') {
-            const apiBase = baseUrl || 'https://api.openai.com/v1';
+            const apiBase = baseUrl || customProv?.baseUrl || 'https://api.openai.com/v1';
             const res = await fetch(`${apiBase}/models`, {
               headers: { 'Authorization': `Bearer ${trimmedKey}` }
             });
             if (res.status === 200) {
               status = 'active';
               balanceFormatted = 'Active / Operational';
-              details = 'OpenAI Key Valid';
+              details = 'OpenAI Key Authenticated';
             } else {
               status = 'invalid';
               details = `OpenAI error (HTTP ${res.status})`;
@@ -2287,7 +2327,7 @@ export async function handler(event) {
             if (res.status === 200) {
               status = 'active';
               balanceFormatted = 'Active / Operational';
-              details = 'Fal.ai Key Valid';
+              details = 'Fal.ai Key Authenticated';
             } else if (res.status === 401 || res.status === 403) {
               status = 'invalid';
               details = `Invalid Fal.ai Key (HTTP ${res.status})`;
@@ -2304,15 +2344,54 @@ export async function handler(event) {
               const j = await res.json().catch(() => ({}));
               status = 'active';
               balanceFormatted = j.username ? `User: ${j.username}` : 'Active / Operational';
-              details = 'Replicate authenticated';
+              details = 'Replicate Authenticated';
             } else {
               status = 'invalid';
               details = `Replicate error (HTTP ${res.status})`;
             }
+          } else if (effectiveBalanceUrl) {
+            const res = await fetch(effectiveBalanceUrl, {
+              method: balanceMethod || customProv?.balanceMethod || 'GET',
+              headers: getCheckHeaders()
+            });
+
+            if (res.status === 200) {
+              const j = await res.json().catch(() => ({}));
+              const cleanPath = (effectiveValuePath || 'data').replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '');
+              let cur = j;
+              for (const k of cleanPath.split('.')) {
+                if (cur != null) cur = cur[k];
+              }
+
+              if (typeof cur === 'number' || (!isNaN(parseFloat(cur)) && isFinite(cur))) {
+                const numVal = parseFloat(cur);
+                balance = numVal;
+                balanceFormatted = `${numVal} ${effectiveUnit}`;
+                status = numVal > 5 ? 'active' : (numVal > 0 ? 'low' : 'exhausted');
+                details = `${customProv?.name || provider} balance: ${balanceFormatted}`;
+              } else if (typeof cur === 'string') {
+                status = 'active';
+                balanceFormatted = cur;
+                details = 'Balance response: ' + cur;
+              } else {
+                status = 'active';
+                balanceFormatted = 'Active / Verified';
+                details = 'Key verified via endpoint response HTTP 200';
+              }
+            } else if (res.status === 401 || res.status === 403) {
+              status = 'invalid';
+              details = `Invalid API Key (HTTP ${res.status})`;
+            } else if (res.status === 402 || res.status === 429) {
+              status = 'exhausted';
+              details = `Balance exhausted / Rate limited (HTTP ${res.status})`;
+            } else {
+              status = 'unknown';
+              details = `Endpoint returned HTTP ${res.status}`;
+            }
           } else {
             status = 'active';
             balanceFormatted = 'Configured';
-            details = 'Custom provider key saved';
+            details = 'Custom provider key saved in vault';
           }
         } catch (err) {
           status = 'invalid';
@@ -2503,6 +2582,36 @@ export async function handler(event) {
             })
           };
         }
+      }
+
+      // [5C] REAL-TIME THUMBNAIL STUDIO ACTIVITY LOGS
+      case 'get-thumbnail-logs': {
+        const logsCol = db.collection('thumbnail_logs');
+        const limit = Math.min(Number(query.limit || body.limit) || 100, 300);
+        const logs = await logsCol.find({}).sort({ timestamp: -1 }).limit(limit).toArray();
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            count: logs.length,
+            logs
+          })
+        };
+      }
+
+      case 'clear-thumbnail-logs': {
+        const logsCol = db.collection('thumbnail_logs');
+        await logsCol.deleteMany({});
+        await logAdminAction(db, 'CLEAR_THUMBNAIL_LOGS', { clearedAt: new Date().toISOString() }, clientIp);
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            message: 'All Thumbnail Studio real-time activity logs cleared'
+          })
+        };
       }
 
       // ----------------------------------------------------
