@@ -985,6 +985,93 @@ export default function ThumbnailManagerView() {
   const totalKeysCount = Object.values(keysByProvider).reduce((sum, prov) => sum + (prov.keys?.length || 0), 0);
   const activeModelsCount = models.filter(m => m.enabled !== false).length;
 
+  const renderFormattedChatMessage = (text) => {
+    if (!text || typeof text !== 'string') return null;
+    if (!text.includes('|') || !text.includes('---')) {
+      return (
+        <p style={{ fontSize: '12.5px', color: 'var(--admin-text-main)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+          {text}
+        </p>
+      );
+    }
+
+    const lines = text.split('\n');
+    const blocks = [];
+    let curText = [];
+    let curTable = [];
+    let inTable = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const isTable = line.trim().startsWith('|') && line.trim().endsWith('|');
+      if (isTable) {
+        if (!inTable) {
+          if (curText.length > 0) {
+            blocks.push({ type: 'text', content: curText.join('\n') });
+            curText = [];
+          }
+          inTable = true;
+        }
+        curTable.push(line);
+      } else {
+        if (inTable) {
+          blocks.push({ type: 'table', lines: [...curTable] });
+          curTable = [];
+          inTable = false;
+        }
+        curText.push(line);
+      }
+    }
+    if (inTable && curTable.length > 0) {
+      blocks.push({ type: 'table', lines: curTable });
+    } else if (curText.length > 0) {
+      blocks.push({ type: 'text', content: curText.join('\n') });
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {blocks.map((b, bIdx) => {
+          if (b.type === 'table') {
+            const rows = b.lines.map(l => l.trim().slice(1, -1).split('|').map(c => c.trim()));
+            const header = rows[0] || [];
+            const dataRows = rows.slice(1).filter(r => !r.every(c => /^[-:\s]+$/.test(c)));
+            return (
+              <div key={bIdx} style={{ overflowX: 'auto', margin: '6px 0', borderRadius: '6px', border: '1px solid var(--admin-border-glass)', background: 'rgba(0,0,0,0.3)' }}>
+                <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.06)', borderBottom: '1px solid var(--admin-border-glass)' }}>
+                      {header.map((col, cIdx) => (
+                        <th key={cIdx} style={{ padding: '6px 10px', color: 'var(--admin-text-sub)', fontWeight: 700 }}>
+                          {col.replace(/\*\*/g, '')}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dataRows.map((row, rIdx) => (
+                      <tr key={rIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                        {row.map((cell, cIdx) => (
+                          <td key={cIdx} style={{ padding: '6px 10px', color: 'var(--admin-text-main)' }}>
+                            {cell.startsWith('**') && cell.endsWith('**') ? <strong>{cell.slice(2, -2)}</strong> : cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          }
+          return (
+            <p key={bIdx} style={{ fontSize: '12.5px', color: 'var(--admin-text-main)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+              {b.content}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="admin-view-container" style={{ padding: '40px', textAlign: 'center' }}>
@@ -2725,7 +2812,7 @@ export default function ThumbnailManagerView() {
                       {msg.role === 'user' ? '👤' : '🤖'}
                     </div>
                     <div style={{ maxWidth: '80%', background: msg.role === 'user' ? 'rgba(255,79,0,0.12)' : 'rgba(255,255,255,0.04)', borderRadius: msg.role === 'user' ? '14px 4px 14px 14px' : '4px 14px 14px 14px', padding: '10px 14px', border: `1px solid ${msg.role === 'user' ? 'rgba(255,79,0,0.25)' : 'var(--admin-border-glass)'}` }}>
-                      <p style={{ fontSize: '12.5px', color: 'var(--admin-text-main)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{displayText}</p>
+                      {renderFormattedChatMessage(displayText)}
 
                       {/* ── Executed Action Live Results Card ── */}
                       {parsed?.executed && (

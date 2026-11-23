@@ -1859,13 +1859,20 @@ export async function handler(event) {
                 let sRes = await fetch(fetchUrl, {
                   headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
-                    'Accept': 'text/markdown, text/plain, text/html, */*'
+                    'Accept': 'text/markdown, text/plain, application/json, text/html, */*'
                   },
-                  signal: AbortSignal.timeout(2000)
+                  signal: AbortSignal.timeout(3000)
                 });
                 if (sRes.ok) {
+                  const contentType = sRes.headers.get('content-type') || '';
                   const rawText = await sRes.text();
-                  const isHtml = sRes.headers.get('content-type')?.includes('html') || rawText.includes('<html');
+                  if (contentType.includes('json') || (rawText.trim().startsWith('{') && rawText.trim().endsWith('}')) || (rawText.trim().startsWith('[') && rawText.trim().endsWith(']'))) {
+                    try {
+                      const jsonObj = JSON.parse(rawText);
+                      return `=== REAL-TIME API RESPONSE FROM URL: ${u} ===\n${JSON.stringify(jsonObj, null, 2).slice(0, 5000)}\n======================================================`;
+                    } catch {}
+                  }
+                  const isHtml = contentType.includes('html') || rawText.includes('<html');
                   let clean = rawText;
                   if (isHtml) {
                     clean = rawText
@@ -1876,7 +1883,7 @@ export async function handler(event) {
                       .replace(/\s+/g, ' ')
                       .trim();
                   }
-                  return `=== LIVE SCRAPED DOCUMENTATION FROM URL: ${u} ===\n${clean.slice(0, 4000)}\n======================================================`;
+                  return `=== REAL-TIME SCRAPED DOCUMENTATION FROM URL: ${u} ===\n${clean.slice(0, 5000)}\n======================================================`;
                 }
               } catch {}
               return null;
@@ -1884,7 +1891,7 @@ export async function handler(event) {
 
             const scrapeResults = await Promise.race([
               Promise.all(scrapePromises),
-              new Promise(r => setTimeout(() => r([]), 2500))
+              new Promise(r => setTimeout(() => r([]), 3500))
             ]);
             scrapedDocsContext = (scrapeResults || []).filter(Boolean).join('\n\n');
           } catch {}
@@ -1897,6 +1904,17 @@ export async function handler(event) {
           db.collection('api_keys').findOne({ _id: 'gemini_keys' }).catch(() => null)
         ]);
 
+        // If user provided a new Gemini API key in message, vault it autonomously
+        if (detectedKey && (detectedKey.startsWith('AIzaSy') || allUserTexts.toLowerCase().includes('gemini'))) {
+          try {
+            await db.collection('api_keys').updateOne(
+              { _id: 'gemini_keys' },
+              { $set: { key: detectedKey, updatedAt: new Date().toISOString() } },
+              { upsert: true }
+            );
+          } catch {}
+        }
+
         const allModels = archConfigDoc?.models || [];
         const currentState = {
           activeProvider: archConfigDoc?.activeProvider || 'kie.ai',
@@ -1907,170 +1925,117 @@ export async function handler(event) {
             name: m.name,
             provider: m.provider,
             providerModelId: m.providerModelId,
-            endpointOverride: m.endpointOverride?.enabled ? m.endpointOverride.generateUrl : null,
+            type: m.type || 'text-to-image',
             credits: m.credits,
-            creditsByResolution: m.creditsByResolution || { '1K': 6, '2K': 10, '4K': 16 }
+            creditsByResolution: m.creditsByResolution || { '1K': 6, '2K': 10, '4K': 16 },
+            endpointOverride: m.endpointOverride?.enabled ? m.endpointOverride.generateUrl : null,
+            enabled: m.enabled !== false
           })),
           providerKeys: Object.keys(archKeysDoc?.providers || {})
         };
 
-        // Live Provider Catalog & Verified Quality Pricing Context
-        let liveCatalogContext = '';
-        try {
-          const isWizzx = archConfigDoc?.activeProvider?.includes('wizzx') || Boolean(archConfigDoc?.customProviders?.['wizzx.ai']) || allUserTexts.includes('wizzx');
-          if (isWizzx) {
-            const wRes = await fetch('https://api.wizzx.ai/pricing', { signal: AbortSignal.timeout(2000) });
-            if (wRes.ok) {
-              const wData = await wRes.json();
-              const wModels = (wData.data?.models || []).filter(m => m.category === 'image');
-              liveCatalogContext = 'LIVE VERIFIED IMAGE MODELS & RESOLUTION PRICING CATALOG (wizzx.ai):\n' + wModels.map(m => {
-                const tierStr = (m.tiers || []).map(t => (t.label || JSON.stringify(t.params?.resolution || 'flat')) + ': ' + t.credits + ' credits').join(', ');
-                return `- ${m.name} (id: "${m.model_key}"): ${tierStr || 'standard'}`;
-              }).join('\n');
-            }
-          }
-        } catch {}
+        const ARCHITECT_SYSTEM_PROMPT = `You are the Bang AI Master Autonomous Agent & Provider Architect — a world-class, billion-dollar grade AI Agent powered by Google Gemini 2026.
+You have full-stack intelligence to manage, configure, query, and test ANY AI image generation provider (Wizzx AI, Kie.ai, Fal.ai, Replicate, Ideogram, OpenAI, Stability AI, Together AI, Leonardo AI, Midjourney, Grok, Kling, ByteDance Seedream, Google Imagen, or ANY custom REST API).
 
-        const ARCHITECT_SYSTEM_PROMPT = `You are the Bang AI Provider Architect — a UNIVERSAL AUTONOMOUS AGENTIC AI powered by Google Gemini, specialized in full-stack configuration, testing, model discovery, and management of ANY image generation provider or vision model for the Bang AI Thumbnail Studio.
+You have two fundamental operating modes:
 
-You are NOT restricted to any single provider. You can configure, test, query, and manage ANY service:
-- Wizzx AI, Kie.ai, Fal.ai, Replicate, Ideogram, Midjourney/GoAPI, OpenAI/DALL-E, Stability AI, Together AI, Leonardo AI, Runware, Grok, Kling, ByteDance Seedream, Google Imagen/Nano Banana, or ANY custom REST/Webhook API.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODE A: INFORMATIONAL INQUIRIES & DISCUSSIONS (action="CHAT")
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Whenever the user is asking a question, asking for analysis, inspecting existing configurations, discussing concepts, asking about docs, or conversing:
+- YOU MUST SET action="CHAT".
+- NEVER trigger FETCH_MODELS, TEST_GENERATION, or any database write action on inquiries!
+- Questions about the Studio / Database (e.g. "What models are already added in the studio?", "Check for the wizzx.ai provider models only in studio", "Which are image to image models?", "Show active provider", "What are the credits for X?"):
+  -> Inspect CURRENT DATABASE STATE below and answer directly, thoroughly, and clearly in formatted Markdown.
+- Questions about documentation or URLs provided by user:
+  -> Inspect REAL-TIME SCRAPED DOCUMENTATION below and answer directly, accurately, and thoroughly.
+- Return a helpful, natural, structured Markdown response in "reply". NEVER say "Request processed." Always answer the user's specific inquiry.
 
-You have DIRECT ACCESS to modify the database, test image generation, check API balances, and configure providers and model endpoints on behalf of the user.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODE B: EXPLICIT ACTIONS & DATABASE COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Pick an action ONLY when the user EXPLICITLY COMMANDS an operational task:
 
-IMPORTANT: You HAVE LIVE WEB BROWSING AND REAL-TIME DOCUMENTATION ACCESS. Any documentation URLs provided by the user have been automatically scraped and provided below under 'LIVE SCRAPED DOCUMENTATION'. In addition, you have live Google Search grounding enabled. NEVER say you cannot browse external URLs or read documentation. You MUST parse the provided documentation, identify the endpoints, methods, parameters, and models, and configure them directly!
-
-CURRENT DATABASE STATE:
-- Active Primary Provider: ${currentState.activeProvider}
-- Providers Configured: ${JSON.stringify(Object.keys(currentState.customProviders))}
-- Model Count: ${currentState.modelCount}
-- Models Summary: ${JSON.stringify(currentState.modelsSummary)}
-- Provider Keys In Vault: ${JSON.stringify(currentState.providerKeys)}
-${detectedKey ? `- API Key Detected from User Message: "${detectedKey}"` : ''}
-
-YOUR AVAILABLE ACTIONS (You must pick ONE action per turn):
-1. "CONFIGURE_PROVIDER":
-   Use when user wants to add or update an image provider (e.g. Wizzx, Ideogram, Fal.ai, Replicate, Together, OpenAI, Stability, custom API).
-   Extract all endpoints, auth headers, and polling settings from the user's message/docs.
-   If an API key is in the text, extract it into "apiKey".
-   Provide "providerConfig" object:
+1. "ADD_OR_UPDATE_MODEL":
+   Use when user explicitly commands adding or updating one or more models (e.g. "Add Seedream 4.0 to wizzx", "Add this new model", "Change credits of model X to 15", "Update resolution pricing").
+   Provide either a single "model" object OR an array "models" of objects:
    {
-     "id": "provider-slug (lowercase, no spaces, e.g. ideogram, fal, replicate)",
-     "name": "Provider Display Name",
-     "icon": "emoji",
-     "mode": "sync" or "async",
-     "authHeaderType": "Bearer" | "Key" | "Token" | "x-api-key" | "Custom",
-     "customHeaderName": "...",
-     "authPrefix": "...",
-     "generateUrl": "Full generation endpoint (use {{model}} placeholder if in path)",
-     "generateMethod": "POST",
-     "payloadFormat": "openai" | "kie" | "fal" | "replicate" | "custom",
-     "customPayloadTemplate": "...",
-     "defaultModel": "default-model-slug",
-     "responseImageUrlPath": "...",
-     "responseTaskIdPath": "...",
-     "pollUrlTemplate": "...",
-     "pollMethod": "GET",
-     "pollStatusPath": "...",
-     "pollSuccessValue": "...",
-     "pollResultUrlPath": "...",
-     "balanceUrl": "...",
-     "balanceMethod": "GET",
-     "balanceValuePath": "...",
-     "balanceUnit": "Credits",
-     "modelsListUrl": "...",
-     "modelsListPath": "..."
-   }
-   Set "setAsPrimary": true if user requested to make it primary or default.
-   Optional "models": array of model objects to add along with this provider.
-
-2. "ADD_OR_UPDATE_MODEL":
-   Use when user wants to add a model or update existing models (including custom endpoints, credits, prompts, etc.).
-   Supports either a single "model" object OR an array of "models" for bulk additions.
-   Model format:
-   {
-     "id": "model-id (unique slug)",
-     "name": "Model Name",
+     "id": "unique-slug",
+     "name": "Display Name",
      "provider": "target-provider-id",
-     "providerModelId": "exact slug for this provider",
-     "fallbackModelId": "fallback slug",
+     "providerModelId": "slug expected by provider API",
      "badge": "VIRAL 4K",
      "credits": 10,
      "creditsByResolution": { "1K": 6, "2K": 10, "4K": 16 },
-     "type": "text-to-image" or "image-to-image",
+     "type": "text-to-image" | "image-to-image",
      "description": "...",
-     "defaultPrompt": "...",
      "endpointOverride": {
-       "enabled": true or false,
-       "generateUrl": "model-specific endpoint URL",
+       "enabled": true | false,
+       "generateUrl": "optional model-specific endpoint URL",
        "generateMethod": "POST",
        "payloadFormat": "openai" | "kie" | "fal" | "replicate" | "custom",
        "customPayloadTemplate": "..."
      }
    }
 
-3. "DELETE_MODEL":
-   Provide "modelId": "model-id-to-delete"
+2. "DELETE_MODEL":
+   Use when user explicitly commands deleting/removing a model or models (e.g. "Remove Seedream 4.0", "Delete model xyz").
+   Provide "modelId": "slug-to-delete" OR "modelIds": ["slug1", "slug2", ...].
 
-4. "SET_PRIMARY_PROVIDER":
-   Provide "providerId": "provider-id-to-set-as-active"
+3. "SAVE_API_KEY":
+   Use when user provides an API key or asks to save/update an API key for a provider (e.g. "Add this api key for wizzx: ...", "Save my key for Ideogram").
+   Provide "providerId": "provider-slug", "apiKey": "the-key".
 
-5. "TEST_GENERATION":
-   Use when user asks to test image generation.
-   Provide "testParams": {
-     "provider": "provider-id",
-     "model": "model-id",
-     "prompt": "test prompt",
-     "apiKey": "optional api key"
-   }
+4. "CONFIGURE_PROVIDER":
+   Use when user commands configuring or adding an entire provider definition from docs, cURL, or parameters.
+   Provide "providerConfig" object (id, name, mode, authHeaderType, generateUrl, payloadFormat, customPayloadTemplate, pollUrlTemplate, balanceUrl, modelsListUrl, etc.).
+   Optional: "apiKey", "setAsPrimary" (boolean), "models" (array of initial models).
 
-6. "CHECK_BALANCE":
-   Use when user asks to check API balance.
-   Provide "balanceParams": {
-     "provider": "provider-id",
-     "apiKey": "optional key",
-     "balanceUrl": "optional balance URL"
-   }
+5. "DELETE_PROVIDER":
+   Use when user explicitly commands removing an entire provider.
+   Provide "providerId": "provider-slug-to-delete".
+
+6. "SET_PRIMARY_PROVIDER":
+   Use when user commands setting or switching active/primary provider (e.g. "Set wizzx as primary", "Make kie.ai active").
+   Provide "providerId": "provider-slug".
 
 7. "FETCH_MODELS":
-   Use when user asks to check, query, test-run, list, or discover available models from a provider's models endpoint or catalog (e.g. "test running the image models endpoint to check all available image models", "what models does wizzx have?", "list models", "check if grok is available on wizzx").
-   Provide "fetchModelsParams": {
-     "provider": "provider-id",
-     "modelsUrl": "optional direct models list URL",
-     "categoryFilter": "image" | "all"
-   }
+   CRITICAL: Use ONLY when user EXPLICITLY COMMANDS fetching/querying an external provider's API models listing URL or discovery endpoint (e.g. "Fetch models from endpoint https://...", "Query provider API models endpoint").
+   NEVER use this when user is asking about models in the studio database!
+   Provide "fetchModelsParams": { "provider": "provider-id", "modelsUrl": "optional URL", "categoryFilter": "image" | "all" }.
 
-8. "UPDATE_SYSTEM_PROMPT":
-   Provide "systemPrompt": "...", "systemPromptEnabled": true/false, "negativePrompt": "..."
+8. "CHECK_BALANCE":
+   Use when user explicitly commands checking live credit balance on the provider's API.
+   Provide "balanceParams": { "provider": "provider-id", "apiKey": "optional", "balanceUrl": "optional" }.
 
-9. "CHAT":
-   Use when user is asking general questions, greeting, or discussing concepts without requesting a configuration change or test.
+9. "TEST_GENERATION":
+   Use ONLY when user explicitly commands generating a test image or thumbnail (e.g. "Generate a test thumbnail with prompt...").
+   Provide "testParams": { "provider": "...", "model": "...", "prompt": "..." }.
+
+CURRENT DATABASE STATE:
+- Active Primary Provider: \${currentState.activeProvider}
+- Providers Configured: \${JSON.stringify(Object.keys(currentState.customProviders))}
+- Model Count in Studio: \${currentState.modelCount}
+- Configured Studio Models: \${JSON.stringify(currentState.modelsSummary)}
+- Provider Keys In Vault: \${JSON.stringify(currentState.providerKeys)}
+\${detectedKey ? \`- API Key Detected from User Message: "\${detectedKey}"\` : ''}
 
 RESPONSE FORMAT (JSON ONLY - Return ONLY a raw JSON object, no markdown fences):
 {
-  "reply": "Clear, friendly, conversational explanation of what you did, the results, and what is now active.",
-  "action": "CONFIGURE_PROVIDER" | "ADD_OR_UPDATE_MODEL" | "DELETE_MODEL" | "SET_PRIMARY_PROVIDER" | "TEST_GENERATION" | "CHECK_BALANCE" | "FETCH_MODELS" | "UPDATE_SYSTEM_PROMPT" | "CHAT",
+  "reply": "Clear, direct, highly intelligent, conversational explanation answering the user's specific request or describing the action taken.",
+  "action": "CHAT" | "ADD_OR_UPDATE_MODEL" | "DELETE_MODEL" | "SAVE_API_KEY" | "CONFIGURE_PROVIDER" | "DELETE_PROVIDER" | "SET_PRIMARY_PROVIDER" | "FETCH_MODELS" | "CHECK_BALANCE" | "TEST_GENERATION",
   "apiKey": "extracted api key if found",
+  "providerId": "provider slug if applicable",
+  "model": { ... },
+  "models": [ ... ],
+  "modelId": "...",
+  "modelIds": [ ... ],
   "providerConfig": { ... },
   "setAsPrimary": true / false,
-  "models": [ ... ],
-  "model": { ... },
-  "modelId": "...",
-  "providerId": "...",
-  "testParams": { ... },
+  "fetchModelsParams": { ... },
   "balanceParams": { ... },
-  "fetchModelsParams": { ... }
-}
-
-RULES:
-- When user asks to add or configure a provider and gives docs or details, set action="CONFIGURE_PROVIDER".
-- ALWAYS extract API keys from user message into "apiKey".
-- When user asks to check, query, test-run, or list available models from a models endpoint, ALWAYS set action="FETCH_MODELS". NEVER use "TEST_GENERATION" for model discovery or checking available models!
-- When user asks for pricing, costs, or credits for models (e.g. "list all models pricing for 1k, 2k etc.", "show pricing"): NEVER deflect or ask for URLs! Use the VERIFIED LIVE PRICING CATALOG provided above and output a full, structured Markdown table with columns: Model Name | Model ID | 1K Quality | 2K Quality | 4K Quality | Notes.
-- When user asks to test image generation or generate a test image, set action="TEST_GENERATION".
-- When user asks to check balance, set action="CHECK_BALANCE".
-- When action is CHAT, do NOT return providerConfig or model objects.
-- Be concise, direct, helpful, and natural.`;
+  "testParams": { ... }
+}`;
 
         // Parse JSON helper for LLM output (removes markdown fences or extraneous text)
         const parseJsonFromLlm = (text) => {
@@ -2092,6 +2057,7 @@ RULES:
         // Primary: Google Gemini with key loaded dynamically from MongoDB vault or env
         // NOTE: Keys are securely stored in MongoDB Atlas and NEVER committed to git to protect from automated secret scanning revocation!
         const GEMINI_KEYS = Array.from(new Set([
+          detectedKey?.startsWith('AIzaSy') ? detectedKey : null,
           archContext?.geminiApiKey,
           geminiKeyDoc?.key,
           archConfigDoc?.geminiApiKey,
@@ -2108,9 +2074,7 @@ RULES:
 
         const geminiPrompt = `${ARCHITECT_SYSTEM_PROMPT}
 
-${liveCatalogContext ? `\n\n--- VERIFIED LIVE PROVIDER CATALOG & RESOLUTION PRICING ---\n${liveCatalogContext}\n------------------------------------------------------\n` : ''}
-
-${scrapedDocsContext ? `\n\n--- LIVE SCRAPED DOCUMENTATION FROM USER LINKS ---\n${scrapedDocsContext}\n------------------------------------------------------\n` : ''}
+${scrapedDocsContext ? `\n\n--- REAL-TIME SCRAPED DOCUMENTATION FROM USER LINKS ---\n${scrapedDocsContext}\n------------------------------------------------------\n` : ''}
 
 USER CONVERSATION HISTORY:
 ${archMessages.map(m => `[${m.role.toUpperCase()}]: ${typeof m.content === 'object' ? JSON.stringify(m.content) : m.content}`).join('\n\n')}
@@ -2365,22 +2329,86 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
             shouldReloadConfig = true;
           }
 
-          // ── ACTION 3: DELETE_MODEL ──
-          else if (archReply.action === 'DELETE_MODEL' && archReply.modelId) {
+          // ── ACTION 3: DELETE_MODEL (Single or Bulk) ──
+          else if (archReply.action === 'DELETE_MODEL' && (archReply.modelId || (Array.isArray(archReply.modelIds) && archReply.modelIds.length > 0))) {
+            const targetsToDelete = new Set(Array.isArray(archReply.modelIds) && archReply.modelIds.length > 0 ? archReply.modelIds : [archReply.modelId]);
             const sysCol = db.collection('system_config');
             const curSysDoc = await sysCol.findOne({ _id: 'thumbnail_configuration' });
-            const curModels = (curSysDoc?.models || []).filter(m => m.id !== archReply.modelId);
+            const beforeCount = (curSysDoc?.models || []).length;
+            const curModels = (curSysDoc?.models || []).filter(m => !targetsToDelete.has(m.id));
+            const deletedCount = beforeCount - curModels.length;
+
             await sysCol.updateOne({ _id: 'thumbnail_configuration' }, { $set: { models: curModels, updatedAt: new Date().toISOString() } }, { upsert: true });
+            await logAdminAction(db, 'AI_ARCHITECT_DELETE_MODEL', { count: deletedCount, ids: Array.from(targetsToDelete) }, clientIp);
 
             executedResult = {
               action: 'DELETE_MODEL',
               success: true,
-              message: `✅ Model "${archReply.modelId}" has been deleted.`
+              count: deletedCount,
+              message: `🗑️ Successfully deleted ${deletedCount} model(s) from Thumbnail Studio.`
             };
             shouldReloadConfig = true;
           }
 
-          // ── ACTION 4: SET_PRIMARY_PROVIDER ──
+          // ── ACTION 4: SAVE_API_KEY ──
+          else if (archReply.action === 'SAVE_API_KEY') {
+            const targetProv = archReply.providerId || currentState.activeProvider;
+            const targetKey = archReply.apiKey || finalKeyToVault;
+            if (targetKey) {
+              const keysCol = db.collection('api_keys');
+              const curKeysDoc = await keysCol.findOne({ _id: 'thumbnail_keys' });
+              const providers = curKeysDoc?.providers || {};
+              if (!providers[targetProv]) providers[targetProv] = { keys: [], enabled: true };
+              if (!providers[targetProv].keys.includes(targetKey)) {
+                providers[targetProv].keys.push(targetKey);
+              }
+              await keysCol.updateOne({ _id: 'thumbnail_keys' }, { $set: { providers, updatedAt: new Date().toISOString() } }, { upsert: true });
+
+              if (targetKey.startsWith('AIzaSy') || targetProv.toLowerCase().includes('gemini')) {
+                await keysCol.updateOne({ _id: 'gemini_keys' }, { $set: { key: targetKey, updatedAt: new Date().toISOString() } }, { upsert: true });
+              }
+
+              await logAdminAction(db, 'AI_ARCHITECT_SAVE_API_KEY', { provider: targetProv }, clientIp);
+              executedResult = {
+                action: 'SAVE_API_KEY',
+                success: true,
+                message: `🔑 API key successfully saved in secure database vault for provider "${targetProv}".`
+              };
+              shouldReloadConfig = true;
+            } else {
+              executedResult = {
+                action: 'SAVE_API_KEY',
+                success: false,
+                error: 'No API key was detected or provided to save.'
+              };
+            }
+          }
+
+          // ── ACTION 5: DELETE_PROVIDER ──
+          else if (archReply.action === 'DELETE_PROVIDER' && archReply.providerId) {
+            const sysCol = db.collection('system_config');
+            const curSysDoc = await sysCol.findOne({ _id: 'thumbnail_configuration' });
+            const customProviders = { ...(curSysDoc?.customProviders || {}) };
+            delete customProviders[archReply.providerId];
+
+            const sysUpdate = { customProviders, updatedAt: new Date().toISOString() };
+            if (curSysDoc?.activeProvider === archReply.providerId) {
+              sysUpdate.activeProvider = 'kie.ai';
+              await sysCol.updateOne({ _id: 'platform_settings' }, { $set: { 'thumbnailSettings.activeProvider': 'kie.ai' } }, { upsert: true });
+            }
+
+            await sysCol.updateOne({ _id: 'thumbnail_configuration' }, { $set: sysUpdate }, { upsert: true });
+            await logAdminAction(db, 'AI_ARCHITECT_DELETE_PROVIDER', { providerId: archReply.providerId }, clientIp);
+
+            executedResult = {
+              action: 'DELETE_PROVIDER',
+              success: true,
+              message: `🗑️ Provider "${archReply.providerId}" has been removed from system configuration.`
+            };
+            shouldReloadConfig = true;
+          }
+
+          // ── ACTION 6: SET_PRIMARY_PROVIDER ──
           else if (archReply.action === 'SET_PRIMARY_PROVIDER' && archReply.providerId) {
             const sysCol = db.collection('system_config');
             await sysCol.updateOne({ _id: 'thumbnail_configuration' }, { $set: { activeProvider: archReply.providerId, updatedAt: new Date().toISOString() } }, { upsert: true });
@@ -2395,7 +2423,7 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
             shouldReloadConfig = true;
           }
 
-          // ── ACTION 5: CHECK_BALANCE ──
+          // ── ACTION 7: CHECK_BALANCE ──
           else if (archReply.action === 'CHECK_BALANCE') {
             const prov = archReply.balanceParams?.provider || currentState.activeProvider;
             const bKey = archReply.balanceParams?.apiKey || finalKeyToVault;
@@ -2435,7 +2463,7 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
             }
           }
 
-          // ── ACTION: FETCH_MODELS ──
+          // ── ACTION 8: FETCH_MODELS ──
           else if (archReply.action === 'FETCH_MODELS') {
             const fProv = archReply.fetchModelsParams?.provider || currentState.activeProvider;
             const provDef = archConfigDoc?.customProviders?.[fProv] || {};
@@ -2509,17 +2537,6 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                   };
                 }).filter(m => m.id && (filterType === 'all' || m.category === 'image'));
 
-                const wantsPricing = latestUserMsg.match(/price|pricing|cost|credit|quality|1k|2k|4k/i) || allUserTexts.match(/price|pricing/i);
-                let pricingMarkdown = '';
-                if (modelsList.length > 0) {
-                  pricingMarkdown = [
-                    `\n\n### 💰 Live Model Pricing & Quality Tiers (${fProv}):\n`,
-                    `| Model Name | Model ID | 1K Quality | 2K Quality | 4K Quality |`,
-                    `| :--- | :--- | :--- | :--- | :--- |`,
-                    ...modelsList.map(m => `| **${m.name}** | \`${m.id}\` | ${m.p1k} | ${m.p2k} | ${m.p4k} |`)
-                  ].join('\n');
-                }
-
                 executedResult = {
                   action: 'FETCH_MODELS',
                   success: true,
@@ -2528,8 +2545,8 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                   message: `📋 Live models & resolution pricing queried for "${fProv}". Found ${modelsList.length} ${filterType} model(s).`
                 };
 
-                if (wantsPricing && (!archReply.reply || !archReply.reply.includes('|'))) {
-                  archReply.reply = (archReply.reply && archReply.reply !== 'Request processed.' ? archReply.reply : `Here is the complete pricing catalog for all ${modelsList.length} ${fProv} image models:`) + pricingMarkdown;
+                if (!archReply.reply || archReply.reply.trim() === 'Request processed.') {
+                  archReply.reply = `Successfully queried **${fProv}** endpoint and discovered **${modelsList.length}** active image model(s) with live pricing.`;
                 }
               } catch (fErr) {
                 executedResult = {
