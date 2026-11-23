@@ -2771,6 +2771,22 @@ export default function ThumbnailManagerView() {
                               </a>
                             </div>
                           )}
+
+                          {/* Live Discovered Models Chips */}
+                          {parsed.executed.models && Array.isArray(parsed.executed.models) && (
+                            <div style={{ marginTop: '10px' }}>
+                              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '6px' }}>
+                                Discovered Models ({parsed.executed.models.length}):
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {parsed.executed.models.map((m, mIdx) => (
+                                  <span key={mIdx} style={{ padding: '3px 8px', borderRadius: '4px', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8', fontSize: '11px', fontWeight: 600 }}>
+                                    ✨ {m.name || m.id || m}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 

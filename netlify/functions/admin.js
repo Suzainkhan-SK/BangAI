@@ -2010,16 +2010,24 @@ YOUR AVAILABLE ACTIONS (You must pick ONE action per turn):
      "balanceUrl": "optional balance URL"
    }
 
-7. "UPDATE_SYSTEM_PROMPT":
+7. "FETCH_MODELS":
+   Use when user asks to check, query, test-run, list, or discover available models from a provider's models endpoint or catalog (e.g. "test running the image models endpoint to check all available image models", "what models does wizzx have?", "list models", "check if grok is available on wizzx").
+   Provide "fetchModelsParams": {
+     "provider": "provider-id",
+     "modelsUrl": "optional direct models list URL",
+     "categoryFilter": "image" | "all"
+   }
+
+8. "UPDATE_SYSTEM_PROMPT":
    Provide "systemPrompt": "...", "systemPromptEnabled": true/false, "negativePrompt": "..."
 
-8. "CHAT":
+9. "CHAT":
    Use when user is asking general questions, greeting, or discussing concepts without requesting a configuration change or test.
 
 RESPONSE FORMAT (JSON ONLY - Return ONLY a raw JSON object, no markdown fences):
 {
   "reply": "Clear, friendly, conversational explanation of what you did, the results, and what is now active.",
-  "action": "CONFIGURE_PROVIDER" | "ADD_OR_UPDATE_MODEL" | "DELETE_MODEL" | "SET_PRIMARY_PROVIDER" | "TEST_GENERATION" | "CHECK_BALANCE" | "UPDATE_SYSTEM_PROMPT" | "CHAT",
+  "action": "CONFIGURE_PROVIDER" | "ADD_OR_UPDATE_MODEL" | "DELETE_MODEL" | "SET_PRIMARY_PROVIDER" | "TEST_GENERATION" | "CHECK_BALANCE" | "FETCH_MODELS" | "UPDATE_SYSTEM_PROMPT" | "CHAT",
   "apiKey": "extracted api key if found",
   "providerConfig": { ... },
   "setAsPrimary": true / false,
@@ -2028,14 +2036,15 @@ RESPONSE FORMAT (JSON ONLY - Return ONLY a raw JSON object, no markdown fences):
   "modelId": "...",
   "providerId": "...",
   "testParams": { ... },
-  "balanceParams": { ... }
+  "balanceParams": { ... },
+  "fetchModelsParams": { ... }
 }
 
 RULES:
 - When user asks to add or configure a provider and gives docs or details, set action="CONFIGURE_PROVIDER".
 - ALWAYS extract API keys from user message into "apiKey".
-- When user asks to add a model with a custom endpoint, set action="ADD_OR_UPDATE_MODEL" with endpointOverride.enabled=true and the specific generateUrl.
-- When user asks to test generation, set action="TEST_GENERATION".
+- When user asks to check, query, test-run, or list available models from a models endpoint, ALWAYS set action="FETCH_MODELS". NEVER use "TEST_GENERATION" for model discovery or checking available models!
+- When user asks to test image generation or generate a test image, set action="TEST_GENERATION".
 - When user asks to check balance, set action="CHECK_BALANCE".
 - When action is CHAT, do NOT return providerConfig or model objects.
 - Be concise, direct, helpful, and natural.`;
@@ -2392,6 +2401,76 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
             }
           }
 
+          // ── ACTION: FETCH_MODELS ──
+          else if (archReply.action === 'FETCH_MODELS') {
+            const fProv = archReply.fetchModelsParams?.provider || currentState.activeProvider;
+            const provDef = archConfigDoc?.customProviders?.[fProv] || {};
+            const isWizzx = fProv.includes('wizzx') || provDef.modelsListUrl?.includes('wizzx.ai');
+            let targetUrl = archReply.fetchModelsParams?.modelsUrl || provDef.modelsListUrl || (isWizzx ? 'https://api.wizzx.ai/pricing' : null);
+            if (targetUrl && targetUrl.includes('docs.wizzx.ai')) {
+              targetUrl = 'https://api.wizzx.ai/pricing';
+            }
+
+            if (targetUrl) {
+              try {
+                const keysDoc = await db.collection('api_keys').findOne({ _id: 'thumbnail_keys' });
+                const vaultKeys = keysDoc?.providers?.[fProv]?.keys || [];
+                const authHeader = vaultKeys[0] ? (provDef.authHeaderType === 'Key' ? `Key ${vaultKeys[0]}` : `Bearer ${vaultKeys[0]}`) : null;
+
+                const fRes = await fetch(targetUrl, {
+                  headers: {
+                    'Accept': 'application/json',
+                    ...(authHeader ? { 'Authorization': authHeader } : {})
+                  },
+                  signal: AbortSignal.timeout(8000)
+                });
+                const fJson = await fRes.json().catch(() => ({}));
+                let rawList = [];
+                if (Array.isArray(fJson)) rawList = fJson;
+                else if (fJson.data && Array.isArray(fJson.data.models)) rawList = fJson.data.models;
+                else if (Array.isArray(fJson.data)) rawList = fJson.data;
+                else if (Array.isArray(fJson.models)) rawList = fJson.models;
+                else if (fJson.data && typeof fJson.data === 'object') {
+                  rawList = Object.values(fJson.data).find(v => Array.isArray(v)) || [];
+                }
+
+                const filterType = archReply.fetchModelsParams?.categoryFilter || 'image';
+                const modelsList = rawList.map(m => {
+                  const mId = m.model_key || m.id || m.model_id || m.slug || m.name || '';
+                  const mName = m.name || m.display_name || m.model_key || m.id || '';
+                  const mCat = (m.category || m.type || m.modality || '').toLowerCase();
+                  return {
+                    id: mId,
+                    name: mName,
+                    category: mCat || 'image',
+                    provider: m.provider || fProv,
+                    tiers: m.tiers || null
+                  };
+                }).filter(m => m.id && (filterType === 'all' || m.category === 'image'));
+
+                executedResult = {
+                  action: 'FETCH_MODELS',
+                  success: true,
+                  count: modelsList.length,
+                  models: modelsList,
+                  message: `📋 Live models endpoint queried for "${fProv}". Found ${modelsList.length} ${filterType} model(s): ${modelsList.map(m => m.id).join(', ')}`
+                };
+              } catch (fErr) {
+                executedResult = {
+                  action: 'FETCH_MODELS',
+                  success: false,
+                  error: `Failed to fetch models from ${targetUrl}: ${fErr.message}`
+                };
+              }
+            } else {
+              executedResult = {
+                action: 'FETCH_MODELS',
+                success: false,
+                error: `No models listing endpoint configured for provider "${fProv}".`
+              };
+            }
+          }
+
           // ── ACTION 6: TEST_GENERATION ──
           else if (archReply.action === 'TEST_GENERATION') {
             const tProv = archReply.testParams?.provider || currentState.activeProvider;
@@ -2510,13 +2589,22 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
               }
 
               const costTime = Math.round((Date.now() - startTime) / 1000);
-              executedResult = {
-                action: 'TEST_GENERATION',
-                success: Boolean(testImgUrl),
-                imageUrl: testImgUrl,
-                message: testImgUrl ? `🧪 Test generation on "${tProv}" succeeded in ${costTime}s!` : `Task created on "${tProv}" but polling timed out. API key and endpoint are operational.`,
-                costTime
-              };
+              if (testImgUrl) {
+                executedResult = {
+                  action: 'TEST_GENERATION',
+                  success: true,
+                  imageUrl: testImgUrl,
+                  message: `🧪 Test generation on "${tProv}" succeeded in ${costTime}s!`,
+                  costTime
+                };
+              } else if (!executedResult) {
+                executedResult = {
+                  action: 'TEST_GENERATION',
+                  success: false,
+                  message: `Task submission failed on "${tProv}". Check model parameters.`,
+                  costTime
+                };
+              }
             } else {
               executedResult = {
                 action: 'TEST_GENERATION',
@@ -2582,29 +2670,65 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
 
           const modJson = await modRes.json();
 
-          // Navigate to models array using modelsListPath
-          let modelsArray = modJson;
+          // Robust array extraction supporting nested structures (e.g. data.models, data, models, items)
+          let modelsArray = [];
           if (modelsListPath) {
+            let target = modJson;
             const cleanPath = modelsListPath.replace(/\[(\w+)\]/g, '.$1').replace(/^\./, '');
             for (const k of cleanPath.split('.')) {
-              if (modelsArray != null) modelsArray = modelsArray[k];
+              if (target != null) target = target[k];
+            }
+            if (Array.isArray(target)) {
+              modelsArray = target;
+            } else if (target && typeof target === 'object') {
+              if (Array.isArray(target.models)) modelsArray = target.models;
+              else if (Array.isArray(target.data)) modelsArray = target.data;
+              else if (Array.isArray(target.items)) modelsArray = target.items;
+              else modelsArray = Object.values(target).find(v => Array.isArray(v)) || [];
+            }
+          }
+
+          if (!Array.isArray(modelsArray) || modelsArray.length === 0) {
+            if (Array.isArray(modJson)) {
+              modelsArray = modJson;
+            } else if (Array.isArray(modJson.data)) {
+              modelsArray = modJson.data;
+            } else if (modJson.data && Array.isArray(modJson.data.models)) {
+              modelsArray = modJson.data.models;
+            } else if (Array.isArray(modJson.models)) {
+              modelsArray = modJson.models;
+            } else if (modJson.data && Array.isArray(modJson.data.items)) {
+              modelsArray = modJson.data.items;
+            } else if (Array.isArray(modJson.results)) {
+              modelsArray = modJson.results;
+            } else if (Array.isArray(modJson.items)) {
+              modelsArray = modJson.items;
+            } else if (modJson.data && typeof modJson.data === 'object') {
+              modelsArray = Object.values(modJson.data).find(v => Array.isArray(v)) || [];
+            } else {
+              modelsArray = [];
             }
           }
 
           if (!Array.isArray(modelsArray)) {
-            // Try common paths automatically
-            modelsArray = modJson.data || modJson.models || modJson.results || modJson.items || [];
+            modelsArray = [];
           }
 
-          // Normalize model objects
+          // Normalize model objects (supporting m.model_key, m.id, m.model_id, category, pricing)
           const normalizedModels = modelsArray.slice(0, 200).map(m => {
             if (typeof m === 'string') return { id: m, name: m, description: '' };
+            const mId = m.model_key || m.id || m.model_id || m.slug || m.name || '';
+            const mName = m.name || m.display_name || m.model_key || m.id || '';
+            const mCat = m.category || m.type || m.modality || '';
+            const tierCredits = m.tiers?.[0]?.credits || (m.pricing ? parseInt(m.pricing, 10) : null);
             return {
-              id: m.id || m.model_id || m.name || m.slug || '',
-              name: m.name || m.display_name || m.id || m.model_id || '',
-              description: m.description || m.context_length ? `Context: ${m.context_length}` : '',
-              type: m.type || m.modality || '',
-              created: m.created || m.created_at || '',
+              id: mId,
+              name: mName,
+              category: mCat || 'image',
+              description: m.description || m.note || (m.context_length ? `Context: ${m.context_length}` : (tierCredits ? `${tierCredits} credits` : '')),
+              type: mCat || 'image',
+              credits: tierCredits || 10,
+              provider: m.provider || '',
               raw: m
             };
           }).filter(m => m.id);
