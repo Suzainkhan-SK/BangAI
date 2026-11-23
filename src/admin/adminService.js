@@ -164,6 +164,7 @@ export const adminService = {
   getThumbnailConfig: async () => adminFetch('get-thumbnail-config', 'GET'),
   saveThumbnailConfig: async (config, keys) => adminFetch('save-thumbnail-config', 'POST', { config, keys }),
   testThumbnailGeneration: async (params) => adminFetch('test-thumbnail-generation', 'POST', params),
+  checkThumbnailKeyBalance: async (payload) => adminFetch('check-thumbnail-key-balance', 'POST', payload),
 
   // 8. AI Templates Hub & Daily Limits Governance
   getTemplates: async () => adminFetch('get-templates', 'GET'),

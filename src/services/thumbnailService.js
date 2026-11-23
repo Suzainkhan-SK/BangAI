@@ -19,7 +19,7 @@ export async function fetchLiveThumbnailConfig(forceRefresh = false) {
   }
 
   try {
-    const res = await fetch(`${THUMBNAIL_PROXY_URL}?action=getConfig`);
+    const res = await fetch(`${THUMBNAIL_PROXY_URL}?action=getConfig&t=${Date.now()}`);
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
@@ -45,6 +45,10 @@ export async function fetchLiveThumbnailConfig(forceRefresh = false) {
     styles: THUMBNAIL_STYLES
   };
   return liveThumbnailConfigCache;
+}
+
+export function clearThumbnailConfigCache() {
+  liveThumbnailConfigCache = null;
 }
 
 export function getLiveConfigCache() {

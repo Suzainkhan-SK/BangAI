@@ -11,12 +11,10 @@ import { audioEngine } from '../audio/audioEngine';
 import { useBreakpoint } from '../hooks/useMediaQuery';
 import {
   THUMBNAIL_MODELS,
-  THUMBNAIL_STYLES,
   TEXT_TO_IMAGE_MODELS,
   IMAGE_TO_IMAGE_MODELS,
   ASPECT_RATIOS,
   RESOLUTIONS,
-  BACKGROUND_MODES,
   VIRAL_PRESETS,
   getModelCredits,
   uploadImageToCDN,
@@ -123,31 +121,25 @@ export default function ThumbnailStudioPage({
   // Dynamic models & presets loaded from Admin / Backend DB
   const [modelsList, setModelsList] = useState(THUMBNAIL_MODELS);
   const [presetsList, setPresetsList] = useState(VIRAL_PRESETS);
-  const [stylesList, setStylesList] = useState(THUMBNAIL_STYLES);
 
   // Active form state
   const [generationMode, setGenerationMode] = useState('all'); // 'all' | 'text-to-image' | 'image-to-image'
   const [selectedModelId, setSelectedModelId] = useState(TEXT_TO_IMAGE_MODELS[0].id);
-  const [selectedStyleId, setSelectedStyleId] = useState('viral-high-ctr');
   const [selectedPresetId, setSelectedPresetId] = useState('');
   const [prompt, setPrompt] = useState(TEXT_TO_IMAGE_MODELS[0].defaultPrompt);
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [resolution, setResolution] = useState('2K');
-  const [background, setBackground] = useState('auto');
 
-  // Load live config from serverless backend on mount
+  // Load live config from serverless backend on mount with fresh bust
   useEffect(() => {
     let isMounted = true;
-    fetchLiveThumbnailConfig().then(cfg => {
+    fetchLiveThumbnailConfig(true).then(cfg => {
       if (!isMounted || !cfg) return;
       if (Array.isArray(cfg.models) && cfg.models.length > 0) {
         setModelsList(cfg.models);
       }
       if (Array.isArray(cfg.presets) && cfg.presets.length > 0) {
         setPresetsList(cfg.presets);
-      }
-      if (Array.isArray(cfg.styles) && cfg.styles.length > 0) {
-        setStylesList(cfg.styles);
       }
     }).catch(err => {
       console.warn('Could not fetch live thumbnail config, fallback to local defaults:', err);
@@ -271,10 +263,10 @@ export default function ThumbnailStudioPage({
     }
   };
 
-  // Enhance prompt with active style archetype
+  // Enhance prompt with viral high-retention cues
   const handleEnhancePrompt = () => {
     audioEngine.playSfx('click');
-    const enhanced = enhanceThumbnailPrompt(prompt, selectedStyleId);
+    const enhanced = enhanceThumbnailPrompt(prompt);
     setPrompt(enhanced);
   };
 
@@ -371,9 +363,7 @@ export default function ThumbnailStudioPage({
         prompt,
         aspectRatio,
         resolution,
-        background,
-        imageUrl: finalImageUrl,
-        styleId: selectedStyleId
+        imageUrl: finalImageUrl
       });
 
       // 3. Poll for result
@@ -398,11 +388,12 @@ export default function ThumbnailStudioPage({
         modelId: activeModel.id,
         aspectRatio,
         resolution,
+        rawResponse: pollRes.taskData || pollRes,
         createdAt: new Date().toISOString()
       };
 
       setCurrentResult(resultObj);
-      setLastRawResponse(pollRes.taskData);
+      setLastRawResponse(pollRes.taskData || pollRes);
       setHistory(prev => [resultObj, ...prev]);
       audioEngine.playSfx('success');
     } catch (err) {
@@ -449,21 +440,26 @@ export default function ThumbnailStudioPage({
     setTimeout(() => setCopiedPrompt(false), 2000);
   };
 
-  // Build live raw JSON input for inspection tab
+  // Build live raw JSON input for inspection tab with full accurate details
   const rawInputJson = (() => {
     try {
-      return JSON.stringify(
-        buildModelInput(activeModel.id, {
+      const payload = {
+        modelId: activeModel.id,
+        modelName: activeModel.name,
+        provider: activeModel.provider || 'kie.ai (auto-failover)',
+        aspectRatio,
+        resolution,
+        creditsEstimated: getModelCredits(activeModel, resolution),
+        prompt,
+        referenceImageUrl: refImageUrl || (refImageFile ? 'user_reference_asset.png' : null),
+        dispatchedPayload: buildModelInput(activeModel.id, {
           prompt,
           aspectRatio,
           resolution,
-          background,
-          imageUrl: refImageUrl || (refImageFile ? 'https://cdn.bangai.internal/user_upload.png' : null),
-          styleId: selectedStyleId
-        }),
-        null,
-        2
-      );
+          imageUrl: refImageUrl || (refImageFile ? 'user_reference_asset.png' : null)
+        })
+      };
+      return JSON.stringify(payload, null, 2);
     } catch (e) {
       return JSON.stringify({ error: e.message }, null, 2);
     }
@@ -911,24 +907,22 @@ export default function ThumbnailStudioPage({
                     </div>
                   </div>
 
-                  {/* 2. Interactive Viral Presets Carousel */}
+                  {/* 2. Interactive Viral Presets Grid */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         Viral Creator Presets (1-Click)
                       </label>
                       <span style={{ fontSize: '10.5px', color: '#ff4f00', fontWeight: 700 }}>
-                        {presetsList.length} Formats
+                        {presetsList.length} Archetypes
                       </span>
                     </div>
 
-                    {/* Quick horizontal chip rail */}
+                    {/* Responsive Grid of Presets */}
                     <div style={{
-                      display: 'flex',
-                      gap: '6px',
-                      overflowX: 'auto',
-                      paddingBottom: '4px',
-                      scrollbarWidth: 'none'
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                      gap: '7px'
                     }}>
                       {presetsList.map(p => {
                         const isSelected = selectedPresetId === p.id;
@@ -938,79 +932,35 @@ export default function ThumbnailStudioPage({
                             type="button"
                             onClick={() => handleSelectPresetById(p.id)}
                             style={{
-                              padding: '6px 10px',
-                              borderRadius: '8px',
-                              border: isSelected ? '1px solid #ff4f00' : '1px solid var(--border-subtle)',
-                              background: isSelected ? 'rgba(255, 79, 0, 0.15)' : 'var(--bg-card)',
-                              color: isSelected ? '#ff4f00' : 'var(--text-secondary)',
-                              fontSize: '11px',
-                              fontWeight: isSelected ? 800 : 600,
-                              whiteSpace: 'nowrap',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              flexShrink: 0,
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <span>{p.emoji}</span>
-                            <span>{p.label.split('(')[0].trim()}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 3. Thumbnail Vibe & Visual Archetype */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Vibe & Visual Archetype
-                      </label>
-                      <span style={{ fontSize: '10.5px', color: '#ff4f00', fontWeight: 700 }}>
-                        ⚡ Neural Grading
-                      </span>
-                    </div>
-
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                      gap: '6px'
-                    }}>
-                      {stylesList.map(s => {
-                        const isSelected = selectedStyleId === s.id;
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => {
-                              audioEngine.playSfx('click');
-                              setSelectedStyleId(s.id);
-                            }}
-                            style={{
                               padding: '8px 10px',
                               borderRadius: '8px',
                               border: isSelected ? '1.5px solid #ff4f00' : '1px solid var(--border-subtle)',
                               background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
-                              color: isSelected ? '#ff4f00' : 'var(--text-secondary)',
-                              fontSize: '11px',
-                              fontWeight: isSelected ? 800 : 600,
+                              color: isSelected ? '#ff4f00' : 'var(--text-primary)',
                               cursor: 'pointer',
                               display: 'flex',
                               flexDirection: 'column',
                               alignItems: 'flex-start',
-                              gap: '2px',
+                              gap: '4px',
                               textAlign: 'left',
                               transition: 'all 0.15s ease'
                             }}
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ fontSize: '13px' }}>{s.emoji}</span>
-                              <span style={{ fontWeight: 700 }}>{s.label}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                              <span style={{ fontSize: '15px' }}>{p.emoji || '🔥'}</span>
+                              <span style={{
+                                fontSize: '9px',
+                                fontWeight: 800,
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: isSelected ? '#ff4f00' : 'rgba(255,255,255,0.08)',
+                                color: isSelected ? '#fff' : 'var(--text-muted)'
+                              }}>
+                                {p.aspectRatio || '16:9'}
+                              </span>
                             </div>
-                            <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                              {s.tagline.split('·')[0]}
+                            <span style={{ fontSize: '11px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                              {p.label}
                             </span>
                           </button>
                         );
@@ -1264,86 +1214,51 @@ export default function ThumbnailStudioPage({
                     </div>
                   </div>
 
-                  {/* 7. Dynamic Resolution & Background Options */}
-                  {activeModel.supportsResolution && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          Render Resolution
-                        </label>
-                        <span style={{ fontSize: '11px', color: '#ff4f00', fontWeight: 700 }}>
-                          {getModelCredits(activeModel, resolution)} Credits
-                        </span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                        {RESOLUTIONS.map(r => {
-                          const isSupported = !activeModel.supportedResolutions || activeModel.supportedResolutions.includes(r.id);
-                          const cost = getModelCredits(activeModel, r.id);
-                          const isSelected = resolution === r.id;
-                          return (
-                            <button
-                              key={r.id}
-                              type="button"
-                              disabled={!isSupported}
-                              onClick={() => { audioEngine.playSfx('click'); setResolution(r.id); }}
-                              style={{
-                                padding: '8px 6px',
-                                borderRadius: '8px',
-                                border: isSelected ? '1.5px solid #ff4f00' : '1px solid var(--border-subtle)',
-                                background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
-                                color: !isSupported ? 'var(--text-muted)' : (isSelected ? '#ff4f00' : 'var(--text-secondary)'),
-                                fontWeight: isSelected ? 800 : 600,
-                                fontSize: '11.5px',
-                                cursor: isSupported ? 'pointer' : 'not-allowed',
-                                opacity: isSupported ? 1 : 0.4,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '2px',
-                                transition: 'all 0.15s ease'
-                              }}
-                            >
-                              <span style={{ fontWeight: 800 }}>{r.id}</span>
-                              <span style={{ fontSize: '10px', opacity: 0.85 }}>{cost} Credits</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeModel.supportsBackground && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {/* Render Resolution & Quality Tier */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Background Mode
+                        Render Resolution & Quality
                       </label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                        {BACKGROUND_MODES.map(b => {
-                          const isSelected = background === b.id;
-                          return (
-                            <button
-                              key={b.id}
-                              type="button"
-                              onClick={() => { audioEngine.playSfx('click'); setBackground(b.id); }}
-                              style={{
-                                padding: '7px 6px',
-                                borderRadius: '8px',
-                                border: isSelected ? '1.5px solid #ff4f00' : '1px solid var(--border-subtle)',
-                                background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
-                                color: isSelected ? '#ff4f00' : 'var(--text-secondary)',
-                                fontWeight: isSelected ? 800 : 600,
-                                fontSize: '11.5px',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                            >
-                              {b.id === 'auto' ? 'Auto Blend' : b.id === 'opaque' ? 'Solid Opaque' : 'Cutout PNG'}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <span style={{ fontSize: '11px', color: '#ff4f00', fontWeight: 700 }}>
+                        {getModelCredits(activeModel, resolution)} Credits
+                      </span>
                     </div>
-                  )}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                      {RESOLUTIONS.map(r => {
+                        const cost = getModelCredits(activeModel, r.id);
+                        const isSelected = resolution === r.id;
+                        return (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => { audioEngine.playSfx('click'); setResolution(r.id); }}
+                            style={{
+                              padding: '10px 6px',
+                              borderRadius: '8px',
+                              border: isSelected ? '1.5px solid #ff4f00' : '1px solid var(--border-subtle)',
+                              background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--bg-card)',
+                              color: isSelected ? '#ff4f00' : 'var(--text-secondary)',
+                              fontWeight: isSelected ? 800 : 600,
+                              fontSize: '11.5px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '2px',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span style={{ fontWeight: 800 }}>{r.id}</span>
+                            <span style={{ fontSize: '10px', opacity: 0.85 }}>{cost} Credits</span>
+                            <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>
+                              {r.id === '1K' ? 'Standard' : r.id === '2K' ? 'High-Def' : 'Master 4K'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
                   {/* Error Notification */}
                   {errorMessage && (
@@ -1477,7 +1392,7 @@ export default function ThumbnailStudioPage({
                   }}
                 >
                   <FileCode size={13} />
-                  <span>Inspect Response</span>
+                  <span>Inspect Response & History ({history.length})</span>
                 </button>
               </div>
 
@@ -1567,26 +1482,269 @@ export default function ThumbnailStudioPage({
               background: 'radial-gradient(circle at 50% 45%, rgba(255, 79, 0, 0.05) 0%, transparent 70%)'
             }}>
               {outputTab === 'json' ? (
-                /* Raw Response JSON Inspector */
-                <div style={{ width: '100%', height: '100%', maxWidth: '840px' }}>
-                  <pre style={{
-                    margin: 0,
-                    padding: '16px',
-                    borderRadius: '12px',
+                /* Dedicated Generation History & Raw Response Inspector Split-View */
+                <div style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: isTablet || isMobile ? 'column' : 'row',
+                  gap: '16px',
+                  boxSizing: 'border-box',
+                  overflow: 'hidden'
+                }}>
+                  {/* Left Column: Recent Generations Gallery */}
+                  <div style={{
+                    width: isTablet || isMobile ? '100%' : '260px',
+                    flexShrink: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
                     background: 'var(--bg-card)',
+                    borderRadius: '12px',
                     border: '1px solid var(--border-subtle)',
-                    fontSize: '12px',
-                    fontFamily: 'monospace',
-                    color: '#34d399',
-                    overflowX: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all',
-                    lineHeight: 1.5
+                    padding: '12px',
+                    overflowY: 'auto',
+                    boxSizing: 'border-box'
                   }}>
-                    {lastRawResponse
-                      ? JSON.stringify(lastRawResponse, null, 2)
-                      : JSON.stringify({ message: 'No generation task executed yet. Run a generation to inspect API response payload.' }, null, 2)}
-                  </pre>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Recent Tasks ({history.length})
+                      </span>
+                      {history.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            audioEngine.playSfx('click');
+                            setHistory([]);
+                          }}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            fontSize: '10.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}
+                        >
+                          <Trash2 size={11} />
+                          <span>Clear</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {history.length === 0 ? (
+                      <div style={{ padding: '30px 10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                        No recent generation tasks in this session yet.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {history.map(item => {
+                          const isSelected = (currentResult?.id === item.id) || (currentResult?.imageUrl === item.imageUrl);
+                          return (
+                            <div
+                              key={item.id}
+                              onClick={() => {
+                                audioEngine.playSfx('click');
+                                setCurrentResult(item);
+                                setLastRawResponse(item.rawResponse || item);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '8px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                                border: isSelected ? '1.5px solid #ff4f00' : '1px solid var(--border-subtle)',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <img
+                                src={item.imageUrl}
+                                alt="Thumbnail"
+                                style={{ width: '48px', height: '36px', borderRadius: '5px', objectFit: 'cover', background: '#000', flexShrink: 0 }}
+                              />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 4px', borderRadius: '3px', background: '#ff4f00', color: '#fff' }}>
+                                    {item.aspectRatio || '16:9'}
+                                  </span>
+                                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {item.modelName}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: '10.5px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                                  {item.prompt}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Inspected Task Details & Generated Image URL */}
+                  <div style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    minWidth: 0,
+                    overflowY: 'auto'
+                  }}>
+                    {/* Highlight Card: Generated Image URL */}
+                    <div style={{
+                      padding: '14px',
+                      borderRadius: '12px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#ff4f00', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Generated Image Output URL
+                        </span>
+                        {currentResult?.imageUrl && (
+                          <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#10b981' }}>
+                            ✓ ACTIVE IMAGE READY
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          readOnly
+                          value={currentResult?.imageUrl || activeDisplayImage || 'No generation executed yet'}
+                          style={{
+                            flex: 1,
+                            padding: '9px 12px',
+                            borderRadius: '8px',
+                            background: 'rgba(0,0,0,0.25)',
+                            border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-primary)',
+                            fontSize: '12px',
+                            fontFamily: 'monospace'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={!currentResult?.imageUrl && !activeDisplayImage}
+                          onClick={() => handleCopyLink(currentResult?.imageUrl || activeDisplayImage)}
+                          style={{
+                            padding: '9px 14px',
+                            borderRadius: '8px',
+                            background: 'linear-gradient(135deg, #ff4f00, #ff7700)',
+                            border: 'none',
+                            color: '#fff',
+                            fontSize: '11.5px',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {copiedUrl ? '✓ Copied' : 'Copy URL'}
+                        </button>
+                        {(currentResult?.imageUrl || activeDisplayImage) && (
+                          <a
+                            href={currentResult?.imageUrl || activeDisplayImage}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              padding: '9px 12px',
+                              borderRadius: '8px',
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid var(--border-subtle)',
+                              color: 'var(--text-secondary)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              textDecoration: 'none',
+                              fontSize: '12px',
+                              fontWeight: 700
+                            }}
+                          >
+                            <ExternalLink size={13} />
+                            <span>Open</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Full JSON Response Inspector */}
+                    <div style={{
+                      flex: 1,
+                      borderRadius: '12px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                      minHeight: '260px'
+                    }}>
+                      <div style={{
+                        padding: '10px 14px',
+                        borderBottom: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'rgba(0,0,0,0.1)'
+                      }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                          Full API Response Payload
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const text = lastRawResponse ? JSON.stringify(lastRawResponse, null, 2) : (currentResult ? JSON.stringify(currentResult, null, 2) : '{}');
+                            navigator.clipboard.writeText(text);
+                            setCopiedJson(true);
+                            setTimeout(() => setCopiedJson(false), 2000);
+                          }}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: copiedJson ? '#10b981' : 'var(--text-secondary)',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          {copiedJson ? <Check size={12} /> : <Copy size={12} />}
+                          <span>{copiedJson ? 'Copied JSON' : 'Copy JSON'}</span>
+                        </button>
+                      </div>
+
+                      <pre style={{
+                        margin: 0,
+                        padding: '14px',
+                        fontSize: '12px',
+                        fontFamily: 'monospace',
+                        color: '#34d399',
+                        overflowX: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all',
+                        lineHeight: 1.5,
+                        flex: 1
+                      }}>
+                        {lastRawResponse
+                          ? JSON.stringify(lastRawResponse, null, 2)
+                          : (currentResult
+                              ? JSON.stringify(currentResult, null, 2)
+                              : JSON.stringify({ message: 'No generation task executed yet. Run a generation to inspect API response payload.' }, null, 2)
+                            )}
+                      </pre>
+                    </div>
+                  </div>
                 </div>
               ) : isGenerating ? (
                 /* Active Generating State */
@@ -1891,64 +2049,6 @@ export default function ThumbnailStudioPage({
                 </div>
               )}
             </div>
-
-            {/* Bottom History Strip */}
-            {history.length > 0 && (
-              <div style={{
-                padding: '8px 16px',
-                borderTop: '1px solid var(--border-subtle)',
-                background: isLight ? '#faf8f5' : 'rgba(18, 21, 28, 0.85)',
-                flexShrink: 0
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '10.5px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Recent Generations ({history.length})
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      audioEngine.playSfx('click');
-                      setHistory([]);
-                    }}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      fontSize: '10.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <Trash2 size={11} />
-                    <span>Clear All</span>
-                  </button>
-                </div>
-
-                <div style={{
-                  display: 'flex',
-                  gap: '8px',
-                  overflowX: 'auto',
-                  paddingBottom: '2px',
-                  scrollbarWidth: 'thin'
-                }}>
-                  {history.map(item => (
-                    <HistoryThumbnailItem
-                      key={item.id}
-                      item={item}
-                      isSelected={currentResult?.id === item.id}
-                      onClick={() => {
-                        audioEngine.playSfx('click');
-                        setCurrentResult(item);
-                        setOutputTab('preview');
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

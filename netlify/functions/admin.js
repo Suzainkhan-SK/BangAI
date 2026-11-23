@@ -2220,6 +2220,121 @@ export async function handler(event) {
         };
       }
 
+      case 'check-thumbnail-key-balance': {
+        const { provider = 'kie.ai', key, baseUrl = null } = body;
+        if (!key || !key.trim()) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Missing API key to check' })
+          };
+        }
+
+        const trimmedKey = key.trim();
+        let balance = 0;
+        let balanceFormatted = 'Unknown';
+        let status = 'unknown';
+        let details = '';
+
+        try {
+          if (provider === 'kie.ai') {
+            const res = await fetch('https://api.kie.ai/api/v1/chat/credit', {
+              headers: { 'Authorization': `Bearer ${trimmedKey}` }
+            });
+            if (res.status === 200) {
+              const j = await res.json().catch(() => ({}));
+              const val = typeof j.data === 'number' ? j.data : 0;
+              balance = val;
+              balanceFormatted = `${val} Credits`;
+              status = val > 5 ? 'active' : (val > 0 ? 'low' : 'exhausted');
+              details = `Kie.ai balance: ${val} credits`;
+            } else if (res.status === 401 || res.status === 403) {
+              status = 'invalid';
+              details = `Invalid Kie.ai API Key (HTTP ${res.status})`;
+            } else {
+              status = 'exhausted';
+              details = `HTTP ${res.status}`;
+            }
+          } else if (provider === 'together') {
+            const res = await fetch('https://api.together.xyz/v1/models', {
+              headers: { 'Authorization': `Bearer ${trimmedKey}` }
+            });
+            if (res.status === 200) {
+              status = 'active';
+              balanceFormatted = 'Active / Operational';
+              details = 'Together AI Key Valid';
+            } else {
+              status = 'invalid';
+              details = `Together error (HTTP ${res.status})`;
+            }
+          } else if (provider === 'openai') {
+            const apiBase = baseUrl || 'https://api.openai.com/v1';
+            const res = await fetch(`${apiBase}/models`, {
+              headers: { 'Authorization': `Bearer ${trimmedKey}` }
+            });
+            if (res.status === 200) {
+              status = 'active';
+              balanceFormatted = 'Active / Operational';
+              details = 'OpenAI Key Valid';
+            } else {
+              status = 'invalid';
+              details = `OpenAI error (HTTP ${res.status})`;
+            }
+          } else if (provider === 'fal.ai') {
+            const res = await fetch('https://rest.alpha.fal.ai/keys/current', {
+              headers: { 'Authorization': `Key ${trimmedKey}` }
+            });
+            if (res.status === 200) {
+              status = 'active';
+              balanceFormatted = 'Active / Operational';
+              details = 'Fal.ai Key Valid';
+            } else if (res.status === 401 || res.status === 403) {
+              status = 'invalid';
+              details = `Invalid Fal.ai Key (HTTP ${res.status})`;
+            } else {
+              status = 'active';
+              balanceFormatted = 'Key Configured';
+              details = `Fal.ai status ${res.status}`;
+            }
+          } else if (provider === 'replicate') {
+            const res = await fetch('https://api.replicate.com/v1/account', {
+              headers: { 'Authorization': `Bearer ${trimmedKey}` }
+            });
+            if (res.status === 200) {
+              const j = await res.json().catch(() => ({}));
+              status = 'active';
+              balanceFormatted = j.username ? `User: ${j.username}` : 'Active / Operational';
+              details = 'Replicate authenticated';
+            } else {
+              status = 'invalid';
+              details = `Replicate error (HTTP ${res.status})`;
+            }
+          } else {
+            status = 'active';
+            balanceFormatted = 'Configured';
+            details = 'Custom provider key saved';
+          }
+        } catch (err) {
+          status = 'invalid';
+          details = err.message || 'Check request failed';
+        }
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            provider,
+            keyMasked: trimmedKey.length > 8 ? `${trimmedKey.slice(0, 4)}...${trimmedKey.slice(-4)}` : '****',
+            balance,
+            balanceFormatted,
+            status,
+            details,
+            lastChecked: new Date().toISOString()
+          })
+        };
+      }
+
       case 'test-thumbnail-generation': {
         const { provider = 'kie.ai', model, prompt, aspectRatio = '16:9', resolution = '1K', apiKey = null, imageUrl = null } = body;
         if (!prompt) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { adminService } from '../adminService';
 
 // Default Providers Reference List
-const PROVIDER_METADATA = [
+const DEFAULT_PROVIDERS = [
   { id: 'kie.ai', name: 'Kie.ai Vision Engine', icon: '⚡', desc: 'Primary low-latency 4K vision API with multi-key failover and CDN storage.' },
   { id: 'fal.ai', name: 'Fal.ai Fast Vision', icon: '🚀', desc: 'Ultra-fast inference queue API supporting FLUX, Recraft, and Ideogram.' },
   { id: 'replicate', name: 'Replicate', icon: '🔄', desc: 'Flagship open-source model hub hosting FLUX Schnell, Dev, and SDXL.' },
@@ -11,7 +11,7 @@ const PROVIDER_METADATA = [
 ];
 
 export default function ThumbnailManagerView() {
-  const [activeTab, setActiveTab] = useState('providers'); // 'providers' | 'models' | 'system_prompt' | 'presets' | 'diagnostics'
+  const [activeTab, setActiveTab] = useState('providers'); // 'providers' | 'balances' | 'models' | 'system_prompt' | 'presets' | 'diagnostics'
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
@@ -33,20 +33,41 @@ export default function ThumbnailManagerView() {
 
   // ── Provider Keys State ──
   const [keysByProvider, setKeysByProvider] = useState({
-    'kie.ai': { name: 'Kie.ai Vision Engine', keys: [], enabled: true },
-    'fal.ai': { name: 'Fal.ai Fast Vision', keys: [], enabled: true },
-    'replicate': { name: 'Replicate', keys: [], enabled: true },
-    'together': { name: 'Together AI', keys: [], enabled: true },
-    'openai': { name: 'OpenAI / Custom Compatible', baseUrl: 'https://api.openai.com/v1', keys: [], enabled: true }
+    'kie.ai': { name: 'Kie.ai Vision Engine', icon: '⚡', keys: [], enabled: true },
+    'fal.ai': { name: 'Fal.ai Fast Vision', icon: '🚀', keys: [], enabled: true },
+    'replicate': { name: 'Replicate', icon: '🔄', keys: [], enabled: true },
+    'together': { name: 'Together AI', icon: '🧠', keys: [], enabled: true },
+    'openai': { name: 'OpenAI / Custom Compatible', icon: '🌐', baseUrl: 'https://api.openai.com/v1', keys: [], enabled: true }
+  });
+
+  // ── Custom Providers Metadata State ──
+  const [providersList, setProvidersList] = useState(DEFAULT_PROVIDERS);
+
+  // ── Balance Checking State (Tab 2) ──
+  const [selectedBalanceProvider, setSelectedBalanceProvider] = useState('kie.ai');
+  const [keyBalances, setKeyBalances] = useState({}); // key -> { balance, balanceFormatted, status, details, lastChecked }
+  const [checkingKey, setCheckingKey] = useState({}); // key -> bool
+  const [checkingAll, setCheckingAll] = useState(false);
+  const [showAddKeyModal, setShowAddKeyModal] = useState(false);
+  const [addKeyInput, setAddKeyInput] = useState('');
+
+  // ── Custom Provider Addition Modal ──
+  const [showAddProviderModal, setShowAddProviderModal] = useState(false);
+  const [newProviderForm, setNewProviderForm] = useState({
+    id: '',
+    name: '',
+    icon: '⚡',
+    desc: '',
+    baseUrl: 'https://api.example.com/v1',
+    authType: 'Bearer'
   });
 
   // ── UI Filters & Helpers ──
   const [modelTypeFilter, setModelTypeFilter] = useState('all');
   const [modelSearch, setModelSearch] = useState('');
-  const [showKeyTextarea, setShowKeyTextarea] = useState({});
-  const [newKeyInput, setNewKeyInput] = useState({});
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddPresetModal, setShowAddPresetModal] = useState(false);
+  const [revealedKeys, setRevealedKeys] = useState({});
 
   // ── Live Generation Test State ──
   const [testProvider, setTestProvider] = useState('kie.ai');
@@ -69,8 +90,6 @@ export default function ThumbnailManagerView() {
     creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
     type: 'text-to-image',
     supportedResolutions: ['1K', '2K', '4K'],
-    supportsBackground: false,
-    requiresImage: false,
     enabled: true,
     description: '',
     defaultPrompt: '',
@@ -110,8 +129,24 @@ export default function ThumbnailManagerView() {
           setTestModel(c.models[0].id);
         }
       }
+
       if (res.success && res.keys?.providers) {
         setKeysByProvider(res.keys.providers);
+
+        // Synchronize providersList to include any custom added providers
+        const existingIds = new Set(DEFAULT_PROVIDERS.map(p => p.id));
+        const mergedList = [...DEFAULT_PROVIDERS];
+        Object.entries(res.keys.providers).forEach(([provId, provData]) => {
+          if (!existingIds.has(provId)) {
+            mergedList.push({
+              id: provId,
+              name: provData.name || provId,
+              icon: provData.icon || '🌐',
+              desc: provData.desc || (provData.baseUrl ? `Custom Provider (${provData.baseUrl})` : 'Custom Service Provider')
+            });
+          }
+        });
+        setProvidersList(mergedList);
       }
     } catch (err) {
       console.error('Failed to load thumbnail config:', err);
@@ -150,7 +185,7 @@ export default function ThumbnailManagerView() {
 
       const res = await adminService.saveThumbnailConfig(configPayload, keysPayload);
       if (res.success) {
-        setSavedMsg('✅ All Thumbnail Studio settings, vision models, and provider keys successfully saved to MongoDB Atlas!');
+        setSavedMsg('✅ All settings, models, custom credits, and API key vaults saved to MongoDB Atlas!');
         setTimeout(() => setSavedMsg(''), 5000);
       } else {
         setSavedMsg(`⚠️ Save failed: ${res.error || 'Unknown error'}`);
@@ -173,12 +208,121 @@ export default function ThumbnailManagerView() {
     setFallbackChain(newChain);
   };
 
-  // Keys Management
-  const handleAddKeysToProvider = (providerId) => {
-    const raw = (newKeyInput[providerId] || '').trim();
+  // Add Custom Provider Handler
+  const handleAddCustomProvider = (e) => {
+    e.preventDefault();
+    const pid = newProviderForm.id.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '-');
+    if (!pid || !newProviderForm.name.trim()) {
+      alert('Provider ID and Display Name are required.');
+      return;
+    }
+
+    if (keysByProvider[pid]) {
+      alert(`Provider with ID '${pid}' already exists.`);
+      return;
+    }
+
+    const providerObj = {
+      id: pid,
+      name: newProviderForm.name.trim(),
+      icon: newProviderForm.icon || '🌐',
+      desc: newProviderForm.desc || `Custom Vision Provider (${newProviderForm.baseUrl || 'Custom API'})`
+    };
+
+    setProvidersList(prev => [...prev, providerObj]);
+    setKeysByProvider(prev => ({
+      ...prev,
+      [pid]: {
+        name: providerObj.name,
+        icon: providerObj.icon,
+        baseUrl: newProviderForm.baseUrl.trim(),
+        authType: newProviderForm.authType,
+        keys: [],
+        enabled: true
+      }
+    }));
+
+    if (!fallbackChain.includes(pid)) {
+      setFallbackChain(prev => [...prev, pid]);
+    }
+
+    setSelectedBalanceProvider(pid);
+    setShowAddProviderModal(false);
+    setNewProviderForm({
+      id: '',
+      name: '',
+      icon: '⚡',
+      desc: '',
+      baseUrl: 'https://api.example.com/v1',
+      authType: 'Bearer'
+    });
+  };
+
+  // Delete Provider Handler
+  const handleDeleteProvider = (providerId) => {
+    if (!window.confirm(`Are you sure you want to delete service provider '${providerId}' and its API keys?`)) return;
+
+    setProvidersList(prev => prev.filter(p => p.id !== providerId));
+    setFallbackChain(prev => prev.filter(p => p !== providerId));
+    setKeysByProvider(prev => {
+      const next = { ...prev };
+      delete next[providerId];
+      return next;
+    });
+
+    if (activeProvider === providerId) {
+      setActiveProvider(fallbackChain.find(p => p !== providerId) || 'kie.ai');
+    }
+    if (selectedBalanceProvider === providerId) {
+      setSelectedBalanceProvider('kie.ai');
+    }
+  };
+
+  // Balance Checking: Single Key
+  const handleCheckKeyBalance = async (providerId, key) => {
+    setCheckingKey(prev => ({ ...prev, [key]: true }));
+    try {
+      const baseUrl = keysByProvider[providerId]?.baseUrl;
+      const res = await adminService.checkThumbnailKeyBalance({ provider: providerId, key, baseUrl });
+      if (res.success) {
+        setKeyBalances(prev => ({
+          ...prev,
+          [key]: res
+        }));
+      } else {
+        setKeyBalances(prev => ({
+          ...prev,
+          [key]: { status: 'invalid', balanceFormatted: 'Check Failed', details: res.error || 'Error' }
+        }));
+      }
+    } catch (err) {
+      setKeyBalances(prev => ({
+        ...prev,
+        [key]: { status: 'invalid', balanceFormatted: 'Network Error', details: err.message }
+      }));
+    } finally {
+      setCheckingKey(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  // Balance Checking: All Keys in Selected Provider
+  const handleCheckAllBalancesForProvider = async (providerId) => {
+    const keysList = keysByProvider[providerId]?.keys || [];
+    if (keysList.length === 0) return;
+
+    setCheckingAll(true);
+    for (const key of keysList) {
+      await handleCheckKeyBalance(providerId, key);
+    }
+    setCheckingAll(false);
+  };
+
+  // Add Keys in Bulk to Selected Provider
+  const handleAddKeysToSelectedProvider = (providerId) => {
+    const raw = (addKeyInput || '').trim();
     if (!raw) return;
     const newItems = raw
-      .split('\n')
+      .split(/[\n,]+/)
       .map(k => k.trim())
       .filter(k => k && k.length > 5);
 
@@ -197,35 +341,41 @@ export default function ThumbnailManagerView() {
       };
     });
 
-    setNewKeyInput(prev => ({ ...prev, [providerId]: '' }));
-    setShowKeyTextarea(prev => ({ ...prev, [providerId]: false }));
+    setAddKeyInput('');
+    setShowAddKeyModal(false);
   };
 
-  const handleDeleteKey = (providerId, keyToDelete) => {
-    if (!window.confirm('Are you sure you want to remove this API key from the pool?')) return;
+  // Delete Single Key from Provider
+  const handleDeleteKeyFromProvider = (providerId, keyToDelete) => {
+    if (!window.confirm('Remove this API key from the provider vault?')) return;
     setKeysByProvider(prev => {
       const current = prev[providerId] || { keys: [] };
       return {
         ...prev,
         [providerId]: {
           ...current,
-          keys: current.keys.filter(k => (typeof k === 'string' ? k : k.key) !== keyToDelete)
+          keys: (current.keys || []).filter(k => k !== keyToDelete)
         }
       };
     });
   };
 
-  // Model Management
-  const handleUpdateModelField = (modelId, field, value) => {
-    setModels(prev => prev.map(m => (m.id === modelId ? { ...m, [field]: value } : m)));
+  // Models Management Handlers
+  const handleUpdateModelField = (modelId, field, val) => {
+    setModels(prev => prev.map(m => (m.id === modelId ? { ...m, [field]: val } : m)));
   };
 
   const handleUpdateModelCredits = (modelId, res, val) => {
     const num = Math.max(0, Number(val) || 0);
     setModels(prev => prev.map(m => {
       if (m.id !== modelId) return m;
-      const updatedCredits = { ...(m.creditsByResolution || { '1K': 6, '2K': 10, '4K': 16 }), [res]: num };
-      return { ...m, creditsByResolution: updatedCredits, credits: updatedCredits['1K'] || num };
+      const currentResMap = m.creditsByResolution || { '1K': 6, '2K': 10, '4K': 16 };
+      const updatedCredits = { ...currentResMap, [res]: num };
+      return {
+        ...m,
+        creditsByResolution: updatedCredits,
+        credits: updatedCredits['1K'] || num
+      };
     }));
   };
 
@@ -240,25 +390,19 @@ export default function ThumbnailManagerView() {
       alert('Model ID and Name are required.');
       return;
     }
-    if (models.some(m => m.id === newModel.id.trim())) {
-      alert('A model with this ID already exists.');
-      return;
-    }
-
-    setModels(prev => [...prev, { ...newModel, id: newModel.id.trim() }]);
+    const cleanId = newModel.id.trim().toLowerCase().replace(/[^a-z0-9._/-]/g, '-');
+    setModels(prev => [...prev, { ...newModel, id: cleanId, credits: newModel.creditsByResolution['1K'] || 6 }]);
     setShowAddModal(false);
     setNewModel({
       id: '',
       name: '',
-      provider: 'kie.ai',
+      provider: activeProvider || 'kie.ai',
       badge: 'VIRAL 4K',
       badgeColor: 'linear-gradient(135deg, #10b981, #06b6d4)',
       credits: 6,
       creditsByResolution: { '1K': 6, '2K': 10, '4K': 16 },
       type: 'text-to-image',
       supportedResolutions: ['1K', '2K', '4K'],
-      supportsBackground: false,
-      requiresImage: false,
       enabled: true,
       description: '',
       defaultPrompt: '',
@@ -266,7 +410,7 @@ export default function ThumbnailManagerView() {
     });
   };
 
-  // Preset Management
+  // Presets Handlers
   const handleUpdatePreset = (presetId, field, value) => {
     setPresets(prev => prev.map(p => (p.id === presetId ? { ...p, [field]: value } : p)));
   };
@@ -324,10 +468,7 @@ export default function ThumbnailManagerView() {
     }
   };
 
-  // Calculations for top statistics
-  const totalKeysCount = Object.values(keysByProvider).reduce((sum, prov) => sum + (prov.keys?.length || 0), 0);
-  const activeModelsCount = models.filter(m => m.enabled !== false).length;
-
+  // Filtered models
   const filteredModels = models.filter(m => {
     if (modelTypeFilter !== 'all' && m.type !== modelTypeFilter) return false;
     if (modelSearch.trim()) {
@@ -336,6 +477,10 @@ export default function ThumbnailManagerView() {
     }
     return true;
   });
+
+  // Calculate statistics
+  const totalKeysCount = Object.values(keysByProvider).reduce((sum, prov) => sum + (prov.keys?.length || 0), 0);
+  const activeModelsCount = models.filter(m => m.enabled !== false).length;
 
   if (loading) {
     return (
@@ -348,52 +493,26 @@ export default function ThumbnailManagerView() {
   }
 
   return (
-    <div className="admin-view-container">
-      {/* ── View Header ────────────────────────────────────────── */}
-      <div className="admin-view-header">
+    <div className="admin-view-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* ── HEADER & ACTIONS ───────────────────────────────────────── */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '16px',
+        paddingBottom: '16px',
+        borderBottom: '1px solid var(--admin-border-glass)'
+      }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <h1 className="admin-view-title" style={{ margin: 0 }}>
-              Thumbnail Studio & Multi-Provider Engine Manager
-            </h1>
-            <span style={{
-              padding: '3px 9px',
-              borderRadius: '6px',
-              background: 'linear-gradient(135deg, #ff4f00, #ff7700)',
-              color: '#fff',
-              fontSize: '11px',
-              fontWeight: 800
-            }}>
-              ACTIVE: {activeProvider.toUpperCase()}
-            </span>
-            {providerRotationEnabled ? (
-              <span style={{
-                padding: '3px 8px',
-                borderRadius: '6px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                color: '#10b981',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                fontSize: '11px',
-                fontWeight: 700
-              }}>
-                ⚡ FAILOVER ROTATION ACTIVE
-              </span>
-            ) : (
-              <span style={{
-                padding: '3px 8px',
-                borderRadius: '6px',
-                background: 'rgba(239, 68, 68, 0.15)',
-                color: '#ef4444',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                fontSize: '11px',
-                fontWeight: 700
-              }}>
-                ⚠️ FAILOVER OFF (LOCKED)
-              </span>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '24px' }}>🎨</span>
+            <h2 className="admin-view-title" style={{ margin: 0 }}>
+              Thumbnail Studio & Multi-Provider Engine Hub
+            </h2>
           </div>
           <p className="admin-view-desc" style={{ marginTop: '6px' }}>
-            Full control over vision models, custom credits, provider rotation logic, API key vaults, system prompts, and 1-click viral presets.
+            Full control over vision models, custom credits, API key vaults, live credit balance checking, provider failover, and presets.
           </p>
         </div>
 
@@ -417,72 +536,67 @@ export default function ThumbnailManagerView() {
       {savedMsg && (
         <div style={{
           padding: '12px 18px',
-          borderRadius: '10px',
-          background: savedMsg.startsWith('✅') ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-          border: savedMsg.startsWith('✅') ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '8px',
+          background: savedMsg.startsWith('✅') ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+          border: savedMsg.startsWith('✅') ? '1px solid #10b981' : '1px solid #ef4444',
           color: savedMsg.startsWith('✅') ? '#10b981' : '#ef4444',
-          fontSize: '13.5px',
           fontWeight: 700,
-          marginBottom: '16px'
+          fontSize: '13px'
         }}>
           {savedMsg}
         </div>
       )}
 
-      {/* ── KPI Overview Strip ──────────────────────────────────── */}
-      <div className="admin-grid admin-grid-4" style={{ marginBottom: '20px' }}>
-        <div className="admin-card" style={{ padding: '14px 18px' }}>
-          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase' }}>Active Provider</div>
-          <div style={{ fontSize: '20px', fontWeight: 900, color: '#ff4f00', marginTop: '4px' }}>
-            {activeProvider.toUpperCase()}
+      {/* ── METRIC STATS STRIP ──────────────────────────────────────── */}
+      <div className="admin-grid admin-grid-4" style={{ gap: '12px' }}>
+        <div className="admin-card" style={{ padding: '14px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
+            Active Primary Provider
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>
-            {keysByProvider[activeProvider]?.keys?.length || 0} API keys active in rotation
-          </div>
-        </div>
-
-        <div className="admin-card" style={{ padding: '14px 18px' }}>
-          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase' }}>Vision Models</div>
-          <div style={{ fontSize: '20px', fontWeight: 900, color: 'var(--admin-accent-cyan)', marginTop: '4px' }}>
-            {activeModelsCount} / {models.length} Enabled
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>
-            {models.filter(m => m.type === 'text-to-image').length} T2I • {models.filter(m => m.type === 'image-to-image').length} I2I
+          <div style={{ fontSize: '18px', fontWeight: 800, color: '#ff4f00', marginTop: '4px', textTransform: 'uppercase' }}>
+            {activeProvider}
           </div>
         </div>
 
-        <div className="admin-card" style={{ padding: '14px 18px' }}>
-          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase' }}>Provider Keys Pool</div>
-          <div style={{ fontSize: '20px', fontWeight: 900, color: 'var(--admin-accent-green)', marginTop: '4px' }}>
-            {totalKeysCount} Total Keys
+        <div className="admin-card" style={{ padding: '14px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
+            Provider Failover
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>
-            Across 5 multi-provider vaults
+          <div style={{ fontSize: '18px', fontWeight: 800, color: providerRotationEnabled ? '#10b981' : 'var(--admin-text-sub)', marginTop: '4px' }}>
+            {providerRotationEnabled ? 'AUTOMATIC (ACTIVE)' : 'DISABLED'}
           </div>
         </div>
 
-        <div className="admin-card" style={{ padding: '14px 18px' }}>
-          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', textTransform: 'uppercase' }}>System Prompt Override</div>
-          <div style={{ fontSize: '20px', fontWeight: 900, color: systemPromptEnabled ? '#ec4899' : 'var(--admin-text-sub)', marginTop: '4px' }}>
-            {systemPromptEnabled ? 'CUSTOM ACTIVE' : 'CLEAN (OFF)'}
+        <div className="admin-card" style={{ padding: '14px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
+            Total API Keys in Vault
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', marginTop: '2px' }}>
-            {systemPromptEnabled ? 'Admin prompt injected' : 'Zero prompt override (Normal)'}
+          <div style={{ fontSize: '18px', fontWeight: 800, color: '#06b6d4', marginTop: '4px' }}>
+            {totalKeysCount} Keys Across {Object.keys(keysByProvider).length} Providers
+          </div>
+        </div>
+
+        <div className="admin-card" style={{ padding: '14px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontWeight: 700, textTransform: 'uppercase' }}>
+            Active Vision Models
+          </div>
+          <div style={{ fontSize: '18px', fontWeight: 800, color: '#a855f7', marginTop: '4px' }}>
+            {activeModelsCount} Models Ready
           </div>
         </div>
       </div>
 
-      {/* ── Tab Navigation Bar ──────────────────────────────────── */}
+      {/* ── NAVIGATION TABS ─────────────────────────────────────────── */}
       <div style={{
         display: 'flex',
-        gap: '6px',
+        gap: '4px',
         borderBottom: '1px solid var(--admin-border-glass)',
-        marginBottom: '20px',
         overflowX: 'auto',
         paddingBottom: '2px'
       }}>
         {[
           { id: 'providers', label: '🌐 Providers & Failover Engine' },
+          { id: 'balances', label: '🔑 API Keys & Live Balances' },
           { id: 'models', label: `🤖 Vision Models & Credits (${models.length})` },
           { id: 'system_prompt', label: '🧠 System Prompt & Rules' },
           { id: 'presets', label: `🎨 Viral Presets (${presets.length})` },
@@ -495,7 +609,7 @@ export default function ThumbnailManagerView() {
               type="button"
               onClick={() => setActiveTab(t.id)}
               style={{
-                padding: '9px 18px',
+                padding: '10px 18px',
                 borderRadius: '8px 8px 0 0',
                 border: 'none',
                 background: isSelected ? 'var(--admin-bg-card)' : 'transparent',
@@ -519,51 +633,129 @@ export default function ThumbnailManagerView() {
       ════════════════════════════════════════════════════════════ */}
       {activeTab === 'providers' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Active Provider Selector */}
+          {/* Active Provider Selector & Management */}
           <div className="admin-card">
-            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--admin-text-main)' }}>
-              1. Primary Image Generation Provider
-            </h3>
-            <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: '0 0 16px 0' }}>
-              Select which service provider Thumbnail Studio should actively use for image generation tasks.
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--admin-text-main)' }}>
+                  1. Image Generation Service Providers
+                </h3>
+                <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: 0 }}>
+                  Select primary provider, add custom providers, or remove providers.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAddProviderModal(true)}
+                className="admin-btn admin-btn-sm"
+                style={{ background: 'rgba(6, 182, 212, 0.15)', border: '1px solid #06b6d4', color: '#06b6d4', fontWeight: 800 }}
+              >
+                ➕ Add Custom Service Provider
+              </button>
+            </div>
 
             <div className="admin-grid admin-grid-3" style={{ gap: '14px' }}>
-              {PROVIDER_METADATA.map(p => {
+              {providersList.map(p => {
                 const isSelected = activeProvider === p.id;
-                const keyCount = keysByProvider[p.id]?.keys?.length || 0;
+                const provData = keysByProvider[p.id] || { keys: [], enabled: true };
+                const keyCount = provData.keys?.length || 0;
+                const isCustom = !DEFAULT_PROVIDERS.some(dp => dp.id === p.id);
+
                 return (
                   <div
                     key={p.id}
-                    onClick={() => setActiveProvider(p.id)}
                     style={{
                       padding: '16px',
                       borderRadius: '10px',
                       border: isSelected ? '2px solid #ff4f00' : '1px solid var(--admin-border-glass)',
                       background: isSelected ? 'rgba(255, 79, 0, 0.08)' : 'var(--admin-bg-card)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      position: 'relative'
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '12px'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '20px' }}>{p.icon}</span>
-                      <span style={{
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        fontSize: '10.5px',
-                        fontWeight: 800,
-                        background: keyCount > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        color: keyCount > 0 ? '#10b981' : '#ef4444'
-                      }}>
-                        {keyCount} {keyCount === 1 ? 'Key' : 'Keys'}
-                      </span>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '20px' }}>{p.icon || '🌐'}</span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <span style={{
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            fontSize: '10.5px',
+                            fontWeight: 800,
+                            background: keyCount > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            color: keyCount > 0 ? '#10b981' : '#ef4444'
+                          }}>
+                            {keyCount} {keyCount === 1 ? 'Key' : 'Keys'}
+                          </span>
+                          {isCustom && (
+                            <span style={{
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              background: 'rgba(168, 85, 247, 0.2)',
+                              color: '#c084fc'
+                            }}>
+                              CUSTOM
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: isSelected ? '#ff4f00' : 'var(--admin-text-main)', marginBottom: '4px' }}>
+                        {p.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', lineHeight: 1.4, marginBottom: '6px' }}>
+                        {p.desc}
+                      </div>
+                      {provData.baseUrl && (
+                        <div style={{ fontSize: '10.5px', color: '#06b6d4', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          Base URL: {provData.baseUrl}
+                        </div>
+                      )}
                     </div>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: isSelected ? '#ff4f00' : 'var(--admin-text-main)', marginBottom: '4px' }}>
-                      {p.name}
-                    </div>
-                    <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', lineHeight: 1.4 }}>
-                      {p.desc}
+
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', borderTop: '1px solid var(--admin-border-glass)', paddingTop: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveProvider(p.id)}
+                        className="admin-btn admin-btn-sm"
+                        style={{
+                          flex: 1,
+                          background: isSelected ? '#ff4f00' : 'var(--admin-bg-elevated)',
+                          color: isSelected ? '#fff' : 'var(--admin-text-main)',
+                          fontWeight: 700
+                        }}
+                      >
+                        {isSelected ? '✓ Primary Active' : 'Set as Primary'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedBalanceProvider(p.id);
+                          setActiveTab('balances');
+                        }}
+                        className="admin-btn admin-btn-sm"
+                        style={{ fontSize: '11px' }}
+                      >
+                        🔑 Manage Keys
+                      </button>
+
+                      {isCustom && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProvider(p.id)}
+                          className="admin-btn admin-btn-sm admin-btn-danger"
+                          style={{ padding: '4px 8px' }}
+                          title="Delete custom provider"
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -571,7 +763,7 @@ export default function ThumbnailManagerView() {
             </div>
           </div>
 
-          {/* Provider Rotation / Failover Logic Controls */}
+          {/* Provider Rotation & Failover Chain */}
           <div className="admin-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
               <div>
@@ -579,8 +771,8 @@ export default function ThumbnailManagerView() {
                   2. Automatic Provider Rotation & Failover Logic
                 </h3>
                 <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: 0, maxWidth: '680px', lineHeight: 1.5 }}>
-                  When enabled, if all API keys for the active provider become exhausted, rate-limited, or unauthorized,
-                  the backend will <strong>automatically switch to the next provider in the failover chain</strong> to generate the thumbnail without failing the user's request.
+                  When enabled, if all API keys for the current provider are exhausted, rate-limited, or out of balance,
+                  the backend will <strong>automatically switch to the next provider in the fallback priority chain</strong> to generate the thumbnail without user interruption.
                 </p>
               </div>
 
@@ -597,14 +789,13 @@ export default function ThumbnailManagerView() {
               </div>
             </div>
 
-            {/* Fallback Priority Chain Reorderer */}
             <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--admin-border-glass)' }}>
               <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-text-sub)', textTransform: 'uppercase', marginBottom: '10px' }}>
                 Provider Failover Priority Order (Drag or Move Up/Down)
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {fallbackChain.map((provId, index) => {
-                  const pMeta = PROVIDER_METADATA.find(p => p.id === provId) || { id: provId, name: provId, icon: '⚡' };
+                  const pMeta = providersList.find(p => p.id === provId) || { id: provId, name: provId, icon: '⚡' };
                   const isPrimary = activeProvider === provId;
                   const keyCount = keysByProvider[provId]?.keys?.length || 0;
 
@@ -638,7 +829,7 @@ export default function ThumbnailManagerView() {
                             background: '#ff4f00',
                             color: '#fff'
                           }}>
-                            PRIMARY
+                            PRIMARY ACTIVE
                           </span>
                         )}
                         <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
@@ -672,583 +863,517 @@ export default function ThumbnailManagerView() {
               </div>
             </div>
           </div>
-
-          {/* Per-Provider API Keys Vault */}
-          <div className="admin-card">
-            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--admin-text-main)' }}>
-              3. Per-Provider API Key Pools
-            </h3>
-            <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: '0 0 16px 0' }}>
-              Add, rotate, and manage API keys for each provider. The engine rotates keys sequentially on each request and auto-rotates on rate limits.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {PROVIDER_METADATA.map(p => {
-                const provData = keysByProvider[p.id] || { keys: [], enabled: true };
-                const keysList = provData.keys || [];
-                const isExpanded = showKeyTextarea[p.id];
-
-                return (
-                  <div
-                    key={p.id}
-                    style={{
-                      padding: '16px',
-                      borderRadius: '10px',
-                      background: 'var(--admin-bg-elevated)',
-                      border: '1px solid var(--admin-border-glass)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '18px' }}>{p.icon}</span>
-                        <div>
-                          <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--admin-text-main)' }}>
-                            {p.name}
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)' }}>
-                            {keysList.length} API keys in rotating pool
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button
-                          type="button"
-                          onClick={() => setShowKeyTextarea(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
-                          className="admin-btn admin-btn-sm"
-                        >
-                          {isExpanded ? 'Cancel Add' : '+ Add Keys in Bulk'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Custom baseUrl input for OpenAI compatible */}
-                    {p.id === 'openai' && (
-                      <div style={{ marginTop: '12px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                          Custom API Base URL (Default: https://api.openai.com/v1)
-                        </label>
-                        <input
-                          type="text"
-                          value={provData.baseUrl || 'https://api.openai.com/v1'}
-                          onChange={e => {
-                            const val = e.target.value;
-                            setKeysByProvider(prev => ({
-                              ...prev,
-                              openai: { ...(prev.openai || {}), baseUrl: val }
-                            }));
-                          }}
-                          className="admin-input"
-                          style={{ fontSize: '12px', fontFamily: 'monospace' }}
-                        />
-                      </div>
-                    )}
-
-                    {/* Bulk Keys Add Textarea */}
-                    {isExpanded && (
-                      <div style={{ marginTop: '12px', padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)' }}>
-                        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                          Paste one or more API keys (one per line):
-                        </label>
-                        <textarea
-                          rows={3}
-                          value={newKeyInput[p.id] || ''}
-                          onChange={e => setNewKeyInput(prev => ({ ...prev, [p.id]: e.target.value }))}
-                          placeholder="Paste API keys here, one per line..."
-                          className="admin-input"
-                          style={{ width: '100%', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleAddKeysToProvider(p.id)}
-                            className="admin-btn admin-btn-primary admin-btn-sm"
-                          >
-                            Add to {p.name} Pool
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Keys List */}
-                    <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {keysList.length === 0 ? (
-                        <div style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)', fontStyle: 'italic' }}>
-                          No API keys configured for this provider. Add keys above to enable generation.
-                        </div>
-                      ) : (
-                        keysList.map((keyItem, kidx) => {
-                          const rawKey = typeof keyItem === 'string' ? keyItem : keyItem.key;
-                          const masked = rawKey.length > 12 ? `${rawKey.slice(0, 6)}••••••••${rawKey.slice(-4)}` : rawKey;
-                          return (
-                            <div
-                              key={kidx}
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                padding: '6px 10px',
-                                borderRadius: '6px',
-                                background: 'rgba(0,0,0,0.15)',
-                                fontSize: '12px'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)', fontFamily: 'monospace' }}>
-                                  #{kidx + 1}
-                                </span>
-                                <span style={{ fontFamily: 'monospace', color: 'var(--admin-text-main)' }}>
-                                  {masked}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteKey(p.id, rawKey)}
-                                style={{
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: '#ef4444',
-                                  cursor: 'pointer',
-                                  fontSize: '11px',
-                                  fontWeight: 700
-                                }}
-                                title="Remove key"
-                              >
-                                ✕ Delete
-                              </button>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
       )}
 
       {/* ════════════════════════════════════════════════════════════
-          TAB 2: VISION MODELS CATALOG & CUSTOM CREDITS
+          TAB 2: PROVIDER API KEYS & REAL CREDIT BALANCES
+      ════════════════════════════════════════════════════════════ */}
+      {activeTab === 'balances' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Provider Selection Rail */}
+          <div className="admin-card" style={{ padding: '16px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-text-sub)', textTransform: 'uppercase', marginBottom: '10px' }}>
+              Select Service Provider to Inspect & Manage API Keys:
+            </div>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {providersList.map(p => {
+                const isSelected = selectedBalanceProvider === p.id;
+                const count = keysByProvider[p.id]?.keys?.length || 0;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setSelectedBalanceProvider(p.id)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      border: isSelected ? '2px solid #ff4f00' : '1px solid var(--admin-border-glass)',
+                      background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--admin-bg-elevated)',
+                      color: isSelected ? '#ff4f00' : 'var(--admin-text-main)',
+                      fontWeight: isSelected ? 800 : 600,
+                      fontSize: '12.5px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span>{p.icon || '⚡'}</span>
+                    <span>{p.name}</span>
+                    <span style={{
+                      padding: '1px 6px',
+                      borderRadius: '10px',
+                      fontSize: '10px',
+                      background: count > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                      color: count > 0 ? '#10b981' : '#ef4444'
+                    }}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Selected Provider Vault Details */}
+          {(() => {
+            const currentProv = keysByProvider[selectedBalanceProvider] || { keys: [], enabled: true };
+            const keysList = currentProv.keys || [];
+            const meta = providersList.find(p => p.id === selectedBalanceProvider) || { name: selectedBalanceProvider, icon: '⚡' };
+
+            return (
+              <div className="admin-card">
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  marginBottom: '16px',
+                  paddingBottom: '14px',
+                  borderBottom: '1px solid var(--admin-border-glass)'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '22px' }}>{meta.icon}</span>
+                      <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
+                        {meta.name} — API Key Vault ({keysList.length} Keys)
+                      </h3>
+                      {activeProvider === selectedBalanceProvider && (
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          background: '#ff4f00',
+                          color: '#fff'
+                        }}>
+                          PRIMARY PROVIDER
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '4px 0 0 0' }}>
+                      Inspect real-time API credit balance, rotate keys, add new keys, or delete exhausted keys.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      disabled={checkingAll || keysList.length === 0}
+                      onClick={() => handleCheckAllBalancesForProvider(selectedBalanceProvider)}
+                      className="admin-btn admin-btn-sm"
+                      style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#10b981', fontWeight: 800 }}
+                    >
+                      {checkingAll ? 'Checking All Keys...' : '⚡ Check All Keys Balance'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowAddKeyModal(true)}
+                      className="admin-btn admin-btn-sm admin-btn-primary"
+                      style={{ fontWeight: 800 }}
+                    >
+                      ➕ Add Keys to {meta.name}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Base URL configuration if applicable */}
+                {selectedBalanceProvider === 'openai' && (
+                  <div style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                      OpenAI Compatible Base URL:
+                    </label>
+                    <input
+                      type="text"
+                      value={currentProv.baseUrl || 'https://api.openai.com/v1'}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setKeysByProvider(prev => ({
+                          ...prev,
+                          openai: { ...(prev.openai || {}), baseUrl: val }
+                        }));
+                      }}
+                      className="admin-input"
+                      style={{ fontSize: '12px', fontFamily: 'monospace' }}
+                    />
+                  </div>
+                )}
+
+                {/* Keys Table */}
+                {keysList.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: 'var(--admin-text-sub)' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 700 }}>No API keys configured for this provider.</div>
+                    <div style={{ fontSize: '12px', marginTop: '6px' }}>Click "➕ Add Keys" above to populate the key pool.</div>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--admin-border-glass)', textAlign: 'left', fontSize: '11px', color: 'var(--admin-text-sub)' }}>
+                          <th style={{ padding: '10px 12px', width: '50px' }}>#</th>
+                          <th style={{ padding: '10px 12px' }}>API Key</th>
+                          <th style={{ padding: '10px 12px', width: '180px' }}>Live Credit Balance</th>
+                          <th style={{ padding: '10px 12px', width: '140px' }}>Status</th>
+                          <th style={{ padding: '10px 12px', width: '160px', textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {keysList.map((key, idx) => {
+                          const isRevealed = revealedKeys[key];
+                          const bInfo = keyBalances[key];
+                          const isChecking = checkingKey[key];
+
+                          let statusColor = '#94a3b8';
+                          let statusLabel = 'UNCHECKED';
+                          if (bInfo) {
+                            if (bInfo.status === 'active') {
+                              statusColor = '#10b981';
+                              statusLabel = 'OPERATIONAL';
+                            } else if (bInfo.status === 'low') {
+                              statusColor = '#f59e0b';
+                              statusLabel = 'LOW BALANCE';
+                            } else if (bInfo.status === 'exhausted') {
+                              statusColor = '#ef4444';
+                              statusLabel = 'EXHAUSTED';
+                            } else if (bInfo.status === 'invalid') {
+                              statusColor = '#dc2626';
+                              statusLabel = 'INVALID KEY';
+                            }
+                          }
+
+                          return (
+                            <tr key={key} style={{ borderBottom: '1px solid var(--admin-border-glass)', fontSize: '12.5px' }}>
+                              <td style={{ padding: '12px', color: 'var(--admin-text-sub)', fontWeight: 700 }}>
+                                #{idx + 1}
+                              </td>
+
+                              <td style={{ padding: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                                    {isRevealed ? key : `${key.slice(0, 5)}••••••••••••${key.slice(-4)}`}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRevealedKeys(prev => ({ ...prev, [key]: !prev[key] }))}
+                                    style={{ background: 'transparent', border: 'none', color: 'var(--admin-text-sub)', cursor: 'pointer', fontSize: '11px' }}
+                                    title={isRevealed ? 'Mask key' : 'Reveal key'}
+                                  >
+                                    {isRevealed ? '👁️‍🗨️' : '👁️'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(key);
+                                      alert('API key copied to clipboard!');
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', color: 'var(--admin-text-sub)', cursor: 'pointer', fontSize: '11px' }}
+                                    title="Copy key"
+                                  >
+                                    📋
+                                  </button>
+                                </div>
+                              </td>
+
+                              <td style={{ padding: '12px' }}>
+                                {isChecking ? (
+                                  <span style={{ fontSize: '12px', color: '#06b6d4', fontWeight: 700 }}>Checking balance...</span>
+                                ) : bInfo ? (
+                                  <div>
+                                    <div style={{
+                                      fontSize: '13px',
+                                      fontWeight: 800,
+                                      color: bInfo.balance > 0 ? '#10b981' : (bInfo.status === 'active' ? '#10b981' : '#ef4444')
+                                    }}>
+                                      {bInfo.balanceFormatted}
+                                    </div>
+                                    {bInfo.details && (
+                                      <div style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}>
+                                        {bInfo.details}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span style={{ fontSize: '11.5px', color: 'var(--admin-text-sub)' }}>Not checked yet</span>
+                                )}
+                              </td>
+
+                              <td style={{ padding: '12px' }}>
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '2px 8px',
+                                  borderRadius: '5px',
+                                  fontSize: '10.5px',
+                                  fontWeight: 800,
+                                  background: `${statusColor}22`,
+                                  color: statusColor,
+                                  border: `1px solid ${statusColor}44`
+                                }}>
+                                  {statusLabel}
+                                </span>
+                              </td>
+
+                              <td style={{ padding: '12px', textAlign: 'right' }}>
+                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                  <button
+                                    type="button"
+                                    disabled={isChecking}
+                                    onClick={() => handleCheckKeyBalance(selectedBalanceProvider, key)}
+                                    className="admin-btn admin-btn-sm"
+                                    style={{ fontSize: '11px', padding: '4px 8px' }}
+                                  >
+                                    {isChecking ? '...' : '⚡ Check'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteKeyFromProvider(selectedBalanceProvider, key)}
+                                    className="admin-btn admin-btn-sm admin-btn-danger"
+                                    style={{ fontSize: '11px', padding: '4px 8px' }}
+                                    title="Delete this key"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════
+          TAB 3: VISION MODELS & GRANULAR CREDITS MATRIX
       ════════════════════════════════════════════════════════════ */}
       {activeTab === 'models' && (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {/* Controls Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={() => setModelTypeFilter('all')}
-                className={`admin-btn admin-btn-sm ${modelTypeFilter === 'all' ? 'admin-btn-primary' : ''}`}
-              >
-                All ({models.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setModelTypeFilter('text-to-image')}
-                className={`admin-btn admin-btn-sm ${modelTypeFilter === 'text-to-image' ? 'admin-btn-primary' : ''}`}
-              >
-                🎨 Text-to-Image ({models.filter(m => m.type === 'text-to-image').length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setModelTypeFilter('image-to-image')}
-                className={`admin-btn admin-btn-sm ${modelTypeFilter === 'image-to-image' ? 'admin-btn-primary' : ''}`}
-              >
-                🔄 Image-to-Image ({models.filter(m => m.type === 'image-to-image').length})
-              </button>
-            </div>
+          <div className="admin-card" style={{ padding: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Search vision models..."
+                  value={modelSearch}
+                  onChange={e => setModelSearch(e.target.value)}
+                  className="admin-input"
+                  style={{ width: '220px', fontSize: '12.5px' }}
+                />
 
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <input
-                type="text"
-                placeholder="Search models..."
-                value={modelSearch}
-                onChange={e => setModelSearch(e.target.value)}
-                className="admin-input"
-                style={{ padding: '6px 12px', fontSize: '12px', width: '180px' }}
-              />
+                <select
+                  value={modelTypeFilter}
+                  onChange={e => setModelTypeFilter(e.target.value)}
+                  className="admin-input"
+                  style={{ width: '180px', fontSize: '12.5px' }}
+                >
+                  <option value="all">All Types ({models.length})</option>
+                  <option value="text-to-image">Text-to-Image Only</option>
+                  <option value="image-to-image">Image-to-Image Only</option>
+                </select>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setShowAddModal(true)}
                 className="admin-btn admin-btn-primary"
-                style={{ background: 'linear-gradient(135deg, #10b981, #06b6d4)', fontWeight: 800 }}
+                style={{ fontWeight: 800 }}
               >
-                + Add New Model
+                ➕ Add New Vision Model
               </button>
             </div>
           </div>
 
-          {/* Model Cards Grid */}
+          {/* Models Grid */}
           <div className="admin-grid admin-grid-2" style={{ gap: '16px' }}>
             {filteredModels.map(m => {
+              const resCredits = m.creditsByResolution || { '1K': 6, '2K': 10, '4K': 16 };
+
               return (
                 <div
                   key={m.id}
                   className="admin-card"
                   style={{
-                    padding: '16px',
-                    border: m.enabled === false ? '1px dashed var(--admin-border-glass)' : '1px solid var(--admin-border-glass)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '14px',
+                    border: m.enabled === false ? '1px dashed rgba(239, 68, 68, 0.4)' : '1px solid var(--admin-border-glass)',
                     opacity: m.enabled === false ? 0.65 : 1
                   }}
                 >
-                  {/* Top Bar: Title, Type & Delete */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--admin-text-main)' }}>
-                          {m.name}
-                        </span>
-                        <span style={{
-                          padding: '2px 7px',
-                          borderRadius: '5px',
-                          fontSize: '10px',
-                          fontWeight: 800,
-                          color: '#fff',
-                          background: m.badgeColor || '#ff4f00'
-                        }}>
-                          {m.badge || 'PRO'}
-                        </span>
-                        <span style={{
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          background: 'rgba(255,255,255,0.06)',
-                          color: 'var(--admin-text-sub)'
-                        }}>
-                          {m.type === 'text-to-image' ? 'Text-to-Image' : 'Image-to-Image'}
-                        </span>
+                  <div>
+                    {/* Header: Title, Provider, Badge */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--admin-text-main)' }}>
+                            {m.name}
+                          </span>
+                          <span style={{
+                            padding: '2px 8px',
+                            borderRadius: '5px',
+                            fontSize: '10px',
+                            fontWeight: 800,
+                            background: m.badgeColor || 'linear-gradient(135deg, #10b981, #06b6d4)',
+                            color: '#fff'
+                          }}>
+                            {m.badge || 'PRO'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontFamily: 'monospace', marginTop: '2px' }}>
+                          ID: {m.id} · Provider: <strong style={{ color: '#06b6d4' }}>{m.provider || 'kie.ai'}</strong> · {m.type}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--admin-accent-cyan)', marginTop: '2px' }}>
-                        ID: {m.id}
+
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateModelField(m.id, 'enabled', !m.enabled)}
+                          className="admin-btn admin-btn-sm"
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '11px',
+                            background: m.enabled !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            color: m.enabled !== false ? '#10b981' : '#ef4444'
+                          }}
+                        >
+                          {m.enabled !== false ? 'Enabled' : 'Disabled'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteModel(m.id)}
+                          className="admin-btn admin-btn-sm admin-btn-danger"
+                          style={{ padding: '3px 8px', fontSize: '11px' }}
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={m.enabled !== false}
-                          onChange={e => handleUpdateModelField(m.id, 'enabled', e.target.checked)}
-                          style={{ cursor: 'pointer', accentColor: '#ff4f00' }}
+                    {/* Description */}
+                    <div style={{ fontSize: '12px', color: 'var(--admin-text-sub)', lineHeight: 1.4, marginBottom: '12px' }}>
+                      {m.description}
+                    </div>
+
+                    {/* Showcase Image with Live Preview */}
+                    <div style={{ marginBottom: '14px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <div style={{
+                        width: '72px',
+                        height: '46px',
+                        borderRadius: '6px',
+                        overflow: 'hidden',
+                        background: '#000',
+                        border: '1px solid var(--admin-border-glass)',
+                        flexShrink: 0
+                      }}>
+                        <img
+                          src={m.showcaseImage}
+                          alt={m.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={e => { e.currentTarget.style.display = 'none'; }}
                         />
-                        <span style={{ fontWeight: 700, color: m.enabled !== false ? '#10b981' : 'var(--admin-text-sub)' }}>
-                          {m.enabled !== false ? 'Active' : 'Disabled'}
-                        </span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteModel(m.id)}
-                        className="admin-btn admin-btn-sm"
-                        style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', padding: '2px 8px' }}
-                        title="Delete model"
-                      >
-                        ✕
-                      </button>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>
+                          Showcase Preview Image URL:
+                        </label>
+                        <input
+                          type="text"
+                          value={m.showcaseImage || ''}
+                          onChange={e => handleUpdateModelField(m.id, 'showcaseImage', e.target.value)}
+                          className="admin-input"
+                          style={{ fontSize: '11.5px', padding: '5px 8px' }}
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Editable Description */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>
-                      Description:
-                    </label>
-                    <input
-                      type="text"
-                      value={m.description || ''}
-                      onChange={e => handleUpdateModelField(m.id, 'description', e.target.value)}
-                      className="admin-input"
-                      style={{ fontSize: '12px' }}
-                    />
-                  </div>
-
-                  {/* Showcase Image Display & URL Editing */}
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px', background: 'rgba(0,0,0,0.18)', padding: '8px 10px', borderRadius: '8px' }}>
+                    {/* Granular Credits Matrix */}
                     <div style={{
-                      width: '74px',
-                      height: '46px',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      background: '#0a0a0d',
-                      flexShrink: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      background: 'rgba(0, 0, 0, 0.25)',
                       border: '1px solid var(--admin-border-glass)'
                     }}>
-                      <img
-                        src={m.showcaseImage || '/showcases/gpt_flare_2_5_ultra.png'}
-                        alt="showcase"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={e => { e.currentTarget.src = '/showcases/gpt_flare_2_5_ultra.png'; }}
-                      />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>
-                        Preview Showcase Image URL:
-                      </label>
-                      <input
-                        type="text"
-                        value={m.showcaseImage || ''}
-                        onChange={e => handleUpdateModelField(m.id, 'showcaseImage', e.target.value)}
-                        placeholder="Paste image preview URL here..."
-                        className="admin-input"
-                        style={{ fontSize: '11px', padding: '4px 8px' }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Custom Credit Pricing Inputs */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                      Custom Credit Pricing (Enter any specific number):
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                      <div>
-                        <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)', display: 'block' }}>1K Standard</span>
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={m.creditsByResolution?.['1K'] ?? m.credits ?? 6}
-                          onChange={e => handleUpdateModelCredits(m.id, '1K', e.target.value)}
-                          className="admin-input"
-                          style={{ fontSize: '12px', padding: '5px 8px' }}
-                        />
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#ff4f00', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Credit Cost Per Quality Tier:
                       </div>
-                      <div>
-                        <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)', display: 'block' }}>2K Quad HD</span>
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={m.creditsByResolution?.['2K'] ?? m.credits ?? 10}
-                          onChange={e => handleUpdateModelCredits(m.id, '2K', e.target.value)}
-                          className="admin-input"
-                          style={{ fontSize: '12px', padding: '5px 8px' }}
-                        />
-                      </div>
-                      <div>
-                        <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)', display: 'block' }}>4K Ultra HD</span>
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={m.creditsByResolution?.['4K'] ?? m.credits ?? 16}
-                          onChange={e => handleUpdateModelCredits(m.id, '4K', e.target.value)}
-                          className="admin-input"
-                          style={{ fontSize: '12px', padding: '5px 8px' }}
-                        />
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                        <div>
+                          <label style={{ fontSize: '10px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>1K Standard</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={resCredits['1K'] ?? 6}
+                            onChange={e => handleUpdateModelCredits(m.id, '1K', e.target.value)}
+                            className="admin-input"
+                            style={{ fontSize: '12px', padding: '5px 8px', fontWeight: 800 }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '10px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>2K High-Def</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={resCredits['2K'] ?? 10}
+                            onChange={e => handleUpdateModelCredits(m.id, '2K', e.target.value)}
+                            className="admin-input"
+                            style={{ fontSize: '12px', padding: '5px 8px', fontWeight: 800 }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '10px', color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>4K Ultra</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={resCredits['4K'] ?? 16}
+                            onChange={e => handleUpdateModelCredits(m.id, '4K', e.target.value)}
+                            className="admin-input"
+                            style={{ fontSize: '12px', padding: '5px 8px', fontWeight: 800 }}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Default Prompt Template */}
-                  <div>
-                    <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>
-                      Initial Default Prompt Template:
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={m.defaultPrompt || ''}
-                      onChange={e => handleUpdateModelField(m.id, 'defaultPrompt', e.target.value)}
-                      className="admin-input"
-                      style={{ fontSize: '11px', resize: 'vertical' }}
-                    />
                   </div>
                 </div>
               );
             })}
           </div>
-
-          {/* Add Model Modal */}
-          {showAddModal && (
-            <div style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.8)',
-              backdropFilter: 'blur(10px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 9999,
-              padding: '20px'
-            }}>
-              <div style={{
-                background: 'var(--admin-bg-card)',
-                border: '1px solid var(--admin-border-glass)',
-                borderRadius: '12px',
-                padding: '24px',
-                width: '100%',
-                maxWidth: '560px',
-                maxHeight: '90vh',
-                overflowY: 'auto'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--admin-text-main)' }}>
-                    Add New Vision Model
-                  </h3>
-                  <button type="button" onClick={() => setShowAddModal(false)} className="admin-btn admin-btn-sm">
-                    ✕
-                  </button>
-                </div>
-
-                <form onSubmit={handleAddModel} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                      Model ID (Exact Provider API Name):
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. flux-1-schnell or wan/2-7-image-pro"
-                      value={newModel.id}
-                      onChange={e => setNewModel({ ...newModel, id: e.target.value })}
-                      className="admin-input"
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                      Display Name:
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. FLUX 1.1 Schnell Turbo"
-                      value={newModel.name}
-                      onChange={e => setNewModel({ ...newModel, name: e.target.value })}
-                      className="admin-input"
-                    />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                        Generation Type:
-                      </label>
-                      <select
-                        value={newModel.type}
-                        onChange={e => setNewModel({ ...newModel, type: e.target.value })}
-                        className="admin-select"
-                      >
-                        <option value="text-to-image">🎨 Text-to-Image</option>
-                        <option value="image-to-image">🔄 Image-to-Image</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                        Badge Text:
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. VIRAL 4K"
-                        value={newModel.badge}
-                        onChange={e => setNewModel({ ...newModel, badge: e.target.value })}
-                        className="admin-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                      Showcase Preview Image URL:
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="https://... or /showcases/..."
-                      value={newModel.showcaseImage}
-                      onChange={e => setNewModel({ ...newModel, showcaseImage: e.target.value })}
-                      className="admin-input"
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                      Credit Pricing (1K / 2K / 4K):
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                      <input
-                        type="number"
-                        placeholder="1K"
-                        value={newModel.creditsByResolution['1K']}
-                        onChange={e => setNewModel({
-                          ...newModel,
-                          creditsByResolution: { ...newModel.creditsByResolution, '1K': Number(e.target.value) }
-                        })}
-                        className="admin-input"
-                      />
-                      <input
-                        type="number"
-                        placeholder="2K"
-                        value={newModel.creditsByResolution['2K']}
-                        onChange={e => setNewModel({
-                          ...newModel,
-                          creditsByResolution: { ...newModel.creditsByResolution, '2K': Number(e.target.value) }
-                        })}
-                        className="admin-input"
-                      />
-                      <input
-                        type="number"
-                        placeholder="4K"
-                        value={newModel.creditsByResolution['4K']}
-                        onChange={e => setNewModel({
-                          ...newModel,
-                          creditsByResolution: { ...newModel.creditsByResolution, '4K': Number(e.target.value) }
-                        })}
-                        className="admin-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                      Description:
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Next-gen photorealistic visuals..."
-                      value={newModel.description}
-                      onChange={e => setNewModel({ ...newModel, description: e.target.value })}
-                      className="admin-input"
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
-                    <button type="button" onClick={() => setShowAddModal(false)} className="admin-btn">
-                      Cancel
-                    </button>
-                    <button type="submit" className="admin-btn admin-btn-primary">
-                      Add Model
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
       {/* ════════════════════════════════════════════════════════════
-          TAB 3: SYSTEM PROMPT & CONDITIONING RULES
+          TAB 4: SYSTEM PROMPT & RULES
       ════════════════════════════════════════════════════════════ */}
       {activeTab === 'system_prompt' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div className="admin-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '14px' }}>
               <div>
                 <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--admin-text-main)' }}>
-                  Platform System Prompt Injection Control
+                  System Prompt Override & Pre-Conditioning
                 </h3>
                 <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: 0, maxWidth: '680px', lineHeight: 1.5 }}>
-                  By default, <strong>no system prompt overrides or alters the user's prompt</strong>. The image generator executes the user's prompt cleanly and directly.
-                  If you enable this setting and enter a system prompt below, it will be injected before generation.
+                  <strong>Important Rule Enforced:</strong> By default, this is disabled so user prompts are never overridden or polluted.
+                  When enabled, this system prompt will be prepended to the user prompt.
                 </p>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '12.5px', fontWeight: 700, color: systemPromptEnabled ? '#ec4899' : 'var(--admin-text-sub)' }}>
-                  {systemPromptEnabled ? 'SYSTEM PROMPT ACTIVE' : 'NO OVERRIDE (NORMAL)'}
+                <span style={{ fontSize: '12.5px', fontWeight: 700, color: systemPromptEnabled ? '#10b981' : 'var(--admin-text-sub)' }}>
+                  {systemPromptEnabled ? 'OVERRIDE ACTIVE' : 'NO OVERRIDE (DISABLED)'}
                 </span>
                 <input
                   type="checkbox"
@@ -1259,425 +1384,713 @@ export default function ThumbnailManagerView() {
               </div>
             </div>
 
-            <div style={{
-              padding: '12px 16px',
-              borderRadius: '8px',
-              background: systemPromptEnabled ? 'rgba(236, 72, 153, 0.08)' : 'rgba(255,255,255,0.03)',
-              border: systemPromptEnabled ? '1px solid rgba(236, 72, 153, 0.25)' : '1px solid var(--admin-border-glass)',
-              marginBottom: '16px'
-            }}>
-              <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', display: 'block', marginBottom: '6px' }}>
-                System Prompt (Only applied if switch above is ON):
-              </label>
-              <textarea
-                rows={4}
-                value={systemPrompt}
-                onChange={e => setSystemPrompt(e.target.value)}
-                placeholder="Leave blank for no system prompt override. When entered and enabled, this prompt directive will be prepended to all image generation tasks..."
-                className="admin-input"
-                style={{ width: '100%', resize: 'vertical', fontSize: '12.5px', lineHeight: 1.5 }}
-              />
-            </div>
+            <textarea
+              rows={5}
+              placeholder="Enter optional system prompt to prepend when enabled..."
+              value={systemPrompt}
+              onChange={e => setSystemPrompt(e.target.value)}
+              className="admin-input"
+              style={{ width: '100%', fontSize: '13px', lineHeight: 1.5, fontFamily: 'monospace' }}
+            />
+          </div>
 
-            <div>
-              <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', display: 'block', marginBottom: '6px' }}>
-                Default Negative Prompt:
-              </label>
-              <input
-                type="text"
-                value={negativePrompt}
-                onChange={e => setNegativePrompt(e.target.value)}
-                className="admin-input"
-                style={{ fontSize: '12.5px' }}
-              />
-            </div>
+          <div className="admin-card">
+            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--admin-text-main)' }}>
+              Global Negative Prompt
+            </h3>
+            <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: '0 0 12px 0' }}>
+              Elements and artifacts to systematically exclude from image generation.
+            </p>
+            <input
+              type="text"
+              value={negativePrompt}
+              onChange={e => setNegativePrompt(e.target.value)}
+              className="admin-input"
+              style={{ width: '100%', fontSize: '13px' }}
+            />
           </div>
         </div>
       )}
 
       {/* ════════════════════════════════════════════════════════════
-          TAB 4: VIRAL PRESETS & STYLE ARCHETYPES
+          TAB 5: VIRAL CREATOR PRESETS
       ════════════════════════════════════════════════════════════ */}
       {activeTab === 'presets' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="admin-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div className="admin-card" style={{ padding: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--admin-text-main)' }}>
-                  1-Click Viral Creator Presets
+                  1-Click Viral Presets ({presets.length})
                 </h3>
                 <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: 0 }}>
-                  Manage the 1-click thumbnail preset chips displayed to users in Thumbnail Studio.
+                  Manage the 1-click thumbnail archetypes and prompt templates displayed on the frontend.
                 </p>
               </div>
+
               <button
                 type="button"
                 onClick={() => setShowAddPresetModal(true)}
-                className="admin-btn admin-btn-primary admin-btn-sm"
+                className="admin-btn admin-btn-primary"
+                style={{ fontWeight: 800 }}
               >
-                + Add New Preset
+                ➕ Add New Preset
               </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {presets.map(p => (
-                <div
-                  key={p.id}
-                  style={{
-                    padding: '14px',
-                    borderRadius: '8px',
-                    background: 'var(--admin-bg-elevated)',
-                    border: '1px solid var(--admin-border-glass)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <input
-                        type="text"
-                        value={p.emoji || '🔥'}
-                        onChange={e => handleUpdatePreset(p.id, 'emoji', e.target.value)}
-                        style={{ width: '32px', textAlign: 'center', fontSize: '16px', background: 'transparent', border: '1px solid var(--admin-border-glass)', borderRadius: '4px' }}
-                      />
-                      <input
-                        type="text"
-                        value={p.label || ''}
-                        onChange={e => handleUpdatePreset(p.id, 'label', e.target.value)}
-                        className="admin-input"
-                        style={{ fontWeight: 800, fontSize: '13px', width: '280px' }}
-                      />
-                      <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontFamily: 'monospace' }}>
-                        ID: {p.id}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <select
-                        value={p.aspectRatio || '16:9'}
-                        onChange={e => handleUpdatePreset(p.id, 'aspectRatio', e.target.value)}
-                        className="admin-select"
-                        style={{ padding: '4px 8px', fontSize: '11.5px' }}
-                      >
-                        <option value="16:9">16:9 Landscape</option>
-                        <option value="9:16">9:16 Shorts</option>
-                        <option value="1:1">1:1 Square</option>
-                        <option value="4:3">4:3 Classic</option>
-                      </select>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeletePreset(p.id)}
-                        className="admin-btn admin-btn-sm"
-                        style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', padding: '4px 8px' }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <textarea
-                      rows={2}
-                      value={p.prompt || ''}
-                      onChange={e => handleUpdatePreset(p.id, 'prompt', e.target.value)}
-                      className="admin-input"
-                      style={{ fontSize: '11.5px', resize: 'vertical' }}
-                    />
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
 
-          {/* Add Preset Modal */}
-          {showAddPresetModal && (
-            <div style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.8)',
-              backdropFilter: 'blur(10px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 9999,
-              padding: '20px'
-            }}>
-              <div style={{
-                background: 'var(--admin-bg-card)',
-                border: '1px solid var(--admin-border-glass)',
-                borderRadius: '12px',
-                padding: '24px',
-                width: '100%',
-                maxWidth: '520px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Add Viral Preset</h3>
-                  <button type="button" onClick={() => setShowAddPresetModal(false)} className="admin-btn admin-btn-sm">
-                    ✕
+          <div className="admin-grid admin-grid-2" style={{ gap: '14px' }}>
+            {presets.map(p => (
+              <div
+                key={p.id}
+                className="admin-card"
+                style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>{p.emoji || '🔥'}</span>
+                    <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--admin-text-main)' }}>{p.label}</span>
+                    <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', background: 'rgba(255, 79, 0, 0.2)', color: '#ff4f00', fontWeight: 800 }}>
+                      {p.aspectRatio || '16:9'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePreset(p.id)}
+                    className="admin-btn admin-btn-sm admin-btn-danger"
+                    style={{ padding: '3px 8px', fontSize: '11px' }}
+                  >
+                    🗑️
                   </button>
                 </div>
 
-                <form onSubmit={handleAddPreset} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                        Emoji:
-                      </label>
-                      <input
-                        type="text"
-                        value={newPreset.emoji}
-                        onChange={e => setNewPreset({ ...newPreset, emoji: e.target.value })}
-                        className="admin-input"
-                        style={{ textAlign: 'center', fontSize: '16px' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                        Preset ID:
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. true-crime"
-                        value={newPreset.id}
-                        onChange={e => setNewPreset({ ...newPreset, id: e.target.value })}
-                        className="admin-input"
-                      />
-                    </div>
-                  </div>
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>
+                    Preset Label:
+                  </label>
+                  <input
+                    type="text"
+                    value={p.label}
+                    onChange={e => handleUpdatePreset(p.id, 'label', e.target.value)}
+                    className="admin-input"
+                    style={{ fontSize: '12px', padding: '5px 8px' }}
+                  />
+                </div>
 
-                  <div>
-                    <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                      Preset Label:
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. True Crime Mysterious Noir"
-                      value={newPreset.label}
-                      onChange={e => setNewPreset({ ...newPreset, label: e.target.value })}
-                      className="admin-input"
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                      Aspect Ratio:
-                    </label>
-                    <select
-                      value={newPreset.aspectRatio}
-                      onChange={e => setNewPreset({ ...newPreset, aspectRatio: e.target.value })}
-                      className="admin-select"
-                    >
-                      <option value="16:9">16:9 Landscape</option>
-                      <option value="9:16">9:16 Shorts</option>
-                      <option value="1:1">1:1 Square</option>
-                      <option value="4:3">4:3 Classic</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                      Prompt Template:
-                    </label>
-                    <textarea
-                      rows={3}
-                      required
-                      placeholder="Enter the viral prompt template..."
-                      value={newPreset.prompt}
-                      onChange={e => setNewPreset({ ...newPreset, prompt: e.target.value })}
-                      className="admin-input"
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
-                    <button type="button" onClick={() => setShowAddPresetModal(false)} className="admin-btn">
-                      Cancel
-                    </button>
-                    <button type="submit" className="admin-btn admin-btn-primary">
-                      Add Preset
-                    </button>
-                  </div>
-                </form>
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>
+                    Preset Prompt Template:
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={p.prompt}
+                    onChange={e => handleUpdatePreset(p.id, 'prompt', e.target.value)}
+                    className="admin-input"
+                    style={{ fontSize: '11.5px', lineHeight: 1.4 }}
+                  />
+                </div>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       )}
 
       {/* ════════════════════════════════════════════════════════════
-          TAB 5: REAL LIVE DIAGNOSTICS & TEST GENERATION
+          TAB 6: LIVE DIAGNOSTICS & REAL TEST
       ════════════════════════════════════════════════════════════ */}
       {activeTab === 'diagnostics' && (
-        <div className="admin-card">
-          <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--admin-text-main)' }}>
-            Real-Time Live Generation Tester (100% Real API Call)
-          </h3>
-          <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: '0 0 16px 0' }}>
-            Dispatch a real thumbnail generation job directly to your configured provider to verify API keys, latency, and image rendering.
-          </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="admin-card">
+            <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--admin-text-main)' }}>
+              100% Real Live Generation Test
+            </h3>
+            <p style={{ fontSize: '12.5px', color: 'var(--admin-text-sub)', margin: '0 0 16px 0' }}>
+              Execute an end-to-end generation test against the real backend engine to verify keys, provider routing, and polling.
+            </p>
 
-          <form onSubmit={handleRunRealTest} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div className="admin-grid admin-grid-4">
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                  Target Provider:
-                </label>
-                <select
-                  value={testProvider}
-                  onChange={e => setTestProvider(e.target.value)}
-                  className="admin-select"
-                >
-                  {PROVIDER_METADATA.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({keysByProvider[p.id]?.keys?.length || 0} keys)
-                    </option>
-                  ))}
-                </select>
+            <form onSubmit={handleRunRealTest} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Provider Target:
+                  </label>
+                  <select
+                    value={testProvider}
+                    onChange={e => setTestProvider(e.target.value)}
+                    className="admin-input"
+                    style={{ fontSize: '12.5px' }}
+                  >
+                    {providersList.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Model:
+                  </label>
+                  <select
+                    value={testModel}
+                    onChange={e => setTestModel(e.target.value)}
+                    className="admin-input"
+                    style={{ fontSize: '12.5px' }}
+                  >
+                    {models.map(m => (
+                      <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Aspect Ratio:
+                  </label>
+                  <select
+                    value={testRatio}
+                    onChange={e => setTestRatio(e.target.value)}
+                    className="admin-input"
+                    style={{ fontSize: '12.5px' }}
+                  >
+                    <option value="16:9">16:9 Widescreen (YouTube)</option>
+                    <option value="9:16">9:16 Portrait (Shorts)</option>
+                    <option value="1:1">1:1 Square</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Quality Tier:
+                  </label>
+                  <select
+                    value={testRes}
+                    onChange={e => setTestRes(e.target.value)}
+                    className="admin-input"
+                    style={{ fontSize: '12.5px' }}
+                  >
+                    <option value="1K">1K Standard</option>
+                    <option value="2K">2K High-Def</option>
+                    <option value="4K">4K Ultra</option>
+                  </select>
+                </div>
               </div>
 
               <div>
                 <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                  Vision Model:
+                  Test Prompt:
                 </label>
-                <select
-                  value={testModel}
-                  onChange={e => setTestModel(e.target.value)}
-                  className="admin-select"
-                >
-                  {models.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} [{m.badge}]
-                    </option>
-                  ))}
-                </select>
+                <textarea
+                  rows={3}
+                  value={testPrompt}
+                  onChange={e => setTestPrompt(e.target.value)}
+                  className="admin-input"
+                  style={{ width: '100%', fontSize: '12.5px', lineHeight: 1.4 }}
+                />
               </div>
 
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                  Aspect Ratio:
-                </label>
-                <select
-                  value={testRatio}
-                  onChange={e => setTestRatio(e.target.value)}
-                  className="admin-select"
-                >
-                  <option value="16:9">16:9 Landscape</option>
-                  <option value="9:16">9:16 Vertical Shorts</option>
-                  <option value="1:1">1:1 Square</option>
-                  <option value="4:3">4:3 Classic</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                  Resolution:
-                </label>
-                <select
-                  value={testRes}
-                  onChange={e => setTestRes(e.target.value)}
-                  className="admin-select"
-                >
-                  <option value="1K">1K (1080p Standard)</option>
-                  <option value="2K">2K (1440p Quad HD)</option>
-                  <option value="4K">4K (2160p Ultra HD)</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
-                Test Prompt:
-              </label>
-              <textarea
-                rows={2}
-                value={testPrompt}
-                onChange={e => setTestPrompt(e.target.value)}
-                className="admin-input"
-                style={{ resize: 'vertical', fontSize: '12.5px' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
               <button
                 type="submit"
                 disabled={testing}
                 className="admin-btn admin-btn-primary"
                 style={{
-                  background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
+                  alignSelf: 'flex-start',
                   fontWeight: 800,
-                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)'
+                  background: 'linear-gradient(135deg, #ff4f00, #ff7700)'
                 }}
               >
-                {testing ? '⏳ Dispatching Real Generation Job...' : '🚀 Run Real Live Test Generation'}
+                {testing ? 'Executing Real Generation Test...' : '⚡ Run Real Test Generation'}
               </button>
-            </div>
-          </form>
+            </form>
 
-          {/* Test Error Display */}
-          {testError && (
-            <div style={{
-              marginTop: '16px',
-              padding: '12px 16px',
-              borderRadius: '8px',
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#ef4444',
-              fontSize: '12.5px'
-            }}>
-              <strong>Generation Error:</strong> {testError}
-            </div>
-          )}
-
-          {/* Real Generated Result Display */}
-          {testResult && (
-            <div style={{
-              marginTop: '20px',
-              padding: '16px',
-              borderRadius: '12px',
-              background: 'rgba(0,0,0,0.25)',
-              border: '1px solid rgba(16, 185, 129, 0.3)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 800, color: '#10b981' }}>
-                  ✓ Live Generation Succeeded! (Elapsed: {testResult.costTime || 0}s)
-                </span>
-                <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)', fontFamily: 'monospace' }}>
-                  Provider: {testResult.providerUsed} • Task ID: {testResult.taskId}
-                </span>
+            {testError && (
+              <div style={{ marginTop: '16px', padding: '12px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', fontSize: '13px' }}>
+                <strong>Test Error:</strong> {testError}
               </div>
+            )}
 
-              <div style={{
-                position: 'relative',
-                borderRadius: '10px',
-                overflow: 'hidden',
-                background: '#0a0a0d',
-                maxHeight: '440px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <img
-                  src={testResult.imageUrl}
-                  alt="Live generated test thumbnail"
-                  style={{ maxWidth: '100%', maxHeight: '420px', objectFit: 'contain' }}
+            {testResult && (
+              <div style={{ marginTop: '16px', padding: '16px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981' }}>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#10b981', marginBottom: '8px' }}>
+                  ✓ Real Generation Succeeded! (Duration: {testResult.durationMs}ms)
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--admin-text-sub)', marginBottom: '10px' }}>
+                  Provider: <strong>{testResult.provider}</strong> · Task ID: <code>{testResult.taskId}</code>
+                </div>
+                <div style={{ maxWidth: '420px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--admin-border-glass)' }}>
+                  <img src={testResult.imageUrl} alt="Test Result" style={{ width: '100%', display: 'block' }} />
+                </div>
+                <div style={{ marginTop: '10px' }}>
+                  <a
+                    href={testResult.imageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: '12px', color: '#ff4f00', fontWeight: 700 }}
+                  >
+                    Open Image in New Window ↗
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: ADD CUSTOM SERVICE PROVIDER ───────────────────────── */}
+      {showAddProviderModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '520px', background: 'var(--admin-bg-card)', border: '1px solid var(--admin-border-glass)' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 12px 0', color: 'var(--admin-text-main)' }}>
+              ➕ Add Custom Image Service Provider
+            </h3>
+
+            <form onSubmit={handleAddCustomProvider} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  Provider ID (slug, e.g. ideogram, leonardo):
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. ideogram"
+                  value={newProviderForm.id}
+                  onChange={e => setNewProviderForm({ ...newProviderForm, id: e.target.value })}
+                  className="admin-input"
+                  style={{ width: '100%', fontSize: '13px' }}
                 />
               </div>
 
-              <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)', wordBreak: 'break-all' }}>
-                  URL: {testResult.imageUrl}
-                </span>
-                <a
-                  href={testResult.imageUrl}
-                  target="_blank"
-                  rel="noreferrer"
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  Display Name:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Ideogram AI"
+                  value={newProviderForm.name}
+                  onChange={e => setNewProviderForm({ ...newProviderForm, name: e.target.value })}
+                  className="admin-input"
+                  style={{ width: '100%', fontSize: '13px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  API Base URL:
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://api.ideogram.ai/v1"
+                  value={newProviderForm.baseUrl}
+                  onChange={e => setNewProviderForm({ ...newProviderForm, baseUrl: e.target.value })}
+                  className="admin-input"
+                  style={{ width: '100%', fontSize: '13px', fontFamily: 'monospace' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  Icon Emoji:
+                </label>
+                <input
+                  type="text"
+                  placeholder="🎨"
+                  value={newProviderForm.icon}
+                  onChange={e => setNewProviderForm({ ...newProviderForm, icon: e.target.value })}
+                  className="admin-input"
+                  style={{ width: '80px', fontSize: '16px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddProviderModal(false)}
                   className="admin-btn admin-btn-sm"
                 >
-                  Open Fullscreen HD ↗
-                </a>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="admin-btn admin-btn-primary"
+                  style={{ fontWeight: 800 }}
+                >
+                  Save Provider
+                </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: ADD API KEYS IN BULK ──────────────────────────────── */}
+      {showAddKeyModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '540px', background: 'var(--admin-bg-card)', border: '1px solid var(--admin-border-glass)' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 8px 0', color: 'var(--admin-text-main)' }}>
+              ➕ Add API Keys to {selectedBalanceProvider}
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: '0 0 12px 0' }}>
+              Paste one or multiple API keys (one per line or comma-separated). They will be added to the rotating pool.
+            </p>
+
+            <textarea
+              rows={6}
+              placeholder="Paste API keys here...&#10;key1&#10;key2&#10;key3"
+              value={addKeyInput}
+              onChange={e => setAddKeyInput(e.target.value)}
+              className="admin-input"
+              style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '14px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddKeyModal(false);
+                  setAddKeyInput('');
+                }}
+                className="admin-btn admin-btn-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAddKeysToSelectedProvider(selectedBalanceProvider)}
+                className="admin-btn admin-btn-primary"
+                style={{ fontWeight: 800 }}
+              >
+                Add Keys to Vault
+              </button>
             </div>
-          )}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: ADD NEW VISION MODEL ──────────────────────────────── */}
+      {showAddModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 12px 0', color: 'var(--admin-text-main)' }}>
+              ➕ Add New Vision Model
+            </h3>
+
+            <form onSubmit={handleAddModel} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  Model ID (Unique identifier, e.g. flux-pro):
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. flux-pro"
+                  value={newModel.id}
+                  onChange={e => setNewModel({ ...newModel, id: e.target.value })}
+                  className="admin-input"
+                  style={{ width: '100%', fontSize: '13px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  Model Name:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. FLUX Pro 1.1"
+                  value={newModel.name}
+                  onChange={e => setNewModel({ ...newModel, name: e.target.value })}
+                  className="admin-input"
+                  style={{ width: '100%', fontSize: '13px' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Provider:
+                  </label>
+                  <select
+                    value={newModel.provider}
+                    onChange={e => setNewModel({ ...newModel, provider: e.target.value })}
+                    className="admin-input"
+                    style={{ fontSize: '12.5px' }}
+                  >
+                    {providersList.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Type:
+                  </label>
+                  <select
+                    value={newModel.type}
+                    onChange={e => setNewModel({ ...newModel, type: e.target.value })}
+                    className="admin-input"
+                    style={{ fontSize: '12.5px' }}
+                  >
+                    <option value="text-to-image">Text-to-Image</option>
+                    <option value="image-to-image">Image-to-Image</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  Credit Cost Matrix (1K / 2K / 4K):
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="1K Credits"
+                    value={newModel.creditsByResolution['1K']}
+                    onChange={e => setNewModel({
+                      ...newModel,
+                      creditsByResolution: { ...newModel.creditsByResolution, '1K': Number(e.target.value) }
+                    })}
+                    className="admin-input"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="2K Credits"
+                    value={newModel.creditsByResolution['2K']}
+                    onChange={e => setNewModel({
+                      ...newModel,
+                      creditsByResolution: { ...newModel.creditsByResolution, '2K': Number(e.target.value) }
+                    })}
+                    className="admin-input"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="4K Credits"
+                    value={newModel.creditsByResolution['4K']}
+                    onChange={e => setNewModel({
+                      ...newModel,
+                      creditsByResolution: { ...newModel.creditsByResolution, '4K': Number(e.target.value) }
+                    })}
+                    className="admin-input"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  Description:
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Short description of this model..."
+                  value={newModel.description}
+                  onChange={e => setNewModel({ ...newModel, description: e.target.value })}
+                  className="admin-input"
+                  style={{ width: '100%', fontSize: '12px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  Showcase Image URL:
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://... or /showcases/..."
+                  value={newModel.showcaseImage}
+                  onChange={e => setNewModel({ ...newModel, showcaseImage: e.target.value })}
+                  className="admin-input"
+                  style={{ width: '100%', fontSize: '12px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="admin-btn admin-btn-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="admin-btn admin-btn-primary"
+                  style={{ fontWeight: 800 }}
+                >
+                  Save Model
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: ADD NEW VIRAL PRESET ──────────────────────────────── */}
+      {showAddPresetModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '520px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 12px 0', color: 'var(--admin-text-main)' }}>
+              ➕ Add 1-Click Viral Preset
+            </h3>
+
+            <form onSubmit={handleAddPreset} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  Preset ID (e.g. podcast-interview):
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. podcast-interview"
+                  value={newPreset.id}
+                  onChange={e => setNewPreset({ ...newPreset, id: e.target.value })}
+                  className="admin-input"
+                  style={{ width: '100%', fontSize: '13px' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Emoji:
+                  </label>
+                  <input
+                    type="text"
+                    value={newPreset.emoji}
+                    onChange={e => setNewPreset({ ...newPreset, emoji: e.target.value })}
+                    className="admin-input"
+                    style={{ width: '100%', fontSize: '16px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Label Title:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Joe Rogan Studio Setup"
+                    value={newPreset.label}
+                    onChange={e => setNewPreset({ ...newPreset, label: e.target.value })}
+                    className="admin-input"
+                    style={{ width: '100%', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Default Aspect Ratio:
+                  </label>
+                  <select
+                    value={newPreset.aspectRatio}
+                    onChange={e => setNewPreset({ ...newPreset, aspectRatio: e.target.value })}
+                    className="admin-input"
+                    style={{ fontSize: '12.5px' }}
+                  >
+                    <option value="16:9">16:9 Widescreen</option>
+                    <option value="9:16">9:16 Portrait</option>
+                    <option value="1:1">1:1 Square</option>
+                    <option value="4:3">4:3 Standard</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Default Model:
+                  </label>
+                  <select
+                    value={newPreset.modelId}
+                    onChange={e => setNewPreset({ ...newPreset, modelId: e.target.value })}
+                    className="admin-input"
+                    style={{ fontSize: '12.5px' }}
+                  >
+                    {models.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                  Prompt Template:
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Enter full prompt template..."
+                  value={newPreset.prompt}
+                  onChange={e => setNewPreset({ ...newPreset, prompt: e.target.value })}
+                  className="admin-input"
+                  style={{ width: '100%', fontSize: '12px', lineHeight: 1.4 }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPresetModal(false)}
+                  className="admin-btn admin-btn-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="admin-btn admin-btn-primary"
+                  style={{ fontWeight: 800 }}
+                >
+                  Save Preset
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

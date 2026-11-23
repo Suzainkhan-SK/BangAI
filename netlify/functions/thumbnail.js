@@ -13,7 +13,7 @@ let cachedConfig = null;
 let lastConfigFetchTime = 0;
 let cachedKeyDoc = null;
 let lastKeyFetchTime = 0;
-const CACHE_TTL_MS = 30 * 1000; // Refresh from DB every 30 seconds
+const CACHE_TTL_MS = 5 * 1000; // Refresh from DB every 5 seconds
 
 // Per-provider rotation index tracking
 const providerKeyIndices = {
@@ -33,9 +33,9 @@ const FALLBACK_KIE_KEYS = [
   '2157c9fa712b2064b7a781139c8122d0'
 ];
 
-async function getThumbnailConfig() {
+async function getThumbnailConfig(forceFresh = false) {
   const now = Date.now();
-  if (cachedConfig && (now - lastConfigFetchTime < CACHE_TTL_MS)) {
+  if (!forceFresh && cachedConfig && (now - lastConfigFetchTime < CACHE_TTL_MS)) {
     return cachedConfig;
   }
 
@@ -68,9 +68,9 @@ async function getThumbnailConfig() {
   return cachedConfig;
 }
 
-async function getKeyDoc() {
+async function getKeyDoc(forceFresh = false) {
   const now = Date.now();
-  if (cachedKeyDoc && (now - lastKeyFetchTime < CACHE_TTL_MS)) {
+  if (!forceFresh && cachedKeyDoc && (now - lastKeyFetchTime < CACHE_TTL_MS)) {
     return cachedKeyDoc;
   }
 
@@ -167,7 +167,8 @@ export const handler = async (event, context) => {
 
   // ── ACTION 0: GET LIVE PUBLIC CONFIG (MODELS, PRESETS, ACTIVE PROVIDER) ──
   if (action === 'getConfig') {
-    const config = await getThumbnailConfig();
+    const forceFresh = Boolean(event.queryStringParameters?.t || event.queryStringParameters?.refresh);
+    const config = await getThumbnailConfig(forceFresh);
     return {
       statusCode: 200,
       headers: corsHeaders,
@@ -199,8 +200,8 @@ export const handler = async (event, context) => {
       };
     }
 
-    const config = await getThumbnailConfig();
-    const keyDoc = await getKeyDoc();
+    const config = await getThumbnailConfig(true);
+    const keyDoc = await getKeyDoc(true);
 
     // 1. System Prompt Conditioning:
     // User Requirement: "by default there should be no system prompt which overrides the users prompts...
@@ -283,6 +284,7 @@ export const handler = async (event, context) => {
               success: true,
               taskId: `kie:${json.data.taskId}`,
               providerUsed: 'kie.ai',
+              keyUsed: key,
               modelId: model,
               state: 'waiting'
             };
@@ -575,7 +577,7 @@ export const handler = async (event, context) => {
     // 4. Kie.ai Polling (Default & `kie:taskId`)
     const cleanKieTaskId = rawTaskId.startsWith('kie:') ? rawTaskId.replace('kie:', '') : rawTaskId;
     const kieKeys = getProviderKeys(keyDoc, 'kie.ai');
-    const key = getActiveKeyForProvider(kieKeys, 'kie.ai');
+    const key = body.keyUsed || getActiveKeyForProvider(kieKeys, 'kie.ai');
 
     try {
       const res = await fetch(`${KIE_BASE_API_URL}/recordInfo?taskId=${cleanKieTaskId}`, {
