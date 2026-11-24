@@ -4,6 +4,28 @@ import { adminService } from '../adminService';
 // Comprehensive Default Providers Specifications
 const DEFAULT_PROVIDERS = [
   {
+    id: 'topview.ai',
+    name: 'Topview AI',
+    icon: '😍',
+    desc: 'Topview AI Unified Platform (Seedream, GPT Image, Kling, Flux Kontext Pro, Midjourney).',
+    mode: 'async',
+    authHeaderType: 'Bearer',
+    generateUrl: 'https://platform-backend.topview.ai/api/v1/models/{{model}}/predictions',
+    generateMethod: 'POST',
+    payloadFormat: 'custom',
+    defaultModel: 'bytedance/seedream-v5.0-pro',
+    customPayloadTemplate: '{\n  "prompt": "{{prompt}}",\n  "aspect_ratio": "{{aspect_ratio}}",\n  "resolution": "{{resolution}}"\n}',
+    responseTaskIdPath: 'data.id',
+    pollUrlTemplate: 'https://platform-backend.topview.ai/api/v1/predictions/{{taskId}}',
+    pollStatusPath: 'data.status',
+    pollSuccessValue: 'completed',
+    pollResultUrlPath: 'data.outputs[0]',
+    balanceUrl: 'https://platform-backend.topview.ai/api/v1/predictions/quote',
+    balanceMethod: 'POST',
+    balanceValuePath: 'data.reserveUsd',
+    balanceUnit: 'USD'
+  },
+  {
     id: 'kie.ai',
     name: 'Kie.ai Vision Engine',
     icon: '⚡',
@@ -23,6 +45,28 @@ const DEFAULT_PROVIDERS = [
     balanceMethod: 'GET',
     balanceValuePath: 'data',
     balanceUnit: 'Credits'
+  },
+  {
+    id: 'wizzx.ai',
+    name: 'Wizzx AI',
+    icon: '✨',
+    desc: 'Wizzx Cloud Cluster (GPT Image 2.5 Flare, Seedream 5 Pro, Qwen 2 Pro, Nano Banana).',
+    mode: 'async',
+    authHeaderType: 'Bearer',
+    generateUrl: 'https://api.wizzx.ai/api/v1/task/submit/{{model}}',
+    generateMethod: 'POST',
+    payloadFormat: 'custom',
+    defaultModel: 'gpt-image-2.5',
+    customPayloadTemplate: '{\n  "prompt": "{{prompt}}",\n  "version": "{{version}}",\n  "aspect_ratio": "{{aspect_ratio}}",\n  "resolution": "{{resolution}}"\n}',
+    responseTaskIdPath: 'data.task_id',
+    pollUrlTemplate: 'https://api.wizzx.ai/api/v1/task/{{taskId}}',
+    pollStatusPath: 'data.status',
+    pollSuccessValue: 'SUCCEEDED',
+    pollResultUrlPath: 'data.result_urls[0]',
+    balanceUrl: 'https://api.wizzx.ai/api/v1/models',
+    balanceMethod: 'GET',
+    balanceValuePath: 'data.count',
+    balanceUnit: 'Models'
   },
   {
     id: 'together',
@@ -332,12 +376,14 @@ export default function ThumbnailManagerView() {
           setTestModel(c.models[0].id);
         }
 
-        // Merge default and custom providers into providersList
-        const merged = [...DEFAULT_PROVIDERS];
+        // Merge default and custom providers into providersList, filtering out any deleted providers
+        const deletedSet = new Set(Array.isArray(c.deletedProviders) ? c.deletedProviders : []);
+        const merged = DEFAULT_PROVIDERS.filter(dp => !deletedSet.has(dp.id));
         const existingIds = new Set(merged.map(p => p.id));
 
         if (c.customProviders) {
           Object.entries(c.customProviders).forEach(([pid, pmeta]) => {
+            if (deletedSet.has(pid)) return;
             if (existingIds.has(pid)) {
               // Update default with user custom overrides
               const idx = merged.findIndex(p => p.id === pid);
@@ -350,6 +396,7 @@ export default function ThumbnailManagerView() {
 
         if (res.keys?.providers) {
           Object.entries(res.keys.providers).forEach(([pid, pdata]) => {
+            if (deletedSet.has(pid)) return;
             if (!existingIds.has(pid) && !merged.some(p => p.id === pid)) {
               merged.push({
                 ...INITIAL_PROVIDER_FORM,
@@ -1504,7 +1551,7 @@ export default function ThumbnailManagerView() {
                         🔑 Keys
                       </button>
 
-                      {isCustom && (
+                      {p.id !== activeProvider ? (
                         <button
                           type="button"
                           onClick={() => handleDeleteProvider(p.id)}
@@ -1519,10 +1566,24 @@ export default function ThumbnailManagerView() {
                             border: '1px solid #ef4444',
                             color: '#ef4444'
                           }}
-                          title="Permanently delete custom provider and its vault keys from database"
+                          title={`Permanently delete provider '${p.name}' and remove from failover chain`}
                         >
                           <span>🗑️ Delete</span>
                         </button>
+                      ) : (
+                        <span style={{
+                          padding: '4px 8px',
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          borderRadius: '5px',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10b981',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}>
+                          ⭐ PRIMARY
+                        </span>
                       )}
                     </div>
                   </div>
@@ -2239,48 +2300,59 @@ export default function ThumbnailManagerView() {
                 <span>🌐 All Categories ({models.length})</span>
               </button>
 
-              {providersList.map(p => {
-                const count = models.filter(m => (m.provider || 'kie.ai') === p.id).length;
-                const isSelected = categoryFilter === p.id;
-                const isPrimary = p.id === activeProvider;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setCategoryFilter(p.id)}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      border: isSelected ? '1px solid #ff4f00' : '1px solid var(--admin-border-glass)',
-                      background: isSelected ? 'rgba(255, 79, 0, 0.15)' : 'var(--admin-bg-card)',
-                      color: isSelected ? '#ff4f00' : 'var(--admin-text-main)',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0
-                    }}
-                  >
-                    <span>{p.icon || '📦'}</span>
-                    <span>{p.name} ({count})</span>
-                    {isPrimary && (
-                      <span style={{
-                        padding: '1px 5px',
-                        borderRadius: '4px',
-                        background: 'linear-gradient(135deg, #10b981, #06b6d4)',
-                        color: '#fff',
-                        fontSize: '9px',
-                        fontWeight: 800
-                      }}>
-                        PRIMARY
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+              {/* Category Pills: Primary provider first, then sorted by model count */}
+              {(() => {
+                const sorted = [...providersList].sort((a, b) => {
+                  if (a.id === activeProvider) return -1;
+                  if (b.id === activeProvider) return 1;
+                  const aCount = models.filter(m => (m.provider || 'kie.ai') === a.id).length;
+                  const bCount = models.filter(m => (m.provider || 'kie.ai') === b.id).length;
+                  return bCount - aCount;
+                });
+
+                return sorted.map(p => {
+                  const count = models.filter(m => (m.provider || 'kie.ai') === p.id).length;
+                  const isSelected = categoryFilter === p.id;
+                  const isPrimary = p.id === activeProvider;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setCategoryFilter(p.id)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        border: isSelected ? '1px solid #ff4f00' : '1px solid var(--admin-border-glass)',
+                        background: isSelected ? 'rgba(255, 79, 0, 0.15)' : 'var(--admin-bg-card)',
+                        color: isSelected ? '#ff4f00' : 'var(--admin-text-main)',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0
+                      }}
+                    >
+                      <span>{p.icon || '📦'}</span>
+                      <span>{p.name} ({count})</span>
+                      {isPrimary && (
+                        <span style={{
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                          color: '#fff',
+                          fontSize: '9px',
+                          fontWeight: 800
+                        }}>
+                          PRIMARY
+                        </span>
+                      )}
+                    </button>
+                  );
+                });
+              })()}
             </div>
 
             <button
@@ -2467,10 +2539,10 @@ export default function ThumbnailManagerView() {
                       </div>
                     </div>
 
-                    {/* Provider & Slug Mapping Inputs */}
+                    {/* Provider & Slug Mapping Inputs + Type Selector */}
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
                       gap: '8px',
                       background: 'rgba(0,0,0,0.25)',
                       padding: '10px',
@@ -2492,6 +2564,26 @@ export default function ThumbnailManagerView() {
                               {p.name}
                             </option>
                           ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '2px' }}>
+                          Category / Type:
+                        </label>
+                        <select
+                          value={m.type || 'text-to-image'}
+                          onChange={e => handleUpdateModelField(m.id, 'type', e.target.value)}
+                          className="admin-input"
+                          style={{
+                            fontSize: '11px',
+                            padding: '4px 6px',
+                            fontWeight: 700,
+                            color: m.type === 'image-to-image' ? '#c084fc' : '#38bdf8'
+                          }}
+                        >
+                          <option value="text-to-image">✍️ Text-to-Image</option>
+                          <option value="image-to-image">🖼️ Image-to-Image</option>
                         </select>
                       </div>
 
@@ -3930,17 +4022,37 @@ export default function ThumbnailManagerView() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
+                    Model Category / Type:
+                  </label>
+                  <select
+                    value={newModel.type || 'text-to-image'}
+                    onChange={e => setNewModel({ ...newModel, type: e.target.value })}
+                    className="admin-input"
+                    style={{
+                      width: '100%',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      color: newModel.type === 'image-to-image' ? '#c084fc' : '#38bdf8'
+                    }}
+                  >
+                    <option value="text-to-image">✍️ Text-to-Image</option>
+                    <option value="image-to-image">🖼️ Image-to-Image</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
                     Fallback Model Slug (optional):
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. flux-schnell"
-                    value={newModel.fallbackModelId}
+                    value={newModel.fallbackModelId || ''}
                     onChange={e => setNewModel({ ...newModel, fallbackModelId: e.target.value })}
                     className="admin-input"
                     style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }}
                   />
                 </div>
+              </div>
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>
                     Credits (1K / 2K / 4K):
@@ -3967,7 +4079,6 @@ export default function ThumbnailManagerView() {
                     ))}
                   </div>
                 </div>
-              </div>
 
               <div>
                 <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>

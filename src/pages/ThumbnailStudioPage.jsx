@@ -430,6 +430,7 @@ export default function ThumbnailStudioPage({
       // 3. Poll for result
       setGenerationStep('Synthesizing high-retention composition & textures...');
       const pollRes = await pollThumbnailTask(taskRes.taskId, taskRes.keyUsed, {
+        maxSeconds: 300,
         onProgress: ({ elapsedSec }) => {
           setElapsedSec(elapsedSec);
           if (elapsedSec > 4 && elapsedSec < 10) {

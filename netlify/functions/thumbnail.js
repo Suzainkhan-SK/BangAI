@@ -240,13 +240,14 @@ function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resoluti
   if (isTopview) {
     const topviewPayload = {
       prompt,
-      aspect_ratio: aspectRatio || '16:9',
-      resolution: resolution || '2K'
+      aspect_ratio: aspectRatio || '16:9'
     };
     if (imageUrl) {
-      const arr = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
-      topviewPayload.images = arr;
-      topviewPayload.image_urls = arr;
+      topviewPayload.images = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
+    }
+    // Only ByteDance Seedream supports resolution; /edit and /text-to-image models reject resolution with 400!
+    if (model && model.includes('seedream') && !model.includes('edit')) {
+      topviewPayload.resolution = resolution || '2K';
     }
     return topviewPayload;
   }
@@ -475,10 +476,23 @@ function resolveFailoverModelForProvider(config, targetProvider, originalModelId
   // 2. Family / Similarity Match (e.g. seedream, gpt, qwen, nano-banana, flux, wan, grok)
   const origName = (originalFoundModel?.name || originalModelId || '').toLowerCase();
   const origSlug = (originalFoundModel?.providerModelId || originalModelId || '').toLowerCase();
+  const origType = originalFoundModel?.type || 'text-to-image';
   const families = ['seedream', 'gpt', 'qwen', 'nano-banana', 'banana', 'flux', 'wan', 'grok', 'imagen', 'dall-e'];
 
   for (const fam of families) {
     if (origName.includes(fam) || origSlug.includes(fam)) {
+      // Priority 2A: Same family AND matching generation type (I2I -> I2I, T2I -> T2I)
+      const familyAndTypeMatch = provModels.find(m => {
+        const mName = (m.name || '').toLowerCase();
+        const mId = (m.providerModelId || m.id || '').toLowerCase();
+        return (mName.includes(fam) || mId.includes(fam)) && (m.type || 'text-to-image') === origType;
+      });
+      if (familyAndTypeMatch) {
+        console.log(`[thumbnail.js] Intelligent Failover: Mapped '${originalModelId}' to similar family model '${familyAndTypeMatch.id}' (${familyAndTypeMatch.providerModelId}) [${origType}] on provider '${targetProvider}'`);
+        return familyAndTypeMatch.providerModelId || familyAndTypeMatch.id;
+      }
+
+      // Priority 2B: Same family fallback
       const familyMatch = provModels.find(m => {
         const mName = (m.name || '').toLowerCase();
         const mId = (m.providerModelId || m.id || '').toLowerCase();
@@ -492,7 +506,6 @@ function resolveFailoverModelForProvider(config, targetProvider, originalModelId
   }
 
   // 3. Match by Generation Type (text-to-image vs image-to-image)
-  const origType = originalFoundModel?.type || 'text-to-image';
   const sameTypeModel = provModels.find(m => (m.type || 'text-to-image') === origType);
   if (sameTypeModel) {
     console.log(`[thumbnail.js] Intelligent Failover: Mapped '${originalModelId}' to top ${origType} model '${sameTypeModel.id}' on provider '${targetProvider}'`);

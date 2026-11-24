@@ -667,9 +667,9 @@ export async function createThumbnailTask(modelId, params) {
 }
 
 // Poll task result via secure serverless proxy with failover
-export async function pollThumbnailTask(taskId, keyUsed, { onProgress, maxSeconds = 120 } = {}) {
+export async function pollThumbnailTask(taskId, keyUsed, { onProgress, maxSeconds = 300 } = {}) {
   const startTime = Date.now();
-  const pollIntervalMs = 2000;
+  const pollIntervalMs = 2500;
 
   while ((Date.now() - startTime) < maxSeconds * 1000) {
     const elapsedSec = Math.round((Date.now() - startTime) / 1000);
@@ -684,6 +684,12 @@ export async function pollThumbnailTask(taskId, keyUsed, { onProgress, maxSecond
 
       if (res.ok) {
         const json = await res.json();
+
+        // Check for immediate failure from provider
+        if (json.state === 'failed' || json.state === 'fail' || json.success === false) {
+          throw new Error(json.error || json.failReason || 'Vision engine task processing failed on provider.');
+        }
+
         if (json.success) {
           const state = json.state;
 
@@ -695,14 +701,10 @@ export async function pollThumbnailTask(taskId, keyUsed, { onProgress, maxSecond
               elapsedSec
             };
           }
-
-          if (state === 'fail') {
-            throw new Error(json.failReason || 'Vision engine task processing failed.');
-          }
         }
       }
     } catch (pollErr) {
-      if (pollErr.message && /failed/i.test(pollErr.message)) {
+      if (pollErr.message && !pollErr.message.includes('fetch')) {
         throw pollErr;
       }
     }
@@ -710,7 +712,7 @@ export async function pollThumbnailTask(taskId, keyUsed, { onProgress, maxSecond
     await new Promise(r => setTimeout(r, pollIntervalMs));
   }
 
-  throw new Error(`Generation timed out after ${maxSeconds} seconds.`);
+  throw new Error(`Generation timed out after ${maxSeconds} seconds. If the task is still processing in the cluster, please check Telemetry Logs.`);
 }
 
 // Prompt enhancer helper: naturally adapts any prompt or topic into proper thumbnail aesthetics with bold topic text
