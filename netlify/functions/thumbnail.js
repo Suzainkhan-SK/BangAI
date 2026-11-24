@@ -645,6 +645,14 @@ export const handler = async (event, context) => {
             resolvedModel = model || providerDef.defaultModel || 'gpt-image-2.5';
           }
 
+          // Topview AI model slug normalization
+          if (currentProvider === 'topview.ai' || currentProvider === 'topview') {
+            if (resolvedModel.includes('5.5') || resolvedModel.includes('5-5')) resolvedModel = 'bytedance/seedream-v5.5';
+            else if (resolvedModel.includes('4.5') || resolvedModel.includes('4-5')) resolvedModel = 'bytedance/seedream-v4.5';
+            else if (resolvedModel.includes('4.0') || resolvedModel.includes('4-0') || resolvedModel.includes('4')) resolvedModel = 'bytedance/seedream-v4.0';
+            else if (!resolvedModel.startsWith('bytedance/seedream')) resolvedModel = 'bytedance/seedream-v5.0-pro';
+          }
+
           // Build generation URL:
           // 1. Per-model endpoint override wins
           // 2. Provider's generateUrl (with {{model}} interpolation)
@@ -668,11 +676,13 @@ export const handler = async (event, context) => {
           }
 
           // Support all standard model slug template variables: {{model}}, {{modelId}}, {modelId}, {model}
+          // Preserve path slashes when interpolating model slug in URL path!
+          const safeModelSlug = (resolvedModel || '').split('/').map(encodeURIComponent).join('/');
           targetUrl = targetUrl
-            .replace(/\{\{model\}\}/g, encodeURIComponent(resolvedModel))
-            .replace(/\{\{modelId\}\}/g, encodeURIComponent(resolvedModel))
-            .replace(/\{modelId\}/g, encodeURIComponent(resolvedModel))
-            .replace(/\{model\}/g, encodeURIComponent(resolvedModel));
+            .replace(/\{\{model\}\}/g, safeModelSlug)
+            .replace(/\{\{modelId\}\}/g, safeModelSlug)
+            .replace(/\{modelId\}/g, safeModelSlug)
+            .replace(/\{model\}/g, safeModelSlug);
 
           const payload = buildRequestPayload(overriddenPayloadDef, {
             model: resolvedModel,

@@ -285,6 +285,9 @@ export default function ThumbnailManagerView() {
   const [applyingConfig, setApplyingConfig] = useState(false);
   const [architectApiKey, setArchitectApiKey] = useState('');
   const architectChatRef = useRef(null);
+  const navTabsRef = useRef(null);
+  const vaultProvidersRef = useRef(null);
+  const categoriesBarRef = useRef(null);
 
   // ── Bulk Model Importer State ──
   const [showModelImporter, setShowModelImporter] = useState(false);
@@ -832,6 +835,17 @@ export default function ThumbnailManagerView() {
   };
 
   // Add Keys in Bulk to Selected Provider
+  // Auto-check live credit balances when opening API Keys Vault or switching providers
+  useEffect(() => {
+    if (activeTab === 'balances' && selectedBalanceProvider) {
+      const keysList = keysByProvider[selectedBalanceProvider]?.keys || [];
+      const unchecked = keysList.filter(k => !keyBalances[k] && !checkingKey[k]);
+      if (unchecked.length > 0) {
+        unchecked.forEach(k => handleCheckKeyBalance(selectedBalanceProvider, k));
+      }
+    }
+  }, [activeTab, selectedBalanceProvider, keysByProvider]);
+
   const handleAddKeysToSelectedProvider = (providerId) => {
     const raw = (addKeyInput || '').trim();
     if (!raw) return;
@@ -1203,86 +1217,142 @@ export default function ThumbnailManagerView() {
         </div>
       </div>
 
-      {/* ── NAVIGATION TABS ─────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex',
-        gap: '6px',
-        padding: '6px',
-        background: 'rgba(255, 255, 255, 0.02)',
-        borderRadius: '12px',
-        border: '1px solid var(--admin-border-glass)',
-        overflowX: 'auto',
-        scrollbarWidth: 'none'
-      }}>
-        {[
-          { id: 'providers', label: '🌐 Providers & Endpoints', count: providersList.length },
-          { id: 'balances', label: '🔑 API Keys Vault', count: totalKeysCount },
-          { id: 'models', label: '🤖 Vision Models & Credits', count: models.length },
-          { id: 'system_prompt', label: '🧠 System Prompt' },
-          { id: 'presets', label: '🎨 Viral Presets', count: presets.length },
-          { id: 'diagnostics', label: '⚡ Live Test Engine' },
-          { id: 'logs', label: '📋 Telemetry Logs', count: logs.length },
-          { id: 'ai_architect', label: '✨ AI Provider Architect', badge: 'COPILOT' }
-        ].map(t => {
-          const isSelected = activeTab === t.id;
-          const isArchitect = t.id === 'ai_architect';
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setActiveTab(t.id)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: isSelected
-                  ? (isArchitect ? '1px solid rgba(99, 102, 241, 0.6)' : '1px solid rgba(255, 79, 0, 0.6)')
-                  : '1px solid transparent',
-                background: isSelected
-                  ? (isArchitect ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2))' : 'linear-gradient(135deg, rgba(255, 79, 0, 0.15), rgba(255, 120, 0, 0.08))')
-                  : 'transparent',
-                color: isSelected ? (isArchitect ? '#a5b4fc' : '#ff4f00') : 'var(--admin-text-sub)',
-                fontWeight: isSelected ? 800 : 600,
-                fontSize: '12.5px',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.15s ease',
-                boxShadow: isSelected
-                  ? (isArchitect ? '0 2px 10px rgba(99, 102, 241, 0.25)' : '0 2px 10px rgba(255, 79, 0, 0.2)')
-                  : 'none'
-              }}
-            >
-              <span>{t.label}</span>
-              {t.count != null && (
-                <span style={{
-                  fontSize: '10.5px',
-                  fontWeight: 800,
-                  padding: '1px 6px',
-                  borderRadius: '10px',
-                  background: isSelected ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)',
-                  color: isSelected ? '#fff' : 'var(--admin-text-sub)'
-                }}>
-                  {t.count}
-                </span>
-              )}
-              {t.badge && (
-                <span style={{
-                  fontSize: '9.5px',
-                  fontWeight: 800,
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                  color: '#fff',
-                  letterSpacing: '0.04em'
-                }}>
-                  {t.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      {/* ── NAVIGATION TABS SLIDER ──────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+        <button
+          type="button"
+          onClick={() => navTabsRef.current?.scrollBy({ left: -240, behavior: 'smooth' })}
+          className="admin-btn admin-btn-sm"
+          style={{
+            width: '32px',
+            height: '36px',
+            padding: 0,
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '16px',
+            fontWeight: 800,
+            flexShrink: 0,
+            background: 'var(--admin-bg-elevated)',
+            border: '1px solid var(--admin-border-glass)',
+            cursor: 'pointer'
+          }}
+          title="Scroll navigation tabs left"
+        >
+          ‹
+        </button>
+
+        <div
+          ref={navTabsRef}
+          style={{
+            display: 'flex',
+            gap: '6px',
+            padding: '6px',
+            background: 'rgba(255, 255, 255, 0.02)',
+            borderRadius: '12px',
+            border: '1px solid var(--admin-border-glass)',
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            flex: 1,
+            scrollBehavior: 'smooth'
+          }}
+        >
+          {[
+            { id: 'providers', label: '🌐 Providers & Endpoints', count: providersList.length },
+            { id: 'balances', label: '🔑 API Keys Vault', count: totalKeysCount },
+            { id: 'models', label: '🤖 Vision Models & Credits', count: models.length },
+            { id: 'system_prompt', label: '🧠 System Prompt' },
+            { id: 'presets', label: '🎨 Viral Presets', count: presets.length },
+            { id: 'diagnostics', label: '⚡ Live Test Engine' },
+            { id: 'logs', label: '📋 Telemetry Logs', count: logs.length },
+            { id: 'ai_architect', label: '✨ AI Provider Architect', badge: 'COPILOT' }
+          ].map(t => {
+            const isSelected = activeTab === t.id;
+            const isArchitect = t.id === 'ai_architect';
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setActiveTab(t.id)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: isSelected
+                    ? (isArchitect ? '1px solid rgba(99, 102, 241, 0.6)' : '1px solid rgba(255, 79, 0, 0.6)')
+                    : '1px solid transparent',
+                  background: isSelected
+                    ? (isArchitect ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2))' : 'linear-gradient(135deg, rgba(255, 79, 0, 0.15), rgba(255, 120, 0, 0.08))')
+                    : 'transparent',
+                  color: isSelected ? (isArchitect ? '#a5b4fc' : '#ff4f00') : 'var(--admin-text-sub)',
+                  fontWeight: isSelected ? 800 : 600,
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease',
+                  boxShadow: isSelected
+                    ? (isArchitect ? '0 2px 10px rgba(99, 102, 241, 0.25)' : '0 2px 10px rgba(255, 79, 0, 0.2)')
+                    : 'none'
+                }}
+              >
+                <span>{t.label}</span>
+                {t.count != null && (
+                  <span style={{
+                    fontSize: '10.5px',
+                    fontWeight: 800,
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    background: isSelected ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)',
+                    color: isSelected ? '#fff' : 'var(--admin-text-sub)'
+                  }}>
+                    {t.count}
+                  </span>
+                )}
+                {t.badge && (
+                  <span style={{
+                    fontSize: '9.5px',
+                    fontWeight: 800,
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                    color: '#fff',
+                    letterSpacing: '0.04em'
+                  }}>
+                    {t.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navTabsRef.current?.scrollBy({ left: 240, behavior: 'smooth' })}
+          className="admin-btn admin-btn-sm"
+          style={{
+            width: '32px',
+            height: '36px',
+            padding: 0,
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '16px',
+            fontWeight: 800,
+            flexShrink: 0,
+            background: 'var(--admin-bg-elevated)',
+            border: '1px solid var(--admin-border-glass)',
+            cursor: 'pointer'
+          }}
+          title="Scroll navigation tabs right"
+        >
+          ›
+        </button>
       </div>
 
       {/* ════════════════════════════════════════════════════════════
@@ -1569,45 +1639,107 @@ export default function ThumbnailManagerView() {
             <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--admin-text-sub)', textTransform: 'uppercase', marginBottom: '10px' }}>
               Select Service Provider to Inspect & Manage API Keys:
             </div>
-            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-              {providersList.map(p => {
-                const isSelected = selectedBalanceProvider === p.id;
-                const count = keysByProvider[p.id]?.keys?.length || 0;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setSelectedBalanceProvider(p.id)}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      border: isSelected ? '2px solid #ff4f00' : '1px solid var(--admin-border-glass)',
-                      background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--admin-bg-elevated)',
-                      color: isSelected ? '#ff4f00' : 'var(--admin-text-main)',
-                      fontWeight: isSelected ? 800 : 600,
-                      fontSize: '12.5px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      whiteSpace: 'nowrap',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <span>{p.icon || '⚡'}</span>
-                    <span>{p.name}</span>
-                    <span style={{
-                      padding: '1px 6px',
-                      borderRadius: '10px',
-                      fontSize: '10px',
-                      background: count > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                      color: count > 0 ? '#10b981' : '#ef4444'
-                    }}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+              <button
+                type="button"
+                onClick={() => vaultProvidersRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
+                className="admin-btn admin-btn-sm"
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  padding: 0,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '15px',
+                  fontWeight: 900,
+                  flexShrink: 0,
+                  background: 'var(--admin-bg-elevated)',
+                  border: '1px solid var(--admin-border-glass)',
+                  cursor: 'pointer'
+                }}
+                title="Slide providers left"
+              >
+                ‹
+              </button>
+
+              <div
+                ref={vaultProvidersRef}
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  paddingBottom: '4px',
+                  scrollbarWidth: 'none',
+                  scrollBehavior: 'smooth',
+                  flex: 1
+                }}
+              >
+                {providersList.map(p => {
+                  const isSelected = selectedBalanceProvider === p.id;
+                  const count = keysByProvider[p.id]?.keys?.length || 0;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedBalanceProvider(p.id)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        border: isSelected ? '2px solid #ff4f00' : '1px solid var(--admin-border-glass)',
+                        background: isSelected ? 'rgba(255, 79, 0, 0.12)' : 'var(--admin-bg-elevated)',
+                        color: isSelected ? '#ff4f00' : 'var(--admin-text-main)',
+                        fontWeight: isSelected ? 800 : 600,
+                        fontSize: '12.5px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>{p.icon || '⚡'}</span>
+                      <span>{p.name}</span>
+                      <span style={{
+                        padding: '1px 6px',
+                        borderRadius: '10px',
+                        fontSize: '10px',
+                        background: count > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                        color: count > 0 ? '#10b981' : '#ef4444'
+                      }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => vaultProvidersRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
+                className="admin-btn admin-btn-sm"
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  padding: 0,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '15px',
+                  fontWeight: 900,
+                  flexShrink: 0,
+                  background: 'var(--admin-bg-elevated)',
+                  border: '1px solid var(--admin-border-glass)',
+                  cursor: 'pointer'
+                }}
+                title="Slide providers right"
+              >
+                ›
+              </button>
             </div>
           </div>
 
@@ -2041,81 +2173,139 @@ export default function ThumbnailManagerView() {
             </div>
           )}
 
-          {/* Provider Category Navigation Filter Bar */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            overflowX: 'auto',
-            padding: '4px 0',
-            scrollbarWidth: 'none'
-          }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+          {/* Provider Category Navigation Filter Bar & Slider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--admin-text-sub)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', flexShrink: 0 }}>
               CATEGORIES:
             </span>
+
             <button
               type="button"
-              onClick={() => setCategoryFilter('all')}
+              onClick={() => categoriesBarRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
+              className="admin-btn admin-btn-sm"
               style={{
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                background: categoryFilter === 'all' ? 'linear-gradient(135deg, #ff4f00, #ff7700)' : 'var(--admin-bg-card)',
-                color: categoryFilter === 'all' ? '#fff' : 'var(--admin-text-main)',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
+                width: '28px',
+                height: '28px',
+                padding: 0,
+                borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                whiteSpace: 'nowrap',
-                boxShadow: categoryFilter === 'all' ? '0 2px 8px rgba(255, 79, 0, 0.3)' : 'none'
+                justifyContent: 'center',
+                fontSize: '15px',
+                fontWeight: 900,
+                flexShrink: 0,
+                background: 'var(--admin-bg-elevated)',
+                border: '1px solid var(--admin-border-glass)',
+                cursor: 'pointer'
               }}
+              title="Slide categories left"
             >
-              <span>🌐 All Categories ({models.length})</span>
+              ‹
             </button>
 
-            {providersList.map(p => {
-              const count = models.filter(m => (m.provider || 'kie.ai') === p.id).length;
-              const isSelected = categoryFilter === p.id;
-              const isPrimary = p.id === activeProvider;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setCategoryFilter(p.id)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '8px',
-                    border: isSelected ? '1px solid #ff4f00' : '1px solid var(--admin-border-glass)',
-                    background: isSelected ? 'rgba(255, 79, 0, 0.15)' : 'var(--admin-bg-card)',
-                    color: isSelected ? '#ff4f00' : 'var(--admin-text-main)',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <span>{p.icon || '📦'}</span>
-                  <span>{p.name} ({count})</span>
-                  {isPrimary && (
-                    <span style={{
-                      padding: '1px 5px',
-                      borderRadius: '4px',
-                      background: 'linear-gradient(135deg, #10b981, #06b6d4)',
-                      color: '#fff',
-                      fontSize: '9px',
-                      fontWeight: 800
-                    }}>
-                      PRIMARY
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            <div
+              ref={categoriesBarRef}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                overflowX: 'auto',
+                padding: '4px 0',
+                scrollbarWidth: 'none',
+                scrollBehavior: 'smooth',
+                flex: 1
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setCategoryFilter('all')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: categoryFilter === 'all' ? 'linear-gradient(135deg, #ff4f00, #ff7700)' : 'var(--admin-bg-card)',
+                  color: categoryFilter === 'all' ? '#fff' : 'var(--admin-text-main)',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: categoryFilter === 'all' ? '0 2px 8px rgba(255, 79, 0, 0.3)' : 'none',
+                  flexShrink: 0
+                }}
+              >
+                <span>🌐 All Categories ({models.length})</span>
+              </button>
+
+              {providersList.map(p => {
+                const count = models.filter(m => (m.provider || 'kie.ai') === p.id).length;
+                const isSelected = categoryFilter === p.id;
+                const isPrimary = p.id === activeProvider;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setCategoryFilter(p.id)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      border: isSelected ? '1px solid #ff4f00' : '1px solid var(--admin-border-glass)',
+                      background: isSelected ? 'rgba(255, 79, 0, 0.15)' : 'var(--admin-bg-card)',
+                      color: isSelected ? '#ff4f00' : 'var(--admin-text-main)',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    <span>{p.icon || '📦'}</span>
+                    <span>{p.name} ({count})</span>
+                    {isPrimary && (
+                      <span style={{
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                        color: '#fff',
+                        fontSize: '9px',
+                        fontWeight: 800
+                      }}>
+                        PRIMARY
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => categoriesBarRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
+              className="admin-btn admin-btn-sm"
+              style={{
+                width: '28px',
+                height: '28px',
+                padding: 0,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '15px',
+                fontWeight: 900,
+                flexShrink: 0,
+                background: 'var(--admin-bg-elevated)',
+                border: '1px solid var(--admin-border-glass)',
+                cursor: 'pointer'
+              }}
+              title="Slide categories right"
+            >
+              ›
+            </button>
           </div>
 
           {/* Grouped by Provider Categories */}

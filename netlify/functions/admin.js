@@ -2033,8 +2033,23 @@ CURRENT DATABASE STATE:
 - Total Studio Models: ${currentState.modelCount}
 - Configured Studio Models:
 ${currentState.modelsSummary.map(m => `  * [${m.provider}] "${m.name}" (ID: "${m.id}", Slug: "${m.providerModelId}", Type: "${m.type}", Credits: 1K=${m.creditsByResolution?.['1K'] || m.credits}, 2K=${m.creditsByResolution?.['2K'] || m.credits}, 4K=${m.creditsByResolution?.['4K'] || m.credits}${m.endpointOverride ? `, CustomEndpoint: "${m.endpointOverride}"` : ''})`).join('\n')}
+- Models Grouped by Provider (Use to answer any studio queries):
+${Object.entries(
+  currentState.modelsSummary.reduce((acc, m) => {
+    acc[m.provider] = acc[m.provider] || [];
+    acc[m.provider].push(m);
+    return acc;
+  }, {})
+).map(([prov, provModels]) => `  • Provider "${prov}" (${provModels.length} models):
+${provModels.map(m => `    - "${m.name}" (Slug: "${m.providerModelId}", Type: "${m.type}", 1K: ${m.creditsByResolution?.['1K'] || m.credits}cr, 2K: ${m.creditsByResolution?.['2K'] || m.credits}cr, 4K: ${m.creditsByResolution?.['4K'] || m.credits}cr)`).join('\n')}`).join('\n\n')}
 - Provider Keys In Vault: ${currentState.providerKeys.join(', ') || 'none'}
 ${detectedKey ? `- API Key Detected from User Message: "${detectedKey}"` : ''}
+
+CRITICAL KNOWLEDGE RULE:
+You HAVE full, real-time access to all configured providers and models listed above under "Models Grouped by Provider".
+NEVER state that you do not have access to studio models, never say you need "currentState.modelsSummary", and NEVER deflect or ask the user to provide the database state.
+When asked about what models are in the studio, which models belong to a provider (e.g. wizzx.ai, topview.ai), whether a specific model like "gpt image 2.5" exists, or what credits are configured:
+ALWAYS inspect "Models Grouped by Provider" above, answer directly and accurately in a clean Markdown table, and set action="CHAT"!
 
 RESPONSE FORMAT (JSON ONLY - Return ONLY a raw JSON object, no markdown fences):
 {
@@ -2671,8 +2686,9 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                 submitUrl = `${provDef.baseUrl || 'https://api.wizzx.ai/api/v1'}/task/submit/{{model}}`;
               }
 
-              // Replace {{model}} interpolation variable in endpoint URL
-              submitUrl = submitUrl.replace(/\{\{model\}\}/g, encodeURIComponent(resolvedModelSlug));
+              // Replace {{model}} interpolation variable in endpoint URL (preserve path slashes!)
+              const safeModelSlug = (resolvedModelSlug || '').split('/').map(encodeURIComponent).join('/');
+              submitUrl = submitUrl.replace(/\{\{model\}\}/g, safeModelSlug);
 
               // 2. Resolve Auth Header
               const authHeaders = { 'Content-Type': 'application/json' };
@@ -2688,21 +2704,41 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                 authHeaders['Authorization'] = `Bearer ${keyToUse}`;
               }
 
+              // Topview AI requires Idempotency-Key
+              if (tProv.includes('topview') || submitUrl.includes('topview.ai')) {
+                authHeaders['Idempotency-Key'] = crypto.randomUUID();
+              }
+
               // 3. Build Payload
               let requestBody;
-              if (customTemplate) {
+              if (tProv.includes('topview') || submitUrl.includes('topview.ai')) {
+                requestBody = {
+                  prompt: tPrompt,
+                  aspect_ratio: '16:9',
+                  resolution: '2K'
+                };
+              } else if (tProv.includes('wizzx') || submitUrl.includes('wizzx.ai')) {
+                requestBody = {
+                  prompt: tPrompt,
+                  aspect_ratio: '16:9',
+                  resolution: '1K'
+                };
+                if (resolvedModelSlug.includes('2.5') || resolvedModelSlug.includes('flare')) {
+                  requestBody.version = 'flare';
+                }
+              } else if (customTemplate) {
                 let tpl = typeof customTemplate === 'object' ? JSON.stringify(customTemplate) : customTemplate;
                 tpl = tpl.replace(/\{\{prompt\}\}/g, JSON.stringify(tPrompt).slice(1, -1));
                 tpl = tpl.replace(/\{\{model\}\}/g, resolvedModelSlug);
                 tpl = tpl.replace(/\{\{aspectRatio\}\}/gi, '16:9');
                 tpl = tpl.replace(/\{\{aspect_ratio\}\}/gi, '16:9');
                 tpl = tpl.replace(/\{\{resolution\}\}/gi, '1K');
-                tpl = tpl.replace(/\{\{version\}\}/gi, 'flare');
+                tpl = tpl.replace(/\{\{version\}\}/gi, resolvedModelSlug.includes('2.5') ? 'flare' : '');
                 tpl = tpl.replace(/"\{\{[^}]+\}\}"/g, 'null').replace(/\{\{[^}]+\}\}/g, '""');
                 try {
                   requestBody = JSON.parse(tpl);
                   for (const [k, v] of Object.entries(requestBody)) {
-                    if (v === null || v === '{{version}}') delete requestBody[k];
+                    if (v === null || v === '' || v === '{{version}}') delete requestBody[k];
                   }
                 } catch {
                   requestBody = { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' };
