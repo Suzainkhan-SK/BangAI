@@ -244,7 +244,9 @@ function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resoluti
       resolution: resolution || '2K'
     };
     if (imageUrl) {
-      topviewPayload.image_urls = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
+      const arr = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
+      topviewPayload.images = arr;
+      topviewPayload.image_urls = arr;
     }
     return topviewPayload;
   }
@@ -274,7 +276,10 @@ function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resoluti
       tpl = tpl.replace(/\{\{ratio\}\}/gi, aspectRatio || '16:9');
       tpl = tpl.replace(/\{\{resolution\}\}/gi, resolution || '2K');
       tpl = tpl.replace(/\{\{version\}\}/gi, 'flare');
-      tpl = tpl.replace(/\{\{image_urls\}\}/gi, imageUrl ? JSON.stringify([imageUrl]) : '[]');
+      tpl = tpl.replace(/\{\{image_urls\}\}/gi, imageUrl ? JSON.stringify(Array.isArray(imageUrl) ? imageUrl : [imageUrl]) : '[]');
+      tpl = tpl.replace(/\{\{images\}\}/gi, imageUrl ? JSON.stringify(Array.isArray(imageUrl) ? imageUrl : [imageUrl]) : '[]');
+      tpl = tpl.replace(/\{\{imageUrl\}\}/gi, imageUrl || '');
+      tpl = tpl.replace(/\{\{image_url\}\}/gi, imageUrl || '');
       tpl = tpl.replace(/\{\{width\}\}/g, String(width || 1024));
       tpl = tpl.replace(/\{\{height\}\}/g, String(height || 768));
       tpl = tpl.replace(/\{\{seed\}\}/g, String(Math.floor(Math.random() * 999999)));
@@ -289,13 +294,17 @@ function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resoluti
   }
 
   if (format === 'kie') {
+    const kieInput = {
+      prompt,
+      aspect_ratio: aspectRatio || '16:9'
+    };
+    if (resolution) kieInput.resolution = resolution;
+    if (imageUrl) {
+      kieInput.image_urls = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
+    }
     return {
       model,
-      input: {
-        prompt,
-        aspect_ratio: aspectRatio,
-        resolution
-      }
+      input: kieInput
     };
   }
 
@@ -305,19 +314,29 @@ function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resoluti
     else if (aspectRatio === '1:1') falSize = 'square_hd';
     else if (aspectRatio === '4:3') falSize = 'landscape_4_3';
 
-    return {
+    const falPayload = {
       prompt,
       image_size: falSize,
       num_inference_steps: numSteps || 4
     };
+    if (imageUrl) {
+      falPayload.image_url = imageUrl;
+      falPayload.image = imageUrl;
+    }
+    return falPayload;
   }
 
   if (format === 'replicate') {
+    const repInput = {
+      prompt,
+      aspect_ratio: aspectRatio || '16:9'
+    };
+    if (imageUrl) {
+      repInput.image = imageUrl;
+      repInput.input_image = imageUrl;
+    }
     return {
-      input: {
-        prompt,
-        aspect_ratio: aspectRatio || '16:9'
-      }
+      input: repInput
     };
   }
 
@@ -577,9 +596,11 @@ export const handler = async (event, context) => {
       effectivePrompt = `${sp}\n\n${effectivePrompt}`;
     }
 
+    const effectiveImageUrl = input.imageUrl || input.image_url || input.image_urls?.[0] || input.images?.[0] || input.input_urls?.[0] || null;
     const effectiveInput = {
       ...input,
-      prompt: effectivePrompt
+      prompt: effectivePrompt,
+      imageUrl: effectiveImageUrl
     };
 
     // 2. Resolve Provider Hierarchy & Failover Chain
@@ -647,10 +668,23 @@ export const handler = async (event, context) => {
 
           // Topview AI model slug normalization
           if (currentProvider === 'topview.ai' || currentProvider === 'topview') {
-            if (resolvedModel.includes('5.5') || resolvedModel.includes('5-5')) resolvedModel = 'bytedance/seedream-v5.5';
-            else if (resolvedModel.includes('4.5') || resolvedModel.includes('4-5')) resolvedModel = 'bytedance/seedream-v4.5';
-            else if (resolvedModel.includes('4.0') || resolvedModel.includes('4-0') || resolvedModel.includes('4')) resolvedModel = 'bytedance/seedream-v4.0';
-            else if (!resolvedModel.startsWith('bytedance/seedream')) resolvedModel = 'bytedance/seedream-v5.0-pro';
+            const isKnownTopviewSlug = (
+              resolvedModel.startsWith('bytedance/seedream') ||
+              resolvedModel.startsWith('black-forest-labs/') ||
+              resolvedModel.startsWith('openai/') ||
+              resolvedModel.startsWith('google/') ||
+              resolvedModel.startsWith('kling/') ||
+              resolvedModel.startsWith('midjourney/') ||
+              resolvedModel.startsWith('minimax/') ||
+              resolvedModel.startsWith('alibaba/')
+            );
+            if (!isKnownTopviewSlug) {
+              if (resolvedModel.includes('5.5') || resolvedModel.includes('5-5')) resolvedModel = 'bytedance/seedream-v5.5';
+              else if (resolvedModel.includes('4.5') || resolvedModel.includes('4-5')) resolvedModel = 'bytedance/seedream-v4.5';
+              else if (resolvedModel.includes('4.0') || resolvedModel.includes('4-0') || resolvedModel.includes('4')) resolvedModel = 'bytedance/seedream-v4.0';
+              else if (effectiveInput.imageUrl) resolvedModel = 'black-forest-labs/flux-kontext-pro/edit';
+              else resolvedModel = 'bytedance/seedream-v5.0-pro';
+            }
           }
 
           // Build generation URL:
@@ -689,6 +723,7 @@ export const handler = async (event, context) => {
             prompt: effectiveInput.prompt,
             aspectRatio: effectiveInput.aspect_ratio || '16:9',
             resolution: effectiveInput.resolution || '2K',
+            imageUrl: effectiveInput.imageUrl,
             width: effectiveInput.aspect_ratio === '9:16' ? 768 : 1024,
             height: effectiveInput.aspect_ratio === '9:16' ? 1024 : 768
           });
@@ -822,7 +857,8 @@ export const handler = async (event, context) => {
                 })
               };
             }
-            throw new Error('Task ID not found in response path: ' + (providerDef.responseTaskIdPath || 'data.taskId'));
+            const errDetail = json?.msg || json?.message || json?.error?.message || (typeof json?.error === 'string' ? json.error : null) || (json?.code && json.code !== 200 ? `Provider returned error code ${json.code}` : null);
+            throw new Error(errDetail || ('Task ID not found in response path: ' + (providerDef.responseTaskIdPath || 'data.taskId')));
           }
 
           await logThumbnailActivity({

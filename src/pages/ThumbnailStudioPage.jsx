@@ -360,8 +360,12 @@ export default function ThumbnailStudioPage({
 
     // Auto-switch to Image-to-Image mode when a reference photo is uploaded
     setGenerationMode('image-to-image');
-    if (!IMAGE_TO_IMAGE_MODELS.some(m => m.id === selectedModelId)) {
-      setSelectedModelId(IMAGE_TO_IMAGE_MODELS[0].id);
+    const curModel = providerModelsList.find(m => m.id === selectedModelId) || modelsList.find(m => m.id === selectedModelId);
+    if (!curModel || curModel.type !== 'image-to-image') {
+      const targetI2I = imageToImageModels[0] || providerModelsList.find(m => m.type === 'image-to-image') || modelsList.find(m => m.type === 'image-to-image');
+      if (targetI2I) {
+        setSelectedModelId(targetI2I.id);
+      }
     }
 
     // Upload to CDN
@@ -405,9 +409,9 @@ export default function ThumbnailStudioPage({
     audioEngine.playSfx('boom');
 
     try {
-      // 1. If reference image selected but CDN url not ready yet, upload it now
+      // 1. If reference image selected, ALWAYS ensure CDN url is ready before dispatching
       let finalImageUrl = refImageUrl;
-      if (activeModel.requiresImage && !finalImageUrl && refImageFile) {
+      if (!finalImageUrl && refImageFile) {
         setGenerationStep('Uploading reference asset to CDN...');
         finalImageUrl = await uploadImageToCDN(refImageFile);
         setRefImageUrl(finalImageUrl);

@@ -2710,6 +2710,9 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
               }
 
               // 3. Build Payload
+              const isI2I = foundModel?.type === 'image-to-image' || resolvedModelSlug.includes('edit') || resolvedModelSlug.includes('image-to-image');
+              const sampleImg = archReply.testParams?.imageUrl || 'https://tempfile.redpandaai.co/kieai/12104236/images/test.png';
+
               let requestBody;
               if (tProv.includes('topview') || submitUrl.includes('topview.ai')) {
                 requestBody = {
@@ -2717,6 +2720,10 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                   aspect_ratio: '16:9',
                   resolution: '2K'
                 };
+                if (isI2I) {
+                  requestBody.images = [sampleImg];
+                  requestBody.image_urls = [sampleImg];
+                }
               } else if (tProv.includes('wizzx') || submitUrl.includes('wizzx.ai')) {
                 requestBody = {
                   prompt: tPrompt,
@@ -2726,6 +2733,9 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                 if (resolvedModelSlug.includes('2.5') || resolvedModelSlug.includes('flare')) {
                   requestBody.version = 'flare';
                 }
+                if (isI2I) {
+                  requestBody.image_urls = [sampleImg];
+                }
               } else if (customTemplate) {
                 let tpl = typeof customTemplate === 'object' ? JSON.stringify(customTemplate) : customTemplate;
                 tpl = tpl.replace(/\{\{prompt\}\}/g, JSON.stringify(tPrompt).slice(1, -1));
@@ -2734,6 +2744,8 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                 tpl = tpl.replace(/\{\{aspect_ratio\}\}/gi, '16:9');
                 tpl = tpl.replace(/\{\{resolution\}\}/gi, '1K');
                 tpl = tpl.replace(/\{\{version\}\}/gi, resolvedModelSlug.includes('2.5') ? 'flare' : '');
+                tpl = tpl.replace(/\{\{image_urls\}\}/gi, isI2I ? JSON.stringify([sampleImg]) : '[]');
+                tpl = tpl.replace(/\{\{images\}\}/gi, isI2I ? JSON.stringify([sampleImg]) : '[]');
                 tpl = tpl.replace(/"\{\{[^}]+\}\}"/g, 'null').replace(/\{\{[^}]+\}\}/g, '""');
                 try {
                   requestBody = JSON.parse(tpl);
@@ -2744,7 +2756,11 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                   requestBody = { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' };
                 }
               } else if (payloadFormat === 'kie' || tProv === 'kie.ai') {
-                requestBody = { model: resolvedModelSlug, input: { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' } };
+                const kieIn = { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' };
+                if (isI2I) {
+                  kieIn.image_urls = [sampleImg];
+                }
+                requestBody = { model: resolvedModelSlug, input: kieIn };
               } else if (payloadFormat === 'wizzx' || tProv.includes('wizzx') || submitUrl.includes('wizzx.ai')) {
                 requestBody = { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' };
               } else if (payloadFormat === 'fal') {

@@ -627,7 +627,12 @@ export function buildModelInput(modelId, { prompt, aspectRatio = '16:9', resolut
     aspect_ratio: aspectRatio,
     resolution,
     background,
-    ...(imageUrl ? { image_urls: [imageUrl] } : {})
+    ...(imageUrl ? {
+      imageUrl,
+      image_url: imageUrl,
+      image_urls: [imageUrl],
+      images: [imageUrl]
+    } : {})
   };
 }
 
