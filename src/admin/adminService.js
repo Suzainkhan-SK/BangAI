@@ -179,6 +179,7 @@ export const adminService = {
   checkThumbnailKeyBalance: async (payload) => adminFetch('check-thumbnail-key-balance', 'POST', payload),
   getThumbnailLogs: async (limit = 100) => adminFetch(`get-thumbnail-logs&limit=${limit}`, 'GET'),
   clearThumbnailLogs: async () => adminFetch('clear-thumbnail-logs', 'POST'),
+  deleteThumbnailProvider: async (providerId) => adminFetch('delete-thumbnail-provider', 'POST', { providerId }),
 
   // AI Provider Architect
   askThumbnailAiArchitect: async (messages, context = {}) => adminFetch('thumbnail-ai-architect', 'POST', { messages, context }),

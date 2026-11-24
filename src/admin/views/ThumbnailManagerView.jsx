@@ -741,22 +741,37 @@ export default function ThumbnailManagerView() {
     setShowProviderModal(false);
   };
 
-  const handleDeleteProvider = (providerId) => {
-    if (!window.confirm(`Delete provider '${providerId}' and remove its keys?`)) return;
-    setProvidersList(prev => prev.filter(p => p.id !== providerId));
-    setCustomProviders(prev => {
-      const copy = { ...prev };
-      delete copy[providerId];
-      return copy;
-    });
-    setKeysByProvider(prev => {
-      const copy = { ...prev };
-      delete copy[providerId];
-      return copy;
-    });
-    setFallbackChain(prev => prev.filter(p => p !== providerId));
-    if (activeProvider === providerId) setActiveProvider('kie.ai');
-    if (selectedBalanceProvider === providerId) setSelectedBalanceProvider('kie.ai');
+  const handleDeleteProvider = async (providerId) => {
+    if (!window.confirm(`Are you sure you want to permanently delete provider '${providerId}' from MongoDB Atlas? All associated vault keys and fallback configurations will be removed.`)) return;
+    try {
+      setSaving(true);
+      const res = await adminService.deleteThumbnailProvider(providerId);
+      if (res.success) {
+        setProvidersList(prev => prev.filter(p => p.id !== providerId));
+        setCustomProviders(prev => {
+          const copy = { ...prev };
+          delete copy[providerId];
+          return copy;
+        });
+        setKeysByProvider(prev => {
+          const copy = { ...prev };
+          delete copy[providerId];
+          return copy;
+        });
+        setFallbackChain(prev => prev.filter(p => p !== providerId));
+        if (activeProvider === providerId) setActiveProvider('kie.ai');
+        if (selectedBalanceProvider === providerId) setSelectedBalanceProvider('kie.ai');
+        setSavedMsg(`🗑️ Provider '${providerId}' deleted successfully from MongoDB Atlas!`);
+        setTimeout(() => setSavedMsg(''), 4000);
+        await loadConfig();
+      } else {
+        alert('Delete failed: ' + (res.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error deleting provider: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Move Provider in Fallback Priority Chain
@@ -1191,42 +1206,80 @@ export default function ThumbnailManagerView() {
       {/* ── NAVIGATION TABS ─────────────────────────────────────────── */}
       <div style={{
         display: 'flex',
-        gap: '4px',
-        borderBottom: '1px solid var(--admin-border-glass)',
+        gap: '6px',
+        padding: '6px',
+        background: 'rgba(255, 255, 255, 0.02)',
+        borderRadius: '12px',
+        border: '1px solid var(--admin-border-glass)',
         overflowX: 'auto',
-        paddingBottom: '2px'
+        scrollbarWidth: 'none'
       }}>
         {[
-          { id: 'providers', label: `🌐 Providers & Endpoints (${providersList.length})` },
-          { id: 'balances', label: `🔑 API Keys & Live Balances (${totalKeysCount})` },
-          { id: 'models', label: `🤖 Vision Models & Credits (${models.length})` },
-          { id: 'system_prompt', label: '🧠 System Prompt & Rules' },
-          { id: 'presets', label: `🎨 Viral Presets (${presets.length})` },
-          { id: 'diagnostics', label: '⚡ Live Diagnostics & Real Test' },
-          { id: 'logs', label: `📋 Real-Time Activity & Logs (${logs.length})` },
-          { id: 'ai_architect', label: '✨ AI Provider Architect' }
+          { id: 'providers', label: '🌐 Providers & Endpoints', count: providersList.length },
+          { id: 'balances', label: '🔑 API Keys Vault', count: totalKeysCount },
+          { id: 'models', label: '🤖 Vision Models & Credits', count: models.length },
+          { id: 'system_prompt', label: '🧠 System Prompt' },
+          { id: 'presets', label: '🎨 Viral Presets', count: presets.length },
+          { id: 'diagnostics', label: '⚡ Live Test Engine' },
+          { id: 'logs', label: '📋 Telemetry Logs', count: logs.length },
+          { id: 'ai_architect', label: '✨ AI Provider Architect', badge: 'COPILOT' }
         ].map(t => {
           const isSelected = activeTab === t.id;
+          const isArchitect = t.id === 'ai_architect';
           return (
             <button
               key={t.id}
               type="button"
               onClick={() => setActiveTab(t.id)}
               style={{
-                padding: '10px 18px',
-                borderRadius: '8px 8px 0 0',
-                border: 'none',
-                background: isSelected ? 'var(--admin-bg-card)' : 'transparent',
-                borderBottom: isSelected ? '2px solid #ff4f00' : '2px solid transparent',
-                color: isSelected ? '#ff4f00' : 'var(--admin-text-sub)',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: isSelected
+                  ? (isArchitect ? '1px solid rgba(99, 102, 241, 0.6)' : '1px solid rgba(255, 79, 0, 0.6)')
+                  : '1px solid transparent',
+                background: isSelected
+                  ? (isArchitect ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2))' : 'linear-gradient(135deg, rgba(255, 79, 0, 0.15), rgba(255, 120, 0, 0.08))')
+                  : 'transparent',
+                color: isSelected ? (isArchitect ? '#a5b4fc' : '#ff4f00') : 'var(--admin-text-sub)',
                 fontWeight: isSelected ? 800 : 600,
-                fontSize: '13px',
+                fontSize: '12.5px',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease'
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease',
+                boxShadow: isSelected
+                  ? (isArchitect ? '0 2px 10px rgba(99, 102, 241, 0.25)' : '0 2px 10px rgba(255, 79, 0, 0.2)')
+                  : 'none'
               }}
             >
-              {t.label}
+              <span>{t.label}</span>
+              {t.count != null && (
+                <span style={{
+                  fontSize: '10.5px',
+                  fontWeight: 800,
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  background: isSelected ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)',
+                  color: isSelected ? '#fff' : 'var(--admin-text-sub)'
+                }}>
+                  {t.count}
+                </span>
+              )}
+              {t.badge && (
+                <span style={{
+                  fontSize: '9.5px',
+                  fontWeight: 800,
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                  color: '#fff',
+                  letterSpacing: '0.04em'
+                }}>
+                  {t.badge}
+                </span>
+              )}
             </button>
           );
         })}
@@ -1386,10 +1439,19 @@ export default function ThumbnailManagerView() {
                           type="button"
                           onClick={() => handleDeleteProvider(p.id)}
                           className="admin-btn admin-btn-sm admin-btn-danger"
-                          style={{ padding: '4px 8px' }}
-                          title="Delete custom provider"
+                          style={{
+                            padding: '4px 10px',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid #ef4444',
+                            color: '#ef4444'
+                          }}
+                          title="Permanently delete custom provider and its vault keys from database"
                         >
-                          🗑️
+                          <span>🗑️ Delete</span>
                         </button>
                       )}
                     </div>
@@ -1835,7 +1897,21 @@ export default function ThumbnailManagerView() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setShowModelImporter(!showModelImporter)}
+                className="admin-btn"
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  background: showModelImporter ? 'rgba(99, 102, 241, 0.2)' : 'var(--admin-bg-elevated)',
+                  borderColor: '#6366f1',
+                  color: '#6366f1'
+                }}
+              >
+                📡 {showModelImporter ? '✕ Close Importer' : '📡 Bulk Import Models from API'}
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -1846,7 +1922,7 @@ export default function ThumbnailManagerView() {
                 className="admin-btn"
                 style={{ fontSize: '12px' }}
               >
-                ➕ Add Provider / Category
+                ➕ Add Provider
               </button>
               <button
                 type="button"
@@ -1858,6 +1934,112 @@ export default function ThumbnailManagerView() {
               </button>
             </div>
           </div>
+
+          {/* Bulk Model Importer Section (Moved into Vision Models & Credits) */}
+          {showModelImporter && (
+            <div className="admin-card" style={{ border: '1px solid rgba(99, 102, 241, 0.4)', background: 'rgba(99, 102, 241, 0.04)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--admin-text-main)' }}>
+                    📡 Models Discovery & Bulk Importer
+                  </h3>
+                  <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: 0 }}>
+                    Fetch a provider's full model catalog from their /v1/models endpoint and bulk-import them into Thumbnail Studio.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowModelImporter(false)}
+                  className="admin-btn admin-btn-sm"
+                  style={{ fontSize: '11px' }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Provider:</label>
+                  <select value={importerProvider} onChange={e => setImporterProvider(e.target.value)} className="admin-input" style={{ width: '100%', fontSize: '12px' }}>
+                    {providersList.map(p => <option key={p.id} value={p.id}>{p.icon || '🌐'} {p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Auth Type:</label>
+                  <select value={importerAuth} onChange={e => setImporterAuth(e.target.value)} className="admin-input" style={{ width: '100%', fontSize: '12px' }}>
+                    <option value="Bearer">Bearer</option>
+                    <option value="Key">Key (Fal.ai)</option>
+                    <option value="Token">Token</option>
+                    <option value="x-api-key">x-api-key</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Credits 1K / 2K / 4K:</label>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {['1K', '2K', '4K'].map(r => (
+                      <input key={r} type="number" min="0" value={importerCredits[r]} onChange={e => setImporterCredits(prev => ({ ...prev, [r]: Number(e.target.value) }))} className="admin-input" style={{ width: '50px', fontSize: '11px', padding: '5px 6px', textAlign: 'center' }} placeholder={r} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Models Listing URL:</label>
+                  <input type="text" value={importerUrl} onChange={e => setImporterUrl(e.target.value)} placeholder="e.g. https://api.together.xyz/v1/models" className="admin-input" style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Response Path (optional):</label>
+                  <input type="text" value={importerPath} onChange={e => setImporterPath(e.target.value)} placeholder="e.g. data or models" className="admin-input" style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }} />
+                </div>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>API Key for fetching (uses vault key if blank):</label>
+                <input type="password" value={importerApiKey} onChange={e => setImporterApiKey(e.target.value)} placeholder="Leave blank to use a key from the provider's vault" className="admin-input" style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                <button type="button" className="admin-btn admin-btn-primary" onClick={handleFetchImporterModels} disabled={importerLoading} style={{ fontWeight: 800 }}>
+                  {importerLoading ? '⏳ Fetching...' : '📡 Fetch Models from Endpoint'}
+                </button>
+                {importerModels.length > 0 && (
+                  <button type="button" className="admin-btn" style={{ fontSize: '12px' }} onClick={() => { setImporterSelected(new Set(importerModels.filter(m => m.id.toLowerCase().includes(importerFilter.toLowerCase()) || !importerFilter).map(m => m.id))); }}>
+                    ✅ Select All Visible
+                  </button>
+                )}
+                {importerSelected.size > 0 && (
+                  <button type="button" className="admin-btn admin-btn-primary" style={{ background: 'linear-gradient(135deg, #10b981, #06b6d4)', border: 'none', fontWeight: 800 }} onClick={handleBulkImportModels}>
+                    ⬇️ Import Selected ({importerSelected.size})
+                  </button>
+                )}
+              </div>
+
+              {importerError && <div style={{ padding: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', fontSize: '12px', color: '#ef4444', marginBottom: '12px' }}>❌ {importerError}</div>}
+              {importerSuccess && <div style={{ padding: '10px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '12px', color: '#10b981', marginBottom: '12px' }}>✅ {importerSuccess}</div>}
+
+              {importerModels.length > 0 && (
+                <div>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                    <input type="text" value={importerFilter} onChange={e => setImporterFilter(e.target.value)} placeholder="🔍 Filter models by name or ID..." className="admin-input" style={{ flex: 1, fontSize: '12px' }} />
+                    <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)', whiteSpace: 'nowrap' }}>{importerModels.filter(m => !importerFilter || m.id.toLowerCase().includes(importerFilter.toLowerCase()) || m.name.toLowerCase().includes(importerFilter.toLowerCase())).length} models</span>
+                  </div>
+                  <div style={{ maxHeight: '340px', overflowY: 'auto', border: '1px solid var(--admin-border-glass)', borderRadius: '8px' }}>
+                    {importerModels.filter(m => !importerFilter || m.id.toLowerCase().includes(importerFilter.toLowerCase()) || m.name.toLowerCase().includes(importerFilter.toLowerCase())).map(m => (
+                      <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderBottom: '1px solid var(--admin-border-glass)', cursor: 'pointer', background: importerSelected.has(m.id) ? 'rgba(99,102,241,0.08)' : 'transparent', transition: 'background 0.1s' }}>
+                        <input type="checkbox" checked={importerSelected.has(m.id)} onChange={e => { const next = new Set(importerSelected); e.target.checked ? next.add(m.id) : next.delete(m.id); setImporterSelected(next); }} style={{ accentColor: '#ff4f00', width: '14px', height: '14px', flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.id}</div>
+                          {m.name !== m.id && <div style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}>{m.name}</div>}
+                          {m.description && <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.description}</div>}
+                        </div>
+                        {m.type && <span style={{ fontSize: '9px', padding: '1px 5px', background: 'rgba(99,102,241,0.15)', color: '#6366f1', borderRadius: '3px', whiteSpace: 'nowrap', flexShrink: 0 }}>{m.type}</span>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Provider Category Navigation Filter Bar */}
           <div style={{
@@ -2810,7 +2992,7 @@ export default function ThumbnailManagerView() {
             </div>
 
             {/* Chat Messages */}
-            <div ref={architectChatRef} style={{ maxHeight: '460px', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div ref={architectChatRef} style={{ minHeight: '480px', maxHeight: '620px', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {architectMessages.map((msg, idx) => {
                 let parsed = null;
                 if (msg.role === 'assistant') {
@@ -2985,112 +3167,24 @@ export default function ThumbnailManagerView() {
 
           {/* Quick Prompts */}
           <div className="admin-card" style={{ padding: '14px 18px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--admin-text-sub)', textTransform: 'uppercase', marginBottom: '10px' }}>Quick Prompts:</div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--admin-text-sub)', textTransform: 'uppercase', marginBottom: '10px' }}>⚡ Copilot Autonomous Directives & Presets:</div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {[
+                { label: '📊 List Studio Models by Provider', prompt: 'List all the models currently configured in the studio database grouped by provider with their resolution prices.' },
+                { label: '🔍 Segregate Models (T2I & I2I)', prompt: 'Segregate all models in the studio into text-to-image and image-to-image categories with accurate badge indicators.' },
+                { label: '💰 Check Resolution Pricing', prompt: 'Show me the credit pricing for all models across 1K, 2K, and 4K resolutions.' },
+                { label: '🔄 Provider Rotation & Priority', prompt: 'What is our current provider failover priority chain and active primary engine?' },
                 { label: '⚡ Configure Fal.ai', prompt: 'I want to add Fal.ai as a provider. Their API uses Authorization: Key <KEY>, the generation endpoint for FLUX Schnell is POST https://queue.fal.run/fal-ai/flux/schnell. It is async — returns request_id, polling URL is https://queue.fal.run/fal-ai/flux/schnell/requests/{request_id}/status and completed when status == "COMPLETED", result at images[0].url.' },
                 { label: '🎨 Configure Ideogram', prompt: 'Configure Ideogram AI. API endpoint: POST https://api.ideogram.ai/generate. Headers: Api-Key: <KEY>. It is synchronous and returns images[0].url. The models are ideogram-v2 and ideogram-v2-turbo. Balance check: GET https://api.ideogram.ai/manage/api/account returns credit_balance.' },
                 { label: '🔵 Configure Stability AI', prompt: 'Add Stability AI. Endpoint: POST https://api.stability.ai/v2beta/stable-image/generate/ultra. Auth: Authorization: Bearer <KEY>. It returns a base64 image directly in the response body. The model is stable-ultra.' },
                 { label: '🟢 OpenAI Compatible', prompt: 'I have a custom OpenAI-compatible API at https://my-custom-api.com/v1/images/generations. It uses Bearer auth and returns data[0].url. Set it up as "My Custom API".' },
                 { label: '🔄 Configure Replicate', prompt: 'Configure Replicate API. Auth: Bearer. Endpoint is POST https://api.replicate.com/v1/models/{owner}/{model}/predictions. It is async — returns id, poll at GET https://api.replicate.com/v1/predictions/{id}, succeeded when status == "succeeded", image at output[0].' }
               ].map(q => (
-                <button key={q.label} type="button" className="admin-btn admin-btn-sm" style={{ fontSize: '11px' }} onClick={() => setArchitectInput(q.prompt)}>
+                <button key={q.label} type="button" className="admin-btn admin-btn-sm" style={{ fontSize: '11px', fontWeight: 600 }} onClick={() => setArchitectInput(q.prompt)}>
                   {q.label}
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Bulk Model Importer Section */}
-          <div className="admin-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-              <div>
-                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--admin-text-main)' }}>📡 Models Discovery & Bulk Importer</h3>
-                <p style={{ fontSize: '12px', color: 'var(--admin-text-sub)', margin: 0 }}>Fetch a provider's full model catalog from their /v1/models endpoint and bulk-import them into Thumbnail Studio.</p>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '12px' }}>
-              <div>
-                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Provider:</label>
-                <select value={importerProvider} onChange={e => setImporterProvider(e.target.value)} className="admin-input" style={{ width: '100%', fontSize: '12px' }}>
-                  {providersList.map(p => <option key={p.id} value={p.id}>{p.icon || '🌐'} {p.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Auth Type:</label>
-                <select value={importerAuth} onChange={e => setImporterAuth(e.target.value)} className="admin-input" style={{ width: '100%', fontSize: '12px' }}>
-                  <option value="Bearer">Bearer</option>
-                  <option value="Key">Key (Fal.ai)</option>
-                  <option value="Token">Token</option>
-                  <option value="x-api-key">x-api-key</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Credits 1K / 2K / 4K:</label>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  {['1K', '2K', '4K'].map(r => (
-                    <input key={r} type="number" min="0" value={importerCredits[r]} onChange={e => setImporterCredits(prev => ({ ...prev, [r]: Number(e.target.value) }))} className="admin-input" style={{ width: '50px', fontSize: '11px', padding: '5px 6px', textAlign: 'center' }} placeholder={r} />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px', marginBottom: '10px' }}>
-              <div>
-                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Models Listing URL:</label>
-                <input type="text" value={importerUrl} onChange={e => setImporterUrl(e.target.value)} placeholder="e.g. https://api.together.xyz/v1/models" className="admin-input" style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>Response Path (optional):</label>
-                <input type="text" value={importerPath} onChange={e => setImporterPath(e.target.value)} placeholder="e.g. data or models" className="admin-input" style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }} />
-              </div>
-            </div>
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--admin-text-sub)', display: 'block', marginBottom: '4px' }}>API Key for fetching (uses vault key if blank):</label>
-              <input type="password" value={importerApiKey} onChange={e => setImporterApiKey(e.target.value)} placeholder="Leave blank to use a key from the provider's vault" className="admin-input" style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }} />
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
-              <button type="button" className="admin-btn admin-btn-primary" onClick={handleFetchImporterModels} disabled={importerLoading} style={{ fontWeight: 800 }}>
-                {importerLoading ? '⏳ Fetching...' : '📡 Fetch Models from Endpoint'}
-              </button>
-              {importerModels.length > 0 && (
-                <button type="button" className="admin-btn" style={{ fontSize: '12px' }} onClick={() => { setImporterSelected(new Set(importerModels.filter(m => m.id.toLowerCase().includes(importerFilter.toLowerCase()) || !importerFilter).map(m => m.id))); }}>
-                  ✅ Select All Visible
-                </button>
-              )}
-              {importerSelected.size > 0 && (
-                <button type="button" className="admin-btn admin-btn-primary" style={{ background: 'linear-gradient(135deg, #10b981, #06b6d4)', border: 'none', fontWeight: 800 }} onClick={handleBulkImportModels}>
-                  ⬇️ Import Selected ({importerSelected.size})
-                </button>
-              )}
-            </div>
-
-            {importerError && <div style={{ padding: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', fontSize: '12px', color: '#ef4444', marginBottom: '12px' }}>❌ {importerError}</div>}
-            {importerSuccess && <div style={{ padding: '10px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '12px', color: '#10b981', marginBottom: '12px' }}>✅ {importerSuccess}</div>}
-
-            {importerModels.length > 0 && (
-              <div>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                  <input type="text" value={importerFilter} onChange={e => setImporterFilter(e.target.value)} placeholder="🔍 Filter models by name or ID..." className="admin-input" style={{ flex: 1, fontSize: '12px' }} />
-                  <span style={{ fontSize: '11px', color: 'var(--admin-text-sub)', whiteSpace: 'nowrap' }}>{importerModels.filter(m => !importerFilter || m.id.toLowerCase().includes(importerFilter.toLowerCase()) || m.name.toLowerCase().includes(importerFilter.toLowerCase())).length} models</span>
-                </div>
-                <div style={{ maxHeight: '340px', overflowY: 'auto', border: '1px solid var(--admin-border-glass)', borderRadius: '8px' }}>
-                  {importerModels.filter(m => !importerFilter || m.id.toLowerCase().includes(importerFilter.toLowerCase()) || m.name.toLowerCase().includes(importerFilter.toLowerCase())).map(m => (
-                    <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderBottom: '1px solid var(--admin-border-glass)', cursor: 'pointer', background: importerSelected.has(m.id) ? 'rgba(99,102,241,0.08)' : 'transparent', transition: 'background 0.1s' }}>
-                      <input type="checkbox" checked={importerSelected.has(m.id)} onChange={e => { const next = new Set(importerSelected); e.target.checked ? next.add(m.id) : next.delete(m.id); setImporterSelected(next); }} style={{ accentColor: '#ff4f00', width: '14px', height: '14px', flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--admin-text-main)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.id}</div>
-                        {m.name !== m.id && <div style={{ fontSize: '10.5px', color: 'var(--admin-text-sub)' }}>{m.name}</div>}
-                        {m.description && <div style={{ fontSize: '10px', color: 'var(--admin-text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.description}</div>}
-                      </div>
-                      {m.type && <span style={{ fontSize: '9px', padding: '1px 5px', background: 'rgba(99,102,241,0.15)', color: '#6366f1', borderRadius: '3px', whiteSpace: 'nowrap', flexShrink: 0 }}>{m.type}</span>}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}

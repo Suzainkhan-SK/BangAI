@@ -193,28 +193,35 @@ function getAuthHeaders(providerDef, key) {
   const headers = {
     'Content-Type': 'application/json'
   };
-  const authType = providerDef.authHeaderType || 'Bearer';
-  if (authType === 'Bearer') {
+  const authType = (providerDef.authHeaderType || 'Bearer').toLowerCase();
+  if (authType === 'bearer') {
     headers['Authorization'] = `Bearer ${key}`;
-  } else if (authType === 'Key') {
+  } else if (authType === 'key') {
     headers['Authorization'] = `Key ${key}`;
-  } else if (authType === 'Token') {
+  } else if (authType === 'token') {
     headers['Authorization'] = `Token ${key}`;
   } else if (authType === 'x-api-key') {
     headers[providerDef.customHeaderName || 'x-api-key'] = key;
-  } else if (authType === 'Custom') {
+  } else if (authType === 'custom') {
     headers[providerDef.customHeaderName || 'Authorization'] = (providerDef.authPrefix || '') + key;
   } else {
     headers['Authorization'] = `Bearer ${key}`;
   }
+
+  // Provider-specific required headers
+  if (providerDef.id?.includes('topview') || providerDef.generateUrl?.includes('topview.ai')) {
+    headers['Idempotency-Key'] = crypto.randomUUID();
+  }
+
   return headers;
 }
 
-// Construct generation request payload based on provider format (OpenAI, Kie, Fal, Replicate, Wizzx, or Custom Template)
+// Construct generation request payload based on provider format (OpenAI, Kie, Fal, Replicate, Wizzx, Topview, or Custom Template)
 function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resolution, width, height, numSteps, imageUrl }) {
   const format = providerDef.payloadFormat || 'openai';
   const provId = providerDef.id || '';
   const isWizzx = provId.includes('wizzx') || providerDef.generateUrl?.includes('wizzx.ai');
+  const isTopview = provId.includes('topview') || providerDef.generateUrl?.includes('topview.ai');
 
   // Dedicated clean handling for Wizzx AI
   if (isWizzx) {
@@ -229,6 +236,19 @@ function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resoluti
     return wizzxPayload;
   }
 
+  // Dedicated clean handling for TopView AI
+  if (isTopview) {
+    const topviewPayload = {
+      prompt,
+      aspect_ratio: aspectRatio || '16:9',
+      resolution: resolution || '2K'
+    };
+    if (imageUrl) {
+      topviewPayload.image_urls = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
+    }
+    return topviewPayload;
+  }
+
   if (format === 'custom' && providerDef.customPayloadTemplate) {
     let tpl = providerDef.customPayloadTemplate;
     if (typeof tpl === 'object') {
@@ -239,15 +259,25 @@ function buildRequestPayload(providerDef, { model, prompt, aspectRatio, resoluti
       }
     }
     if (typeof tpl === 'string' && tpl.trim()) {
+      // Normalize ${...} to {{...}}
+      tpl = tpl
+        .replace(/\$\{(?:prompt)\}/gi, '{{prompt}}')
+        .replace(/\$\{(?:model|modelId)\}/gi, '{{model}}')
+        .replace(/\$\{(?:aspect_ratio|aspectRatio|ratio)\}/gi, '{{aspect_ratio}}')
+        .replace(/\$\{(?:resolution)\}/gi, '{{resolution}}')
+        .replace(/\$\{(?:seed)\}/gi, '{{seed}}');
+
       tpl = tpl.replace(/\{\{prompt\}\}/g, JSON.stringify(prompt || '').slice(1, -1));
       tpl = tpl.replace(/\{\{model\}\}/g, model || '');
       tpl = tpl.replace(/\{\{aspectRatio\}\}/gi, aspectRatio || '16:9');
       tpl = tpl.replace(/\{\{aspect_ratio\}\}/gi, aspectRatio || '16:9');
+      tpl = tpl.replace(/\{\{ratio\}\}/gi, aspectRatio || '16:9');
       tpl = tpl.replace(/\{\{resolution\}\}/gi, resolution || '2K');
       tpl = tpl.replace(/\{\{version\}\}/gi, 'flare');
       tpl = tpl.replace(/\{\{image_urls\}\}/gi, imageUrl ? JSON.stringify([imageUrl]) : '[]');
       tpl = tpl.replace(/\{\{width\}\}/g, String(width || 1024));
       tpl = tpl.replace(/\{\{height\}\}/g, String(height || 768));
+      tpl = tpl.replace(/\{\{seed\}\}/g, String(Math.floor(Math.random() * 999999)));
       // Remove any leftover mustache tags
       tpl = tpl.replace(/"\{\{[^}]+\}\}"/g, 'null').replace(/\{\{[^}]+\}\}/g, '""');
       try {
@@ -411,6 +441,54 @@ function rotateKeyForProvider(keys, provider) {
   }
 }
 
+// Cross-Provider Intelligent Failover Model Resolver:
+// Maps a requested model from an exhausted provider to a matching native model on the fallback provider
+function resolveFailoverModelForProvider(config, targetProvider, originalModelId, originalFoundModel) {
+  const allModels = config.models || [];
+  const provModels = allModels.filter(m => m.provider === targetProvider && m.enabled !== false);
+
+  // 1. Explicit fallbackModelId
+  if (originalFoundModel?.fallbackModelId) {
+    const directMatch = provModels.find(m => m.id === originalFoundModel.fallbackModelId || m.providerModelId === originalFoundModel.fallbackModelId);
+    if (directMatch) return directMatch.providerModelId || directMatch.id;
+  }
+
+  // 2. Family / Similarity Match (e.g. seedream, gpt, qwen, nano-banana, flux, wan, grok)
+  const origName = (originalFoundModel?.name || originalModelId || '').toLowerCase();
+  const origSlug = (originalFoundModel?.providerModelId || originalModelId || '').toLowerCase();
+  const families = ['seedream', 'gpt', 'qwen', 'nano-banana', 'banana', 'flux', 'wan', 'grok', 'imagen', 'dall-e'];
+
+  for (const fam of families) {
+    if (origName.includes(fam) || origSlug.includes(fam)) {
+      const familyMatch = provModels.find(m => {
+        const mName = (m.name || '').toLowerCase();
+        const mId = (m.providerModelId || m.id || '').toLowerCase();
+        return mName.includes(fam) || mId.includes(fam);
+      });
+      if (familyMatch) {
+        console.log(`[thumbnail.js] Intelligent Failover: Mapped '${originalModelId}' to similar family model '${familyMatch.id}' (${familyMatch.providerModelId}) on provider '${targetProvider}'`);
+        return familyMatch.providerModelId || familyMatch.id;
+      }
+    }
+  }
+
+  // 3. Match by Generation Type (text-to-image vs image-to-image)
+  const origType = originalFoundModel?.type || 'text-to-image';
+  const sameTypeModel = provModels.find(m => (m.type || 'text-to-image') === origType);
+  if (sameTypeModel) {
+    console.log(`[thumbnail.js] Intelligent Failover: Mapped '${originalModelId}' to top ${origType} model '${sameTypeModel.id}' on provider '${targetProvider}'`);
+    return sameTypeModel.providerModelId || sameTypeModel.id;
+  }
+
+  // 4. Provider's top model or defaultModel
+  if (provModels.length > 0) {
+    return provModels[0].providerModelId || provModels[0].id;
+  }
+
+  const provDef = config.customProviders?.[targetProvider] || DEFAULT_PROVIDER_CONFIGS[targetProvider];
+  return provDef?.defaultModel || 'gpt-image-2.5';
+}
+
 export const handler = async (event, context) => {
   if (context) {
     context.callbackWaitsForEmptyEventLoop = false;
@@ -505,10 +583,12 @@ export const handler = async (event, context) => {
     };
 
     // 2. Resolve Provider Hierarchy & Failover Chain
-    const primaryProvider = requestedProvider || config.activeProvider || 'kie.ai';
+    const requestedModelObj = (config.models || []).find(m => m.id === model || m.providerModelId === model);
+    const modelExplicitProvider = requestedModelObj?.provider;
+    const primaryProvider = requestedProvider || modelExplicitProvider || config.activeProvider || 'topview.ai';
     let providerChain = [primaryProvider];
     if (config.providerRotationEnabled) {
-      const fallbackList = Array.isArray(config.fallbackChain) ? config.fallbackChain : ['kie.ai', 'fal.ai', 'replicate', 'together', 'openai'];
+      const fallbackList = Array.isArray(config.fallbackChain) ? config.fallbackChain : ['topview.ai', 'wizzx.ai', 'kie.ai', 'fal.ai', 'replicate', 'together', 'openai'];
       for (const p of fallbackList) {
         if (!providerChain.includes(p)) {
           providerChain.push(p);
@@ -548,20 +628,17 @@ export const handler = async (event, context) => {
           let modelEndpointOverride = null;
           let effectiveProviderDef = providerDef;
 
-          if (config.models) {
-            const foundModel = config.models.find(m => m.id === model);
-            if (foundModel) {
-              // Per-model endpoint override takes absolute priority
-              if (foundModel.endpointOverride?.enabled) {
-                modelEndpointOverride = foundModel.endpointOverride;
+          if (requestedModelObj) {
+            if (requestedModelObj.provider === currentProvider) {
+              resolvedModel = requestedModelObj.providerModelId || requestedModelObj.id;
+              if (requestedModelObj.endpointOverride?.enabled) {
+                modelEndpointOverride = requestedModelObj.endpointOverride;
                 console.log(`[thumbnail.js] Using per-model endpoint override for model '${model}'`);
               }
-              // Resolve the correct model slug for this provider
-              if (foundModel.provider === currentProvider && foundModel.providerModelId) {
-                resolvedModel = foundModel.providerModelId;
-              } else if (foundModel.fallbackModelId && currentProvider !== (foundModel.provider || 'kie.ai')) {
-                resolvedModel = foundModel.fallbackModelId;
-              }
+            } else {
+              // Failover to secondary provider! Intelligently map to that provider's native matching model
+              resolvedModel = resolveFailoverModelForProvider(config, currentProvider, model, requestedModelObj);
+              console.log(`[thumbnail.js] Intelligent Failover: Provider '${currentProvider}' mapped model '${model}' -> '${resolvedModel}'`);
             }
           }
           if (!resolvedModel) {
@@ -589,7 +666,13 @@ export const handler = async (event, context) => {
           } else {
             targetUrl = providerDef.generateUrl || `${providerDef.baseUrl || 'https://api.openai.com/v1'}/images/generations`;
           }
-          targetUrl = targetUrl.replace(/\{\{model\}\}/g, encodeURIComponent(resolvedModel));
+
+          // Support all standard model slug template variables: {{model}}, {{modelId}}, {modelId}, {model}
+          targetUrl = targetUrl
+            .replace(/\{\{model\}\}/g, encodeURIComponent(resolvedModel))
+            .replace(/\{\{modelId\}\}/g, encodeURIComponent(resolvedModel))
+            .replace(/\{modelId\}/g, encodeURIComponent(resolvedModel))
+            .replace(/\{model\}/g, encodeURIComponent(resolvedModel));
 
           const payload = buildRequestPayload(overriddenPayloadDef, {
             model: resolvedModel,
@@ -827,8 +910,14 @@ export const handler = async (event, context) => {
 
     // 3. Construct Polling URL
     let pollUrl = providerDef.pollUrlTemplate || 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId={{taskId}}';
-    pollUrl = pollUrl.replace(/\{\{taskId\}\}/g, encodeURIComponent(realTaskId));
-    pollUrl = pollUrl.replace(/\{\{model\}\}/g, encodeURIComponent(body.modelId || providerDef.defaultModel || ''));
+    pollUrl = pollUrl
+      .replace(/\{\{taskId\}\}/g, encodeURIComponent(realTaskId))
+      .replace(/\{taskId\}/g, encodeURIComponent(realTaskId))
+      .replace(/\{\{predictionId\}\}/g, encodeURIComponent(realTaskId))
+      .replace(/\{predictionId\}/g, encodeURIComponent(realTaskId))
+      .replace(/\{\{id\}\}/g, encodeURIComponent(realTaskId))
+      .replace(/\{id\}/g, encodeURIComponent(realTaskId))
+      .replace(/\{\{model\}\}/g, encodeURIComponent(body.modelId || providerDef.defaultModel || ''));
 
     const headers = getAuthHeaders(providerDef, key);
 
@@ -844,11 +933,20 @@ export const handler = async (event, context) => {
       const successTarget = providerDef.pollSuccessValue || 'SUCCESS';
 
       // Status Check: SUCCESS
-      if (String(statusVal).toUpperCase() === String(successTarget).toUpperCase() || statusVal === 'success' || statusVal === 'succeeded' || statusVal === 'COMPLETED') {
+      const isSuccess = String(statusVal).toUpperCase() === String(successTarget).toUpperCase() 
+        || statusVal === 'success' || statusVal === 'succeeded'
+        || statusVal === 'completed' || statusVal === 'COMPLETED'
+        || statusVal === 'SUCCEEDED';
+
+      if (isSuccess) {
         let resultUrl = getValueByPath(pollJson, providerDef.pollResultUrlPath || 'data.resultUrl')
+          || getValueByPath(pollJson, 'data.outputs[0]')
+          || getValueByPath(pollJson, 'data.output[0]')
+          || getValueByPath(pollJson, 'outputs[0]')
+          || getValueByPath(pollJson, 'output[0]')
           || getValueByPath(pollJson, 'data.result_urls[0]')
           || getValueByPath(pollJson, 'images[0].url')
-          || getValueByPath(pollJson, 'output[0]')
+          || getValueByPath(pollJson, 'data.url')
           || getValueByPath(pollJson, 'resultUrl');
 
         if (!resultUrl && Array.isArray(pollJson.data?.result_urls) && pollJson.data.result_urls.length > 0) {

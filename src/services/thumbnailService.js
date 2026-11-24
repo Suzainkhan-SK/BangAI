@@ -13,8 +13,20 @@ const CACHE_STORAGE_KEY = 'bangai_thumbnail_config_v1';
 export function getStoredThumbnailConfig() {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      const raw = window.localStorage.getItem(CACHE_STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      const raw = window.localStorage.getItem(CACHE_STORAGE_KEY) || window.localStorage.getItem('cached_admin_thumbnail_config');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.activeProvider) {
+          const provId = parsed.activeProvider;
+          const cp = parsed.customProviders?.[provId];
+          return {
+            ...parsed,
+            activeProviderName: cp?.name || parsed.activeProviderName || (provId === 'topview.ai' ? 'Topview AI' : (provId === 'wizzx.ai' ? 'Wizzx AI' : (provId === 'kie.ai' ? 'Kie.ai Vision Engine' : provId))),
+            activeProviderIcon: cp?.icon || parsed.activeProviderIcon || (provId === 'topview.ai' ? '😍' : (provId === 'wizzx.ai' ? '✨' : (provId === 'kie.ai' ? '⚡' : '🌐')))
+          };
+        }
+        return parsed;
+      }
     }
   } catch {}
   return null;
@@ -23,7 +35,16 @@ export function getStoredThumbnailConfig() {
 export function saveStoredThumbnailConfig(config) {
   try {
     if (typeof window !== 'undefined' && window.localStorage && config) {
-      window.localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(config));
+      const provId = config.activeProvider;
+      const cp = config.customProviders?.[provId];
+      const enriched = {
+        ...config,
+        activeProviderName: cp?.name || config.activeProviderName || (provId === 'topview.ai' ? 'Topview AI' : (provId === 'wizzx.ai' ? 'Wizzx AI' : (provId === 'kie.ai' ? 'Kie.ai Vision Engine' : provId))),
+        activeProviderIcon: cp?.icon || config.activeProviderIcon || (provId === 'topview.ai' ? '😍' : (provId === 'wizzx.ai' ? '✨' : (provId === 'kie.ai' ? '⚡' : '🌐')))
+      };
+      const json = JSON.stringify(enriched);
+      window.localStorage.setItem(CACHE_STORAGE_KEY, json);
+      window.localStorage.setItem('cached_admin_thumbnail_config', json);
     }
   } catch {}
 }
@@ -621,7 +642,8 @@ export async function createThumbnailTask(modelId, params) {
     },
     body: JSON.stringify({
       model: modelId,
-      input
+      input,
+      provider: params?.provider
     })
   });
 

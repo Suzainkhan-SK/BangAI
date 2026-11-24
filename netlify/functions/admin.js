@@ -2012,6 +2012,21 @@ Pick an action ONLY when the user EXPLICITLY COMMANDS an operational task:
    Use ONLY when user explicitly commands generating a test image or thumbnail (e.g. "Generate a test thumbnail with prompt...").
    Provide "testParams": { "provider": "...", "model": "...", "prompt": "..." }.
 
+10. "SEGREGATE_MODELS":
+    Use when user asks to segregate, classify, or categorize existing models into text-to-image and image-to-image (e.g. "Segregate the models", "Classify models into text to image and image to image", "Segregate topview models").
+    Provide "models": [ { "id": "model-id", "type": "text-to-image" | "image-to-image" } ].
+    - "text-to-image": models intended for text prompt generation.
+    - "image-to-image": models supporting input image reference, inpainting, style transfer, face swap, or in-context remix (e.g. Flux Kontext, Seedream Image-to-Image, GPT Image Remix).
+
+CRITICAL ARCHITECT RULES FOR ZERO-ERROR PROVIDER CONFIGURATION:
+- In "generateUrl", ALWAYS use double curly braces "{{model}}" as the model placeholder in the URL (e.g. "https://api.example.com/v1/models/{{model}}/predictions"). NEVER use single braces "{modelId}" or "{model}", and NEVER hardcode a specific model slug in the provider URL.
+- In "pollUrlTemplate", ALWAYS use "{{taskId}}" (e.g. "https://api.example.com/v1/predictions/{{taskId}}").
+- In "customPayloadTemplate", ALWAYS use mustache tags like "{{prompt}}", "{{aspect_ratio}}", "{{resolution}}". NEVER use javascript dollar syntax like "${prompt}".
+- MODEL SEGREGATION: When adding models or configuring providers, intelligently classify each model:
+  * "type": "text-to-image" for text prompt models.
+  * "type": "image-to-image" for image conditioning / editing models (e.g. Flux Kontext, Seedream I2I, GPT Image Remix).
+  If a provider model supports both, create two distinct model entries: one text-to-image and one image-to-image (appended with "(Image-to-Image)").
+
 CURRENT DATABASE STATE:
 - Active Primary Provider: ${currentState.activeProvider}
 - Providers Configured: ${Object.keys(currentState.customProviders).join(', ') || 'none'}
@@ -2207,16 +2222,17 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
             customProviders[pcfg.id] = { ...pcfg };
 
             const sysUpdate = { customProviders, updatedAt: new Date().toISOString() };
+            
+            // Always ensure the new/configured provider is added to fallbackChain!
+            const fallbackChain = Array.isArray(curSysDoc?.fallbackChain) ? [...curSysDoc.fallbackChain] : ['topview.ai', 'wizzx.ai', 'kie.ai', 'fal.ai', 'replicate', 'together', 'openai'];
             if (archReply.setAsPrimary) {
               sysUpdate.activeProvider = pcfg.id;
-              const fallbackChain = curSysDoc?.fallbackChain || ['kie.ai'];
-              if (!fallbackChain.includes(pcfg.id)) fallbackChain.unshift(pcfg.id);
-              else {
-                fallbackChain.splice(fallbackChain.indexOf(pcfg.id), 1);
-                fallbackChain.unshift(pcfg.id);
-              }
-              sysUpdate.fallbackChain = fallbackChain;
+              if (fallbackChain.includes(pcfg.id)) fallbackChain.splice(fallbackChain.indexOf(pcfg.id), 1);
+              fallbackChain.unshift(pcfg.id);
+            } else if (!fallbackChain.includes(pcfg.id)) {
+              fallbackChain.push(pcfg.id);
             }
+            sysUpdate.fallbackChain = fallbackChain;
 
             // Also add any models accompanying this provider
             if (Array.isArray(archReply.models) && archReply.models.length > 0) {
@@ -2347,6 +2363,31 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
               success: true,
               count: deletedCount,
               message: `🗑️ Successfully deleted ${deletedCount} model(s) from Thumbnail Studio.`
+            };
+            shouldReloadConfig = true;
+          }
+
+          // ── ACTION 3B: SEGREGATE_MODELS (Classify into Text-to-Image and Image-to-Image) ──
+          else if (archReply.action === 'SEGREGATE_MODELS' && Array.isArray(archReply.models)) {
+            const sysCol = db.collection('system_config');
+            const curSysDoc = await sysCol.findOne({ _id: 'thumbnail_configuration' });
+            const curModels = curSysDoc?.models || [];
+            const typeMap = new Map(archReply.models.map(m => [m.id, m.type]));
+            let updatedCount = 0;
+            for (const m of curModels) {
+              if (typeMap.has(m.id)) {
+                m.type = typeMap.get(m.id);
+                updatedCount++;
+              }
+            }
+            await sysCol.updateOne({ _id: 'thumbnail_configuration' }, { $set: { models: curModels, updatedAt: new Date().toISOString() } }, { upsert: true });
+            await logAdminAction(db, 'AI_ARCHITECT_SEGREGATE_MODELS', { count: updatedCount }, clientIp);
+
+            executedResult = {
+              action: 'SEGREGATE_MODELS',
+              success: true,
+              count: updatedCount,
+              message: `🏷️ Successfully segregated ${updatedCount} model(s) into Text-to-Image and Image-to-Image categories.`
             };
             shouldReloadConfig = true;
           }
@@ -2656,8 +2697,13 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
                 tpl = tpl.replace(/\{\{aspectRatio\}\}/gi, '16:9');
                 tpl = tpl.replace(/\{\{aspect_ratio\}\}/gi, '16:9');
                 tpl = tpl.replace(/\{\{resolution\}\}/gi, '1K');
+                tpl = tpl.replace(/\{\{version\}\}/gi, 'flare');
+                tpl = tpl.replace(/"\{\{[^}]+\}\}"/g, 'null').replace(/\{\{[^}]+\}\}/g, '""');
                 try {
                   requestBody = JSON.parse(tpl);
+                  for (const [k, v] of Object.entries(requestBody)) {
+                    if (v === null || v === '{{version}}') delete requestBody[k];
+                  }
                 } catch {
                   requestBody = { prompt: tPrompt, aspect_ratio: '16:9', resolution: '1K' };
                 }
@@ -2821,7 +2867,32 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
 
           const modJson = await modRes.json();
 
-          // Robust array extraction supporting nested structures (e.g. data.models, data, models, items)
+          // Robust array extraction supporting all JSON structures (arrays, dictionaries, nested maps)
+          const extractArrayFromObject = (obj) => {
+            if (!obj) return [];
+            if (Array.isArray(obj)) return obj;
+            if (typeof obj !== 'object') return [];
+            if (Array.isArray(obj.models)) return obj.models;
+            if (Array.isArray(obj.data)) return obj.data;
+            if (Array.isArray(obj.items)) return obj.items;
+            if (Array.isArray(obj.results)) return obj.results;
+            if (obj.data && typeof obj.data === 'object') {
+              if (Array.isArray(obj.data.models)) return obj.data.models;
+              if (Array.isArray(obj.data.items)) return obj.data.items;
+              const entries = Object.entries(obj.data).filter(([k]) => !['code', 'status', 'msg', 'message', 'success'].includes(k));
+              if (entries.length > 0 && typeof entries[0][1] === 'object' && entries[0][1] !== null) {
+                return entries.map(([k, v]) => ({ id: k, ...(typeof v === 'object' ? v : { pricing: v }) }));
+              }
+            }
+            const arrVal = Object.values(obj).find(v => Array.isArray(v));
+            if (arrVal) return arrVal;
+            const entries = Object.entries(obj).filter(([k]) => !['code', 'status', 'msg', 'message', 'success'].includes(k));
+            if (entries.length > 0 && typeof entries[0][1] === 'object' && entries[0][1] !== null) {
+              return entries.map(([k, v]) => ({ id: k, ...(typeof v === 'object' ? v : { pricing: v }) }));
+            }
+            return [];
+          };
+
           let modelsArray = [];
           if (modelsListPath) {
             let target = modJson;
@@ -2829,36 +2900,11 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
             for (const k of cleanPath.split('.')) {
               if (target != null) target = target[k];
             }
-            if (Array.isArray(target)) {
-              modelsArray = target;
-            } else if (target && typeof target === 'object') {
-              if (Array.isArray(target.models)) modelsArray = target.models;
-              else if (Array.isArray(target.data)) modelsArray = target.data;
-              else if (Array.isArray(target.items)) modelsArray = target.items;
-              else modelsArray = Object.values(target).find(v => Array.isArray(v)) || [];
-            }
+            modelsArray = extractArrayFromObject(target);
           }
 
           if (!Array.isArray(modelsArray) || modelsArray.length === 0) {
-            if (Array.isArray(modJson)) {
-              modelsArray = modJson;
-            } else if (Array.isArray(modJson.data)) {
-              modelsArray = modJson.data;
-            } else if (modJson.data && Array.isArray(modJson.data.models)) {
-              modelsArray = modJson.data.models;
-            } else if (Array.isArray(modJson.models)) {
-              modelsArray = modJson.models;
-            } else if (modJson.data && Array.isArray(modJson.data.items)) {
-              modelsArray = modJson.data.items;
-            } else if (Array.isArray(modJson.results)) {
-              modelsArray = modJson.results;
-            } else if (Array.isArray(modJson.items)) {
-              modelsArray = modJson.items;
-            } else if (modJson.data && typeof modJson.data === 'object') {
-              modelsArray = Object.values(modJson.data).find(v => Array.isArray(v)) || [];
-            } else {
-              modelsArray = [];
-            }
+            modelsArray = extractArrayFromObject(modJson);
           }
 
           if (!Array.isArray(modelsArray)) {
@@ -2974,16 +3020,15 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
         existingCustomProviders[providerConfig.id] = { ...providerConfig };
 
         const updatePayload = { customProviders: existingCustomProviders, updatedAt: new Date().toISOString() };
+        const existingChain = Array.isArray(archConfigDoc?.fallbackChain) ? [...archConfigDoc.fallbackChain] : ['topview.ai', 'wizzx.ai', 'kie.ai', 'fal.ai', 'replicate', 'together', 'openai'];
         if (setAsPrimary) {
           updatePayload.activeProvider = providerConfig.id;
-          const existingChain = archConfigDoc?.fallbackChain || ['kie.ai'];
-          if (!existingChain.includes(providerConfig.id)) existingChain.unshift(providerConfig.id);
-          else {
-            existingChain.splice(existingChain.indexOf(providerConfig.id), 1);
-            existingChain.unshift(providerConfig.id);
-          }
-          updatePayload.fallbackChain = existingChain;
+          if (existingChain.includes(providerConfig.id)) existingChain.splice(existingChain.indexOf(providerConfig.id), 1);
+          existingChain.unshift(providerConfig.id);
+        } else if (!existingChain.includes(providerConfig.id)) {
+          existingChain.push(providerConfig.id);
         }
+        updatePayload.fallbackChain = existingChain;
 
         await sysColArch.updateOne(
           { _id: 'thumbnail_configuration' },
@@ -3486,6 +3531,65 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
         };
       }
 
+      case 'delete-thumbnail-provider': {
+        const { providerId } = body;
+        if (!providerId) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Missing providerId to delete' })
+          };
+        }
+
+        const sysCol = db.collection('system_config');
+        const curSysDoc = await sysCol.findOne({ _id: 'thumbnail_configuration' });
+        const customProviders = { ...(curSysDoc?.customProviders || {}) };
+        delete customProviders[providerId];
+
+        let fallbackChain = Array.isArray(curSysDoc?.fallbackChain) ? [...curSysDoc.fallbackChain] : [];
+        fallbackChain = fallbackChain.filter(pid => pid !== providerId);
+
+        const sysUpdate = {
+          customProviders,
+          fallbackChain,
+          updatedAt: new Date().toISOString()
+        };
+
+        if (curSysDoc?.activeProvider === providerId) {
+          sysUpdate.activeProvider = fallbackChain[0] || 'kie.ai';
+          await sysCol.updateOne(
+            { _id: 'platform_settings' },
+            { $set: { 'thumbnailSettings.activeProvider': sysUpdate.activeProvider } },
+            { upsert: true }
+          );
+        }
+
+        await sysCol.updateOne(
+          { _id: 'thumbnail_configuration' },
+          { $set: sysUpdate },
+          { upsert: true }
+        );
+
+        try {
+          const keysCol = db.collection('api_keys');
+          await keysCol.updateOne(
+            { _id: 'thumbnail_keys' },
+            { $unset: { [`providers.${providerId}`]: '' } }
+          );
+        } catch {}
+
+        await logAdminAction(db, 'DELETE_THUMBNAIL_PROVIDER', { providerId }, clientIp);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: true,
+            message: `Provider '${providerId}' deleted successfully from database.`
+          })
+        };
+      }
+
       case 'check-thumbnail-key-balance': {
         const {
           provider = 'kie.ai',
@@ -3523,12 +3627,21 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
           }
         } catch {}
 
-        const effectiveBalanceUrl = balanceUrl || customProv?.balanceUrl;
-        const effectiveAuthType = authHeaderType || customProv?.authHeaderType || 'Bearer';
+        let effectiveBalanceUrl = balanceUrl || customProv?.balanceUrl;
+        let effectiveMethod = balanceMethod || customProv?.balanceMethod || 'GET';
+        let effectiveAuthType = authHeaderType || customProv?.authHeaderType || 'Bearer';
         const effectiveHeaderName = customHeaderName || customProv?.customHeaderName;
         const effectivePrefix = authPrefix !== null ? authPrefix : (customProv?.authPrefix || '');
-        const effectiveValuePath = balanceValuePath || customProv?.balanceValuePath || 'data';
-        const effectiveUnit = balanceUnit || customProv?.balanceUnit || 'Credits';
+        let effectiveValuePath = balanceValuePath || customProv?.balanceValuePath || 'data';
+        let effectiveUnit = balanceUnit || customProv?.balanceUnit || 'Credits';
+
+        // Intelligent Auto-Normalization for Topview AI
+        if (provider === 'topview.ai' || provider === 'topview' || (effectiveBalanceUrl && effectiveBalanceUrl.includes('topview.ai'))) {
+          effectiveBalanceUrl = 'https://platform-backend.topview.ai/api/v1/predictions/quote';
+          effectiveMethod = 'POST';
+          effectiveValuePath = 'data.reserveUsd';
+          effectiveUnit = 'USD';
+        }
 
         const getCheckHeaders = () => {
           const h = { 'Content-Type': 'application/json' };
@@ -3615,9 +3728,23 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
               details = `Replicate error (HTTP ${res.status})`;
             }
           } else if (effectiveBalanceUrl) {
+            const isPost = effectiveMethod === 'POST' || (effectiveBalanceUrl && effectiveBalanceUrl.includes('predictions/quote'));
+            let checkBody = undefined;
+            if (isPost) {
+              if (effectiveBalanceUrl.includes('predictions/quote')) {
+                checkBody = JSON.stringify({
+                  modelKey: customProv?.defaultModel || 'bytedance/seedream-v5.0-pro',
+                  input: { prompt: 'health-check' }
+                });
+              } else {
+                checkBody = JSON.stringify(customProv?.balancePayload || {});
+              }
+            }
+
             const res = await fetch(effectiveBalanceUrl, {
-              method: balanceMethod || customProv?.balanceMethod || 'GET',
-              headers: getCheckHeaders()
+              method: isPost ? 'POST' : 'GET',
+              headers: getCheckHeaders(),
+              body: checkBody
             });
 
             if (res.status === 200) {
@@ -3631,13 +3758,20 @@ INSTRUCTION: Carefully analyze the user's latest request and all documentation. 
               if (typeof cur === 'number' || (!isNaN(parseFloat(cur)) && isFinite(cur))) {
                 const numVal = parseFloat(cur);
                 balance = numVal;
-                balanceFormatted = `${numVal} ${effectiveUnit}`;
-                status = numVal > 5 ? 'active' : (numVal > 0 ? 'low' : 'exhausted');
-                details = `${customProv?.name || provider} balance: ${balanceFormatted}`;
+                const isUsd = (effectiveUnit || '').toUpperCase() === 'USD' || effectiveBalanceUrl.includes('topview.ai');
+                balanceFormatted = isUsd ? `$${numVal.toFixed(4)} USD` : `${numVal} ${effectiveUnit}`;
+                status = numVal > 0 ? 'active' : 'exhausted';
+                details = `${customProv?.name || provider} verified: ${balanceFormatted}`;
               } else if (typeof cur === 'string') {
                 status = 'active';
                 balanceFormatted = cur;
                 details = 'Balance response: ' + cur;
+              } else if (effectiveBalanceUrl.includes('topview.ai') && j.data?.reserveUsd) {
+                const numVal = parseFloat(j.data.reserveUsd);
+                balance = numVal;
+                balanceFormatted = `$${numVal.toFixed(4)} USD`;
+                status = 'active';
+                details = `Topview AI verified: ${balanceFormatted}`;
               } else {
                 status = 'active';
                 balanceFormatted = 'Active / Verified';

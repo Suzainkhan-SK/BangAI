@@ -126,16 +126,16 @@ export default function ThumbnailStudioPage({
   // Dynamic models & presets loaded from Admin / Backend DB
   const [modelsList, setModelsList] = useState(() => (Array.isArray(cachedConfig?.models) && cachedConfig.models.length > 0) ? cachedConfig.models : THUMBNAIL_MODELS);
   const [presetsList, setPresetsList] = useState(() => (Array.isArray(cachedConfig?.presets) && cachedConfig.presets.length > 0) ? cachedConfig.presets : VIRAL_PRESETS);
-  // Active provider tracking (synced from admin config, default to current primary wizzx.ai)
-  const [activeProvider, setActiveProvider] = useState(() => cachedConfig?.activeProvider || 'wizzx.ai');
-  const [activeProviderName, setActiveProviderName] = useState(() => cachedConfig?.activeProviderName || (cachedConfig?.activeProvider === 'kie.ai' ? 'Kie.ai Vision Engine' : 'Wizzx AI'));
-  const [activeProviderIcon, setActiveProviderIcon] = useState(() => cachedConfig?.activeProviderIcon || (cachedConfig?.activeProvider === 'kie.ai' ? '⚡' : '✨'));
+  // Active provider tracking (synced from admin config, default to current primary topview.ai)
+  const [activeProvider, setActiveProvider] = useState(() => cachedConfig?.activeProvider || 'topview.ai');
+  const [activeProviderName, setActiveProviderName] = useState(() => cachedConfig?.activeProviderName || (cachedConfig?.customProviders?.[cachedConfig?.activeProvider]?.name || 'Topview AI'));
+  const [activeProviderIcon, setActiveProviderIcon] = useState(() => cachedConfig?.activeProviderIcon || (cachedConfig?.customProviders?.[cachedConfig?.activeProvider]?.icon || '😍'));
 
   // Active form state
   const [generationMode, setGenerationMode] = useState('all'); // 'all' | 'text-to-image' | 'image-to-image'
   const [selectedModelId, setSelectedModelId] = useState(() => {
     if (cachedConfig?.models && cachedConfig.models.length > 0) {
-      const activeProv = (cachedConfig.activeProvider || 'wizzx.ai').toLowerCase();
+      const activeProv = (cachedConfig.activeProvider || 'topview.ai').toLowerCase();
       const firstProvModel = cachedConfig.models.find(m => {
         const mp = (m.provider || '').toLowerCase();
         return mp.includes(activeProv) || activeProv.includes(mp);
@@ -163,8 +163,9 @@ export default function ThumbnailStudioPage({
       // Sync active provider from admin config
       if (cfg.activeProvider) {
         setActiveProvider(cfg.activeProvider);
-        setActiveProviderName(cfg.activeProviderName || cfg.activeProvider);
-        setActiveProviderIcon(cfg.activeProviderIcon || (cfg.activeProvider === 'kie.ai' ? '⚡' : '✨'));
+        const cp = cfg.customProviders?.[cfg.activeProvider];
+        setActiveProviderName(cp?.name || cfg.activeProviderName || (cfg.activeProvider === 'topview.ai' ? 'Topview AI' : (cfg.activeProvider === 'wizzx.ai' ? 'Wizzx AI' : (cfg.activeProvider === 'kie.ai' ? 'Kie.ai Vision Engine' : cfg.activeProvider))));
+        setActiveProviderIcon(cp?.icon || cfg.activeProviderIcon || (cfg.activeProvider === 'topview.ai' ? '😍' : (cfg.activeProvider === 'wizzx.ai' ? '✨' : (cfg.activeProvider === 'kie.ai' ? '⚡' : '🌐'))));
       }
       saveStoredThumbnailConfig(cfg);
     }).catch(err => {
@@ -418,7 +419,8 @@ export default function ThumbnailStudioPage({
         prompt,
         aspectRatio,
         resolution,
-        imageUrl: finalImageUrl
+        imageUrl: finalImageUrl,
+        provider: activeModel.provider || activeProvider
       });
 
       // 3. Poll for result
