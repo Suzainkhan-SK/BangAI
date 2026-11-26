@@ -3151,19 +3151,25 @@ export default function TemplatesManagerView() {
 
                   {editAutoModal.data.islamicStoryMode === 'custom' && (
                     <div>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)', marginBottom: '4px' }}>
-                        Custom Story Topic or Miracle
-                      </label>
-                      <input
-                        type="text"
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--admin-text-sub)' }}>
+                          Custom Story Topic or Miracle
+                        </label>
+                        <span style={{ fontSize: '10px', color: 'var(--admin-text-sub)' }}>
+                          {(editAutoModal.data.islamicCustomTopic || '').length}/1500
+                        </span>
+                      </div>
+                      <textarea
+                        rows={3}
+                        maxLength={1500}
                         value={editAutoModal.data.islamicCustomTopic || ''}
                         onChange={(e) => setEditAutoModal(prev => ({
                           ...prev,
-                          data: { ...prev.data, islamicCustomTopic: e.target.value }
+                          data: { ...prev.data, islamicCustomTopic: e.target.value.slice(0, 1500) }
                         }))}
                         placeholder="Enter custom story or miracle topic..."
                         className="admin-input"
-                        style={{ fontSize: '12px' }}
+                        style={{ fontSize: '12px', width: '100%', resize: 'vertical' }}
                       />
                     </div>
                   )}

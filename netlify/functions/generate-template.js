@@ -438,6 +438,36 @@ export const handler = async (event) => {
       } else {
         effectiveCustomTopic = '';
       }
+    } else if (templateId === 'islamic-stories-hindi') {
+      const islamicStoryMode = ['random', 'season', 'series', 'custom'].includes(payload.storyMode)
+        ? payload.storyMode
+        : 'random';
+
+      if (islamicStoryMode === 'custom') {
+        const islamicTopic = String(payload.customEpisodeTopic || '').trim() || String(payload.prompt || '').trim();
+        if (!islamicTopic) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: false,
+              error: 'CUSTOM_TOPIC_REQUIRED',
+              message: 'Please provide a custom Islamic story topic before generating.'
+            })
+          };
+        }
+        if (islamicTopic.length > 1500) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              success: false,
+              error: 'CUSTOM_TOPIC_TOO_LONG',
+              message: `Custom Islamic episode topic must not exceed 1500 characters (received ${islamicTopic.length}).`
+            })
+          };
+        }
+      }
     }
 
     // 3. Atomically record the generation in MongoDB
@@ -543,9 +573,9 @@ export const handler = async (event) => {
         : 'random';
       const seasonTag = payload.seasonTag ? String(payload.seasonTag).trim().toLowerCase() : '';
       const seriesId = payload.seriesId ? String(payload.seriesId).trim() : '';
-      const customTopic = typeof payload.customEpisodeTopic === 'string'
-        ? payload.customEpisodeTopic.trim()
-        : (typeof payload.prompt === 'string' ? payload.prompt.trim() : '');
+      const customTopic = storyMode === 'custom'
+        ? (String(payload.customEpisodeTopic || '').trim() || String(payload.prompt || '').trim())
+        : String(payload.customEpisodeTopic || '').trim();
 
       let displayPrompt = '';
       if (storyMode === 'custom' && customTopic) {

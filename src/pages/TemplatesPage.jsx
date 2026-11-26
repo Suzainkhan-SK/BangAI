@@ -1127,6 +1127,14 @@ export default function TemplatesPage({
 
     const targetTpl = ACTIVE_TEMPLATES.find(t => t.id === templateId) || ACTIVE_TEMPLATES[0];
     const targetTopic = (customTopics[templateId] || '').trim();
+    if (templateId === 'islamic-stories-hindi' && islamicStoryMode === 'custom' && !islamicCustomTopic.trim()) {
+      audioEngine.playSfx('warning');
+      setErrorMsg('✍️ Please enter your custom Islamic episode topic before generating.');
+      return;
+    }
+    const effectiveRunTopic = templateId === 'islamic-stories-hindi'
+      ? (islamicStoryMode === 'custom' ? islamicCustomTopic.trim() : '')
+      : targetTopic;
     const newThreadId = `thread-template-${templateId}-${Date.now()}`;
     const sessionId = `session-${Date.now()}`;
 
@@ -1155,8 +1163,8 @@ export default function TemplatesPage({
           threadId: newThreadId,
           sessionId,
           templateId,
-          title: targetTopic ? `${targetTpl.title}: ${targetTopic}` : `${targetTpl.title} [1-Click]`,
-          rawUserInput: targetTopic || `${targetTpl.title} (Autonomous Video)`,
+          title: effectiveRunTopic ? `${targetTpl.title}: ${effectiveRunTopic.slice(0, 80)}` : `${targetTpl.title} [1-Click]`,
+          rawUserInput: effectiveRunTopic || `${targetTpl.title} (Autonomous Video)`,
           status: 'GENERATING',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -2606,15 +2614,15 @@ export default function TemplatesPage({
                                         <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                                           ✍️ Custom Islamic Episode Topic
                                         </label>
-                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                                          {islamicCustomTopic.length}/300
+                                        <span style={{ fontSize: '10px', color: islamicCustomTopic.length > 1400 ? '#ef4444' : 'var(--text-muted)', fontWeight: islamicCustomTopic.length > 1400 ? 700 : 400 }}>
+                                          {islamicCustomTopic.length}/1500
                                         </span>
                                       </div>
                                       <textarea
                                         value={islamicCustomTopic}
-                                        onChange={e => setIslamicCustomTopic(e.target.value.slice(0, 300))}
-                                        maxLength={300}
-                                        rows={3}
+                                        onChange={e => setIslamicCustomTopic(e.target.value.slice(0, 1500))}
+                                        maxLength={1500}
+                                        rows={4}
                                         placeholder="e.g. हज़रत यूनुस अलैहिस्सलाम और मछली के पेट में दुआ, या कोई मुक़द्दस वाक़िया..."
                                         style={{
                                           width: '100%', padding: '8px 10px', borderRadius: '8px',
@@ -4571,15 +4579,15 @@ export default function TemplatesPage({
                       <label style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                         ✍️ Custom Islamic Episode Topic
                       </label>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                        {(automationConfig.islamicCustomTopic || '').length}/300
+                      <span style={{ fontSize: '10px', color: (automationConfig.islamicCustomTopic || '').length > 1400 ? '#ef4444' : 'var(--text-muted)', fontWeight: (automationConfig.islamicCustomTopic || '').length > 1400 ? 700 : 400 }}>
+                        {(automationConfig.islamicCustomTopic || '').length}/1500
                       </span>
                     </div>
                     <textarea
                       value={automationConfig.islamicCustomTopic || ''}
-                      onChange={e => setAutomationConfig(prev => ({ ...prev, islamicCustomTopic: e.target.value.slice(0, 300) }))}
-                      maxLength={300}
-                      rows={3}
+                      onChange={e => setAutomationConfig(prev => ({ ...prev, islamicCustomTopic: e.target.value.slice(0, 1500) }))}
+                      maxLength={1500}
+                      rows={4}
                       placeholder="e.g. हज़रत यूनुस अलैहिस्सलाम और मछली के पेट में दुआ, या कोई मुक़द्दस वाक़िया..."
                       style={{
                         width: '100%', padding: '8px 10px', borderRadius: '8px',

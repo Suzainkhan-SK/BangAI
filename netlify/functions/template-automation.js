@@ -760,7 +760,9 @@ export const handler = async (event) => {
         const islamicStoryMode = payload.islamicStoryMode || autoDoc?.islamicStoryMode || 'random';
         const islamicSeasonTag = payload.islamicSeasonTag || autoDoc?.islamicSeasonTag || 'ramadan';
         const islamicSeriesId = payload.islamicSeriesId || autoDoc?.islamicSeriesId || 'ISL-SER-001';
-        const islamicCustomTopic = payload.islamicCustomTopic !== undefined ? String(payload.islamicCustomTopic || '') : (autoDoc?.islamicCustomTopic || '');
+        const islamicCustomTopic = payload.islamicCustomTopic !== undefined
+          ? String(payload.islamicCustomTopic || '').slice(0, 1500)
+          : String(autoDoc?.islamicCustomTopic || '').slice(0, 1500);
         const islamicCharImageUrl = payload.islamicCharImageUrl !== undefined ? String(payload.islamicCharImageUrl || '') : (autoDoc?.islamicCharImageUrl || '');
 
         // Time Travel Influencer specific configurations
